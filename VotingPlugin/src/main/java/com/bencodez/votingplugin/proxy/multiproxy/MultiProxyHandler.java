@@ -4,9 +4,13 @@ package com.bencodez.votingplugin.proxy.multiproxy;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -14,9 +18,12 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.bencodez.simpleapi.encryption.EncryptionHandler;
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
+import com.bencodez.simpleapi.servercomm.codec.JsonEnvelopeCodec;
 import com.bencodez.simpleapi.servercomm.redis.RedisHandler;
 import com.bencodez.simpleapi.servercomm.redis.RedisListener;
 import com.bencodez.simpleapi.servercomm.sockets.ClientHandler;
@@ -24,6 +31,10 @@ import com.bencodez.simpleapi.servercomm.sockets.SocketHandler;
 import com.bencodez.simpleapi.servercomm.sockets.SocketReceiver;
 import com.bencodez.votingplugin.proxy.VoteTotalsSnapshot;
 import com.bencodez.votingplugin.proxy.VotingPluginWire;
+import com.bencodez.votingplugin.proxy.redis.VotingPluginRedisChannels;
+import com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator;
+import com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.Domain;
+import com.bencodez.votingplugin.proxy.security.TransportEnvelopeEncryption;
 
 import lombok.Getter;
 
@@ -68,6 +79,12 @@ public abstract class MultiProxyHandler {
 	 * operator action (repair/remove the named state file, then restart).
 	 */
 	private boolean voteCapabilityRecoveryBlocked;
+	private final AtomicBoolean authenticationFailureLogged = new AtomicBoolean();
+	private final AtomicBoolean encryptionFailureLogged = new AtomicBoolean();
+	private static final int MAX_UNSIGNED_BRIDGE_ENTRIES = 1024;
+	private static final long UNSIGNED_BRIDGE_WINDOW_NANOS = TimeUnit.SECONDS.toNanos(2);
+	private final Map<String, UnsignedBridgeCopies> unsignedBridgeCopies = new LinkedHashMap<>();
+	private TransportEnvelopeEncryption communicationEncryption;
 	private long lastVoteCapabilityAdvertisementMillis = Long.MIN_VALUE;
 	/** A newly persisted discovery deadline must cause an initial handshake promptly. */
 	private boolean voteCapabilityDiscoveryAnnouncementRequired;
@@ -119,6 +136,7 @@ public abstract class MultiProxyHandler {
 		acknowledgedVoteCapabilityPeers.clear();
 		knownVoteCapabilityPeers.clear();
 		voteCapabilityDiscoveryDeadlines.clear();
+		unsignedBridgeCopies.clear();
 		voteCapabilityRecoveryBlocked = false;
 		lastVoteCapabilityAdvertisementMillis = Long.MIN_VALUE;
 		lastVoteCapabilityObservationMillis = 0L;
@@ -130,6 +148,11 @@ public abstract class MultiProxyHandler {
 	 * @return true if debug mode is enabled
 	 */
 	public abstract boolean getDebug();
+
+	/** Whether complete multi-proxy envelopes require optional authenticated encryption. */
+	public boolean getCommunicationEncryption() {
+		return false;
+	}
 
 	/**
 	 * Gets the encryption handler.
@@ -264,6 +287,12 @@ public abstract class MultiProxyHandler {
 	 * @return the Redis handler
 	 */
 	public abstract RedisHandler getRedisHandler();
+
+	/** Configured namespace shared with the ordinary VotingPlugin Redis transport. */
+	public abstract String getRedisPrefix();
+
+	/** Authenticator shared by all broker messages owned by this proxy runtime. */
+	public abstract SharedTransportEnvelopeAuthenticator getSharedTransportAuthenticator();
 
 	/**
 	 * Gets the version.
@@ -637,6 +666,16 @@ public abstract class MultiProxyHandler {
 		if (!getMultiProxySupportEnabled()) {
 			return;
 		}
+		File dataFolder = getPluginDataFolder();
+		if (dataFolder != null) try {
+			communicationEncryption = TransportEnvelopeEncryption.load(dataFolder.toPath().resolve("secretkey.key"),
+					TransportEnvelopeEncryption.Domain.MULTI_PROXY, getCommunicationEncryption());
+		} catch (IOException failure) {
+			throw new IllegalStateException("Multi-proxy communication encryption initialization failed", failure);
+		} else if (getCommunicationEncryption()) {
+			throw new IllegalStateException("Multi-proxy communication encryption requires a plugin data folder");
+		}
+		encryptionFailureLogged.set(false);
 
 		if (getMultiProxyMethod().equals(MultiProxyMethod.SOCKETS)) {
 			if (getEncryptionHandler() == null) {
@@ -661,7 +700,7 @@ public abstract class MultiProxyHandler {
 			multiproxySocketHandler.add(new SocketReceiver() {
 				@Override
 				public void onReceiveEnvelope(JsonEnvelope envelope) {
-					handleEnvelope(envelope);
+					acceptEncryptedEnvelope(envelope);
 				}
 			});
 
@@ -673,6 +712,8 @@ public abstract class MultiProxyHandler {
 			}
 
 		} else {
+			if (getSharedTransportAuthenticator() == null)
+				throw new IllegalStateException("Multi-proxy Redis authentication is unavailable");
 			if (getMultiProxyRedisUseExistingConnection() && getRedisHandler() != null) {
 				multiProxyRedis = getRedisHandler();
 			} else {
@@ -689,9 +730,11 @@ public abstract class MultiProxyHandler {
 			}
 
 			runAsnc(() -> {
-				RedisListener listener = multiProxyRedis.createEnvelopeListener(
-						"VotingPluginProxy_" + getMultiProxyServerName(), (ch, env) -> handleEnvelope(env));
-				multiProxyRedis.loadListener(listener);
+				loadMultiProxyRedisListener(
+						VotingPluginRedisChannels.multiProxy(getRedisPrefix(), getMultiProxyServerName()));
+				if (useLegacyMultiProxyRedisChannel()) {
+					loadMultiProxyRedisListener(VotingPluginRedisChannels.multiProxy("", getMultiProxyServerName()));
+				}
 			});
 		}
 
@@ -791,7 +834,7 @@ public abstract class MultiProxyHandler {
 				}
 				destinations++;
 				try {
-					h.sendEnvelope(envelope);
+					h.sendEnvelope(encryptEnvelope(envelope));
 				} catch (RuntimeException failure) {
 					accepted = false;
 				}
@@ -799,12 +842,23 @@ public abstract class MultiProxyHandler {
 			return accepted && destinations == requested.size();
 		} else if (getMultiProxyMethod().equals(MultiProxyMethod.REDIS)) {
 			if (multiProxyRedis == null) return false;
+			SharedTransportEnvelopeAuthenticator authenticator = getSharedTransportAuthenticator();
+			if (authenticator == null) return false;
 			boolean accepted = true;
 			int destinations = 0;
 			for (String server : requested.values()) {
 				destinations++;
 				try {
-					multiProxyRedis.publishEnvelope("VotingPluginProxy_" + server, envelope);
+					JsonEnvelope encrypted = encryptEnvelope(envelope);
+					String channel = VotingPluginRedisChannels.multiProxy(getRedisPrefix(), server);
+					JsonEnvelope signed = authenticator.sign(encrypted, Domain.REDIS_MULTI_PROXY,
+							getMultiProxyServerName(), channel);
+					multiProxyRedis.publishEnvelope(channel, signed);
+					if (useLegacyMultiProxyRedisChannel()) {
+						// Publish the identical envelope. An upgraded peer subscribed to both
+						// channels rejects the second copy through the replay fence.
+						multiProxyRedis.publishEnvelope(VotingPluginRedisChannels.multiProxy("", server), signed);
+					}
 				} catch (RuntimeException failure) {
 					accepted = false;
 				}
@@ -812,6 +866,107 @@ public abstract class MultiProxyHandler {
 			return accepted && destinations == requested.size();
 		}
 		return false;
+	}
+
+	private boolean useLegacyMultiProxyRedisChannel() {
+		SharedTransportEnvelopeAuthenticator authenticator = getSharedTransportAuthenticator();
+		return authenticator != null && authenticator.mode() == SharedTransportEnvelopeAuthenticator.Mode.COMPATIBILITY
+				&& getRedisPrefix() != null && !getRedisPrefix().isEmpty();
+	}
+
+	private void loadMultiProxyRedisListener(String channel) {
+		RedisListener listener = multiProxyRedis.createEnvelopeListener(channel,
+				(ch, env) -> acceptRedisEnvelope(env, ch));
+		multiProxyRedis.loadListener(listener);
+	}
+
+	void acceptRedisEnvelope(JsonEnvelope envelope) {
+		acceptRedisEnvelope(envelope, null);
+	}
+
+	void acceptRedisEnvelope(JsonEnvelope envelope, String channel) {
+		SharedTransportEnvelopeAuthenticator authenticator = getSharedTransportAuthenticator();
+		if (authenticator == null) return;
+		SharedTransportEnvelopeAuthenticator.Verification verification = authenticator.verify(envelope,
+				Domain.REDIS_MULTI_PROXY, channel);
+		if (!verification.accepted()) {
+			if (authenticationFailureLogged.compareAndSet(false, true)) {
+				logInfo("Multi-proxy Redis message rejected by envelope authentication (" + verification.rejection()
+						+ ")");
+			}
+			return;
+		}
+		JsonEnvelope decrypted = decryptEnvelope(verification.envelope());
+		if (decrypted == null) return;
+		if (verification.unsignedCompatibility() && suppressUnsignedBridgeCopy(decrypted, channel)) return;
+		handleEnvelope(decrypted);
+	}
+
+	private void acceptEncryptedEnvelope(JsonEnvelope envelope) {
+		JsonEnvelope decrypted = decryptEnvelope(envelope);
+		if (decrypted != null) handleEnvelope(decrypted);
+	}
+
+	private JsonEnvelope decryptEnvelope(JsonEnvelope envelope) {
+		if (communicationEncryption == null) return envelope;
+		TransportEnvelopeEncryption.Decryption decrypted = communicationEncryption.decrypt(envelope);
+		if (!decrypted.accepted()) {
+			if (encryptionFailureLogged.compareAndSet(false, true)) logInfo(
+					"Multi-proxy message rejected by encryption policy (" + decrypted.reason() + ")");
+			return null;
+		}
+		return decrypted.envelope();
+	}
+
+	private synchronized boolean suppressUnsignedBridgeCopy(JsonEnvelope envelope, String channel) {
+		// Vote IDs own their durable replay and acknowledgement fences. Only legacy
+		// traffic without that identity needs the short bridge window.
+		if (!useLegacyMultiProxyRedisChannel() || channel == null
+				|| envelope.getFields().containsKey(VotingPluginWire.K_VOTE_ID)) return false;
+		String prefixed = VotingPluginRedisChannels.multiProxy(getRedisPrefix(), getMultiProxyServerName());
+		String legacy = VotingPluginRedisChannels.multiProxy("", getMultiProxyServerName());
+		boolean onPrefixed = channel.equals(prefixed);
+		if (!onPrefixed && !channel.equals(legacy)) return false;
+		String fingerprint = unsignedBridgeFingerprint(envelope);
+		long now = unsignedBridgeNowNanos();
+		UnsignedBridgeCopies copies = unsignedBridgeCopies.get(fingerprint);
+		if (copies == null || copies.expiresAtNanos <= now) {
+			if (unsignedBridgeCopies.size() >= MAX_UNSIGNED_BRIDGE_ENTRIES)
+				unsignedBridgeCopies.remove(unsignedBridgeCopies.keySet().iterator().next());
+			copies = new UnsignedBridgeCopies(now + UNSIGNED_BRIDGE_WINDOW_NANOS);
+			unsignedBridgeCopies.put(fingerprint, copies);
+		}
+		// Count copies per channel so two identical legitimate publications on the
+		// same channel still run twice, even when both bridge copies arrive later.
+		if (onPrefixed) return ++copies.prefixed <= copies.legacy;
+		return ++copies.legacy <= copies.prefixed;
+	}
+
+	long unsignedBridgeNowNanos() {
+		return System.nanoTime();
+	}
+
+	private static String unsignedBridgeFingerprint(JsonEnvelope envelope) {
+		try {
+			byte[] bytes = JsonEnvelopeCodec.encode(envelope).getBytes(StandardCharsets.UTF_8);
+			return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+		} catch (NoSuchAlgorithmException impossible) {
+			throw new IllegalStateException("SHA-256 is unavailable", impossible);
+		}
+	}
+
+	private static final class UnsignedBridgeCopies {
+		private final long expiresAtNanos;
+		private int prefixed;
+		private int legacy;
+
+		private UnsignedBridgeCopies(long expiresAtNanos) {
+			this.expiresAtNanos = expiresAtNanos;
+		}
+	}
+
+	private JsonEnvelope encryptEnvelope(JsonEnvelope envelope) {
+		return communicationEncryption == null ? envelope : communicationEncryption.encrypt(envelope);
 	}
 
 	static void stopSocketClients(Map<String, ClientHandler> clients) {

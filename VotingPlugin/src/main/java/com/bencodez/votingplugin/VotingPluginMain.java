@@ -680,6 +680,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Override
 	public void onPostLoad() {
+		ensureCommunicationSecret();
 		// auto conversion for Shop.yml
 		if (plugin.getShopFile().isJustCreated()) {
 			if (!plugin.getGui().isJustCreated() && !getServerData().isVoteShopConverted()) {
@@ -879,6 +880,18 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		startBackendHostedControl();
 		startBackendControlConnector();
 
+	}
+
+	private void ensureCommunicationSecret() {
+		try {
+			boolean created = com.bencodez.votingplugin.proxy.security.SharedSecretKeyFile
+					.ensure(getDataFolder().toPath().resolve("secretkey.key"));
+			if (created) getLogger().info("Created secretkey.key for VotingPlugin communication security");
+			if (!bungeeSettings.isCommunicationEncryption()) getLogger().warning(
+					"CommunicationEncryption is disabled. Copy the proxy secretkey.key to every VotingPlugin node, enable CommunicationEncryption everywhere, and restart (recommended).");
+		} catch (java.io.IOException failure) {
+			throw new IllegalStateException("Unable to prepare VotingPlugin communication secretkey.key", failure);
+		}
 	}
 
 	private void startBackendHostedControl() {
@@ -2112,6 +2125,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				loadBungeeHandler();
 				handler = getBackendProxyHandler();
 			} else {
+				reloadActiveBackendTransportSecurity(handler);
 				handler.reloadPresenceReporting();
 			}
 			if (userStorage && handler != null) {
@@ -2149,6 +2163,15 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		if (reconcileHostedControl) restartBackendControlConnector();
 
 		setUpdate(true);
+	}
+
+	void reloadActiveBackendTransportSecurity(BackendProxyHandler handler) {
+		try {
+			handler.reloadSharedTransportSecurity();
+		} catch (RuntimeException failure) {
+			getLogger().warning("Backend transport security settings were not applied; the previous policy remains active");
+			debug(failure);
+		}
 	}
 
 	private void loadVoteBroadcast() {

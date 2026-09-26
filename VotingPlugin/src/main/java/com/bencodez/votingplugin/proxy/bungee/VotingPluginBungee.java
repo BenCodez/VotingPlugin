@@ -199,6 +199,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 		config = new BungeeConfig(this);
 		config.load();
+		ensureCommunicationSecret();
 
 		getProxy().getPluginManager().registerCommand(this, new VotingPluginBungeeCommand(this));
 
@@ -496,6 +497,18 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		try {
 			getVotingPluginProxy().sendServerNameMessage();
 		} catch (Exception ignored) {
+		}
+	}
+
+	private void ensureCommunicationSecret() {
+		try {
+			boolean created = com.bencodez.votingplugin.proxy.security.SharedSecretKeyFile
+					.ensure(getDataFolder().toPath().resolve("secretkey.key"));
+			if (created) getLogger().info("Created secretkey.key for VotingPlugin communication security");
+			if (!config.getCommunicationEncryption()) getLogger().warning(
+					"CommunicationEncryption is disabled. Copy this proxy's secretkey.key to every VotingPlugin node, enable CommunicationEncryption everywhere, and restart (recommended).");
+		} catch (java.io.IOException failure) {
+			throw new IllegalStateException("Unable to prepare VotingPlugin communication secretkey.key", failure);
 		}
 	}
 

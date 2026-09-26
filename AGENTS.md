@@ -27,6 +27,13 @@ artifact when dependencies change, avoid duplicate embedded packages, and update
 the package-phase size and runtime checks when a necessary dependency increases
 the artifact budget.
 
+Existing JAR upgrades must preserve deployed configuration and mixed-version
+network behavior by default. Do not introduce a large or breaking runtime,
+protocol, storage, or configuration change unless the maintainer explicitly
+approves that compatibility break. Use an explicit migration or compatibility
+mode for staged rollouts, document how to reach the stricter end state, and test
+both the upgrade-safe default and the final strict mode.
+
 ## Architecture and file map
 
 - `VotingPluginMain` is the Bukkit entry point and lifecycle owner.

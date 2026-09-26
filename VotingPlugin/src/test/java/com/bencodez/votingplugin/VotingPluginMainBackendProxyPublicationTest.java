@@ -36,6 +36,16 @@ import com.bencodez.votingplugin.proxy.BungeeMethod;
 
 class VotingPluginMainBackendProxyPublicationTest {
 	@Test
+	void ordinaryBackendSecurityReloadCallsActiveHandler() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
+		BackendProxyHandler active = mock(BackendProxyHandler.class);
+
+		plugin.reloadActiveBackendTransportSecurity(active);
+
+		verify(active).reloadSharedTransportSecurity();
+	}
+
+	@Test
 	void malformedReceiptStoreDisablesOnlyBackendProxyTransport(@TempDir Path directory) throws Exception {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
 		AdvancedCoreConfigOptions options = mock(AdvancedCoreConfigOptions.class);

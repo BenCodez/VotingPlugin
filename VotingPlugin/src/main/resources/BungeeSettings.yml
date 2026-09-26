@@ -104,6 +104,12 @@ MQTT:
 # Use /votingpluginbungee status for testing communication
 BungeeDebug: false
 
+# Authenticates ordinary Redis and MQTT envelopes with the shared secretkey.key.
+# COMPATIBILITY is the upgrade-safe default: it keeps outbound messages unsigned
+# while older JARs remain. After every node has the same secretkey.key and an
+# upgraded JAR, set REQUIRED everywhere and reload or restart.
+SharedTransportAuthentication: COMPATIBILITY
+
 # If true, offline rewards will be stored per server, rather than global
 # This shouldn't need to be set unless you get alot of cross server rewards issues
 # You can also specify the server within the rewards
@@ -146,11 +152,10 @@ BungeeVotePartyGlobalCommands: []
 # This setting requires a restart
 PluginMessageChannel: "vp:vp"
 
-# Use this to encrypt the plugin messages
-# Must be set on all servers the same
-# Copy secretkey.key file to all servers (They all must match)
-# This setting requires a restart
-PluginMessageEncryption: false
+# Encrypt complete VotingPlugin proxy/backend messages for every communication method.
+# Copy the proxy's secretkey.key to every backend first, then enable this everywhere.
+# This setting requires a restart. Strongly recommended for shared or untrusted networks.
+CommunicationEncryption: false
 
 ####################################################################################
 # Global mysql data handle for between server commmunications
