@@ -50,6 +50,10 @@ public class VoteGUI extends GUIHandler {
 		if (this.user == null) {
 			user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
 		}
+		if (!isAuthorized(plugin, player, user)) {
+			player.sendMessage(MessageAPI.colorize(plugin.getConfigFile().getFormatNoPerms()));
+			return;
+		}
 
 		com.bencodez.simpleapi.dialog.MultiActionDialogBuilder dialog = plugin.getDialogService().multiAction(player)
 				.placeholder("points", "" + user.getPoints()).placeholder("player", user.getPlayerName())
@@ -70,6 +74,10 @@ public class VoteGUI extends GUIHandler {
 			dialog.button(buttonText, tooltip, payload -> {
 				Player clicked = player.getServer().getPlayer(payload.owner());
 				if (clicked == null) {
+					return;
+				}
+				if (!isAuthorized(plugin, clicked, user)) {
+					clicked.sendMessage(MessageAPI.colorize(plugin.getConfigFile().getFormatNoPerms()));
 					return;
 				}
 
@@ -187,6 +195,10 @@ public class VoteGUI extends GUIHandler {
 			return "VotingPlugin.Commands.Vote.GUI";
 		}
 		return "VotingPlugin.Commands.Vote.GUI.Other";
+	}
+
+	static boolean isAuthorized(VotingPluginMain plugin, Player player, VotingPluginUser viewedUser) {
+		return player.hasPermission(getRequiredPermission(plugin, player, viewedUser));
 	}
 
 	@Override

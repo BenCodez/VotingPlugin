@@ -74,6 +74,11 @@ public class VoteShopConfirm extends GUIHandler {
 
 			@Override
 			public void onClick(ClickEvent event) {
+				if (!canPurchaseFromCategory(event.getPlayer())) {
+					event.getPlayer().sendMessage(com.bencodez.simpleapi.messages.MessageAPI
+							.colorize(plugin.getConfigFile().getFormatNoPerms()));
+					return;
+				}
 				if (!beginPurchase()) return;
 				event.closeInventory();
 				plugin.getVoteShopManager().getPurchaseService().refreshUserForPurchaseValidation(user, item, true);
@@ -111,6 +116,11 @@ public class VoteShopConfirm extends GUIHandler {
 		return purchaseSubmitted.compareAndSet(false, true);
 	}
 
+	private boolean canPurchaseFromCategory(Player player) {
+		return VoteShopCategoryAuthorization.canPurchase(plugin.getVoteShopManager().getDefinition(), category, item,
+				permission -> plugin.getVoteShopManager().getPurchaseService().hasPermission(player, permission));
+	}
+
 	@Override
 	public void onDialog(Player player) {
 		PlayerUtils.setPlayerMeta(plugin, player, "ident", item.getIdentifier());
@@ -123,9 +133,15 @@ public class VoteShopConfirm extends GUIHandler {
 				.noText(new ItemBuilder(plugin.getShopFile().getShopConfirmPurchaseNoItem()).getName())
 				.onYes(payload -> {
 					Player clicked = player.getServer().getPlayer(payload.owner());
-					if (clicked == null || !beginPurchase()) {
+					if (clicked == null) {
 						return;
 					}
+					if (!canPurchaseFromCategory(clicked)) {
+						clicked.sendMessage(com.bencodez.simpleapi.messages.MessageAPI
+								.colorize(plugin.getConfigFile().getFormatNoPerms()));
+						return;
+					}
+					if (!beginPurchase()) return;
 
 					plugin.getVoteShopManager().getPurchaseService().refreshUserForPurchaseValidation(user, item, true);
 					plugin.getVoteShopManager().purchase(clicked, user, item, result -> {

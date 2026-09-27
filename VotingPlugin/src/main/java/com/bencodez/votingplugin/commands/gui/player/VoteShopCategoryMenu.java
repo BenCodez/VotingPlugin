@@ -72,6 +72,11 @@ public class VoteShopCategoryMenu extends GUIHandler {
 			player.sendMessage(MessageAPI.colorize(plugin.getVoteShopManager().getDefinition().getDisabledMessage()));
 			return;
 		}
+		if (!VoteShopCategoryAuthorization.canOpen(plugin.getVoteShopManager().getDefinition(), category.getId(),
+				permission -> plugin.getVoteShopManager().getPurchaseService().hasPermission(player, permission))) {
+			player.sendMessage(MessageAPI.colorize(plugin.getConfigFile().getFormatNoPerms()));
+			return;
+		}
 
 		VotingPluginUser currentUser = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
 		BInventory inv = new BInventory(category.getName());
@@ -148,16 +153,7 @@ public class VoteShopCategoryMenu extends GUIHandler {
 	 */
 	protected void addCategoryButton(BInventory inv, final Player player, final VotingPluginUser currentUser,
 			final VoteShopCategoryButton button) {
-		inv.addButton(new BInventoryButton(new ItemBuilder(button.getDisplaySection())) {
-
-			@Override
-			public void onClick(ClickEvent event) {
-				VoteShopCategory target = plugin.getVoteShopManager().getCategory(button.getCategoryId());
-				if (target != null) {
-					new VoteShopCategoryMenu(plugin, event.getPlayer(), currentUser, target).open(GUIMethod.CHEST);
-				}
-			}
-		});
+		new VoteShop(plugin, player, currentUser).addCategoryButton(inv, player, currentUser, button);
 	}
 
 	@Override
