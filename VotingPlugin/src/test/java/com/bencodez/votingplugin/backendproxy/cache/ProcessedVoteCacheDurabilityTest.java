@@ -243,6 +243,24 @@ class ProcessedVoteCacheDurabilityTest {
 	}
 
 	@Test
+	void mixedJournalUsesDurablePerKindCapacityForNewAdmission() throws Exception {
+		DurableVoteReceiptStore store = new DurableVoteReceiptStore(directory.resolve("mixed-capacity.dat"), 2, 1, 2, 4);
+		assertTrue(store.release(UUID.randomUUID()) > 0L);
+		assertTrue(store.release(UUID.randomUUID()) > 0L);
+		assertTrue(store.complete(UUID.randomUUID()) > 0L);
+		ProcessedVoteCache cache = new ProcessedVoteCache(TimeUnit.MINUTES.toMillis(30), 2, store);
+		UUID admitted = UUID.randomUUID();
+		UUID stale = UUID.randomUUID();
+		cache.getProcessedVotes().put(stale, 0L);
+
+		assertTrue(cache.getProcessedVotes().size() > 2);
+		assertTrue(cache.reserveWithOutcome(admitted) == ProcessedVoteCache.Reservation.RESERVED);
+		assertFalse(cache.getProcessedVotes().containsKey(stale));
+		assertTrue(cache.complete(admitted));
+		assertTrue(cache.reserveWithOutcome(UUID.randomUUID()) == ProcessedVoteCache.Reservation.SATURATED);
+	}
+
+	@Test
 	void cancelledValidationReservationFreesCapacity() {
 		ProcessedVoteCache cache = new ProcessedVoteCache(TimeUnit.MINUTES.toMillis(30), 1);
 		UUID invalid = UUID.randomUUID();

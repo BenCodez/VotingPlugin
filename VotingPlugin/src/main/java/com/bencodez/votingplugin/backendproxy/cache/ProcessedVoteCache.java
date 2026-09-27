@@ -27,6 +27,7 @@ public class ProcessedVoteCache {
 	private final ConcurrentHashMap<UUID, Long> processedVotes = new ConcurrentHashMap<>();
 	private final java.util.Set<UUID> completedVotes = ConcurrentHashMap.newKeySet();
 	private final java.util.Set<UUID> completedAwaitingReceipt = ConcurrentHashMap.newKeySet();
+	private final java.util.Set<UUID> admittedVotes = ConcurrentHashMap.newKeySet();
 	private final long ttlMillis;
 	private final int maxTrackedVotes;
 	private final DurableVoteReceiptStore durableReceipts;
@@ -57,7 +58,7 @@ public class ProcessedVoteCache {
 		this(ttlMillis, maxTrackedVotes, null);
 	}
 
-	private ProcessedVoteCache(long ttlMillis, int maxTrackedVotes, DurableVoteReceiptStore durableReceipts) {
+	ProcessedVoteCache(long ttlMillis, int maxTrackedVotes, DurableVoteReceiptStore durableReceipts) {
 		if (maxTrackedVotes <= 0) throw new IllegalArgumentException("maxTrackedVotes must be positive");
 		this.ttlMillis = ttlMillis;
 		this.maxTrackedVotes = maxTrackedVotes;
@@ -94,11 +95,14 @@ public class ProcessedVoteCache {
 			if (completedAwaitingReceipt.contains(voteId)) return Reservation.DUPLICATE;
 			Long currentExpiry = processedVotes.get(voteId);
 			if (currentExpiry == null) {
-				if (processedVotes.size() >= maxTrackedVotes) {
+				if (durableReceipts != null
+						&& processedVotes.size() >= durableReceipts.maximumTrackedReceipts()) cleanup(now);
+				if (!hasAdmissionCapacity()) {
 					cleanup(now);
-					if (processedVotes.size() >= maxTrackedVotes) return Reservation.SATURATED;
+					if (!hasAdmissionCapacity()) return Reservation.SATURATED;
 				}
 				if (processedVotes.putIfAbsent(voteId, expiresAt) == null) {
+					admittedVotes.add(voteId);
 					return Reservation.RESERVED;
 				}
 				continue;
@@ -108,8 +112,10 @@ public class ProcessedVoteCache {
 				return Reservation.DUPLICATE;
 			}
 
+			if (!admittedVotes.contains(voteId) && !hasAdmissionCapacity()) return Reservation.SATURATED;
 			if (processedVotes.replace(voteId, currentExpiry, expiresAt)) {
 				completedVotes.remove(voteId);
+				admittedVotes.add(voteId);
 				return Reservation.RESERVED;
 			}
 		}
@@ -119,6 +125,7 @@ public class ProcessedVoteCache {
 	public synchronized void cancelReservation(UUID voteId) {
 		if (voteId == null || completedVotes.contains(voteId) || completedAwaitingReceipt.contains(voteId)) return;
 		processedVotes.remove(voteId);
+		admittedVotes.remove(voteId);
 	}
 
 	public enum Reservation {
@@ -134,6 +141,7 @@ public class ProcessedVoteCache {
 		if (durableReceipts == null) {
 			completedVotes.add(voteId);
 			completedAwaitingReceipt.remove(voteId);
+			admittedVotes.remove(voteId);
 			return true;
 		}
 		long expiresAt = durableReceipts.complete(voteId);
@@ -141,6 +149,7 @@ public class ProcessedVoteCache {
 		processedVotes.put(voteId, expiresAt);
 		completedVotes.add(voteId);
 		completedAwaitingReceipt.remove(voteId);
+		admittedVotes.remove(voteId);
 		return true;
 	}
 
@@ -271,8 +280,16 @@ public class ProcessedVoteCache {
 
 	private void cleanup(long now) {
 		processedVotes.forEach((voteId, expiresAt) -> {
-			if (expiresAt <= now && processedVotes.remove(voteId, expiresAt)) completedVotes.remove(voteId);
+			if (expiresAt <= now && processedVotes.remove(voteId, expiresAt)) {
+				completedVotes.remove(voteId);
+				admittedVotes.remove(voteId);
+			}
 		});
+	}
+
+	private boolean hasAdmissionCapacity() {
+		if (durableReceipts == null) return processedVotes.size() < maxTrackedVotes;
+		return durableReceipts.hasCompletionCapacity(admittedVotes.size() + 1);
 	}
 
 	/** Returns an exact UTF-8 length up to the per-delivery cap, then cap + 1. */

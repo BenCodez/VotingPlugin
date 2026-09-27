@@ -74,6 +74,18 @@ final class DurableVoteReceiptStore {
 		return voteId != null && receipts.containsKey(voteId);
 	}
 
+	/** Returns whether every admitted in-flight vote can still obtain an active receipt. */
+	synchronized boolean hasCompletionCapacity(int admittedVotes) {
+		if (admittedVotes < 0) return false;
+		cleanupReleasedTombstones(System.currentTimeMillis());
+		return activeReceipts <= maxActiveReceipts + completionHeadroom - admittedVotes
+				&& receipts.size() <= maxTotalReceipts - admittedVotes;
+	}
+
+	int maximumTrackedReceipts() {
+		return maxTotalReceipts;
+	}
+
 	synchronized long complete(UUID voteId) {
 		if (voteId == null) return 0L;
 		cleanupReleasedTombstones(System.currentTimeMillis());
