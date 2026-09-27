@@ -130,6 +130,35 @@ class VotingPluginProxyLifecycleTest {
 	}
 
 	@Test
+	void sharedTransportAuthenticationAndDecryptionUseOnePolicySnapshot(@TempDir Path dataDirectory)
+			throws Exception {
+		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
+		Path keyFile = dataDirectory.resolve("secretkey.key");
+		Files.writeString(keyFile, Base64.getEncoder().encodeToString(
+				"0123456789abcdef0123456789abcdef".getBytes(StandardCharsets.US_ASCII)));
+		SharedTransportEnvelopeAuthenticator authenticator = SharedTransportEnvelopeAuthenticator.load(keyFile,
+				Mode.REQUIRED);
+		TransportEnvelopeEncryption encryption = TransportEnvelopeEncryption.load(keyFile,
+				TransportEnvelopeEncryption.Domain.PROXY_BACKEND, true);
+		setField(proxy, "sharedTransportAuthenticator", authenticator);
+		setField(proxy, "communicationEncryption", encryption);
+		String channel = "vp:VotingPlugin";
+		JsonEnvelope original = VotingPluginWire.status("backend-a");
+		JsonEnvelope signed = authenticator.sign(encryption.encrypt(original), Domain.REDIS_PROXY_BACKEND,
+				"backend-a", channel);
+		@SuppressWarnings("unchecked")
+		Consumer<JsonEnvelope> accepted = mock(Consumer.class);
+
+		((VotingPluginProxy) proxy).acceptSharedTransportEnvelope(signed, Domain.REDIS_PROXY_BACKEND, channel,
+				accepted);
+
+		ArgumentCaptor<JsonEnvelope> delivered = ArgumentCaptor.forClass(JsonEnvelope.class);
+		verify(accepted).accept(delivered.capture());
+		assertEquals(original.getSubChannel(), delivered.getValue().getSubChannel());
+		assertEquals(original.getFields(), delivered.getValue().getFields());
+	}
+
+	@Test
 	void softReloadAppliesRequiredSharedTransportAuthentication(@TempDir Path dataDirectory) throws Exception {
 		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
 		proxy.setDataFolder(dataDirectory.toFile());

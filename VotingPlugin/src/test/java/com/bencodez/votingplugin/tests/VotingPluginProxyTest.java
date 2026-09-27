@@ -149,7 +149,10 @@ public class VotingPluginProxyTest {
 		votingPluginProxy.handleHttpTransportEnvelopeForTest(new HttpProxyTransportServer.ReceivedEnvelope(
 				"Server2", "message-2", encrypted));
 
-		verify(handler).onMessage(encrypted);
+		org.mockito.ArgumentCaptor<JsonEnvelope> delivered = org.mockito.ArgumentCaptor.forClass(JsonEnvelope.class);
+		verify(handler).onMessage(delivered.capture());
+		assertEquals(status.getSubChannel(), delivered.getValue().getSubChannel());
+		assertEquals(status.getFields(), delivered.getValue().getFields());
 		Mockito.verifyNoMoreInteractions(handler);
 
 		JsonEnvelope enrollment = encryption.encrypt(VotingPluginWire.controlEnrollmentRequest("Server1", "",

@@ -1988,7 +1988,7 @@ public abstract class VotingPluginProxy {
 				RedisListener listener = redisHandler.createEnvelopeListener(
 						VotingPluginRedisChannels.proxy(getConfig().getRedisPrefix()),
 						(ch, env) -> acceptSharedTransportEnvelope(env, Domain.REDIS_PROXY_BACKEND, ch,
-								globalMessageProxyHandler::onMessage));
+								this::dispatchDecryptedGlobalMessage));
 				redisHandler.loadListener(listener);
 			});
 
@@ -2001,7 +2001,7 @@ public abstract class VotingPluginProxy {
 
 				mqttHandler.subscribeEnvelopes(getConfig().getMqttPrefix() + "votingplugin/servers/proxy",
 						(topic, env) -> acceptSharedTransportEnvelope(env, Domain.MQTT_PROXY_BACKEND, topic,
-								globalMessageProxyHandler::onMessage));
+								this::dispatchDecryptedGlobalMessage));
 
 			} catch (MqttException e) {
 				e.printStackTrace();
@@ -2014,39 +2014,7 @@ public abstract class VotingPluginProxy {
 				+ getVoteCacheVotePartyIncreaseVotesRequired();
 		votePartyVotes = getVoteCacheCurrentVotePartyVotes();
 
-		globalMessageProxyHandler = new GlobalMessageProxyHandler() {
-			@Override
-			public void onMessage(JsonEnvelope envelope) {
-				JsonEnvelope decrypted = decryptCommunicationEnvelope(envelope);
-				if (decrypted != null) super.onMessage(decrypted);
-			}
-
-			@Override
-			public void sendMessage(String server, int delay, JsonEnvelope envelope) {
-				switch (method) {
-				case MQTT:
-					sendMqttEnvelopeServer(server, envelope);
-					break;
-				case MYSQL:
-					sendMysqlEnvelopeServer(server, envelope);
-					break;
-				case PLUGINMESSAGING:
-					sendPluginMessageServer(server, delay, envelope);
-					break;
-				case REDIS:
-					sendRedisEnvelopeServer(server, envelope);
-					break;
-				case SOCKETS:
-					sendSocketEnvelope(server, envelope);
-					break;
-				case HTTP:
-					sendGenericHttpEnvelope(server, envelope);
-					break;
-				default:
-					break;
-				}
-			}
-		};
+		globalMessageProxyHandler = new VotingPluginGlobalMessageProxyHandler();
 		registerControlEnrollmentListener(globalMessageProxyHandler);
 
 		globalMessageProxyHandler.addListener(new GlobalMessageListener(VotingPluginWire.SUB_LOGIN) {
@@ -3564,7 +3532,7 @@ public abstract class VotingPluginProxy {
 					return;
 				}
 
-				globalMessageProxyHandler.onMessage(envelope);
+				dispatchDecryptedGlobalMessage(decrypted);
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
@@ -4358,20 +4326,22 @@ public abstract class VotingPluginProxy {
 			handleControlEnrollmentRequest(received.serverId(), decrypted);
 			return;
 		}
-		GlobalMessageProxyHandler handler = globalMessageProxyHandler;
-		if (handler == null) throw new IllegalStateException("HTTP message router is not ready");
-		handler.onMessage(received.envelope());
+		dispatchDecryptedGlobalMessage(decrypted);
 	}
 
 	private JsonEnvelope decryptCommunicationEnvelope(JsonEnvelope envelope) {
 		synchronized (transportSecurityLock) {
-			if (communicationEncryption == null) return envelope;
-			TransportEnvelopeEncryption.Decryption decrypted = communicationEncryption.decrypt(envelope);
-			if (decrypted.accepted()) return decrypted.envelope();
-			if (communicationEncryptionFailureLogged.compareAndSet(false, true)) logSevere(
-					"Proxy communication message rejected by encryption policy (" + decrypted.reason() + ")");
-			return null;
+			return decryptCommunicationEnvelopeLocked(envelope);
 		}
+	}
+
+	private JsonEnvelope decryptCommunicationEnvelopeLocked(JsonEnvelope envelope) {
+		if (communicationEncryption == null) return envelope;
+		TransportEnvelopeEncryption.Decryption decrypted = communicationEncryption.decrypt(envelope);
+		if (decrypted.accepted()) return decrypted.envelope();
+		if (communicationEncryptionFailureLogged.compareAndSet(false, true)) logSevere(
+				"Proxy communication message rejected by encryption policy (" + decrypted.reason() + ")");
+		return null;
 	}
 
 	private boolean isAuthenticatedHttpEnvelopeAllowed(HttpProxyTransportServer.ReceivedEnvelope received) {
@@ -4810,9 +4780,11 @@ public abstract class VotingPluginProxy {
 			java.util.function.Consumer<JsonEnvelope> accepted) {
 		SharedTransportEnvelopeAuthenticator authenticator;
 		SharedTransportEnvelopeAuthenticator.Verification verification;
+		JsonEnvelope decrypted;
 		synchronized (transportSecurityLock) {
 			authenticator = sharedTransportAuthenticatorLocked();
 			verification = authenticator.verify(envelope, domain, destination);
+			decrypted = verification.accepted() ? decryptCommunicationEnvelopeLocked(verification.envelope()) : null;
 		}
 		warnIfSharedTransportCompatibilityMode(authenticator);
 		if (!verification.accepted()) {
@@ -4820,7 +4792,55 @@ public abstract class VotingPluginProxy {
 					"Shared transport message rejected by envelope authentication (" + verification.rejection() + ")");
 			return;
 		}
-		accepted.accept(verification.envelope());
+		if (decrypted != null) accepted.accept(decrypted);
+	}
+
+	private void dispatchDecryptedGlobalMessage(JsonEnvelope envelope) {
+		GlobalMessageProxyHandler handler = globalMessageProxyHandler;
+		if (handler == null) throw new IllegalStateException("Proxy message router is not ready");
+		if (handler instanceof VotingPluginGlobalMessageProxyHandler votingPluginHandler) {
+			votingPluginHandler.onDecryptedMessage(envelope);
+		} else {
+			handler.onMessage(envelope);
+		}
+	}
+
+	private final class VotingPluginGlobalMessageProxyHandler extends GlobalMessageProxyHandler {
+		@Override
+		public void onMessage(JsonEnvelope envelope) {
+			JsonEnvelope decrypted = decryptCommunicationEnvelope(envelope);
+			if (decrypted != null) super.onMessage(decrypted);
+		}
+
+		void onDecryptedMessage(JsonEnvelope envelope) {
+			super.onMessage(envelope);
+		}
+
+		@Override
+		public void sendMessage(String server, int delay, JsonEnvelope envelope) {
+			switch (method) {
+			case MQTT:
+				sendMqttEnvelopeServer(server, envelope);
+				break;
+			case MYSQL:
+				sendMysqlEnvelopeServer(server, envelope);
+				break;
+			case PLUGINMESSAGING:
+				sendPluginMessageServer(server, delay, envelope);
+				break;
+			case REDIS:
+				sendRedisEnvelopeServer(server, envelope);
+				break;
+			case SOCKETS:
+				sendSocketEnvelope(server, envelope);
+				break;
+			case HTTP:
+				sendGenericHttpEnvelope(server, envelope);
+				break;
+			default:
+				break;
+			}
+		}
 	}
 
 	public boolean sendRedisEnvelopeServer(String server, JsonEnvelope envelope) {
