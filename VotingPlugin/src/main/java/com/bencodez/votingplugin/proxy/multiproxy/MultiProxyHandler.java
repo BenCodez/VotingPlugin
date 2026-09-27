@@ -86,7 +86,12 @@ public abstract class MultiProxyHandler {
 	private static final long UNSIGNED_BRIDGE_WINDOW_NANOS = TimeUnit.SECONDS.toNanos(2);
 	private static final long UNSIGNED_BRIDGE_UNMATCHED_WINDOW_NANOS = TimeUnit.SECONDS.toNanos(30);
 	private final Map<String, UnsignedBridgeCopies> unsignedBridgeCopies = new LinkedHashMap<>();
+	private final Set<String> registeredRedisChannels = new HashSet<>();
+	private SharedTransportEnvelopeAuthenticator activeSharedTransportAuthenticator;
 	private TransportEnvelopeEncryption communicationEncryption;
+	private SharedTransportEnvelopeAuthenticator pendingCompatibilityAuthenticator;
+	private TransportEnvelopeEncryption pendingCompatibilityEncryption;
+	private boolean legacyRedisRegistrationPending;
 	private volatile boolean redisCallbacksActive = true;
 	private long lastVoteCapabilityAdvertisementMillis = Long.MIN_VALUE;
 	/** A newly persisted discovery deadline must cause an initial handshake promptly. */
@@ -301,6 +306,75 @@ public abstract class MultiProxyHandler {
 
 	/** Authenticator shared by all broker messages owned by this proxy runtime. */
 	public abstract SharedTransportEnvelopeAuthenticator getSharedTransportAuthenticator();
+
+	/**
+	 * Replaces the security policy without rebuilding Redis listeners retained by a
+	 * shared connection. Authentication and encryption are installed together while
+	 * sends and receives are excluded by this handler's monitor.
+	 *
+	 * @param authenticator replacement shared-transport authenticator
+	 */
+	public synchronized void refreshTransportSecurity(SharedTransportEnvelopeAuthenticator authenticator) {
+		if (!getMultiProxySupportEnabled() || getMultiProxyMethod() != MultiProxyMethod.REDIS) return;
+		if (authenticator == null)
+			throw new IllegalStateException("Multi-proxy Redis authentication is unavailable");
+		TransportEnvelopeEncryption replacementEncryption = loadCommunicationEncryption();
+		boolean enteringCompatibility = authenticator.mode() == SharedTransportEnvelopeAuthenticator.Mode.COMPATIBILITY
+				&& getRedisPrefix() != null && !getRedisPrefix().isEmpty();
+		String legacyChannel = VotingPluginRedisChannels.multiProxy("", getMultiProxyServerName());
+		if (enteringCompatibility && !registeredRedisChannels.contains(legacyChannel)) {
+			pendingCompatibilityAuthenticator = authenticator;
+			pendingCompatibilityEncryption = replacementEncryption;
+			if (legacyRedisRegistrationPending) return;
+			legacyRedisRegistrationPending = true;
+			try {
+				runAsnc(() -> completeCompatibilityRefresh(legacyChannel));
+			} catch (RuntimeException schedulingFailure) {
+				legacyRedisRegistrationPending = false;
+				pendingCompatibilityAuthenticator = null;
+				pendingCompatibilityEncryption = null;
+				throw schedulingFailure;
+			}
+			return;
+		}
+		pendingCompatibilityAuthenticator = null;
+		pendingCompatibilityEncryption = null;
+		installTransportSecurity(authenticator, replacementEncryption);
+	}
+
+	private synchronized void completeCompatibilityRefresh(String legacyChannel) {
+		try {
+			SharedTransportEnvelopeAuthenticator authenticator = pendingCompatibilityAuthenticator;
+			TransportEnvelopeEncryption encryption = pendingCompatibilityEncryption;
+			if (authenticator == null || encryption == null) return;
+			loadMultiProxyRedisListener(legacyChannel);
+			installTransportSecurity(authenticator, encryption);
+		} catch (RuntimeException failure) {
+			logInfo("Unable to enable multi-proxy Redis compatibility before the legacy subscription loaded");
+		} finally {
+			legacyRedisRegistrationPending = false;
+			pendingCompatibilityAuthenticator = null;
+			pendingCompatibilityEncryption = null;
+		}
+	}
+
+	private void installTransportSecurity(SharedTransportEnvelopeAuthenticator authenticator,
+			TransportEnvelopeEncryption replacementEncryption) {
+		SharedTransportEnvelopeAuthenticator currentAuthenticator = activeSharedTransportAuthenticator();
+		boolean equivalentAuthentication = currentAuthenticator != null
+				&& currentAuthenticator.hasEquivalentInboundPolicy(authenticator);
+		boolean equivalentEncryption = communicationEncryption != null
+				&& communicationEncryption.hasEquivalentInboundPolicy(replacementEncryption);
+		if (!equivalentAuthentication) {
+			activeSharedTransportAuthenticator = authenticator;
+		}
+		if (!equivalentEncryption) {
+			communicationEncryption = replacementEncryption;
+		}
+		authenticationFailureLogged.set(false);
+		encryptionFailureLogged.set(false);
+		if (!equivalentAuthentication || !equivalentEncryption) unsignedBridgeCopies.clear();
+	}
 
 	/**
 	 * Gets the version.
@@ -682,15 +756,7 @@ public abstract class MultiProxyHandler {
 		if (!getMultiProxySupportEnabled()) {
 			return;
 		}
-		File dataFolder = getPluginDataFolder();
-		if (dataFolder != null) try {
-			communicationEncryption = TransportEnvelopeEncryption.load(dataFolder.toPath().resolve("secretkey.key"),
-					TransportEnvelopeEncryption.Domain.MULTI_PROXY, getCommunicationEncryption());
-		} catch (IOException failure) {
-			throw new IllegalStateException("Multi-proxy communication encryption initialization failed", failure);
-		} else if (getCommunicationEncryption()) {
-			throw new IllegalStateException("Multi-proxy communication encryption requires a plugin data folder");
-		}
+		communicationEncryption = loadCommunicationEncryption();
 		encryptionFailureLogged.set(false);
 
 		if (getMultiProxyMethod().equals(MultiProxyMethod.SOCKETS)) {
@@ -728,7 +794,8 @@ public abstract class MultiProxyHandler {
 			}
 
 		} else {
-			if (getSharedTransportAuthenticator() == null)
+			activeSharedTransportAuthenticator = getSharedTransportAuthenticator();
+			if (activeSharedTransportAuthenticator == null)
 				throw new IllegalStateException("Multi-proxy Redis authentication is unavailable");
 			if (getMultiProxyRedisUseExistingConnection() && getRedisHandler() != null) {
 				multiProxyRedis = getRedisHandler();
@@ -859,7 +926,7 @@ public abstract class MultiProxyHandler {
 			return accepted && destinations == requested.size();
 		} else if (getMultiProxyMethod().equals(MultiProxyMethod.REDIS)) {
 			if (multiProxyRedis == null) return false;
-			SharedTransportEnvelopeAuthenticator authenticator = getSharedTransportAuthenticator();
+			SharedTransportEnvelopeAuthenticator authenticator = activeSharedTransportAuthenticator();
 			if (authenticator == null) return false;
 			boolean accepted = true;
 			int destinations = 0;
@@ -886,15 +953,21 @@ public abstract class MultiProxyHandler {
 	}
 
 	private boolean useLegacyMultiProxyRedisChannel() {
-		SharedTransportEnvelopeAuthenticator authenticator = getSharedTransportAuthenticator();
+		SharedTransportEnvelopeAuthenticator authenticator = activeSharedTransportAuthenticator();
 		return authenticator != null && authenticator.mode() == SharedTransportEnvelopeAuthenticator.Mode.COMPATIBILITY
 				&& getRedisPrefix() != null && !getRedisPrefix().isEmpty();
 	}
 
-	private void loadMultiProxyRedisListener(String channel) {
-		RedisListener listener = multiProxyRedis.createEnvelopeListener(channel,
-				(ch, env) -> acceptRedisEnvelope(env, ch));
-		multiProxyRedis.loadListener(listener);
+	private synchronized void loadMultiProxyRedisListener(String channel) {
+		if (!registeredRedisChannels.add(channel)) return;
+		try {
+			RedisListener listener = multiProxyRedis.createEnvelopeListener(channel,
+					(ch, env) -> acceptRedisEnvelope(env, ch));
+			multiProxyRedis.loadListener(listener);
+		} catch (RuntimeException failure) {
+			registeredRedisChannels.remove(channel);
+			throw failure;
+		}
 	}
 
 	void acceptRedisEnvelope(JsonEnvelope envelope) {
@@ -903,7 +976,11 @@ public abstract class MultiProxyHandler {
 
 	synchronized void acceptRedisEnvelope(JsonEnvelope envelope, String channel) {
 		if (!redisCallbacksActive) return;
-		SharedTransportEnvelopeAuthenticator authenticator = getSharedTransportAuthenticator();
+		if (channel != null && getRedisPrefix() != null && !getRedisPrefix().isEmpty()) {
+			String legacy = VotingPluginRedisChannels.multiProxy("", getMultiProxyServerName());
+			if (channel.equals(legacy) && !useLegacyMultiProxyRedisChannel()) return;
+		}
+		SharedTransportEnvelopeAuthenticator authenticator = activeSharedTransportAuthenticator();
 		if (authenticator == null) return;
 		SharedTransportEnvelopeAuthenticator.Verification verification = authenticator.verify(envelope,
 				Domain.REDIS_MULTI_PROXY, channel);
@@ -922,6 +999,24 @@ public abstract class MultiProxyHandler {
 		} finally {
 			if (verification.unsignedCompatibility()) extendUnsignedBridgeWindow(decrypted, channel);
 		}
+	}
+
+	private SharedTransportEnvelopeAuthenticator activeSharedTransportAuthenticator() {
+		SharedTransportEnvelopeAuthenticator authenticator = activeSharedTransportAuthenticator;
+		return authenticator == null ? getSharedTransportAuthenticator() : authenticator;
+	}
+
+	private TransportEnvelopeEncryption loadCommunicationEncryption() {
+		File dataFolder = getPluginDataFolder();
+		if (dataFolder != null) try {
+			return TransportEnvelopeEncryption.load(dataFolder.toPath().resolve("secretkey.key"),
+					TransportEnvelopeEncryption.Domain.MULTI_PROXY, getCommunicationEncryption());
+		} catch (IOException failure) {
+			throw new IllegalStateException("Multi-proxy communication encryption initialization failed", failure);
+		}
+		if (getCommunicationEncryption())
+			throw new IllegalStateException("Multi-proxy communication encryption requires a plugin data folder");
+		return TransportEnvelopeEncryption.disabled(TransportEnvelopeEncryption.Domain.MULTI_PROXY);
 	}
 
 	private void acceptEncryptedEnvelope(JsonEnvelope envelope) {
