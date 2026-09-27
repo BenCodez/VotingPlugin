@@ -406,7 +406,7 @@ public class BackendProxyMessageRouter {
 		VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(javaUuid, rejected.player);
 		user.cache();
 		user.updateName(true);
-		if (user.canVoteSite(voteSite)) {
+		if (reliable && user.canVoteSite(voteSite)) {
 			return new WireVoteResult(rejected.voteId, true);
 		}
 		if (rejected.voteId != null && !processedVoteCache.reserve(rejected.voteId)) {

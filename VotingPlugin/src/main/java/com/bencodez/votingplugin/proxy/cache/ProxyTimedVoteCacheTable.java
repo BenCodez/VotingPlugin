@@ -652,6 +652,21 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 			this.delayValidation = delayValidation;
 		}
 
+		/** Backward-compatible full constructor without persisted delay validation. */
+		public TimedVoteRow(int id, String playerName, String service, long time, UUID voteId, String uuid,
+				boolean proxyBroadcastHandled, String broadcastTargets, String broadcastForwardedServers, String totals,
+				boolean processed, boolean multiProxyForwardingHandled, boolean multiProxyForwardingRequired,
+				boolean multiProxyCapabilityDiscoveryPending, boolean realVote, String multiProxyOrigin,
+				boolean multiProxyCompletionPending, String multiProxyRecipients,
+				String multiProxyAcknowledgedServers, String httpBroadcastDeliveryIds,
+				String multiProxyLegacyPendingRecipients, boolean wasOnline, boolean wasOnlineKnown) {
+			this(id, playerName, service, time, voteId, uuid, proxyBroadcastHandled, broadcastTargets,
+					broadcastForwardedServers, totals, processed, multiProxyForwardingHandled,
+					multiProxyForwardingRequired, multiProxyCapabilityDiscoveryPending, realVote, multiProxyOrigin,
+					multiProxyCompletionPending, multiProxyRecipients, multiProxyAcknowledgedServers,
+					httpBroadcastDeliveryIds, multiProxyLegacyPendingRecipients, wasOnline, wasOnlineKnown, -1);
+		}
+
 		/** Backward-compatible row constructor without HTTP delivery state. */
 		public TimedVoteRow(int id, String playerName, String service, long time, UUID voteId, String uuid,
 				boolean proxyBroadcastHandled, String broadcastTargets, String broadcastForwardedServers, String totals,

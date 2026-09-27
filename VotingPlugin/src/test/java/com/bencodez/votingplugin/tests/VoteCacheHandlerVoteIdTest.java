@@ -53,6 +53,23 @@ import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
  * Regression tests for proxy vote identity across caches and delayed processing.
  */
 public class VoteCacheHandlerVoteIdTest {
+	@Test
+	public void legacySqlRowConstructorsPreserveUnknownDelayValidation() {
+		ProxyVoteCacheTable.VoteRow server = new ProxyVoteCacheTable.VoteRow(1, "vote", "uuid", "Player",
+				"Service", 100L, true, false, false, "totals", false, false, "", "", false, "", "",
+				"server");
+		ProxyOnlineVoteCacheTable.VoteRow online = new ProxyOnlineVoteCacheTable.VoteRow(2, "vote", "uuid",
+				"Player", "Service", 100L, true, false, false, "totals", false, false, "", "", false, "",
+				"");
+		ProxyTimedVoteCacheTable.TimedVoteRow timed = new ProxyTimedVoteCacheTable.TimedVoteRow(3, "Player",
+				"Service", 100L, UUID.randomUUID(), "uuid", false, "", "", "totals", false, false, false,
+				false, true, "", false, "", "", "", "", false, false);
+
+		assertEquals(-1, server.getDelayValidation());
+		assertEquals(-1, online.getDelayValidation());
+		assertEquals(-1, timed.getDelayValidation());
+	}
+
 	@TempDir
 	Path tempDir;
 

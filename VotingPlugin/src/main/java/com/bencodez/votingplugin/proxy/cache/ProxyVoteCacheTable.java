@@ -741,6 +741,16 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 			this.server = server;
 		}
 
+		/** Backward-compatible constructor for integrations compiled before delay validation was persisted. */
+		public VoteRow(int id, String voteId, String uuid, String playerName, String service, long time,
+				boolean realVote, boolean wasOnline, boolean wasOnlineKnown, String text, boolean broadcastForwarded,
+				boolean proxyBroadcastHandled, String broadcastTargets, String broadcastForwardedServers,
+				boolean rewardDelivered, String httpDeliveryIds, String httpBroadcastDeliveryIds, String server) {
+			this(id, voteId, uuid, playerName, service, time, realVote, wasOnline, wasOnlineKnown, -1, text,
+					broadcastForwarded, proxyBroadcastHandled, broadcastTargets, broadcastForwardedServers,
+					rewardDelivered, httpDeliveryIds, httpBroadcastDeliveryIds, server);
+		}
+
 		/**
 		 * Gets the row ID.
 		 * @return the ID
