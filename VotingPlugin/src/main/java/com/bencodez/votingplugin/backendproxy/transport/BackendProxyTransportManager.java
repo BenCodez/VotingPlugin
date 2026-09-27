@@ -873,6 +873,8 @@ public class BackendProxyTransportManager {
 		if (preparedSends.isEmpty()) return;
 		if (preparedSends.size() > MAX_ASYNC_HANDOFF_SENDS - asyncHandoffSends.size())
 			throw new IllegalStateException("Backend proxy handoff queue exceeded its fixed capacity");
+		if (transport instanceof HttpBackendProxyTransport http)
+			http.activateRestoredHandoffDrain(asyncHandoffSends.size() + preparedSends.size());
 		asyncHandoffSends.addAll(preparedSends);
 		preparedSends.clear();
 		if (asyncHandoffWorker == null && !pluginMessageHandoffScheduled) {

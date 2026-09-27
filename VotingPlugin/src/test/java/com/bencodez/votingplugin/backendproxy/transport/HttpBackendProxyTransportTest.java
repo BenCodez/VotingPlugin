@@ -863,8 +863,9 @@ class HttpBackendProxyTransportTest {
 		close.join(2000L);
 		assertFalse(close.isAlive());
 
-		verify(connector).send(adapted);
-		verify(connector).flushOutgoing(org.mockito.ArgumentMatchers.anyLong());
+		verify(connector, org.mockito.Mockito.timeout(1_000)).send(adapted);
+		verify(connector, org.mockito.Mockito.timeout(1_000))
+				.flushOutgoing(org.mockito.ArgumentMatchers.anyLong());
 	}
 
 	@Test
@@ -996,6 +997,59 @@ class HttpBackendProxyTransportTest {
 			if (setup != null) setup.join(TimeUnit.SECONDS.toMillis(1));
 			owners.remove(ownerKey, owner);
 		}
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	void rollbackRetainsFullHttpQueueAndFencedSendsWithinRecoveryCapacity() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getAnonymousLogger());
+		BackendProxyTransportManager manager = new BackendProxyTransportManager(plugin);
+		HttpBackendProxyTransport previous = mock(HttpBackendProxyTransport.class);
+		HttpBackendProxyTransport restored = new HttpBackendProxyTransport(plugin);
+		java.util.ArrayDeque<JsonEnvelope> restoredQueue =
+				(java.util.ArrayDeque<JsonEnvelope>) field(restored, "handoffQueue");
+		for (int index = 0; index < 4096; index++)
+			restoredQueue.addLast(JsonEnvelope.builder("old-" + index).build());
+		JsonEnvelope first = JsonEnvelope.builder("fenced-1").build();
+		JsonEnvelope second = JsonEnvelope.builder("fenced-2").build();
+		setField(manager, "preparedTransport", previous);
+		when(previous.recreatePrepared()).thenReturn(restored);
+		manager.send(first);
+		manager.send(second);
+
+		manager.restorePreparedTransport();
+
+		long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+		while (restored.handoffMessagesSnapshot().size() != 4098 && System.nanoTime() < deadline)
+			Thread.onSpinWait();
+		assertEquals(4098, restored.handoffMessagesSnapshot().size());
+		assertSame(first, restored.handoffMessagesSnapshot().get(4096));
+		assertSame(second, restored.handoffMessagesSnapshot().get(4097));
+		assertTrue(((java.util.ArrayDeque<?>) field(manager, "asyncHandoffSends")).isEmpty());
+
+		manager.send(JsonEnvelope.builder("newer-rejected").build());
+		assertEquals(4098, restored.handoffMessagesSnapshot().size(),
+				"normal sends must not expand the one-time rollback recovery allowance");
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	void shutdownCanAppendTheReservedRollbackRemainder() throws Exception {
+		HttpBackendProxyTransport transport = new HttpBackendProxyTransport(mock(VotingPluginMain.class));
+		java.util.ArrayDeque<JsonEnvelope> handoff =
+				(java.util.ArrayDeque<JsonEnvelope>) field(transport, "handoffQueue");
+		for (int index = 0; index < 4096; index++)
+			handoff.addLast(JsonEnvelope.builder("old-" + index).build());
+		JsonEnvelope first = JsonEnvelope.builder("fenced-1").build();
+		JsonEnvelope second = JsonEnvelope.builder("fenced-2").build();
+
+		transport.activateRestoredHandoffDrain(2);
+		transport.appendShutdownHandoffMessages(List.of(first, second));
+
+		assertEquals(4098, transport.handoffMessagesSnapshot().size());
+		assertSame(first, transport.handoffMessagesSnapshot().get(4096));
+		assertSame(second, transport.handoffMessagesSnapshot().get(4097));
 	}
 
 	private static HttpConnectionCode code(String serverId, Instant expiry) {

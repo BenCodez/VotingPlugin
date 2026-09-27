@@ -30,6 +30,7 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 	private static final int MAX_STARTUP_QUEUE = 1024;
 	private static final int MAX_PREPUBLICATION_QUEUE = 2048;
 	private static final int MAX_HANDOFF_QUEUE = 4096;
+	private static final int MAX_RESTORED_HANDOFF_QUEUE = MAX_HANDOFF_QUEUE + MAX_PREPUBLICATION_QUEUE;
 	private static final long DEFAULT_STARTUP_VALIDATION_SECONDS = 25L;
 	private static final long ENROLLMENT_RETRY_INITIAL_MILLIS = 1_000L;
 	private static final long ENROLLMENT_RETRY_MAX_MILLIS = 60_000L;
@@ -47,6 +48,7 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 	private volatile Thread handoffWorker;
 	private boolean awaitingPreparedHandoff;
 	private boolean managerHandoffActive;
+	private int managerHandoffCapacity = MAX_HANDOFF_QUEUE;
 	/** Capacity reserved for the prepared predecessor before this transport is published. */
 	private int preparedHandoffReservation;
 	private volatile HttpBackendTransportConnector connector;
@@ -558,7 +560,7 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 			if (awaitingPreparedHandoff || managerHandoffActive || !handoffQueue.isEmpty()) {
 				int capacity = awaitingPreparedHandoff
 						? Math.min(MAX_PREPUBLICATION_QUEUE, MAX_HANDOFF_QUEUE - preparedHandoffReservation)
-						: MAX_HANDOFF_QUEUE;
+						: managerHandoffActive ? managerHandoffCapacity : MAX_HANDOFF_QUEUE;
 				if (handoffQueue.size() < capacity) {
 					handoffQueue.addLast(envelope);
 					return true;
@@ -600,13 +602,29 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 			if (closed) throw new IllegalStateException("HTTP replacement transport is closed");
 			awaitingPreparedHandoff = false;
 			preparedHandoffReservation = 0;
+			managerHandoffCapacity = MAX_HANDOFF_QUEUE;
 			managerHandoffActive = true;
+		}
+	}
+
+	/** Reserves the bounded one-time overflow needed to restore already accepted fenced sends. */
+	void activateRestoredHandoffDrain(int managerMessages) {
+		if (managerMessages < 0 || managerMessages > MAX_PREPUBLICATION_QUEUE)
+			throw new IllegalStateException("HTTP restored handoff exceeds its fixed recovery capacity");
+		synchronized (lifecycle) {
+			if (closed) throw new IllegalStateException("HTTP restored transport is closed");
+			if (handoffQueue.size() > MAX_HANDOFF_QUEUE + MAX_STARTUP_QUEUE
+					|| managerMessages > MAX_RESTORED_HANDOFF_QUEUE - handoffQueue.size())
+				throw new IllegalStateException("HTTP restored handoff exceeds its fixed recovery capacity");
+			managerHandoffCapacity = handoffQueue.size() + managerMessages;
+			managerHandoffActive = managerMessages != 0;
 		}
 	}
 
 	void finishPreparedHandoffDrain() {
 		synchronized (lifecycle) {
 			managerHandoffActive = false;
+			managerHandoffCapacity = MAX_HANDOFF_QUEUE;
 		}
 		startHandoffDrainIfNeeded();
 	}
@@ -619,7 +637,7 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 	boolean canAcceptManagerHandoff(int managerPending) {
 		synchronized (lifecycle) {
 			return !managerHandoffActive || managerPending >= 0
-					&& managerPending < MAX_HANDOFF_QUEUE - handoffQueue.size();
+					&& managerPending < managerHandoffCapacity - handoffQueue.size();
 		}
 	}
 
@@ -666,7 +684,8 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 	void appendShutdownHandoffMessages(java.util.List<JsonEnvelope> messages) {
 		synchronized (lifecycle) {
 			if (closed) throw new IllegalStateException("HTTP replacement transport is closed");
-			if (messages.size() > MAX_HANDOFF_QUEUE - handoffQueue.size())
+			int capacity = managerHandoffActive ? managerHandoffCapacity : MAX_HANDOFF_QUEUE;
+			if (messages.size() > capacity - handoffQueue.size())
 				throw new IllegalStateException("HTTP handoff queue exceeded its fixed capacity");
 			handoffQueue.addAll(messages);
 			awaitingPreparedHandoff = false;
