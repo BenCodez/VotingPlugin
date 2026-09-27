@@ -3,6 +3,7 @@ package com.bencodez.votingplugin.tests;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -199,6 +200,29 @@ public class VotingPluginProxyTest {
 
 		assertSame(oldAuthenticator, installed.getSharedTransportAuthenticator());
 		assertSame(replacementAuthenticator, getProxyField(votingPluginProxy, "sharedTransportAuthenticator"));
+	}
+
+	@Test
+	void controlReloadReplacesMultiProxyHandlerWithRequiredAuthenticator() throws Exception {
+		var oldAuthenticator = com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.load(
+				temporaryDirectory.resolve("secretkey.key"),
+				com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.Mode.COMPATIBILITY);
+		setProxyField(votingPluginProxy, "sharedTransportAuthenticator", oldAuthenticator);
+		votingPluginProxy.loadMultiProxySupport();
+		MultiProxyHandler oldHandler = votingPluginProxy.getMultiProxyHandler();
+		Mockito.when(votingPluginProxy.getConfig().getBungeeMethod()).thenReturn("PLUGINMESSAGING");
+		Mockito.when(votingPluginProxy.getConfig().getSharedTransportAuthentication()).thenReturn("REQUIRED");
+
+		votingPluginProxy.reloadFromControl();
+
+		MultiProxyHandler replacementHandler = votingPluginProxy.getMultiProxyHandler();
+		assertNotSame(oldHandler, replacementHandler);
+		assertSame(getProxyField(votingPluginProxy, "sharedTransportAuthenticator"),
+				replacementHandler.getSharedTransportAuthenticator());
+		assertFalse(replacementHandler.getSharedTransportAuthenticator()
+				.verify(JsonEnvelope.builder(VotingPluginWire.SUB_VOTE).build(),
+						com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.Domain.REDIS_MULTI_PROXY,
+						"VotingPlugin").accepted());
 	}
 
 	@Test
