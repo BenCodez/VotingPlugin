@@ -189,10 +189,10 @@ public class BungeeSettings extends YMLFile {
 
 	@Override
 	public void loadValues() {
+		String legacyMethod = !getData().contains("ProxyCommunicationMethod")
+				? getData().getString("BungeeMethod", null) : null;
 		new AnnotationHandler().load(getData(), this);
-		if (!getData().contains("ProxyCommunicationMethod") && getData().contains("BungeeMethod")) {
-			proxyCommunicationMethod = getData().getString("BungeeMethod", "PLUGINMESSAGING");
-		}
+		if (legacyMethod != null) proxyCommunicationMethod = legacyMethod;
 	}
 
 	@Override
