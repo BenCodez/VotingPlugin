@@ -33,6 +33,15 @@ public class VotingPluginWireTest {
 		assertEquals("Player", vote.player);
 		assertEquals("Service", vote.service);
 		assertTrue(vote.wasOnlineKnown);
+		assertFalse(vote.delayValidated);
+	}
+
+	@Test
+	public void voteRoundTripCarriesExplicitDelayValidation() {
+		JsonEnvelope envelope = VotingPluginWire.vote("Player", UUID.randomUUID().toString(), "Service", 100L,
+				true, true, "totals", UUID.randomUUID(), true, false, 1, 1, true);
+
+		assertTrue(VotingPluginWire.readVote(envelope).delayValidated);
 	}
 
 	@Test
@@ -77,6 +86,14 @@ public class VotingPluginWireTest {
 		assertEquals("Service", rejected.service);
 		assertEquals(true, rejected.wasOnline);
 		assertEquals(voteId, rejected.voteId);
+	}
+
+	@Test
+	public void statusAdvertisesDelayRejectionAcknowledgementsSeparately() {
+		JsonEnvelope status = VotingPluginWire.statusOkay("survival");
+
+		assertTrue(VotingPluginWire.advertisesVoteDeliveryAcknowledgement(status));
+		assertTrue(VotingPluginWire.advertisesVoteDelayRejectionAcknowledgement(status));
 	}
 
 	@Test

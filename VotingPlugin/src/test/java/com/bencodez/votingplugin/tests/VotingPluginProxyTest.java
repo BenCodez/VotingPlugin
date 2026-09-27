@@ -2896,6 +2896,22 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
+	void liveDelayRejectionRetriesWhenDurableDeliveryCannotBeAdmitted() {
+		votingPluginProxy.setPlayerOnline(true);
+		votingPluginProxy.setAvailableServers("Server1");
+		Mockito.when(votingPluginProxy.getConfig().getBungeeManageTotals()).thenReturn(true);
+		Mockito.when(votingPluginProxy.getConfig().getPrimaryServer()).thenReturn(true);
+		Mockito.when(proxyMySQL.containsKeyQuery(Mockito.anyString())).thenReturn(true);
+		Mockito.when(proxyMySQL.getExactQuery(Mockito.any())).thenReturn(new java.util.ArrayList<>());
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(false).when(spyProxy).checkVoteDelay(Mockito.anyString(), Mockito.anyString(),
+				Mockito.anyString(), Mockito.any(), Mockito.anyBoolean());
+
+		assertThrows(VotingPluginProxy.VoteRetryException.class,
+				() -> spyProxy.vote("Player", "Service", true, false, 0, null, null));
+	}
+
+	@Test
 	void acceptedTimeChangeVoteReservesItsDelaySlot() {
 		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
 		java.util.Queue<VoteTimeQueue> queue = new java.util.concurrent.ConcurrentLinkedQueue<>();

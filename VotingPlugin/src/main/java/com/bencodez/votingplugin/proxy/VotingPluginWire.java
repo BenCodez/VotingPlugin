@@ -114,9 +114,12 @@ public final class VotingPluginWire {
 	public static final String K_BUNGEE_BROADCAST = "bungeeBroadcast";
 	public static final String K_NUM = "num";
 	public static final String K_NUMBER_OF_VOTES = "numberOfVotes";
+	public static final String K_DELAY_VALIDATED = "delayValidated";
 	public static final String K_VOTE_DELIVERY_ACK_VERSION = "voteDeliveryAckVersion";
+	public static final String K_VOTE_DELAY_REJECTION_ACK_VERSION = "voteDelayRejectionAckVersion";
 	public static final String K_VOTE_DELIVERY_SUBCHANNEL = "voteDeliverySubchannel";
 	public static final int VOTE_DELIVERY_ACK_VERSION = 2;
+	public static final int VOTE_DELAY_REJECTION_ACK_VERSION = 1;
 	/** Origin and receiving proxy names for reliable multi-proxy delivery. */
 	public static final String K_MULTI_PROXY_ORIGIN = "multiProxyOrigin";
 	public static final String K_MULTI_PROXY_RECIPIENT = "multiProxyRecipient";
@@ -140,24 +143,39 @@ public final class VotingPluginWire {
 	public static JsonEnvelope vote(String player, String uuid, String service, long time, boolean wasOnline,
 			boolean realVote, String totals, UUID voteId, boolean manageTotals, boolean bungeeBroadcast, int num,
 			int numberOfVotes) {
+		return vote(player, uuid, service, time, wasOnline, realVote, totals, voteId, manageTotals,
+				bungeeBroadcast, num, numberOfVotes, false);
+	}
+
+	public static JsonEnvelope vote(String player, String uuid, String service, long time, boolean wasOnline,
+			boolean realVote, String totals, UUID voteId, boolean manageTotals, boolean bungeeBroadcast, int num,
+			int numberOfVotes, boolean delayValidated) {
 
 		return base(SUB_VOTE).put(K_PLAYER, safe(player)).put(K_UUID, safe(uuid)).put(K_SERVICE, safe(service))
 				.put(K_TIME, time).put(K_WAS_ONLINE, wasOnline).put(K_WAS_ONLINE_KNOWN, true).put(K_REAL_VOTE, realVote).put(K_TOTALS, safe(totals))
 				.put(K_VOTE_ID, voteId == null ? "" : voteId.toString())
 				.put(K_SET_TOTALS, true) // backend historically defaulted to true
 				.put(K_MANAGE_TOTALS, manageTotals).put(K_BUNGEE_BROADCAST, bungeeBroadcast).put(K_NUM, num)
-				.put(K_NUMBER_OF_VOTES, numberOfVotes).build();
+				.put(K_NUMBER_OF_VOTES, numberOfVotes).put(K_DELAY_VALIDATED, delayValidated).build();
 	}
 
 	public static JsonEnvelope voteOnline(String player, String uuid, String service, long time, boolean wasOnline,
 			boolean realVote, String totals, UUID voteId, boolean manageTotals, boolean bungeeBroadcast, int num,
 			int numberOfVotes) {
+		return voteOnline(player, uuid, service, time, wasOnline, realVote, totals, voteId, manageTotals,
+				bungeeBroadcast, num, numberOfVotes, false);
+	}
+
+	public static JsonEnvelope voteOnline(String player, String uuid, String service, long time, boolean wasOnline,
+			boolean realVote, String totals, UUID voteId, boolean manageTotals, boolean bungeeBroadcast, int num,
+			int numberOfVotes, boolean delayValidated) {
 
 		return base(SUB_VOTE_ONLINE).put(K_PLAYER, safe(player)).put(K_UUID, safe(uuid)).put(K_SERVICE, safe(service))
 				.put(K_TIME, time).put(K_WAS_ONLINE, wasOnline).put(K_WAS_ONLINE_KNOWN, true).put(K_REAL_VOTE, realVote).put(K_TOTALS, safe(totals))
 				.put(K_VOTE_ID, voteId == null ? "" : voteId.toString())
 				.put(K_SET_TOTALS, true).put(K_MANAGE_TOTALS, manageTotals).put(K_BUNGEE_BROADCAST, bungeeBroadcast)
-				.put(K_NUM, num).put(K_NUMBER_OF_VOTES, numberOfVotes).build();
+				.put(K_NUM, num).put(K_NUMBER_OF_VOTES, numberOfVotes)
+				.put(K_DELAY_VALIDATED, delayValidated).build();
 	}
 
 	/**
@@ -234,6 +252,11 @@ public final class VotingPluginWire {
 		return requestsVoteDeliveryAcknowledgement(envelope);
 	}
 
+	public static boolean advertisesVoteDelayRejectionAcknowledgement(JsonEnvelope envelope) {
+		return readInt(envelope.getFields(), K_VOTE_DELAY_REJECTION_ACK_VERSION, 0)
+				>= VOTE_DELAY_REJECTION_ACK_VERSION;
+	}
+
 	public static JsonEnvelope voteDeliveryAcknowledgement(String server, UUID voteId, String voteSubchannel) {
 		return base(SUB_VOTE_DELIVERY_ACK).put(K_SERVER, safe(server))
 				.put(K_VOTE_ID, voteId == null ? "" : voteId.toString())
@@ -269,13 +292,15 @@ public final class VotingPluginWire {
 
 	public static JsonEnvelope statusOkay(String server) {
 		return base(SUB_STATUS_OKAY).put(K_SERVER, safe(server))
-				.put(K_VOTE_DELIVERY_ACK_VERSION, VOTE_DELIVERY_ACK_VERSION).build();
+				.put(K_VOTE_DELIVERY_ACK_VERSION, VOTE_DELIVERY_ACK_VERSION)
+				.put(K_VOTE_DELAY_REJECTION_ACK_VERSION, VOTE_DELAY_REJECTION_ACK_VERSION).build();
 	}
 
 	public static JsonEnvelope statusOkay(String server, UUID requestId) {
 		return base(SUB_STATUS_OKAY).put(K_SERVER, safe(server))
 				.put(K_REQUEST_ID, requestId == null ? "" : requestId.toString())
-				.put(K_VOTE_DELIVERY_ACK_VERSION, VOTE_DELIVERY_ACK_VERSION).build();
+				.put(K_VOTE_DELIVERY_ACK_VERSION, VOTE_DELIVERY_ACK_VERSION)
+				.put(K_VOTE_DELAY_REJECTION_ACK_VERSION, VOTE_DELAY_REJECTION_ACK_VERSION).build();
 	}
 
 	public static JsonEnvelope serverName(String server) {
@@ -370,7 +395,8 @@ public final class VotingPluginWire {
 		return base(SUB_BACKEND_STARTED).put(K_SERVER, safe(server)).put(K_BACKEND_STARTED_AT, backendStartedAt)
 				.put(K_BACKEND_INCARNATION_ID, backendIncarnationId == null ? "" : backendIncarnationId.toString())
 				.put(K_PRESENCE_TIMESTAMP, presenceTimestamp)
-				.put(K_VOTE_DELIVERY_ACK_VERSION, VOTE_DELIVERY_ACK_VERSION).build();
+				.put(K_VOTE_DELIVERY_ACK_VERSION, VOTE_DELIVERY_ACK_VERSION)
+				.put(K_VOTE_DELAY_REJECTION_ACK_VERSION, VOTE_DELAY_REJECTION_ACK_VERSION).build();
 	}
 
 	public static JsonEnvelope backendStopped(String server) {
@@ -401,7 +427,8 @@ public final class VotingPluginWire {
 		return base(SUB_BACKEND_HEARTBEAT).put(K_SERVER, safe(server)).put(K_BACKEND_STARTED_AT, backendStartedAt)
 				.put(K_BACKEND_INCARNATION_ID, backendIncarnationId == null ? "" : backendIncarnationId.toString())
 				.put(K_PRESENCE_TIMESTAMP, presenceTimestamp)
-				.put(K_VOTE_DELIVERY_ACK_VERSION, VOTE_DELIVERY_ACK_VERSION).build();
+				.put(K_VOTE_DELIVERY_ACK_VERSION, VOTE_DELIVERY_ACK_VERSION)
+				.put(K_VOTE_DELAY_REJECTION_ACK_VERSION, VOTE_DELAY_REJECTION_ACK_VERSION).build();
 	}
 
 	public static JsonEnvelope presenceResyncRequest(String server, UUID requestId, long requestedAt) {
@@ -535,13 +562,14 @@ public final class VotingPluginWire {
 
 		public final boolean setTotals;
 		public final boolean manageTotals;
+		public final boolean delayValidated;
 		public final boolean broadcast; // historically bungeeBroadcast
 		public final int num;
 		public final int numberOfVotes;
 
 		private Vote(String subChannel, String player, String uuid, String service, long time, boolean wasOnline,
 				boolean wasOnlineKnown, boolean realVote, String totals, UUID voteId, boolean setTotals,
-				boolean manageTotals, boolean broadcast, int num, int numberOfVotes) {
+				boolean manageTotals, boolean delayValidated, boolean broadcast, int num, int numberOfVotes) {
 			this.subChannel = subChannel;
 			this.player = player;
 			this.uuid = uuid;
@@ -554,6 +582,7 @@ public final class VotingPluginWire {
 			this.voteId = voteId;
 			this.setTotals = setTotals;
 			this.manageTotals = manageTotals;
+			this.delayValidated = delayValidated;
 			this.broadcast = broadcast;
 			this.num = num;
 			this.numberOfVotes = numberOfVotes;
@@ -577,6 +606,7 @@ public final class VotingPluginWire {
 
 		final boolean setTotals = readBool(f, K_SET_TOTALS, true);
 		final boolean manageTotals = readBool(f, K_MANAGE_TOTALS, false);
+		final boolean delayValidated = readBool(f, K_DELAY_VALIDATED, false);
 
 		final boolean broadcast = readBool(f, K_BUNGEE_BROADCAST, false);
 
@@ -584,7 +614,7 @@ public final class VotingPluginWire {
 		final int numberOfVotes = readInt(f, K_NUMBER_OF_VOTES, 1);
 
 		return new Vote(sub, player, uuid, service, time, wasOnline, wasOnlineKnown, realVote, totals, voteId,
-				setTotals, manageTotals, broadcast, num, numberOfVotes);
+				setTotals, manageTotals, delayValidated, broadcast, num, numberOfVotes);
 	}
 
 	public static final class VoteDelayRejected {

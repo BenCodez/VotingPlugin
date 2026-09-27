@@ -226,7 +226,7 @@ class BackendProxyMessageRouterTest {
 		AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
 		JsonEnvelope vote = VotingPluginWire.requestVoteDeliveryAcknowledgement(
 				VotingPluginWire.vote("Player", PLAYER_UUID.toString(), "known.example", LAST_VOTE_TIME,
-						true, true, "", voteId, false, false, 1, 1));
+						true, true, "", voteId, false, false, 1, 1, true));
 
 		voteRouter.handleOrderedVote(vote, outcome::set);
 		assertEquals(OrderedVoteOutcome.RETRY, outcome.get());
@@ -236,6 +236,27 @@ class BackendProxyMessageRouterTest {
 		verify(cache, times(2)).complete(voteId);
 		verify(user, times(1)).bungeeVotePluginMessaging(any(), anyLong(), any(), anyBoolean(), anyBoolean(),
 				anyBoolean(), anyInt(), eq(true), eq(voteId));
+	}
+
+	@Test
+	void stableVoteIdAloneDoesNotBypassBackendDelayValidation() {
+		UUID voteId = UUID.randomUUID();
+		ProcessedVoteCache cache = mock(ProcessedVoteCache.class);
+		when(cache.reserve(voteId)).thenReturn(true);
+		when(cache.complete(voteId)).thenReturn(true);
+		when(plugin.getBungeeSettings()).thenReturn(mock(BungeeSettings.class));
+		when(plugin.getVotingPluginUserManager().getVotingPluginUser(PLAYER_UUID, "Player"))
+				.thenReturn(user);
+		when(plugin.getServerData()).thenReturn(mock(ServerData.class));
+		BackendProxyMessageRouter voteRouter = new BackendProxyMessageRouter(plugin,
+				mock(BackendPresenceManager.class), mock(BackendGlobalDataSync.class),
+				mock(BackendVotePartySync.class), cache);
+
+		voteRouter.handleOrderedVote(VotingPluginWire.vote("Player", PLAYER_UUID.toString(), "known.example",
+				LAST_VOTE_TIME, true, true, "", voteId, false, false, 1, 1), ignored -> { });
+
+		verify(user).bungeeVotePluginMessaging(any(), anyLong(), any(), anyBoolean(), anyBoolean(),
+				anyBoolean(), anyInt(), eq(false), eq(voteId));
 	}
 
 	@Test

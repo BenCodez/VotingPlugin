@@ -89,6 +89,8 @@ public class BackendProxyMessageRouter {
 				out.put(VotingPluginWire.K_SERVER, nvl(plugin.getOptions().getServer()));
 				out.put(VotingPluginWire.K_VOTE_DELIVERY_ACK_VERSION,
 						VotingPluginWire.VOTE_DELIVERY_ACK_VERSION);
+				out.put(VotingPluginWire.K_VOTE_DELAY_REJECTION_ACK_VERSION,
+						VotingPluginWire.VOTE_DELAY_REJECTION_ACK_VERSION);
 				String requestId = nvl(msg.getFields().get(VotingPluginWire.K_REQUEST_ID));
 				if (!requestId.isEmpty()) out.put(VotingPluginWire.K_REQUEST_ID, requestId);
 				sendSubChannel(messages, VotingPluginWire.SUB_STATUS_OKAY, out);
@@ -454,7 +456,7 @@ public class BackendProxyMessageRouter {
 		user.cache();
 		boolean wasOnline = vote.wasOnlineKnown ? vote.wasOnline : user.isOnline();
 		user.bungeeVotePluginMessaging(vote.service, vote.time, totals, !vote.manageTotals,
-				wasOnline, vote.broadcast, vote.num, voteId != null, voteId);
+				wasOnline, vote.broadcast, vote.num, vote.delayValidated, voteId);
 		if (plugin.getBungeeSettings().isPerServerPoints()) {
 			user.addPoints(plugin.getConfigFile().getPointsOnVote());
 		}
