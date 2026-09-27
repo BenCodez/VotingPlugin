@@ -83,6 +83,24 @@ public final class ServiceSiteValidator {
 		return inert.append(FORMATTING_BOUNDARY).toString();
 	}
 
+	/**
+	 * Keeps ordinary service identifiers byte-for-byte compatible in reward actions
+	 * while breaking placeholder/color-token syntax supplied by an external vote
+	 * source. Unlike {@link #inertForFormatting(String)}, this does not add boundary
+	 * markers around otherwise safe values.
+	 */
+	public static String inertForActions(String value) {
+		if (value == null || value.isEmpty()) return value == null ? "" : value;
+		StringBuilder inert = new StringBuilder(value.length() + 2);
+		for (int offset = 0; offset < value.length();) {
+			int codePoint = value.codePointAt(offset);
+			inert.appendCodePoint(codePoint);
+			if (codePoint == '%' || codePoint == '&') inert.append(FORMATTING_BOUNDARY);
+			offset += Character.charCount(codePoint);
+		}
+		return inert.toString();
+	}
+
 	private static boolean isDisallowed(int codePoint) {
 		if (codePoint == '[' || codePoint == ']' || codePoint == '\'' || codePoint == '"' || codePoint == '`'
 				|| codePoint == '\u00A7'
