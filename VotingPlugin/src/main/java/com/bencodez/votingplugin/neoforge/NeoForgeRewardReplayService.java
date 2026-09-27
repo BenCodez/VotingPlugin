@@ -15,6 +15,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.bencodez.votingplugin.util.MinecraftUsernameValidator;
@@ -34,7 +35,6 @@ public final class NeoForgeRewardReplayService implements AutoCloseable {
     private final AtomicBoolean scanning = new AtomicBoolean();
     private final AtomicBoolean open = new AtomicBoolean(true);
     private final ConcurrentHashMap<UUID, Long> retryAfter = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<UUID, Integer> occurrenceOffsets = new ConcurrentHashMap<>();
     private int userOffset;
     private volatile ScheduledFuture<?> periodic;
 
@@ -57,7 +57,15 @@ public final class NeoForgeRewardReplayService implements AutoCloseable {
     }
 
     void start() {
-        periodic = worker.scheduleWithFixedDelay(this::replayOnce, 1, 1, TimeUnit.SECONDS);
+        periodic = worker.scheduleWithFixedDelay(this::replayScheduled, 1, 1, TimeUnit.SECONDS);
+    }
+
+    void replayScheduled() {
+        replayOnce().whenComplete((ignored, failure) -> {
+            if (failure != null && open.get()) {
+                LOGGER.log(Level.SEVERE, "Scheduled NeoForge reward replay failed", failure);
+            }
+        });
     }
 
     public CompletableFuture<List<ReplayResult>> replayOnce() {
@@ -90,17 +98,14 @@ public final class NeoForgeRewardReplayService implements AutoCloseable {
                             continue;
                         }
                         if (pending.isEmpty()) {
-                            occurrenceOffsets.remove(playerId);
                             continue;
                         }
-                        int voteStart = Math.floorMod(occurrenceOffsets.getOrDefault(playerId, 0), pending.size());
-                        for (int checked = 0; checked < pending.size(); checked++) {
-                            int index = (voteStart + checked) % pending.size();
-                            NeoForgeDeferredVote vote = pending.get(index);
-                            if (retryAfter.getOrDefault(vote.voteId(), 0L) > System.nanoTime()) continue;
-                            occurrenceOffsets.put(playerId, (index + 1) % pending.size());
+                        // Accounting decisions and reward effects are order-sensitive. A delayed
+                        // head occurrence therefore blocks only this player, while the outer loop
+                        // continues admitting other players.
+                        NeoForgeDeferredVote vote = pending.get(0);
+                        if (retryAfter.getOrDefault(vote.voteId(), 0L) <= System.nanoTime()) {
                             work.add(replay(vote));
-                            break;
                         }
                     }
                     if (!users.isEmpty()) userOffset = (start + visited) % users.size();

@@ -24,7 +24,13 @@ final class NeoForgeNativeRewardActions implements NeoForgeRewardActions {
         try {
             return scheduler.executeAsync(() -> {
                 try {
-                    if (plan.requiresOnline() && players.nativePlayer(vote.playerId()).isEmpty()) {
+                    String onlineName = players.online(vote.playerId())
+                            .map(identity -> identity.playerName()).orElse(null);
+                    if (onlineName != null && !onlineName.equals(vote.playerName())) {
+                        throw new IllegalStateException(
+                                "Player identity changed before reward execution");
+                    }
+                    if (plan.requiresOnline() && onlineName == null) {
                         throw new IllegalStateException("Player became unavailable before reward execution");
                     }
                     Object player = plan.actions().stream().anyMatch(action ->
