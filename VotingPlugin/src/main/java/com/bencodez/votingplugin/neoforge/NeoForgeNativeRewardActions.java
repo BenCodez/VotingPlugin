@@ -101,7 +101,7 @@ final class NeoForgeNativeRewardActions implements NeoForgeRewardActions {
         Class<?> componentType = Class.forName("net.minecraft.network.chat.Component", false, loader);
         Object component = componentType.getMethod("literal", String.class).invoke(null, message);
         Method send = findAssignableMethod(player.getClass(), "sendSystemMessage", componentType);
-        invoke(player, send, component);
+        invokeMessage(player, send, component);
     }
 
     private static String replace(String configured, NeoForgeDeferredVote vote) {
@@ -162,6 +162,16 @@ final class NeoForgeNativeRewardActions implements NeoForgeRewardActions {
         } catch (InvocationTargetException failure) {
             throw new UncertainRewardOutcomeException(
                     "NeoForge reward command threw after dispatch began", failure.getCause());
+        }
+    }
+
+    private static Object invokeMessage(Object receiver, Method method, Object... arguments)
+            throws ReflectiveOperationException {
+        try {
+            return method.invoke(receiver, arguments);
+        } catch (InvocationTargetException failure) {
+            throw new UncertainRewardOutcomeException(
+                    "NeoForge player message threw after dispatch began", failure.getCause());
         }
     }
 

@@ -20,6 +20,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import com.bencodez.advancedcore.api.user.UserStorage;
+import com.bencodez.simpleapi.sql.data.DataValueString;
 import com.bencodez.votingplugin.core.vote.SharedVoteIdentity;
 
 class NeoForgeRewardReplayServiceTest {
@@ -76,6 +78,48 @@ class NeoForgeRewardReplayServiceTest {
             assertEquals(NeoForgeRewardReplayService.Status.COMPLETED,
                     runOne(runtime, replay, actions).status());
             assertEquals(List.of("say Alex"), actions.rendered);
+            assertEquals(0, runtime.accounting().load(playerId).orElseThrow().allTimeTotal());
+        }
+    }
+
+    @Test
+    void legacyRetainedVoteWithoutAccountingSnapshotDoesNotRunRewards() throws Exception {
+        writeConfiguration(false);
+        UUID playerId = UUID.randomUUID();
+        UUID voteId = UUID.randomUUID();
+        RecordingActions actions = new RecordingActions();
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory);
+                NeoForgeRewardReplayService replay = service(runtime, actions)) {
+            runtime.players().joined(new SharedVoteIdentity(playerId, "Alex", true));
+            runtime.storage().user(playerId).write(UserStorage.SQLITE,
+                    NeoForgeDeferredVoteStore.DEFERRED_VOTES,
+                    new DataValueString("v1|" + voteId
+                            + "|QWxleA|U2VydmljZQ|U3VwcG9ydGVk|100|true|true|true"));
+
+            List<NeoForgeRewardReplayService.ReplayResult> result = replay.replayOnce().get(5, TimeUnit.SECONDS);
+            assertEquals(NeoForgeRewardReplayService.Status.BLOCKED_UNSUPPORTED, result.get(0).status());
+            assertEquals(0, actions.calls.get());
+            assertEquals(1, runtime.deferredVotes().pending(playerId).size());
+            assertEquals(0, runtime.accounting().load(playerId).orElseThrow().allTimeTotal());
+        }
+    }
+
+    @Test
+    void closeInventoryConfigurationKeepsVotePendingBeforeAnyEffect() throws Exception {
+        writeConfiguration(false);
+        Files.writeString(directory.resolve("Config.yml"), Files.readString(directory.resolve("Config.yml"))
+                .replace("CloseInventoryOnVote: false", "CloseInventoryOnVote: true"));
+        UUID playerId = UUID.randomUUID();
+        RecordingActions actions = new RecordingActions();
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory);
+                NeoForgeRewardReplayService replay = service(runtime, actions)) {
+            runtime.players().joined(new SharedVoteIdentity(playerId, "Alex", true));
+            retain(runtime, UUID.randomUUID(), playerId, "Service");
+
+            List<NeoForgeRewardReplayService.ReplayResult> result = replay.replayOnce().get(5, TimeUnit.SECONDS);
+            assertEquals(NeoForgeRewardReplayService.Status.BLOCKED_UNSUPPORTED, result.get(0).status());
+            assertEquals(0, actions.calls.get());
+            assertEquals(1, runtime.deferredVotes().pending(playerId).size());
             assertEquals(0, runtime.accounting().load(playerId).orElseThrow().allTimeTotal());
         }
     }
@@ -748,6 +792,33 @@ class NeoForgeRewardReplayServiceTest {
     }
 
     @Test
+    void playerMessageExceptionAfterDispatchIsUncertain() throws Exception {
+        NeoForgeServerScheduler scheduler = new NeoForgeServerScheduler();
+        NeoForgePlayerDirectory players = new NeoForgePlayerDirectory();
+        FakeMessagePlayer player = new FakeMessagePlayer(UUID.randomUUID());
+        players.joined(player);
+        try {
+            NeoForgeNativeRewardActions actions = new NeoForgeNativeRewardActions(new Object(), scheduler, players);
+            NeoForgeDeferredVote vote = new NeoForgeDeferredVote(UUID.randomUUID(), player.uuid,
+                    "Alex", "Service", "Supported", 100L, true, true, true);
+            NeoForgeRewardPlan plan = new NeoForgeRewardPlan(NeoForgeRewardPlan.Status.READY,
+                    List.of(new NeoForgeRewardPlan.Action(
+                            NeoForgeRewardPlan.ActionType.PLAYER_MESSAGE, "Thanks %player%")), true, "test");
+
+            CompletableFuture<Void> completion = actions.execute(vote, plan);
+            scheduler.onServerTick();
+
+            java.util.concurrent.ExecutionException failure = assertThrows(
+                    java.util.concurrent.ExecutionException.class,
+                    () -> completion.get(5, TimeUnit.SECONDS));
+            assertTrue(failure.getCause() instanceof NeoForgeNativeRewardActions.UncertainRewardOutcomeException);
+            assertEquals(1, player.deliveries.get());
+        } finally {
+            scheduler.close();
+        }
+    }
+
+    @Test
     void uncertainRewardStopsAutomaticReplay() throws Exception {
         writeConfiguration(false);
         UUID playerId = UUID.randomUUID();
@@ -814,6 +885,7 @@ class NeoForgeRewardReplayServiceTest {
                 ProcessRewards: true
                 PointsOnVote: 1
                 LimitVotePoints: -1
+                CloseInventoryOnVote: false
                 UseVoteStreaks: false
                 PerSiteCoolDownEvents: false
                 VoteBroadcast:
@@ -952,5 +1024,21 @@ class NeoForgeRewardReplayServiceTest {
 
     public static final class PassingParseResult {
         public java.util.Map<String, String> getExceptions() { return java.util.Map.of(); }
+    }
+
+    public static final class FakeMessagePlayer {
+        final UUID uuid;
+        final AtomicInteger deliveries = new AtomicInteger();
+        FakeMessagePlayer(UUID uuid) { this.uuid = uuid; }
+        public UUID getUUID() { return uuid; }
+        public FakeName getName() { return new FakeName(); }
+        public void sendSystemMessage(net.minecraft.network.chat.Component component) {
+            deliveries.incrementAndGet();
+            throw new IllegalStateException("message handler failed after dispatch");
+        }
+    }
+
+    public static final class FakeName {
+        public String getString() { return "Alex"; }
     }
 }

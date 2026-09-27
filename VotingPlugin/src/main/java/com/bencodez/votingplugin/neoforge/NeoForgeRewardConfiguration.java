@@ -66,6 +66,9 @@ final class NeoForgeRewardConfiguration {
     }
 
     private String unsupportedGlobalBehavior() {
+        if (node(config, ignoreCase, "CloseInventoryOnVote").getBoolean(true)) {
+            return "CloseInventoryOnVote is not supported by NeoForge replay yet";
+        }
         String broadcast = node(config, ignoreCase, "VoteBroadcast", "Type").getString("EVERY_VOTE");
         if (!"NONE".equalsIgnoreCase(broadcast)) return "VoteBroadcast is not supported by NeoForge replay yet";
         if (node(config, ignoreCase, "PerSiteCoolDownEvents").getBoolean(false)) {

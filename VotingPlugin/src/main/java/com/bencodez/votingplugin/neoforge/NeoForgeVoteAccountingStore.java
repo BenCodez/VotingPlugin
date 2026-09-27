@@ -132,12 +132,8 @@ public final class NeoForgeVoteAccountingStore {
             boolean currentlyOnline, String currentPlayerName) {
         SharedVoteIdentity identity = new SharedVoteIdentity(vote.playerId(), currentPlayerName, currentlyOnline);
         NeoForgeVoteAccountingDecision decision = vote.accountingDecision();
-        if (decision == null) {
-            SharedVoteInput input = new SharedVoteInput(vote.voteId(), vote.playerName(), vote.serviceSite(),
-                    vote.voteTime(), vote.realVote(), vote.addTotals(), false, false, vote.wasOnline());
-            decision = NeoForgeVoteAccountingDecision.capture(input, configuration.policyFor(site),
-                    vote.wasOnline(), configuration.pointsOnVote(), configuration.limitVotePoints());
-        }
+        if (decision == null) throw new IllegalStateException(
+                "Deferred NeoForge vote has no accepted accounting snapshot");
 
         Row current = Row.from(columns);
         LinkedHashMap<String, Long> lastVotes = parseLastVotes(current.string(LAST_VOTES));

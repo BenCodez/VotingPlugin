@@ -171,7 +171,7 @@ class NeoForgeDeferredVoteStoreTest {
     }
 
     @Test
-    void legacyAccountingUsesRetainedOfflineState() throws IOException {
+    void legacyAccountingWithoutAcceptedSnapshotFailsClosed() throws IOException {
         writeConfiguration();
         Files.writeString(directory.resolve("Config.yml"), Files.readString(directory.resolve("Config.yml"))
                 .replace("AddTotalsOffline: true", "AddTotalsOffline: false"));
@@ -185,10 +185,11 @@ class NeoForgeDeferredVoteStoreTest {
             NeoForgeVoteSite site = runtime.voteConfiguration().configuredSite("Example").orElseThrow();
             try (NeoForgeDeferredVoteStore.Claim claim = runtime.deferredVotes()
                     .claim(playerId, voteId).orElseThrow()) {
-                assertEquals(NeoForgeDeferredVoteStore.CompletionResult.COMPLETED,
-                        claim.completeWithAccounting(runtime.accounting(), site, true).result());
+                assertThrows(IllegalStateException.class,
+                        () -> claim.completeWithAccounting(runtime.accounting(), site, true));
             }
             assertEquals(0, runtime.accounting().load(playerId).orElseThrow().allTimeTotal());
+            assertEquals(1, runtime.deferredVotes().pending(playerId).size());
         }
     }
 

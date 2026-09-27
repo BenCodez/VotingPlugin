@@ -133,6 +133,10 @@ public final class NeoForgeRewardReplayService implements AutoCloseable {
             return CompletableFuture.completedFuture(result(vote, Status.REWARD_UNCERTAIN,
                     "Durably quarantined after an uncertain external effect; operator action is required"));
         }
+        if (vote.accountingDecision() == null) {
+            return CompletableFuture.completedFuture(delayed(vote, Status.BLOCKED_UNSUPPORTED,
+                    "Legacy retained vote has no accepted accounting snapshot; operator action is required", 60));
+        }
         var onlineIdentity = players.online(vote.playerId());
         String currentName = onlineIdentity.map(identity -> identity.playerName()).orElse(vote.playerName());
         if (!MinecraftUsernameValidator.isValid(currentName, configuration.bedrockPlayerPrefix())) {
