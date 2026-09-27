@@ -144,7 +144,7 @@ public final class NeoForgeRewardReplayService implements AutoCloseable {
                     "Legacy retained vote has no accepted accounting snapshot; operator action is required", 60));
         }
         var onlineIdentity = players.online(vote.playerId());
-        String currentName = onlineIdentity.map(identity -> identity.playerName()).orElse(vote.playerName());
+        String currentName = players.latestName(vote.playerId()).orElse(vote.playerName());
         if (!MinecraftUsernameValidator.isValid(currentName, configuration.bedrockPlayerPrefix())) {
             return CompletableFuture.completedFuture(delayed(vote, Status.BLOCKED_UNSUPPORTED,
                     "Retained player name is invalid and cannot be used in rewards", 60));

@@ -82,6 +82,9 @@ class NeoForgeRuntimeTest {
         assertEquals(player, NeoForgePlayerDirectory.playerFromEvent(new FakeEvent(player)));
         players.left(player);
         assertTrue(players.online(uuid).isEmpty());
+        assertEquals("Ben", players.latestName(uuid).orElseThrow());
+        players.clear();
+        assertTrue(players.latestName(uuid).isEmpty());
     }
 
     @Test
