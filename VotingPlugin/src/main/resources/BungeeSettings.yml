@@ -9,7 +9,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # 📑 Config Index (matches this file)
 # ─────────────────────────────────────────────────────────────────────────────
-#  • Core proxy toggle (UseBungeecord) + method selection (BungeeMethod)
+#  • Core proxy toggle (UseBungeecord) + method selection (ProxyCommunicationMethod)
 #  • Method configs (PLUGINMESSAGING / HTTP / REDIS / MQTT / MYSQL / SOCKETS)
 #  • Broadcast behavior (BungeeBroadcast / DisableBroadcast / Always)
 #  • Per-server behavior (PerServerRewards / Milestones / Points)
@@ -67,7 +67,7 @@ UseBungeecord: false
 # MQTT
 # MYSQL
 # SOCKETS (Not recommended)
-BungeeMethod: PLUGINMESSAGING
+ProxyCommunicationMethod: PLUGINMESSAGING
 
 # Secure direct transport. The proxy generates a temporary ConnectionCode.
 # Paste it here once, start the backend, then remove it after enrollment succeeds.
@@ -75,7 +75,7 @@ BungeeMethod: PLUGINMESSAGING
 HTTP:
   ConnectionCode: ''
 
-# Use Redis for between server communication, set BungeeMethod to REDIS to use this
+# Use Redis for between server communication, set ProxyCommunicationMethod to REDIS to use this
 Redis:
   Host: localhost
   Port: 6379
