@@ -61,6 +61,9 @@ public final class SharedVoteProcessor {
         boolean processRewards();
         void giveWaitRewards(S site, U user, boolean online, boolean proxyVote);
         boolean proxyVote();
+
+        /** Whether this proxy vote was routed only to the player's selected backend. */
+        default boolean targetedProxyVote() { return false; }
         boolean forceProxyRouting();
         boolean wasOnline();
         boolean realVote();
@@ -183,7 +186,9 @@ public final class SharedVoteProcessor {
         String userId = ops.userId(user);
         ops.cache(user);
         ops.updateName(user);
-        boolean onlineAtVoteTime = ops.proxyVote() ? ops.wasOnline() : ops.userOnline(user);
+        boolean onlineAtVoteTime = ops.proxyVote()
+                ? ops.wasOnline() && (ops.targetedProxyVote() || ops.userOnline(user))
+                : ops.userOnline(user);
         ops.voteParty(user, ops.realVote(), ops.forceProxyRouting(), onlineAtVoteTime);
         if (ops.broadcastEnabled() && ops.hasBroadcastHandler()) {
             boolean currentOnline = ops.userOnline(user);

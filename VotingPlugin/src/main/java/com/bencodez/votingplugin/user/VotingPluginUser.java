@@ -957,7 +957,14 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	public void bungeeVotePluginMessaging(String service, long time, VoteTotalsSnapshot text, boolean setTotals,
 			boolean wasOnline, boolean broadcast, int num, boolean queuedProxyVote,
 			boolean proxyDelayValidationKnown, UUID proxyVoteId) {
-		if (plugin.getBungeeSettings().isUseBungeecoord()) {
+		bungeeVotePluginMessaging(service, time, text, setTotals, wasOnline, broadcast, num, queuedProxyVote,
+				proxyDelayValidationKnown, proxyVoteId, false);
+	}
+
+	public void bungeeVotePluginMessaging(String service, long time, VoteTotalsSnapshot text, boolean setTotals,
+			boolean wasOnline, boolean broadcast, int num, boolean queuedProxyVote,
+			boolean proxyDelayValidationKnown, UUID proxyVoteId, boolean targetedProxyVote) {
+			if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			plugin.debug("Pluginmessaging vote for " + getPlayerName() + " on " + service);
 
 			PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSiteManager().getVoteSite(service, true),
@@ -973,8 +980,9 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			voteEvent.setBroadcast(broadcast);
 			voteEvent.setVoteNumber(num);
 			voteEvent.setQueuedProxyVote(queuedProxyVote);
-			voteEvent.setProxyDelayValidationKnown(proxyDelayValidationKnown);
-			plugin.getServer().getPluginManager().callEvent(voteEvent);
+				voteEvent.setProxyDelayValidationKnown(proxyDelayValidationKnown);
+				voteEvent.setTargetedProxyVote(targetedProxyVote);
+				plugin.getServer().getPluginManager().callEvent(voteEvent);
 		}
 	}
 
