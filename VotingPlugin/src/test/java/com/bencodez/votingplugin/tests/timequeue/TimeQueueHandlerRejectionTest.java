@@ -60,6 +60,7 @@ class TimeQueueHandlerRejectionTest {
 		when(plugin.getVoteTimer()).thenReturn(voteTimer);
 		when(plugin.getLogger()).thenReturn(logger);
 		when(plugin.isEnabled()).thenReturn(true);
+		when(serverData.getTimedVoteRetirements()).thenReturn(List.of());
 		when(serverData.getTimedVoteCacheKeys()).thenReturn(Set.of("0"));
 		when(serverData.getTimedVoteCacheSection("0")).thenReturn(cachedVote);
 		when(cachedVote.getString("Name")).thenReturn("Steve");
@@ -108,7 +109,7 @@ class TimeQueueHandlerRejectionTest {
 
 		@SuppressWarnings("unchecked")
 		org.mockito.ArgumentCaptor<List<VoteTimeQueue>> persisted = org.mockito.ArgumentCaptor.forClass(List.class);
-		verify(serverData).replaceTimedVoteCache(persisted.capture());
+		verify(serverData).replaceTimedVoteState(persisted.capture(), org.mockito.ArgumentMatchers.eq(List.of()));
 		assertEquals(voteId, persisted.getValue().getFirst().getVoteId());
 	}
 
@@ -124,17 +125,19 @@ class TimeQueueHandlerRejectionTest {
 		handler.processQueue();
 
 		org.mockito.InOrder retirement = org.mockito.Mockito.inOrder(serverData);
-		retirement.verify(serverData).replaceTimedVoteCache(List.of(second));
+		retirement.verify(serverData).replaceTimedVoteState(List.of(second), List.of(first.getVoteId()));
 		retirement.verify(serverData).clearVotePartyAccounting(first.getVoteId());
-		retirement.verify(serverData).replaceTimedVoteCache(List.of());
+		retirement.verify(serverData).replaceTimedVoteState(List.of(second), List.of());
+		retirement.verify(serverData).replaceTimedVoteState(List.of(), List.of(second.getVoteId()));
 		retirement.verify(serverData).clearVotePartyAccounting(second.getVoteId());
+		retirement.verify(serverData).replaceTimedVoteState(List.of(), List.of());
 		verify(serverData, never()).clearTimedVoteCache();
 	}
 
 	@Test
 	void failedDurableAdmissionLeavesTheVoteWithItsSourceOwner() {
 		when(serverData.getTimedVoteCacheKeys()).thenReturn(Set.of());
-		doThrow(new IllegalStateException("disk unavailable")).when(serverData).replaceTimedVoteCache(any());
+		doThrow(new IllegalStateException("disk unavailable")).when(serverData).replaceTimedVoteState(any(), any());
 		TimeQueueHandler handler = new TimeQueueHandler(plugin);
 
 		org.junit.jupiter.api.Assertions.assertFalse(
@@ -179,7 +182,7 @@ class TimeQueueHandlerRejectionTest {
 		assertEquals(vote, handler.getTimeChangeQueue().peek());
 		@SuppressWarnings("unchecked")
 		org.mockito.ArgumentCaptor<List<VoteTimeQueue>> persisted = org.mockito.ArgumentCaptor.forClass(List.class);
-		verify(serverData).replaceTimedVoteCache(persisted.capture());
+		verify(serverData).replaceTimedVoteState(persisted.capture(), org.mockito.ArgumentMatchers.eq(List.of()));
 		assertEquals(List.of(vote, following), persisted.getValue());
 	}
 
@@ -199,7 +202,7 @@ class TimeQueueHandlerRejectionTest {
 		handler.processQueue();
 
 		assertEquals(vote, handler.getTimeChangeQueue().peek());
-		verify(serverData).replaceTimedVoteCache(List.of(vote));
+		verify(serverData).replaceTimedVoteState(List.of(vote), List.of());
 	}
 
 	@Test
@@ -231,7 +234,7 @@ class TimeQueueHandlerRejectionTest {
 
 		handler.save();
 
-		verify(serverData).replaceTimedVoteCache(List.of(first, second));
+		verify(serverData).replaceTimedVoteState(List.of(first, second), List.of());
 		release.countDown();
 		worker.join(1000L);
 		assertFalse(worker.isAlive());
@@ -279,7 +282,7 @@ class TimeQueueHandlerRejectionTest {
 		assertDoesNotThrow(handler::processQueue);
 
 		assertEquals(vote, handler.getTimeChangeQueue().peek());
-		verify(serverData).replaceTimedVoteCache(List.of(vote));
+		verify(serverData).replaceTimedVoteState(List.of(vote), List.of());
 		verify(plugin.getBukkitScheduler()).runTaskLaterAsynchronously(
 				org.mockito.ArgumentMatchers.eq(plugin), any(Runnable.class), anyLong());
 	}
@@ -315,7 +318,7 @@ class TimeQueueHandlerRejectionTest {
 		VoteTimeQueue vote = new VoteTimeQueue(UUID.randomUUID(), "Alex", "example.org", 123L);
 		handler.getTimeChangeQueue().add(vote);
 		doThrow(new IllegalStateException("disk unavailable")).doNothing()
-				.when(serverData).replaceTimedVoteCache(any());
+				.when(serverData).replaceTimedVoteState(any(), any());
 		org.bukkit.plugin.PluginManager pluginManager = plugin.getServer().getPluginManager();
 		doAnswer(invocation -> {
 			PlayerVoteEvent event = invocation.getArgument(0);
@@ -334,9 +337,27 @@ class TimeQueueHandlerRejectionTest {
 		retry.getValue().run();
 
 		org.mockito.InOrder persistedBeforeProcessing = org.mockito.Mockito.inOrder(serverData, voteTimer);
-		persistedBeforeProcessing.verify(serverData, org.mockito.Mockito.times(2)).replaceTimedVoteCache(any());
+		persistedBeforeProcessing.verify(serverData, org.mockito.Mockito.times(2)).replaceTimedVoteState(any(), any());
 		persistedBeforeProcessing.verify(voteTimer).schedule(any(Runnable.class),
 				org.mockito.ArgumentMatchers.eq(0L), org.mockito.ArgumentMatchers.eq(TimeUnit.SECONDS));
+	}
+
+	@Test
+	void failedCompletionSnapshotKeepsTheInFlightVoteForShutdownRecovery() {
+		when(serverData.getTimedVoteCacheKeys()).thenReturn(Set.of());
+		TimeQueueHandler handler = new TimeQueueHandler(plugin);
+		VoteTimeQueue vote = new VoteTimeQueue(UUID.randomUUID(), "Alex", "example.org", 123L);
+		handler.getTimeChangeQueue().add(vote);
+		doThrow(new IllegalStateException("disk unavailable")).doNothing()
+				.when(serverData).replaceTimedVoteState(any(), any());
+
+		handler.processQueue();
+		handler.save();
+
+		org.mockito.InOrder persistence = org.mockito.Mockito.inOrder(serverData);
+		persistence.verify(serverData).replaceTimedVoteState(List.of(), List.of(vote.getVoteId()));
+		persistence.verify(serverData).replaceTimedVoteState(List.of(vote), List.of());
+		verify(serverData, never()).clearVotePartyAccounting(vote.getVoteId());
 	}
 
 	@Test
@@ -360,6 +381,39 @@ class TimeQueueHandlerRejectionTest {
 		verify(serverData).clearVotePartyAccounting(second.getVoteId());
 		verify(plugin.getBukkitScheduler()).runTaskLaterAsynchronously(
 				org.mockito.ArgumentMatchers.eq(plugin), any(Runnable.class), anyLong());
+	}
+
+	@Test
+	void failedRetirementSurvivesRestartAndIsRemovedAfterRetry() {
+		when(serverData.getTimedVoteCacheKeys()).thenReturn(Set.of());
+		UUID voteId = UUID.randomUUID();
+		TimeQueueHandler handler = new TimeQueueHandler(plugin);
+		clearInvocations(plugin.getBukkitScheduler(), serverData);
+		handler.getTimeChangeQueue().add(new VoteTimeQueue(voteId, "Alex", "example.org", 123L));
+		doThrow(new IllegalStateException("disk unavailable")).when(serverData).clearVotePartyAccounting(voteId);
+
+		handler.processQueue();
+
+		verify(serverData).replaceTimedVoteState(List.of(), List.of(voteId));
+		org.mockito.ArgumentCaptor<Runnable> firstRetry = org.mockito.ArgumentCaptor.forClass(Runnable.class);
+		verify(plugin.getBukkitScheduler()).runTaskLaterAsynchronously(
+				org.mockito.ArgumentMatchers.eq(plugin), firstRetry.capture(), anyLong());
+
+		reset(serverData);
+		when(plugin.getServerData()).thenReturn(serverData);
+		when(serverData.getTimedVoteCacheKeys()).thenReturn(Set.of());
+		when(serverData.getTimedVoteRetirements()).thenReturn(List.of(voteId));
+		clearInvocations(plugin.getBukkitScheduler());
+		TimeQueueHandler recovered = new TimeQueueHandler(plugin);
+		org.mockito.ArgumentCaptor<Runnable> recoveredRetry = org.mockito.ArgumentCaptor.forClass(Runnable.class);
+		verify(plugin.getBukkitScheduler()).runTaskLaterAsynchronously(
+				org.mockito.ArgumentMatchers.eq(plugin), recoveredRetry.capture(), anyLong());
+
+		recoveredRetry.getValue().run();
+
+		verify(serverData).clearVotePartyAccounting(voteId);
+		verify(serverData).replaceTimedVoteState(List.of(), List.of());
+		assertTrue(recovered.getTimeChangeQueue().isEmpty());
 	}
 
 	@Test

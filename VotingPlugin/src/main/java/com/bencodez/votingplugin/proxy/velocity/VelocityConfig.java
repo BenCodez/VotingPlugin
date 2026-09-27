@@ -636,6 +636,21 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 	}
 
 	@Override
+	public boolean getAutomaticTimeChangeDay() {
+		return getBoolean(getNode("AutomaticTimeChanges", "Day"), true);
+	}
+
+	@Override
+	public boolean getAutomaticTimeChangeWeek() {
+		return getBoolean(getNode("AutomaticTimeChanges", "Week"), true);
+	}
+
+	@Override
+	public boolean getAutomaticTimeChangeMonth() {
+		return getBoolean(getNode("AutomaticTimeChanges", "Month"), true);
+	}
+
+	@Override
 	public boolean getUseMonthDateTotalsAsPrimaryTotal() {
 		return getBoolean(getNode("UseMonthDateTotalsAsPrimaryTotal"), false);
 	}

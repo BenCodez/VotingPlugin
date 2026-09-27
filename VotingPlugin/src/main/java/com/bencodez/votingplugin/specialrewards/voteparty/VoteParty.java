@@ -15,6 +15,7 @@ import org.bukkit.event.Listener;
 import com.bencodez.advancedcore.api.messages.PlaceholderUtils;
 import com.bencodez.advancedcore.api.misc.MiscUtils;
 import com.bencodez.advancedcore.api.time.TimeChangeTransition;
+import com.bencodez.advancedcore.api.time.TimeType;
 import com.bencodez.advancedcore.api.time.events.DayChangeEvent;
 import com.bencodez.advancedcore.api.time.events.MonthChangeEvent;
 import com.bencodez.advancedcore.api.time.events.WeekChangeEvent;
@@ -258,6 +259,8 @@ public class VoteParty implements Listener {
 	 */
 	@EventHandler
 	public void onDayChange(DayChangeEvent event) {
+		if (event.getTransition() != null && !plugin.getConfigFile().isAutomaticTimeChangeEnabled(TimeType.DAY)
+				&& !plugin.getServerData().isTimeChangeRecoveryActive(event.getTransition())) return;
 		runRecoverableVotePartyReset(event.getTransition(), "VotePartyDayReset",
 				plugin.getSpecialRewardsConfig().isVotePartyResetEachDay());
 	}
@@ -269,6 +272,8 @@ public class VoteParty implements Listener {
 	 */
 	@EventHandler
 	public void onMonthChange(MonthChangeEvent event) {
+		if (event.getTransition() != null && !plugin.getConfigFile().isAutomaticTimeChangeEnabled(TimeType.MONTH)
+				&& !plugin.getServerData().isTimeChangeRecoveryActive(event.getTransition())) return;
 		runRecoverableVotePartyReset(event.getTransition(), "VotePartyMonthReset",
 				plugin.getSpecialRewardsConfig().isVotePartyResetMonthly());
 		runRecoverableExtraReset(event.getTransition(), "VotePartyMonthExtraVotes",
@@ -282,6 +287,8 @@ public class VoteParty implements Listener {
 	 */
 	@EventHandler
 	public void onWeekChange(WeekChangeEvent event) {
+		if (event.getTransition() != null && !plugin.getConfigFile().isAutomaticTimeChangeEnabled(TimeType.WEEK)
+				&& !plugin.getServerData().isTimeChangeRecoveryActive(event.getTransition())) return;
 		runRecoverableVotePartyReset(event.getTransition(), "VotePartyWeekReset",
 				plugin.getSpecialRewardsConfig().isVotePartyResetWeekly());
 		runRecoverableExtraReset(event.getTransition(), "VotePartyWeekExtraVotes",
@@ -406,13 +413,24 @@ public class VoteParty implements Listener {
 	 * @param forceBungee whether to force Bungee processing
 	 */
 	public synchronized void vote(VotingPluginUser user, boolean realVote, boolean forceBungee) {
-		vote(user, realVote, forceBungee, null);
+		vote(user, realVote, forceBungee, user.isOnline());
 	}
 
 	public synchronized void vote(VotingPluginUser user, boolean realVote, boolean forceBungee, UUID voteId) {
+		vote(user, realVote, forceBungee, voteId, user.isOnline());
+	}
+
+	/** Preserves the original presence decision for delayed proxy deliveries. */
+	public synchronized void vote(VotingPluginUser user, boolean realVote, boolean forceBungee,
+			boolean onlineAtVoteTime) {
+		vote(user, realVote, forceBungee, null, onlineAtVoteTime);
+	}
+
+	private void vote(VotingPluginUser user, boolean realVote, boolean forceBungee, UUID voteId,
+			boolean onlineAtVoteTime) {
 		boolean eligible = plugin.getSpecialRewardsConfig().isVotePartyEnabled()
 				&& (plugin.getSpecialRewardsConfig().isVotePartyCountFakeVotes() || realVote)
-				&& (plugin.getSpecialRewardsConfig().isVotePartyCountOfflineVotes() || user.isOnline());
+				&& (plugin.getSpecialRewardsConfig().isVotePartyCountOfflineVotes() || onlineAtVoteTime);
 		voteAdmitted(user, forceBungee, voteId, eligible);
 	}
 

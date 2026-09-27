@@ -2912,6 +2912,31 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
+	void automaticTimeChangeControlsAreGranular() {
+		Mockito.when(votingPluginProxy.getConfig().getAutomaticTimeChangeDay()).thenReturn(true);
+		Mockito.when(votingPluginProxy.getConfig().getAutomaticTimeChangeWeek()).thenReturn(false);
+		Mockito.when(votingPluginProxy.getConfig().getAutomaticTimeChangeMonth()).thenReturn(true);
+
+		assertTrue(votingPluginProxy.isAutomaticTimeChangeEnabled(TimeType.DAY));
+		assertFalse(votingPluginProxy.isAutomaticTimeChangeEnabled(TimeType.WEEK));
+		assertTrue(votingPluginProxy.isAutomaticTimeChangeEnabled(TimeType.MONTH));
+	}
+
+	@Test
+	void disabledAutomaticMonthChangeSkipsGlobalProcessingButManualStillRuns() {
+		Mockito.when(votingPluginProxy.getConfig().getAutomaticTimeChangeMonth()).thenReturn(false);
+		Mockito.when(votingPluginProxy.getConfig().getGlobalDataEnabled()).thenReturn(true);
+		Mockito.when(votingPluginProxy.getConfig().getVoteCacheTime()).thenReturn(-1);
+		votingPluginProxy.setAvailableServers();
+
+		votingPluginProxy.getBungeeTimeChecker().timeChanged(TimeType.MONTH, false, true, true);
+		verify(globalDataHandler, never()).onTimeChange(TimeType.MONTH);
+
+		votingPluginProxy.getBungeeTimeChecker().timeChanged(TimeType.MONTH, true, true, true);
+		verify(globalDataHandler).onTimeChange(TimeType.MONTH);
+	}
+
+	@Test
 	void rolloverCompletesBeforeVoteDataLoadsAndRejectedVoteDoesNotBroadcast() {
 		votingPluginProxy.setPlayerOnline(false);
 		Mockito.when(votingPluginProxy.getConfig().getBungeeManageTotals()).thenReturn(true);

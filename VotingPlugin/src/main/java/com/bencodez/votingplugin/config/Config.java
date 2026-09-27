@@ -16,6 +16,7 @@ import com.bencodez.simpleapi.file.annotation.ConfigDataKeys;
 import com.bencodez.simpleapi.file.annotation.ConfigDataListString;
 import com.bencodez.simpleapi.file.annotation.ConfigDataLong;
 import com.bencodez.simpleapi.file.annotation.ConfigDataString;
+import com.bencodez.advancedcore.api.time.TimeType;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.placeholders.PlaceholderCacheLevel;
 import com.bencodez.votingplugin.topvoter.TopVoter;
@@ -56,6 +57,30 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "QueueVotesDuringTimeChange")
 	@Getter
 	private boolean queueVotesDuringTimeChange = false;
+
+	@ConfigDataBoolean(path = "AutomaticTimeChanges.Day")
+	@Getter
+	private boolean automaticTimeChangesDay = true;
+
+	@ConfigDataBoolean(path = "AutomaticTimeChanges.Week")
+	@Getter
+	private boolean automaticTimeChangesWeek = true;
+
+	@ConfigDataBoolean(path = "AutomaticTimeChanges.Month")
+	@Getter
+	private boolean automaticTimeChangesMonth = true;
+
+	public boolean isAutomaticTimeChangeEnabled(TimeType type) {
+		if (type == null) {
+			return true;
+		}
+		return switch (type) {
+		case DAY -> isAutomaticTimeChangesDay();
+		case WEEK -> isAutomaticTimeChangesWeek();
+		case MONTH -> isAutomaticTimeChangesMonth();
+		default -> true;
+		};
+	}
 
 	@ConfigDataBoolean(path = "AdvancedServiceSiteHandling")
 	@Getter

@@ -419,8 +419,9 @@ public class BackendProxyMessageRouter {
 		VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(javaUuid, vote.player);
 		votePartySync.replace(totals.getVotePartyCurrent(), totals.getVotePartyRequired());
 		user.cache();
+		boolean wasOnline = vote.wasOnlineKnown ? vote.wasOnline : user.isOnline();
 		if (!user.bungeeVotePluginMessagingAccepted(vote.service, vote.time, totals, !vote.manageTotals,
-				vote.wasOnline, vote.broadcast, vote.num, voteId)) {
+				wasOnline, vote.broadcast, vote.num, voteId)) {
 			processedVoteCache.release(voteId);
 			throw new SharedVoteAdmissionException("Proxy vote accounting admission failed");
 		}

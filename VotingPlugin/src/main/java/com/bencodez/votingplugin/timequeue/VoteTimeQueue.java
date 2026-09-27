@@ -71,6 +71,12 @@ public class VoteTimeQueue {
 	@Getter
 	@Setter
 	private boolean realVote = true;
+	/** Player online state sampled when the proxy first accepted this vote. */
+	@Getter
+	private boolean wasOnline;
+	/** Whether the vote-time online state is known; legacy rows remain unknown. */
+	@Getter
+	private boolean wasOnlineKnown;
 	/** Sender identity used to route acknowledgement envelopes. */
 	@Getter
 	@Setter
@@ -239,6 +245,12 @@ public class VoteTimeQueue {
 		if (httpBroadcastDeliveryIds != null) {
 			httpBroadcastDeliveryIds.forEach(this::setHttpBroadcastDeliveryId);
 		}
+	}
+
+	/** Stores the sampled vote-time online state for durable replay. */
+	public void setWasOnline(boolean wasOnline) {
+		this.wasOnline = wasOnline;
+		this.wasOnlineKnown = true;
 	}
 
 	/** Configures the durable acknowledgement fence before the first send. */

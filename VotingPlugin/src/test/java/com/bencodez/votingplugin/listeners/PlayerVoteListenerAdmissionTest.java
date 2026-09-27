@@ -166,4 +166,27 @@ class PlayerVoteListenerAdmissionTest {
 		verify(scheduler).runTask(org.mockito.ArgumentMatchers.same(plugin), any(Runnable.class),
 				org.mockito.ArgumentMatchers.same(owner));
 	}
+
+	@Test
+	void closeInventoryRunsOnlyThroughTheCapturedPlayerOwner() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		VotingPluginUser user = mock(VotingPluginUser.class);
+		Player owner = mock(Player.class);
+		UUID uuid = UUID.randomUUID();
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		PlayerVoteListener.PlatformVoteState state = new PlayerVoteListener.PlatformVoteState(true, owner, uuid,
+				"Player", true, false, false);
+		PlayerVoteListener.BukkitOperations operations = new PlayerVoteListener.BukkitOperations(plugin,
+				new PlayerVoteEvent(null, "player", "site", false), state);
+		org.mockito.ArgumentCaptor<Runnable> close = org.mockito.ArgumentCaptor.forClass(Runnable.class);
+
+		operations.closeInventory(user);
+
+		verify(scheduler).runTask(org.mockito.ArgumentMatchers.same(plugin), close.capture(),
+				org.mockito.ArgumentMatchers.same(owner));
+		verify(user, never()).closeInv();
+		close.getValue().run();
+		verify(user).closeInv();
+	}
 }

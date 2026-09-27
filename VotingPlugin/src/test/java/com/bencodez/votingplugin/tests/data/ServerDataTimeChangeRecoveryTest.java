@@ -158,6 +158,28 @@ class ServerDataTimeChangeRecoveryTest {
 	}
 
 	@Test
+	void timedVoteStatePersistsRetirementsAndRollsBackBothSectionsTogether() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		com.bencodez.advancedcore.data.ServerData coreData = mock(com.bencodez.advancedcore.data.ServerData.class);
+		YamlConfiguration yaml = new YamlConfiguration();
+		when(plugin.getDataFolder()).thenReturn(temporaryDirectory.toFile());
+		when(plugin.getServerDataFile()).thenReturn(coreData);
+		when(coreData.getData()).thenReturn(yaml);
+		ServerData data = new ServerData(plugin);
+		VoteTimeQueue existing = new VoteTimeQueue(UUID.randomUUID(), "Alex", "old.example", 123L);
+		UUID existingRetirement = UUID.randomUUID();
+		data.replaceTimedVoteState(List.of(existing), List.of(existingRetirement));
+		VoteTimeQueue failed = new VoteTimeQueue(UUID.randomUUID(), "Steve", "new.example", 124L);
+		doThrow(new IllegalStateException("disk unavailable")).when(coreData).saveData();
+
+		assertThrows(IllegalStateException.class,
+				() -> data.replaceTimedVoteState(List.of(failed), List.of(UUID.randomUUID())));
+
+		assertEquals("Alex", yaml.getString("VotingPlugin.TimedVoteCache.0.Name"));
+		assertEquals(List.of(existingRetirement), data.getTimedVoteRetirements());
+	}
+
+	@Test
 	void ambiguousTimedVoteIsStoredOutsideTheAutomaticReplayQueue() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);
 		com.bencodez.advancedcore.data.ServerData coreData = mock(com.bencodez.advancedcore.data.ServerData.class);

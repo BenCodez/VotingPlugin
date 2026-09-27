@@ -419,6 +419,21 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 	}
 
 	@Override
+	public boolean getAutomaticTimeChangeDay() {
+		return getData().getBoolean("AutomaticTimeChanges.Day", true);
+	}
+
+	@Override
+	public boolean getAutomaticTimeChangeWeek() {
+		return getData().getBoolean("AutomaticTimeChanges.Week", true);
+	}
+
+	@Override
+	public boolean getAutomaticTimeChangeMonth() {
+		return getData().getBoolean("AutomaticTimeChanges.Month", true);
+	}
+
+	@Override
 	public int getTimeHourOffSet() {
 		return getData().getInt("TimeHourOffSet");
 	}

@@ -175,6 +175,8 @@ public class TopVoterHandler implements Listener {
 	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
 	public void onDateChanged(DateChangedEvent event) {
 		if (event.getTransition() != null) {
+			if (!plugin.getConfigFile().isAutomaticTimeChangeEnabled(event.getTimeType())
+					&& !plugin.getServerData().isTimeChangeRecoveryActive(event.getTransition())) return;
 			finishRecoverableDateChange(event);
 			return;
 		}
@@ -195,6 +197,8 @@ public class TopVoterHandler implements Listener {
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onDayChange(DayChangeEvent event) {
 		if (event.getTransition() != null) {
+			if (!plugin.getConfigFile().isAutomaticTimeChangeEnabled(TimeType.DAY)
+					&& !plugin.getServerData().isTimeChangeRecoveryActive(event.getTransition())) return;
 			processRecoverableChange(TopVoter.Daily, event.getTransition());
 			return;
 		}
@@ -300,6 +304,8 @@ public class TopVoterHandler implements Listener {
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onMonthChange(MonthChangeEvent event) {
 		if (event.getTransition() != null) {
+			if (!plugin.getConfigFile().isAutomaticTimeChangeEnabled(TimeType.MONTH)
+					&& !plugin.getServerData().isTimeChangeRecoveryActive(event.getTransition())) return;
 			processRecoverableChange(TopVoter.Monthly, event.getTransition());
 			return;
 		}
@@ -463,6 +469,8 @@ public class TopVoterHandler implements Listener {
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onWeekChange(WeekChangeEvent event) {
 		if (event.getTransition() != null) {
+			if (!plugin.getConfigFile().isAutomaticTimeChangeEnabled(TimeType.WEEK)
+					&& !plugin.getServerData().isTimeChangeRecoveryActive(event.getTransition())) return;
 			processRecoverableChange(TopVoter.Weekly, event.getTransition());
 			return;
 		}

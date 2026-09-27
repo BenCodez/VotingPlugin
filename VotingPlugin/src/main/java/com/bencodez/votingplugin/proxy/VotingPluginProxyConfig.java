@@ -598,6 +598,21 @@ public interface VotingPluginProxyConfig {
 	 */
 	public boolean getTimeChangeFailSafeBypass();
 
+	/** Whether automatic day transitions are processed by the proxy. */
+	default boolean getAutomaticTimeChangeDay() {
+		return true;
+	}
+
+	/** Whether automatic week transitions are processed by the proxy. */
+	default boolean getAutomaticTimeChangeWeek() {
+		return true;
+	}
+
+	/** Whether automatic month transitions are processed by the proxy. */
+	default boolean getAutomaticTimeChangeMonth() {
+		return true;
+	}
+
 	/**
 	 * Gets the time hour offset.
 	 *

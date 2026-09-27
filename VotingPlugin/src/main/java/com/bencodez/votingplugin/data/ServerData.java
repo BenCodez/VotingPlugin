@@ -150,7 +150,13 @@ public class ServerData {
 
 	/** Replaces the durable timed-vote snapshot with one ordered in-memory queue. */
 	public synchronized void replaceTimedVoteCache(List<VoteTimeQueue> votes) {
-		Map<String, Object> previous = snapshotSection("TimedVoteCache");
+		replaceTimedVoteState(votes, getTimedVoteRetirements());
+	}
+
+	/** Atomically replaces pending timed votes and delivery retirements. */
+	public synchronized void replaceTimedVoteState(List<VoteTimeQueue> votes, List<UUID> retirements) {
+		Map<String, Object> previousVotes = snapshotSection("TimedVoteCache");
+		Object previousRetirements = getData().get("TimedVoteRetirements");
 		try {
 			getData().set("TimedVoteCache", null);
 			int index = 0;
@@ -161,9 +167,11 @@ public class ServerData {
 				getData().set(path + ".Time", vote.getTime());
 				getData().set(path + ".VoteId", vote.getVoteId() == null ? null : vote.getVoteId().toString());
 			}
+			getData().set("TimedVoteRetirements", retirements.stream().map(UUID::toString).toList());
 			saveData();
 		} catch (RuntimeException failure) {
-			restoreSection("TimedVoteCache", previous);
+			restoreSection("TimedVoteCache", previousVotes);
+			getData().set("TimedVoteRetirements", previousRetirements);
 			throw failure;
 		}
 	}
@@ -397,6 +405,19 @@ public class ServerData {
 		return getData().getConfigurationSection("TimedVoteCache." + num);
 	}
 
+	/** Returns valid durable retirement identifiers for completed timed votes. */
+	public synchronized List<UUID> getTimedVoteRetirements() {
+		List<UUID> retirements = new ArrayList<>();
+		for (String value : getData().getStringList("TimedVoteRetirements")) {
+			try {
+				retirements.add(UUID.fromString(value));
+			} catch (IllegalArgumentException ignored) {
+				plugin.getLogger().warning("Ignoring invalid timed-vote retirement identifier");
+			}
+		}
+		return List.copyOf(retirements);
+	}
+
 	/**
 	 * Gets the extra required votes for vote party.
 	 *
@@ -595,6 +616,12 @@ public class ServerData {
 		getData().set(path + ".Phase", "START");
 		getData().set(path + ".Cursor", "");
 		saveData();
+	}
+
+	/** Returns whether this exact transition already owns durable recovery state. */
+	public synchronized boolean isTimeChangeRecoveryActive(TimeChangeTransition transition) {
+		if (transition == null) return false;
+		return transition.getId().equals(getData().getString(timeChangeRecoveryPath(transition.getType()) + ".Id", ""));
 	}
 
 	/** Fixes per-user period processing policy for the lifetime of one transition. */

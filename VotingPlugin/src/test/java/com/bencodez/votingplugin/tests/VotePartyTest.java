@@ -144,6 +144,8 @@ public class VotePartyTest {
 		when(transition.getType()).thenReturn(com.bencodez.advancedcore.api.time.TimeType.DAY);
 		when(transition.getId()).thenReturn("DAY:2026-09-21");
 		when(plugin.getSpecialRewardsConfig().isVotePartyResetEachDay()).thenReturn(true);
+		when(plugin.getConfigFile().isAutomaticTimeChangeEnabled(com.bencodez.advancedcore.api.time.TimeType.DAY))
+				.thenReturn(true);
 		when(plugin.getServerData().prepareTimeChangeEffectPolicy(transition, "VotePartyDayReset", true))
 				.thenReturn(true);
 		doReturn(true).when(voteParty)
@@ -175,6 +177,7 @@ public class VotePartyTest {
 		when(transition.retain()).thenReturn(lease);
 		when(transition.getId()).thenReturn("DAY:2026-09-21");
 		when(plugin.getSpecialRewardsConfig().isVotePartyResetEachDay()).thenReturn(false);
+		when(plugin.getServerData().isTimeChangeRecoveryActive(transition)).thenReturn(true);
 		when(plugin.getServerData().prepareTimeChangeEffectPolicy(transition, "VotePartyDayReset", false))
 				.thenReturn(true);
 		doReturn(true).when(voteParty)
@@ -207,6 +210,32 @@ public class VotePartyTest {
 		voteParty.commandVoteParty(sender);
 
 		verify(sender).sendMessage(ChatColor.translateAlternateColorCodes('&', "&cVoteParty not enabled"));
+	}
+
+	@Test
+	public void vote_OfflineHistoricalStateDoesNotCountWhenDisabled() {
+		when(plugin.getSpecialRewardsConfig().isVotePartyEnabled()).thenReturn(true);
+		when(plugin.getSpecialRewardsConfig().isVotePartyCountFakeVotes()).thenReturn(true);
+		when(plugin.getSpecialRewardsConfig().isVotePartyCountOfflineVotes()).thenReturn(false);
+		when(user.isOnline()).thenReturn(true);
+
+		voteParty.vote(user, true, false, false);
+
+		verify(voteParty, never()).addTotal(user);
+	}
+
+	@Test
+	public void vote_OnlineHistoricalStateCountsEvenIfPlayerIsCurrentlyOffline() {
+		when(plugin.getSpecialRewardsConfig().isVotePartyEnabled()).thenReturn(true);
+		when(plugin.getSpecialRewardsConfig().isVotePartyCountFakeVotes()).thenReturn(true);
+		when(plugin.getSpecialRewardsConfig().isVotePartyCountOfflineVotes()).thenReturn(false);
+		when(plugin.getSpecialRewardsConfig().getVotePartyVotesRequired()).thenReturn(10);
+		when(plugin.getServerData().getData().getInt("VoteParty.Total")).thenReturn(0);
+		when(user.isOnline()).thenReturn(false);
+
+		voteParty.vote(user, true, false, true);
+
+		verify(voteParty).addTotal(user, null);
 	}
 
 	@Test

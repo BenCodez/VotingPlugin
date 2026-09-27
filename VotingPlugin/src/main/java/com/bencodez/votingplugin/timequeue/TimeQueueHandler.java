@@ -80,7 +80,7 @@ public class TimeQueueHandler implements Listener {
 		synchronized (queuePersistenceLock) {
 			timeChangeQueue.add(vote);
 			try {
-				plugin.getServerData().replaceTimedVoteCache(pendingVoteSnapshot());
+				plugin.getServerData().replaceTimedVoteState(pendingVoteSnapshot(), retirementSnapshot());
 				return true;
 			} catch (RuntimeException persistenceFailure) {
 				timeChangeQueue.remove(vote);
@@ -95,6 +95,7 @@ public class TimeQueueHandler implements Listener {
 	 * Loads cached votes from server data and schedules queue processing.
 	 */
 	public void load() {
+		completedDeliveries.addAll(plugin.getServerData().getTimedVoteRetirements());
 		List<String> keys = new ArrayList<>(plugin.getServerData().getTimedVoteCacheKeys());
 		keys.sort(Comparator.comparingInt(TimeQueueHandler::timedVoteCacheIndex));
 		for (String str : keys) {
@@ -110,6 +111,7 @@ public class TimeQueueHandler implements Listener {
 					data.getLong("Time")));
 		}
 		scheduleQueueProcessing(120, TimeUnit.SECONDS);
+		if (!completedDeliveries.isEmpty()) scheduleRetry(true);
 	}
 
 	private static int timedVoteCacheIndex(String key) {
@@ -189,39 +191,53 @@ public class TimeQueueHandler implements Listener {
 	private boolean persistQueueSnapshot(UUID completedVoteId) {
 		List<UUID> durableCompletions;
 		synchronized (queuePersistenceLock) {
-			if (completedVoteId != null) {
-				inFlightVote = null;
-				completedDeliveries.addLast(completedVoteId);
+			List<UUID> proposedRetirements = retirementSnapshot();
+			if (completedVoteId != null && !proposedRetirements.contains(completedVoteId)) {
+				proposedRetirements.add(completedVoteId);
 			}
+			List<VoteTimeQueue> proposedVotes = completedVoteId == null
+					? pendingVoteSnapshot() : new ArrayList<>(timeChangeQueue);
 			try {
-				plugin.getServerData().replaceTimedVoteCache(pendingVoteSnapshot());
-				durableCompletions = new ArrayList<>(completedDeliveries);
-				completedDeliveries.clear();
+				plugin.getServerData().replaceTimedVoteState(proposedVotes, proposedRetirements);
+				if (completedVoteId != null) {
+					inFlightVote = null;
+					if (!completedDeliveries.contains(completedVoteId)) completedDeliveries.addLast(completedVoteId);
+				}
+				durableCompletions = retirementSnapshot();
 			} catch (RuntimeException persistenceFailure) {
 				plugin.getLogger().severe("Unable to persist the time-queue retry; the vote remains in memory");
 				plugin.debug(persistenceFailure);
 				return false;
 			}
 		}
-		List<UUID> failedRetirements = new ArrayList<>();
+		List<UUID> successfulRetirements = new ArrayList<>();
 		for (UUID voteId : durableCompletions) {
 			try {
 				VoteShopPurchaseService.completeVoteDelivery(plugin, voteId);
+				successfulRetirements.add(voteId);
 			} catch (RuntimeException persistenceFailure) {
-				failedRetirements.add(voteId);
 				plugin.getLogger().severe("Unable to retire completed timed vote " + voteId
 						+ "; its durable completion will be retried");
 				plugin.debug(persistenceFailure);
 			}
 		}
-		if (!failedRetirements.isEmpty()) {
+		if (!successfulRetirements.isEmpty()) {
 			synchronized (queuePersistenceLock) {
-				for (int index = failedRetirements.size() - 1; index >= 0; index--) {
-					completedDeliveries.addFirst(failedRetirements.get(index));
+				completedDeliveries.removeAll(successfulRetirements);
+				try {
+					plugin.getServerData().replaceTimedVoteState(pendingVoteSnapshot(), retirementSnapshot());
+				} catch (RuntimeException persistenceFailure) {
+					for (UUID voteId : successfulRetirements) {
+						if (!completedDeliveries.contains(voteId)) completedDeliveries.addLast(voteId);
+					}
+					plugin.getLogger().severe("Unable to persist completed timed-vote retirements");
+					plugin.debug(persistenceFailure);
+					scheduleRetry(true);
+					return true;
 				}
 			}
-			scheduleRetry(true);
 		}
+		if (successfulRetirements.size() != durableCompletions.size()) scheduleRetry(true);
 		return true;
 	}
 
@@ -301,11 +317,14 @@ public class TimeQueueHandler implements Listener {
 	public void save() {
 		synchronized (queuePersistenceLock) {
 			List<VoteTimeQueue> pending = pendingVoteSnapshot();
-			if (!pending.isEmpty()) {
-				plugin.getServerData().replaceTimedVoteCache(pending);
-			}
+			plugin.getServerData().replaceTimedVoteState(pending, retirementSnapshot());
 			timeChangeQueue.clear();
 		}
+	}
+
+	/** Must be called while holding {@link #queuePersistenceLock}. */
+	private List<UUID> retirementSnapshot() {
+		return new ArrayList<>(completedDeliveries);
 	}
 
 	/** Must be called while holding {@link #queuePersistenceLock}. */

@@ -8,10 +8,13 @@ public record NeoForgeVoteResult(Status status, NeoForgeVoteAccount account, Str
         UNKNOWN_SITE,
         VOTE_DELAY_ACTIVE,
         DEFERRED,
+        ALREADY_COMPLETED,
         DEFERRED_CAPACITY_REACHED,
         STOPPED
     }
 
     public boolean accountingMutated() { return status == Status.ACCOUNTED; }
     public boolean durablyRetained() { return status == Status.DEFERRED; }
+
+    public boolean durablyCompleted() { return status == Status.ALREADY_COMPLETED; }
 }

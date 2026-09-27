@@ -24,6 +24,11 @@ public class OfflineBungeeVote {
 	private String playerName;
 	@Getter
 	private boolean realVote;
+	/** Player online state sampled when the proxy first accepted this vote. */
+	@Getter
+	private boolean wasOnline;
+	@Getter
+	private boolean wasOnlineKnown;
 	@Getter
 	private String service;
 	@Getter
@@ -230,6 +235,14 @@ public class OfflineBungeeVote {
 				httpBroadcastDeliveryIds);
 	}
 
+	/**
+	 * Sets the sampled vote-time online state and marks it as known.
+	 */
+	public void setWasOnline(boolean wasOnline) {
+		this.wasOnline = wasOnline;
+		this.wasOnlineKnown = true;
+	}
+
 	private static UUID parseVoteId(String voteId) {
 		return voteId == null || voteId.isEmpty() ? null : UUID.fromString(voteId);
 	}
@@ -397,7 +410,7 @@ public class OfflineBungeeVote {
 	public String toString() {
 		return "VoteCache:" + playerName + "/" + uuid + "/" + service + "/" + time + "/" + realVote + "/" + text + "/"
 				+ voteId + "/" + broadcastForwarded + "/" + proxyBroadcastHandled + "/" + broadcastTargets + "/"
-				+ broadcastForwardedServers + "/" + rewardDelivered;
+				+ broadcastForwardedServers + "/" + rewardDelivered + "/" + (wasOnlineKnown ? wasOnline : "unknown");
 	}
 
 }

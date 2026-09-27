@@ -194,9 +194,10 @@ public class PlayerVoteListener implements Listener {
 		@Override public SharedVoteProcessor.AccountingAdmission prepareAccounting(
 				VotingPluginUser user, UUID voteId, boolean countTotals, boolean awardPoints,
 				int pointAmount, int pointCap) {
+			boolean onlineAtVoteTime = event.isBungee() ? event.isWasOnline() : userOnline(user);
             boolean countVoteParty = plugin.getSpecialRewardsConfig().isVotePartyEnabled()
                     && (plugin.getSpecialRewardsConfig().isVotePartyCountFakeVotes() || event.isRealVote())
-                    && (plugin.getSpecialRewardsConfig().isVotePartyCountOfflineVotes() || userOnline(user));
+                    && (plugin.getSpecialRewardsConfig().isVotePartyCountOfflineVotes() || onlineAtVoteTime);
 			VoteShopPurchaseService.VoteAccountingAdmission admission = VoteShopPurchaseService
 					.prepareMysqlVoteAccounting(plugin, voteId, user.getUUID(), countTotals, awardPoints,
 							countVoteParty, event.isForceBungee(), pointAmount, pointCap, user.getPointsPath());
@@ -238,7 +239,11 @@ public class PlayerVoteListener implements Listener {
         @Override public int voteNumber() { return event.getVoteNumber(); }
         @Override public void sendVoteEffects(VotingPluginUser user, boolean online) { user.sendVoteEffects(online); }
         @Override public boolean closeInventoryOnVote() { return plugin.getConfigFile().isCloseInventoryOnVote(); }
-        @Override public void closeInventory(VotingPluginUser user) { user.closeInv(); }
+		@Override public void closeInventory(VotingPluginUser user) {
+			Runnable close = user::closeInv;
+			if (platformState.owner() != null) plugin.getBukkitScheduler().runTask(plugin, close, platformState.owner());
+			else plugin.getBukkitScheduler().runTask(plugin, close);
+		}
         @Override public boolean offlineVotesLimitEnabled() { return plugin.getConfigFile().isOfflineVotesLimitEnabled(); }
         @Override public int offlineVotes(VotingPluginUser user, VoteSite site) { return user.getNumberOfOfflineVotes(site); }
         @Override public int offlineVotesLimitAmount() { return plugin.getConfigFile().getOfflineVotesLimitAmount(); }
