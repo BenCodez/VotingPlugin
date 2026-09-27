@@ -261,7 +261,7 @@ class MultiProxyHandlerLifecycleTest {
 	}
 
 	@Test
-	void unsignedBridgeCopiesAreDeduplicatedWithoutSuppressingVoteIdsOrSignedTraffic(@TempDir Path dataDirectory)
+	void unsignedBridgeCopiesDeduplicateLegacyVoteIdsButNotOriginBoundOrSignedTraffic(@TempDir Path dataDirectory)
 			throws Exception {
 		MultiProxyHandler handler = mock(MultiProxyHandler.class,
 				org.mockito.Mockito.withSettings().useConstructor().defaultAnswer(org.mockito.Mockito.CALLS_REAL_METHODS));
@@ -282,12 +282,37 @@ class MultiProxyHandlerLifecycleTest {
 		JsonEnvelope withVoteId = clear.toBuilder().put(VotingPluginWire.K_VOTE_ID, UUID.randomUUID().toString()).build();
 		handler.acceptRedisEnvelope(withVoteId, prefixed);
 		handler.acceptRedisEnvelope(withVoteId, legacy);
-		verify(handler, org.mockito.Mockito.times(4)).clearVote("player-uuid");
+		verify(handler, org.mockito.Mockito.times(3)).clearVote("player-uuid");
+
+		UUID legacyVoteId = UUID.randomUUID();
+		JsonEnvelope legacyVote = VotingPluginWire.vote("Player",
+				"00000000-0000-0000-0000-000000000001", "Service", 1L, true, true, "", legacyVoteId,
+				true, false, 1, 1);
+		handler.acceptRedisEnvelope(legacyVote, prefixed);
+		handler.acceptRedisEnvelope(legacyVote, legacy);
+		verify(handler).triggerVote(org.mockito.ArgumentMatchers.eq("Player"),
+				org.mockito.ArgumentMatchers.eq("Service"), org.mockito.ArgumentMatchers.eq(true),
+				org.mockito.ArgumentMatchers.eq(true), org.mockito.ArgumentMatchers.eq(0L),
+				org.mockito.ArgumentMatchers.any(VoteTotalsSnapshot.class),
+				org.mockito.ArgumentMatchers.eq("00000000-0000-0000-0000-000000000001"));
+
+		UUID reliableVoteId = UUID.randomUUID();
+		JsonEnvelope reliableVote = VotingPluginWire.multiProxyVote("Player",
+				"00000000-0000-0000-0000-000000000001", "Service", 1L, true, true, "", reliableVoteId,
+				true, false, 1, 1, "Proxy1");
+		handler.acceptRedisEnvelope(reliableVote, prefixed);
+		handler.acceptRedisEnvelope(reliableVote, legacy);
+		verify(handler, org.mockito.Mockito.times(2)).triggerVote(org.mockito.ArgumentMatchers.eq("Player"),
+				org.mockito.ArgumentMatchers.eq("Service"), org.mockito.ArgumentMatchers.eq(true),
+				org.mockito.ArgumentMatchers.eq(true), org.mockito.ArgumentMatchers.eq(0L),
+				org.mockito.ArgumentMatchers.any(VoteTotalsSnapshot.class),
+				org.mockito.ArgumentMatchers.eq("00000000-0000-0000-0000-000000000001"),
+				org.mockito.ArgumentMatchers.eq(reliableVoteId), org.mockito.ArgumentMatchers.eq("Proxy1"));
 
 		SharedTransportEnvelopeAuthenticator signer = authenticator(dataDirectory);
 		handler.acceptRedisEnvelope(signer.sign(clear, Domain.REDIS_MULTI_PROXY, "Proxy1", "network-a:VotingPluginProxy_Proxy2"), prefixed);
 		handler.acceptRedisEnvelope(signer.sign(clear, Domain.REDIS_MULTI_PROXY, "Proxy1", legacy), legacy);
-		verify(handler, org.mockito.Mockito.times(6)).clearVote("player-uuid");
+		verify(handler, org.mockito.Mockito.times(5)).clearVote("player-uuid");
 	}
 
 	@Test

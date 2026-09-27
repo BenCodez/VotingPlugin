@@ -928,10 +928,10 @@ public abstract class MultiProxyHandler {
 	}
 
 	private synchronized boolean suppressUnsignedBridgeCopy(JsonEnvelope envelope, String channel) {
-		// Vote IDs own their durable replay and acknowledgement fences. Only legacy
-		// traffic without that identity needs the short bridge window.
+		// Only origin-bound reliable votes own a receiver-side durable replay fence.
+		// Legacy vote envelopes may carry an ID that their trigger path ignores.
 		if (!useLegacyMultiProxyRedisChannel() || channel == null
-				|| envelope.getFields().containsKey(VotingPluginWire.K_VOTE_ID)) return false;
+				|| hasOriginBoundReliableVoteIdentity(envelope)) return false;
 		String prefixed = VotingPluginRedisChannels.multiProxy(getRedisPrefix(), getMultiProxyServerName());
 		String legacy = VotingPluginRedisChannels.multiProxy("", getMultiProxyServerName());
 		boolean onPrefixed = channel.equals(prefixed);
@@ -949,6 +949,20 @@ public abstract class MultiProxyHandler {
 		// same channel still run twice, even when both bridge copies arrive later.
 		if (onPrefixed) return ++copies.prefixed <= copies.legacy;
 		return ++copies.legacy <= copies.prefixed;
+	}
+
+	private static boolean hasOriginBoundReliableVoteIdentity(JsonEnvelope envelope) {
+		String subChannel = envelope.getSubChannel();
+		if (!VotingPluginWire.SUB_VOTE.equals(subChannel)
+				&& !VotingPluginWire.SUB_VOTE_ONLINE.equals(subChannel)) return false;
+		String origin = envelope.getFields().get(VotingPluginWire.K_MULTI_PROXY_ORIGIN);
+		if (origin == null || origin.isBlank()) return false;
+		try {
+			UUID.fromString(envelope.getFields().get(VotingPluginWire.K_VOTE_ID));
+			return true;
+		} catch (RuntimeException invalidVoteId) {
+			return false;
+		}
 	}
 
 	long unsignedBridgeNowNanos() {
