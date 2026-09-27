@@ -5467,22 +5467,25 @@ public abstract class VotingPluginProxy {
 
 	private JsonEnvelope cachedVoteEnvelope(OfflineBungeeVote vote, boolean online, boolean broadcast,
 			int num, int numberOfVotes) {
+		JsonEnvelope envelope;
 		if (vote.isDelayValidationKnown()) {
-			return online
+			envelope = online
 					? VotingPluginWire.voteOnline(vote.getPlayerName(), vote.getUuid(), vote.getService(), vote.getTime(),
 							resolveCachedWasOnline(vote), vote.isRealVote(), vote.getText(), vote.getVoteId(),
 							getConfig().getBungeeManageTotals(), broadcast, num, numberOfVotes, vote.isDelayValidated())
 					: VotingPluginWire.vote(vote.getPlayerName(), vote.getUuid(), vote.getService(), vote.getTime(),
 							resolveCachedWasOnline(vote), vote.isRealVote(), vote.getText(), vote.getVoteId(),
 							getConfig().getBungeeManageTotals(), broadcast, num, numberOfVotes, vote.isDelayValidated());
+		} else {
+			envelope = online
+					? VotingPluginWire.voteOnline(vote.getPlayerName(), vote.getUuid(), vote.getService(), vote.getTime(),
+							resolveCachedWasOnline(vote), vote.isRealVote(), vote.getText(), vote.getVoteId(),
+							getConfig().getBungeeManageTotals(), broadcast, num, numberOfVotes)
+					: VotingPluginWire.vote(vote.getPlayerName(), vote.getUuid(), vote.getService(), vote.getTime(),
+							resolveCachedWasOnline(vote), vote.isRealVote(), vote.getText(), vote.getVoteId(),
+							getConfig().getBungeeManageTotals(), broadcast, num, numberOfVotes);
 		}
-		return online
-				? VotingPluginWire.voteOnline(vote.getPlayerName(), vote.getUuid(), vote.getService(), vote.getTime(),
-						resolveCachedWasOnline(vote), vote.isRealVote(), vote.getText(), vote.getVoteId(),
-						getConfig().getBungeeManageTotals(), broadcast, num, numberOfVotes)
-				: VotingPluginWire.vote(vote.getPlayerName(), vote.getUuid(), vote.getService(), vote.getTime(),
-						resolveCachedWasOnline(vote), vote.isRealVote(), vote.getText(), vote.getVoteId(),
-						getConfig().getBungeeManageTotals(), broadcast, num, numberOfVotes);
+		return VotingPluginWire.queuedDelivery(envelope);
 	}
 
 	public String getWaitUntilDelaySiteFromService(String service) {
