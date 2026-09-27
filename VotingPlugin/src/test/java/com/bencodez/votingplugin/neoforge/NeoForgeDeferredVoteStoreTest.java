@@ -3,12 +3,18 @@ package com.bencodez.votingplugin.neoforge;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -44,6 +50,27 @@ class NeoForgeDeferredVoteStoreTest {
         }
         try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
             assertEquals(List.of(pending), runtime.deferredVotes().users());
+        }
+    }
+
+    @Test
+    void restartDiscoveryDoesNotOpenEveryHistoricalAccountingRow() throws Exception {
+        writeConfiguration();
+        UUID pending = UUID.randomUUID();
+        Path database;
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            runtime.rewardReplay().ifPresent(NeoForgeRewardReplayService::stopAdmission);
+            runtime.players().joined(new SharedVoteIdentity(pending, "Pending", true));
+            runtime.voteProcessor().process(complete(UUID.randomUUID(), pending, 100L));
+            database = ((com.bencodez.advancedcore.core.user.storage.sql.SqliteUserBackend)
+                    runtime.storage()).databaseFile();
+        }
+        insertHistoricalUsers(database, 5_000);
+
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            runtime.rewardReplay().ifPresent(NeoForgeRewardReplayService::stopAdmission);
+            assertTimeoutPreemptively(Duration.ofSeconds(2),
+                    () -> assertEquals(List.of(pending), runtime.deferredVotes().users()));
         }
     }
 
@@ -627,6 +654,22 @@ class NeoForgeDeferredVoteStoreTest {
                     VoteDelay: 24
                     WaitUntilVoteDelay: true
                 """);
+    }
+
+    private static void insertHistoricalUsers(Path database, int count) throws SQLException {
+        String sql = "INSERT INTO `" + NeoForgeRuntime.USER_TABLE_NAME
+                + "` (`UUID`, `PlayerName`) VALUES (?, ?)";
+        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + database.toAbsolutePath());
+                PreparedStatement statement = connection.prepareStatement(sql)) {
+            connection.setAutoCommit(false);
+            for (int index = 0; index < count; index++) {
+                statement.setString(1, new UUID(1L, index + 1L).toString());
+                statement.setString(2, "Historical" + index);
+                statement.addBatch();
+            }
+            statement.executeBatch();
+            connection.commit();
+        }
     }
 
     private static NeoForgeVoteRequest complete(UUID voteId, UUID playerId, long voteTime) {

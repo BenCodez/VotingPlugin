@@ -22,6 +22,7 @@ import com.bencodez.votingplugin.util.SqliteNativeLibrary;
 
 /** Owns NeoForge bootstrap resources; vote and reward services are not started here. */
 public final class NeoForgeRuntime implements AutoCloseable {
+    static final String USER_TABLE_NAME = "VotingPlugin_NeoForgeUsers";
     private final ConfigurationNode config;
     private final ConfigurationNode voteSites;
     private final ConfigurationNode specialRewards;
@@ -83,7 +84,7 @@ public final class NeoForgeRuntime implements AutoCloseable {
         try {
             SqliteNativeLibrary.ensureAvailable(directory.resolve("libraries"));
             // Use AdvancedCore's existing SQL backend and its atomic user transactions.
-            storage = SqlUserBackendFactory.sqlite(directory, "VotingPlugin", "VotingPlugin_NeoForgeUsers",
+            storage = SqlUserBackendFactory.sqlite(directory, "VotingPlugin", USER_TABLE_NAME,
                     storageKeys(), SqlBackendLogger.NO_OP);
         } catch (RuntimeException failure) {
             throw new IOException("Could not initialize NeoForge user storage", failure);

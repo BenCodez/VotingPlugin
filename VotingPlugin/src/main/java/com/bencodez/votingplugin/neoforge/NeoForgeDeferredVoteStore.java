@@ -4,6 +4,11 @@ import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
@@ -21,6 +26,7 @@ import com.bencodez.advancedcore.api.user.usercache.keys.UserDataKey;
 import com.bencodez.advancedcore.api.user.usercache.keys.UserDataKeyString;
 import com.bencodez.advancedcore.core.user.storage.SqlUserStorage;
 import com.bencodez.advancedcore.core.user.storage.sql.SqlUserBackend;
+import com.bencodez.advancedcore.core.user.storage.sql.SqliteUserBackend;
 import com.bencodez.simpleapi.sql.Column;
 import com.bencodez.simpleapi.sql.data.DataValue;
 import com.bencodez.simpleapi.sql.data.DataValueString;
@@ -36,6 +42,8 @@ public final class NeoForgeDeferredVoteStore {
     static final int MAX_COMPLETED_PER_USER = 4_096;
     static final int MAX_COMPLETED_TOTAL = 262_144;
     private static final String VERSION = "v1";
+    private static final String PENDING_INDEX = "VotingPlugin_NeoForgeDeferredPending";
+    private static final String COMPLETED_INDEX = "VotingPlugin_NeoForgeDeferredCompleted";
     private static final Base64.Encoder ENCODER = Base64.getUrlEncoder().withoutPadding();
     private static final Base64.Decoder DECODER = Base64.getUrlDecoder();
 
@@ -73,6 +81,7 @@ public final class NeoForgeDeferredVoteStore {
         this.totalLimit = totalLimit;
         this.completedPerUserLimit = completedPerUserLimit;
         this.completedTotalLimit = completedTotalLimit;
+        initializeRelevantRowIndexes();
     }
 
     static List<UserDataKey> storageKeys() {
@@ -141,20 +150,9 @@ public final class NeoForgeDeferredVoteStore {
         return List.copyOf(pending);
     }
 
-    /**
-     * Returns the cached replay candidates. The first call discovers existing rows
-     * after a restart; later calls do not repeatedly enumerate the user table.
-     */
+    /** Returns the cached replay candidates, discovering only durable replay rows after restart. */
     public synchronized List<UUID> users() {
-        if (!replayCandidatesInitialized) {
-            for (UUID playerId : backend.enumerateUsers()) {
-                if (replayCandidates.size() >= totalLimit) break;
-                Map<String, DataValue> row = row(backend.user(playerId).readRow(backend.storageType()));
-                String pending = value(row, DEFERRED_VOTES);
-                if (pending != null && !pending.isEmpty()) replayCandidates.add(playerId);
-            }
-            replayCandidatesInitialized = true;
-        }
+        initializeDurableState();
         return List.copyOf(replayCandidates);
     }
 
@@ -299,24 +297,90 @@ public final class NeoForgeDeferredVoteStore {
 
     private void ensureCounts() {
         if (retainedCount >= 0 && completedCount >= 0) return;
+        initializeDurableState();
+    }
+
+    /**
+     * Loads only rows that can affect deferred replay or receipt capacity. NeoForge
+     * currently supports SQLite only, so this read-only query deliberately stays in
+     * the loader adapter instead of widening the shared SQL API for one consumer.
+     */
+    private void initializeDurableState() {
+        if (replayCandidatesInitialized && retainedCount >= 0 && completedCount >= 0) return;
+        if (!(backend instanceof SqliteUserBackend sqlite)) {
+            throw new IllegalStateException("NeoForge deferred votes require the SQLite user backend");
+        }
+        LinkedHashSet<UUID> discovered = new LinkedHashSet<>();
         int pending = 0;
         int completed = 0;
-        for (UUID playerId : backend.enumerateUsers()) {
-            Map<String, DataValue> row = row(backend.user(playerId).readRow(backend.storageType()));
-            try {
-                pending = cappedAdd(pending, parsePending(value(row, DEFERRED_VOTES), playerId).size(), totalLimit);
-            } catch (MalformedDeferredVoteData malformedPending) {
-                pending = cappedAdd(pending, perUserLimit, totalLimit);
+        String columns = "`UUID`, `" + DEFERRED_VOTES + "`, `" + COMPLETED_DEFERRED_VOTES + "`";
+        String table = "`" + NeoForgeRuntime.USER_TABLE_NAME + "`";
+        String pendingRows = "`" + DEFERRED_VOTES + "` IS NOT NULL AND `" + DEFERRED_VOTES + "` <> ''";
+        String completedRows = "`" + COMPLETED_DEFERRED_VOTES + "` IS NOT NULL AND `"
+                + COMPLETED_DEFERRED_VOTES + "` <> ''";
+        String sql = "SELECT " + columns + " FROM " + table + " WHERE " + pendingRows
+                + " UNION ALL SELECT " + columns + " FROM " + table + " WHERE " + completedRows
+                + " AND (`" + DEFERRED_VOTES + "` IS NULL OR `" + DEFERRED_VOTES + "` = '') ORDER BY 1 ASC";
+        try (Connection connection = DriverManager.getConnection(
+                "jdbc:sqlite:" + sqlite.databaseFile().toAbsolutePath());
+                PreparedStatement statement = connection.prepareStatement(sql);
+                ResultSet result = statement.executeQuery()) {
+            while (result.next()) {
+                UUID playerId = parseCanonicalUuid(result.getString(1));
+                String pendingData = result.getString(2);
+                String completedData = result.getString(3);
+                if (pendingData != null && !pendingData.isEmpty() && discovered.size() < totalLimit) {
+                    discovered.add(playerId);
+                }
+                try {
+                    pending = cappedAdd(pending, parsePending(pendingData, playerId).size(), totalLimit);
+                } catch (MalformedDeferredVoteData malformedPending) {
+                    pending = cappedAdd(pending, perUserLimit, totalLimit);
+                }
+                try {
+                    completed = cappedAdd(completed, parseCompleted(completedData).size(), completedTotalLimit);
+                } catch (MalformedDeferredVoteData malformedReceipts) {
+                    completed = cappedAdd(completed, completedPerUserLimit, completedTotalLimit);
+                }
             }
-            try {
-                completed = cappedAdd(completed,
-                        parseCompleted(value(row, COMPLETED_DEFERRED_VOTES)).size(), completedTotalLimit);
-            } catch (MalformedDeferredVoteData malformedReceipts) {
-                completed = cappedAdd(completed, completedPerUserLimit, completedTotalLimit);
-            }
+        } catch (SQLException failure) {
+            throw new IllegalStateException("Failed to discover deferred NeoForge vote rows", failure);
         }
+        replayCandidates.addAll(discovered);
+        replayCandidatesInitialized = true;
         retainedCount = pending;
         completedCount = completed;
+    }
+
+    private void initializeRelevantRowIndexes() {
+        if (!(backend instanceof SqliteUserBackend sqlite)) {
+            throw new IllegalStateException("NeoForge deferred votes require the SQLite user backend");
+        }
+        String table = "`" + NeoForgeRuntime.USER_TABLE_NAME + "`";
+        String pendingSql = "CREATE INDEX IF NOT EXISTS `" + PENDING_INDEX + "` ON " + table
+                + " (`UUID`) WHERE `" + DEFERRED_VOTES + "` IS NOT NULL AND `" + DEFERRED_VOTES + "` <> ''";
+        String completedSql = "CREATE INDEX IF NOT EXISTS `" + COMPLETED_INDEX + "` ON " + table
+                + " (`UUID`) WHERE `" + COMPLETED_DEFERRED_VOTES + "` IS NOT NULL AND `"
+                + COMPLETED_DEFERRED_VOTES + "` <> ''";
+        try (Connection connection = DriverManager.getConnection(
+                "jdbc:sqlite:" + sqlite.databaseFile().toAbsolutePath());
+                PreparedStatement pending = connection.prepareStatement(pendingSql);
+                PreparedStatement completed = connection.prepareStatement(completedSql)) {
+            pending.executeUpdate();
+            completed.executeUpdate();
+        } catch (SQLException failure) {
+            throw new IllegalStateException("Failed to index deferred NeoForge vote rows", failure);
+        }
+    }
+
+    private static UUID parseCanonicalUuid(String stored) {
+        try {
+            UUID parsed = UUID.fromString(stored);
+            if (!parsed.toString().equals(stored)) throw new IllegalArgumentException("Non-canonical UUID");
+            return parsed;
+        } catch (IllegalArgumentException | NullPointerException invalid) {
+            throw new IllegalStateException("Malformed UUID in deferred NeoForge vote row", invalid);
+        }
     }
 
     private static int cappedAdd(int current, int added, int limit) {
