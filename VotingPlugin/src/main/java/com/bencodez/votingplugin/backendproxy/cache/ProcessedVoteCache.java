@@ -89,13 +89,15 @@ public class ProcessedVoteCache {
 
 		long now = System.currentTimeMillis();
 		long expiresAt = now + ttlMillis;
-		cleanup(now);
 
 		while (true) {
 			if (completedAwaitingReceipt.contains(voteId)) return Reservation.DUPLICATE;
 			Long currentExpiry = processedVotes.get(voteId);
 			if (currentExpiry == null) {
-				if (processedVotes.size() >= maxTrackedVotes) return Reservation.SATURATED;
+				if (processedVotes.size() >= maxTrackedVotes) {
+					cleanup(now);
+					if (processedVotes.size() >= maxTrackedVotes) return Reservation.SATURATED;
+				}
 				if (processedVotes.putIfAbsent(voteId, expiresAt) == null) {
 					return Reservation.RESERVED;
 				}

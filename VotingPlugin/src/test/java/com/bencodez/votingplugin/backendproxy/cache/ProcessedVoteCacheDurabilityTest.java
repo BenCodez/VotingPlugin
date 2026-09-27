@@ -13,6 +13,19 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 class ProcessedVoteCacheDurabilityTest {
+
+	@Test
+	void duplicateRetryDoesNotScanAndPruneUnrelatedEntries() {
+		ProcessedVoteCache cache = new ProcessedVoteCache(TimeUnit.MINUTES.toMillis(30), 2);
+		UUID expired = UUID.randomUUID();
+		UUID live = UUID.randomUUID();
+		cache.getProcessedVotes().put(expired, 0L);
+		cache.getProcessedVotes().put(live, Long.MAX_VALUE);
+
+		assertTrue(cache.reserveWithOutcome(live) == ProcessedVoteCache.Reservation.DUPLICATE);
+		assertTrue(cache.getProcessedVotes().containsKey(expired));
+		assertTrue(cache.reserveWithOutcome(UUID.randomUUID()) == ProcessedVoteCache.Reservation.RESERVED);
+	}
 	@TempDir
 	Path directory;
 
