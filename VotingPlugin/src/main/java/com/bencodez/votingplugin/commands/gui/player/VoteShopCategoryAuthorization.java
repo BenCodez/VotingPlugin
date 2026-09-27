@@ -8,6 +8,7 @@ import com.bencodez.votingplugin.voteshop.shop.VoteShopCategory;
 import com.bencodez.votingplugin.voteshop.shop.VoteShopCategoryButton;
 import com.bencodez.votingplugin.voteshop.shop.VoteShopDefinition;
 import com.bencodez.votingplugin.voteshop.shop.VoteShopEntry;
+import com.bencodez.votingplugin.voteshop.shop.VoteShopItem;
 
 /** Keeps VoteShop category visibility separate from authorization. */
 final class VoteShopCategoryAuthorization {
@@ -30,9 +31,18 @@ final class VoteShopCategoryAuthorization {
 				permissionCheck, new HashSet<>());
 	}
 
-	static boolean canPurchase(VoteShopDefinition definition, VoteShopCategory category,
+	static boolean canPurchase(VoteShopDefinition definition, VoteShopCategory category, VoteShopItem item,
 			Predicate<String> permissionCheck) {
-		return category == null || canOpen(definition, category.getId(), permissionCheck);
+		if (definition == null || item == null) return false;
+		if (category == null) return containsSameEntry(definition.getMainEntries().values(), item);
+		VoteShopCategory currentCategory = definition.getCategory(category.getId());
+		return currentCategory == category && containsSameEntry(currentCategory.getEntries().values(), item)
+				&& canOpen(definition, category.getId(), permissionCheck);
+	}
+
+	private static boolean containsSameEntry(Iterable<VoteShopEntry> entries, VoteShopEntry expected) {
+		for (VoteShopEntry entry : entries) if (entry == expected) return true;
+		return false;
 	}
 
 	private static boolean reaches(VoteShopDefinition definition, Iterable<VoteShopEntry> entries,

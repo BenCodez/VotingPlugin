@@ -117,7 +117,7 @@ public class VoteShopConfirm extends GUIHandler {
 	}
 
 	private boolean canPurchaseFromCategory(Player player) {
-		return VoteShopCategoryAuthorization.canPurchase(plugin.getVoteShopManager().getDefinition(), category,
+		return VoteShopCategoryAuthorization.canPurchase(plugin.getVoteShopManager().getDefinition(), category, item,
 				permission -> plugin.getVoteShopManager().getPurchaseService().hasPermission(player, permission));
 	}
 

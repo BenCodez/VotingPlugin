@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import com.bencodez.votingplugin.voteshop.shop.VoteShopCategory;
 import com.bencodez.votingplugin.voteshop.shop.VoteShopCategoryButton;
 import com.bencodez.votingplugin.voteshop.shop.VoteShopDefinition;
+import com.bencodez.votingplugin.voteshop.shop.VoteShopItem;
 
 class VoteShopCategoryAuthorizationTest {
 
@@ -58,24 +59,45 @@ class VoteShopCategoryAuthorizationTest {
 		VoteShopCategoryButton button = button("restricted", "shop.category", false);
 		VoteShopDefinition definition = definition(button);
 		VoteShopCategory category = definition.getCategory("restricted");
+		VoteShopItem item = item("item");
+		category.getEntries().put("item", item);
 		AtomicBoolean permitted = new AtomicBoolean(true);
 
-		assertTrue(VoteShopCategoryAuthorization.canPurchase(definition, category,
+		assertTrue(VoteShopCategoryAuthorization.canPurchase(definition, category, item,
 				permission -> permitted.get()));
 		permitted.set(false);
-		assertFalse(VoteShopCategoryAuthorization.canPurchase(definition, category,
+		assertFalse(VoteShopCategoryAuthorization.canPurchase(definition, category, item,
 				permission -> permitted.get()));
-		assertTrue(VoteShopCategoryAuthorization.canPurchase(definition, null, permission -> false));
+		VoteShopItem mainItem = item("main");
+		definition.getMainEntries().put("main", mainItem);
+		assertTrue(VoteShopCategoryAuthorization.canPurchase(definition, null, mainItem, permission -> false));
 	}
 
 	@Test
 	void purchaseRejectsCategoryRemovedByReload() {
 		VoteShopDefinition definition = definition(button("restricted", "shop.category", false));
 		VoteShopCategory staleCategory = definition.getCategory("restricted");
+		VoteShopItem item = item("item");
+		staleCategory.getEntries().put("item", item);
 
 		definition.getCategories().remove("restricted");
 
-		assertFalse(VoteShopCategoryAuthorization.canPurchase(definition, staleCategory,
+		assertFalse(VoteShopCategoryAuthorization.canPurchase(definition, staleCategory, item,
+				permission -> true));
+	}
+
+	@Test
+	void purchaseRejectsCategoryAndItemObjectsRetainedAcrossReload() {
+		VoteShopDefinition definition = definition(button("restricted", "shop.category", false));
+		VoteShopCategory staleCategory = definition.getCategory("restricted");
+		VoteShopItem staleItem = item("item");
+		staleCategory.getEntries().put("item", staleItem);
+		VoteShopCategory replacement = new VoteShopCategory();
+		replacement.setId("restricted");
+		replacement.getEntries().put("item", item("item"));
+		definition.getCategories().put("restricted", replacement);
+
+		assertFalse(VoteShopCategoryAuthorization.canPurchase(definition, staleCategory, staleItem,
 				permission -> true));
 	}
 
@@ -94,5 +116,11 @@ class VoteShopCategoryAuthorizationTest {
 		button.setPermission(permission);
 		button.setHideOnNoPermission(hide);
 		return button;
+	}
+
+	private static VoteShopItem item(String identifier) {
+		VoteShopItem item = new VoteShopItem();
+		item.setIdentifier(identifier);
+		return item;
 	}
 }
