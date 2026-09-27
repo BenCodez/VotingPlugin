@@ -799,7 +799,14 @@ public class VoteShopPurchaseService {
 	public static void completeVoteDelivery(VotingPluginMain plugin, UUID voteId) {
 		if (voteId == null) return;
 		plugin.getServerData().clearVotePartyAccounting(voteId);
-		if (!canRecoverSharedMysqlPurchases(plugin)) plugin.getServerData().clearVoteReplayUnsafe(voteId);
+		if (canRecoverSharedMysqlPurchases(plugin)) {
+			try {
+				SharedMysqlPurchaseJournal.forTable(plugin.getMysql()).retireVoteAccounting(voteId,
+						System.currentTimeMillis());
+			} catch (SQLException failure) {
+				throw new IllegalStateException("Unable to retire shared MySQL vote accounting", failure);
+			}
+		} else plugin.getServerData().clearVoteReplayUnsafe(voteId);
 	}
 
 	public static void finishMysqlVoteAccounting(UUID voteId) {

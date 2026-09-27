@@ -12,10 +12,13 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.mockStatic;
 
 import java.util.List;
 import java.util.UUID;
 import java.nio.file.Path;
+import java.io.IOException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.Test;
@@ -33,6 +36,7 @@ import com.bencodez.votingplugin.data.ServerData.TimeChangeRewardState;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeUserProgress;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeUserPolicy;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
+import com.bencodez.votingplugin.util.DurableFiles;
 
 class ServerDataTimeChangeRecoveryTest {
 	@TempDir
@@ -132,6 +136,70 @@ class ServerDataTimeChangeRecoveryTest {
 
 		assertTrue(data.isVoteReplayUnsafe(existing));
 		assertFalse(data.isVoteReplayUnsafe(failed));
+	}
+
+	@Test
+	void failedReplayFenceRetirementRestoresThePreviousYamlState() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		com.bencodez.advancedcore.data.ServerData coreData = mock(com.bencodez.advancedcore.data.ServerData.class);
+		YamlConfiguration yaml = new YamlConfiguration();
+		when(plugin.getDataFolder()).thenReturn(temporaryDirectory.toFile());
+		when(plugin.getServerDataFile()).thenReturn(coreData);
+		when(coreData.getData()).thenReturn(yaml);
+		ServerData data = new ServerData(plugin);
+		UUID voteId = UUID.randomUUID();
+		data.markVoteReplayUnsafe(voteId);
+		doThrow(new IllegalStateException("disk unavailable")).when(coreData).saveData();
+
+		assertThrows(IllegalStateException.class, () -> data.clearVoteReplayUnsafe(voteId));
+
+		assertTrue(data.isVoteReplayUnsafe(voteId));
+	}
+
+	@Test
+	void failedVotePartyRetirementRestoresThePreviousYamlState() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		com.bencodez.advancedcore.data.ServerData coreData = mock(com.bencodez.advancedcore.data.ServerData.class);
+		YamlConfiguration yaml = new YamlConfiguration();
+		when(plugin.getDataFolder()).thenReturn(temporaryDirectory.toFile());
+		when(plugin.getServerDataFile()).thenReturn(coreData);
+		when(coreData.getData()).thenReturn(yaml);
+		ServerData data = new ServerData(plugin);
+		UUID voteId = UUID.randomUUID();
+		assertTrue(data.incrementVotePartyTotal(voteId));
+		doThrow(new IllegalStateException("disk unavailable")).when(coreData).saveData();
+
+		assertThrows(IllegalStateException.class, () -> data.clearVotePartyAccounting(voteId));
+
+		assertTrue(yaml.contains("VotingPlugin.VoteParty.Accounting." + voteId));
+	}
+
+	@Test
+	void publishedCheckpointDurabilityFailureRequiresAnotherPublicationAttempt() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		com.bencodez.advancedcore.data.ServerData coreData = mock(com.bencodez.advancedcore.data.ServerData.class);
+		YamlConfiguration yaml = new YamlConfiguration();
+		when(plugin.getDataFolder()).thenReturn(temporaryDirectory.toFile());
+		when(plugin.getServerDataFile()).thenReturn(coreData);
+		when(coreData.getData()).thenReturn(yaml);
+		ServerData data = new ServerData(plugin);
+		TimeChangeTransition transition = transition("WEEK:2026-W38", "2026-W38", TimeType.WEEK);
+		AtomicInteger attempts = new AtomicInteger();
+
+		try (org.mockito.MockedStatic<DurableFiles> files = mockStatic(DurableFiles.class)) {
+			files.when(() -> DurableFiles.publishStagedFile(
+					org.mockito.ArgumentMatchers.any(Path.class), org.mockito.ArgumentMatchers.any(Path.class)))
+					.thenAnswer(ignored -> {
+						if (attempts.getAndIncrement() == 0)
+							throw new DurableFiles.PublishedException(new IOException("directory force failed"));
+						return null;
+					});
+
+			assertThrows(IllegalStateException.class, () -> data.beginTimeChangeRecovery(transition));
+			data.beginTimeChangeRecovery(transition);
+		}
+
+		assertEquals(2, attempts.get());
 	}
 
 	@Test

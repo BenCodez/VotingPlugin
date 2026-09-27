@@ -512,6 +512,48 @@ final class SharedMysqlPurchaseJournal {
 		}
 	}
 
+	/** Retains a bounded replay tombstone after the durable delivery owner completes. */
+	void retireVoteAccounting(UUID voteId, long retiredAt) throws SQLException {
+		if (voteId == null) return;
+		try (Connection connection = connection()) {
+			connection.setAutoCommit(false);
+			try {
+				String retire = "UPDATE " + qiAccounting() + " SET " + qi("retired_at") + " = COALESCE("
+						+ qi("retired_at") + ", ?) WHERE " + qi("vote_id") + " = ?";
+				try (PreparedStatement statement = connection.prepareStatement(retire)) {
+					statement.setLong(1, retiredAt);
+					statement.setString(2, voteId.toString());
+					statement.executeUpdate();
+				}
+				long cutoff = retiredAt - TERMINAL_RETENTION_MILLIS;
+				String select = "SELECT " + qi("vote_id") + " FROM " + qiAccounting() + " WHERE "
+						+ qi("retired_at") + " IS NOT NULL AND " + qi("retired_at")
+						+ " <= ? ORDER BY " + qi("retired_at") + " ASC LIMIT ?";
+				List<String> expired = new ArrayList<>();
+				try (PreparedStatement statement = connection.prepareStatement(select)) {
+					statement.setLong(1, cutoff);
+					statement.setInt(2, CLEANUP_BATCH_SIZE);
+					try (ResultSet result = statement.executeQuery()) {
+						while (result.next()) expired.add(result.getString(1));
+					}
+				}
+				String delete = "DELETE FROM " + qiAccounting() + " WHERE " + qi("vote_id") + " = ? AND "
+						+ qi("retired_at") + " IS NOT NULL AND " + qi("retired_at") + " <= ?";
+				try (PreparedStatement statement = connection.prepareStatement(delete)) {
+					for (String expiredId : expired) {
+						statement.setString(1, expiredId);
+						statement.setLong(2, cutoff);
+						statement.executeUpdate();
+					}
+				}
+				connection.commit();
+			} catch (SQLException failure) {
+				rollback(connection);
+				throw failure;
+			}
+		}
+	}
+
 	private int countPendingPeriodTotals(Connection connection, UUID voteId, String uuid, int operation)
 			throws SQLException {
 		String select = "SELECT COUNT(*) FROM " + qiAccounting() + " WHERE " + qi("player_uuid")
@@ -1567,6 +1609,7 @@ final class SharedMysqlPurchaseJournal {
 				+ qi("point_amount") + " INT NULL, " + qi("point_cap") + " INT NULL, "
 				+ qi("point_column") + " VARCHAR(128) NULL, "
 				+ qi("replay_unsafe") + " INT NOT NULL DEFAULT 0, "
+				+ qi("retired_at") + " BIGINT NULL, "
 				+ qi("created_at")
 				+ " BIGINT NOT NULL, PRIMARY KEY (" + qi("vote_id") + "));";
 		try (PreparedStatement statement = connection.prepareStatement(create)) {
@@ -1584,6 +1627,7 @@ final class SharedMysqlPurchaseJournal {
 		ensureAccountingColumn(connection, "point_cap", "INT NULL");
 		ensureAccountingColumn(connection, "point_column", "VARCHAR(128) NULL");
 		ensureAccountingColumn(connection, "replay_unsafe", "INT NOT NULL DEFAULT 0");
+		ensureAccountingColumn(connection, "retired_at", "BIGINT NULL");
 		try (PreparedStatement migrate = connection.prepareStatement("UPDATE " + qiAccounting() + " SET "
 				+ qi("requested") + " = " + qi("completed") + " WHERE " + qi("requested") + " = 0 AND "
 				+ qi("completed") + " <> 0")) {
@@ -1594,6 +1638,15 @@ final class SharedMysqlPurchaseJournal {
 				+ qi(index) + " ON " + qiAccounting() + " (" + qi("player_uuid") + ", "
 				+ qi("streak_updated_at") + ");";
 		try (PreparedStatement statement = connection.prepareStatement(createIndex)) {
+			statement.executeUpdate();
+		} catch (SQLException failure) {
+			if (failure.getErrorCode() != 1061 && !"42P07".equals(failure.getSQLState())) throw failure;
+		}
+		String retiredIndex = "vp_vsa_retired_" + hash(accountingTable).substring(0, 16);
+		String createRetiredIndex = "CREATE INDEX "
+				+ (table.getDbType() == DbType.POSTGRESQL ? "IF NOT EXISTS " : "") + qi(retiredIndex) + " ON "
+				+ qiAccounting() + " (" + qi("retired_at") + ");";
+		try (PreparedStatement statement = connection.prepareStatement(createRetiredIndex)) {
 			statement.executeUpdate();
 		} catch (SQLException failure) {
 			if (failure.getErrorCode() != 1061 && !"42P07".equals(failure.getSQLState())) throw failure;

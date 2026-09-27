@@ -25,6 +25,27 @@ import com.bencodez.advancedcore.api.user.userstorage.mysql.MySQL;
 
 class SharedMysqlPurchaseJournalTest {
 	@Test
+	void retiredVoteAccountingKeepsABoundedTombstoneAndCleansExpiredRows() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement retire = mock(PreparedStatement.class);
+		PreparedStatement select = mock(PreparedStatement.class);
+		PreparedStatement delete = mock(PreparedStatement.class);
+		ResultSet expired = ids("expired-vote-id");
+		when(select.executeQuery()).thenReturn(expired);
+		when(fixture.work.prepareStatement(anyString())).thenReturn(retire, select, delete);
+		UUID voteId = UUID.randomUUID();
+		long retiredAt = SharedMysqlPurchaseJournal.TERMINAL_RETENTION_MILLIS + 5000L;
+
+		new SharedMysqlPurchaseJournal(fixture.table, false).retireVoteAccounting(voteId, retiredAt);
+
+		verify(retire).setLong(1, retiredAt);
+		verify(retire).setString(2, voteId.toString());
+		verify(select).setLong(1, 5000L);
+		verify(delete).setString(1, "expired-vote-id");
+		verify(delete).setLong(2, 5000L);
+		verify(fixture.work).commit();
+	}
+	@Test
 	void dailyStreakResetCompletionFollowsThePersistedCopyMarker() throws Exception {
 		Fixture fixture = fixture();
 		PreparedStatement copyInsert = mock(PreparedStatement.class);

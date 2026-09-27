@@ -229,10 +229,16 @@ public class ServerData {
 	public synchronized void clearVoteReplayUnsafe(UUID voteId) {
 		if (voteId == null) return;
 		if (!getData().contains(VOTE_REPLAY_UNSAFE + "." + voteId)) return;
-		getData().set(VOTE_REPLAY_UNSAFE + "." + voteId, null);
-		ConfigurationSection remaining = getData().getConfigurationSection(VOTE_REPLAY_UNSAFE);
-		if (remaining != null && remaining.getKeys(false).isEmpty()) getData().set(VOTE_REPLAY_UNSAFE, null);
-		saveData();
+		Map<String, Object> previous = snapshotSection(VOTE_REPLAY_UNSAFE);
+		try {
+			getData().set(VOTE_REPLAY_UNSAFE + "." + voteId, null);
+			ConfigurationSection remaining = getData().getConfigurationSection(VOTE_REPLAY_UNSAFE);
+			if (remaining != null && remaining.getKeys(false).isEmpty()) getData().set(VOTE_REPLAY_UNSAFE, null);
+			saveData();
+		} catch (RuntimeException | Error failure) {
+			restoreSection(VOTE_REPLAY_UNSAFE, previous);
+			throw failure;
+		}
 	}
 
 	/**
@@ -574,10 +580,16 @@ public class ServerData {
 		if (voteId == null) return;
 		String receiptPath = VOTE_PARTY_ACCOUNTING + "." + voteId;
 		if (!getData().contains(receiptPath)) return;
-		getData().set(receiptPath, null);
-		ConfigurationSection remaining = getData().getConfigurationSection(VOTE_PARTY_ACCOUNTING);
-		if (remaining != null && remaining.getKeys(false).isEmpty()) getData().set(VOTE_PARTY_ACCOUNTING, null);
-		saveData();
+		Map<String, Object> previous = snapshotSection(VOTE_PARTY_ACCOUNTING);
+		try {
+			getData().set(receiptPath, null);
+			ConfigurationSection remaining = getData().getConfigurationSection(VOTE_PARTY_ACCOUNTING);
+			if (remaining != null && remaining.getKeys(false).isEmpty()) getData().set(VOTE_PARTY_ACCOUNTING, null);
+			saveData();
+		} catch (RuntimeException | Error failure) {
+			restoreSection(VOTE_PARTY_ACCOUNTING, previous);
+			throw failure;
+		}
 	}
 
 	/**

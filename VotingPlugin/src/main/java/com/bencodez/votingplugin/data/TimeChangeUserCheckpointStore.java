@@ -123,6 +123,7 @@ final class TimeChangeUserCheckpointStore {
 					StandardOpenOption.WRITE);
 			DurableFiles.publishStagedFile(temporary, file);
 		} catch (DurableFiles.PublishedException published) {
+			if (previous == null) states.remove(type); else states.put(type, previous);
 			throw new IllegalStateException("Checkpoint was published but directory durability failed", published);
 		} catch (IOException failure) {
 			if (previous == null) states.remove(type); else states.put(type, previous);
