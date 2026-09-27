@@ -316,7 +316,8 @@ class MultiProxyHandlerLifecycleTest {
 	}
 
 	@Test
-	void unsignedBridgeWindowExpiresAndRetainsAtMostItsBound(@TempDir Path dataDirectory) throws Exception {
+	void unsignedBridgeWindowExpiresAndCapacityPreservesTrafficWithinItsBound(@TempDir Path dataDirectory)
+			throws Exception {
 		MultiProxyHandler handler = mock(MultiProxyHandler.class,
 				org.mockito.Mockito.withSettings().useConstructor().defaultAnswer(org.mockito.Mockito.CALLS_REAL_METHODS));
 		org.mockito.Mockito.when(handler.getSharedTransportAuthenticator())
@@ -341,9 +342,15 @@ class MultiProxyHandlerLifecycleTest {
 			handler.acceptRedisEnvelope(VotingPluginWire.clearVotePrimary("player-" + index, "Player", "Proxy1"),
 					prefixed);
 		}
+		JsonEnvelope overflow = VotingPluginWire.clearVotePrimary("player-1099", "Player", "Proxy1");
+		handler.acceptRedisEnvelope(overflow, legacy);
 		verify(handler, org.mockito.Mockito.never()).clearVote("player-1099");
+		verify(handler).logInfo(org.mockito.ArgumentMatchers.contains("bridge tracking is full"));
+		now.addAndGet(java.util.concurrent.TimeUnit.SECONDS.toNanos(31));
+		handler.acceptRedisEnvelope(VotingPluginWire.clearVotePrimary("legacy-only", "Player", "Proxy1"), legacy);
+		verify(handler).clearVote("legacy-only");
 		handler.acceptRedisEnvelope(clear, prefixed);
-		verify(handler, org.mockito.Mockito.times(2)).clearVote("player-uuid");
+		verify(handler, org.mockito.Mockito.times(3)).clearVote("player-uuid");
 		java.lang.reflect.Field entries = MultiProxyHandler.class.getDeclaredField("unsignedBridgeCopies");
 		entries.setAccessible(true);
 		assertTrue(((Map<?, ?>) entries.get(handler)).size() <= 1024);

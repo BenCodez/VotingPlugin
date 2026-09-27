@@ -81,8 +81,10 @@ public abstract class MultiProxyHandler {
 	private boolean voteCapabilityRecoveryBlocked;
 	private final AtomicBoolean authenticationFailureLogged = new AtomicBoolean();
 	private final AtomicBoolean encryptionFailureLogged = new AtomicBoolean();
+	private final AtomicBoolean unsignedBridgeCapacityLogged = new AtomicBoolean();
 	private static final int MAX_UNSIGNED_BRIDGE_ENTRIES = 1024;
 	private static final long UNSIGNED_BRIDGE_WINDOW_NANOS = TimeUnit.SECONDS.toNanos(2);
+	private static final long UNSIGNED_BRIDGE_UNMATCHED_WINDOW_NANOS = TimeUnit.SECONDS.toNanos(30);
 	private final Map<String, UnsignedBridgeCopies> unsignedBridgeCopies = new LinkedHashMap<>();
 	private TransportEnvelopeEncryption communicationEncryption;
 	private volatile boolean redisCallbacksActive = true;
@@ -915,7 +917,11 @@ public abstract class MultiProxyHandler {
 		JsonEnvelope decrypted = decryptEnvelope(verification.envelope());
 		if (decrypted == null) return;
 		if (verification.unsignedCompatibility() && suppressUnsignedBridgeCopy(decrypted, channel)) return;
-		handleEnvelope(decrypted);
+		try {
+			handleEnvelope(decrypted);
+		} finally {
+			if (verification.unsignedCompatibility()) extendUnsignedBridgeWindow(decrypted, channel);
+		}
 	}
 
 	private void acceptEncryptedEnvelope(JsonEnvelope envelope) {
@@ -946,14 +952,18 @@ public abstract class MultiProxyHandler {
 		String fingerprint = unsignedBridgeFingerprint(envelope);
 		long now = unsignedBridgeNowNanos();
 		UnsignedBridgeCopies copies = unsignedBridgeCopies.get(fingerprint);
-		// Do not expire an unmatched first copy while its paired callback is waiting
-		// behind this handler's monitor. Slow vote/storage processing can legitimately
-		// exceed the ordinary bridge window.
-		if (copies == null || (copies.paired() && copies.expiresAtNanos <= now)) {
+		if (copies == null || copies.expiresAtNanos <= now) {
 			if (copies != null) unsignedBridgeCopies.remove(fingerprint);
+			removeExpiredUnsignedBridgeEntries(now);
 			if (unsignedBridgeCopies.size() >= MAX_UNSIGNED_BRIDGE_ENTRIES
-					&& !removePairedUnsignedBridgeEntry()) return true;
-			copies = new UnsignedBridgeCopies();
+					&& !removePairedUnsignedBridgeEntry()) {
+				if (unsignedBridgeCapacityLogged.compareAndSet(false, true)) {
+					logInfo("Unsigned multi-proxy Redis bridge tracking is full; rejecting excess compatibility "
+							+ "traffic until bounded deduplication capacity recovers");
+				}
+				return true;
+			}
+			copies = new UnsignedBridgeCopies(now + UNSIGNED_BRIDGE_UNMATCHED_WINDOW_NANOS);
 			unsignedBridgeCopies.put(fingerprint, copies);
 		}
 		// Count copies per channel so two identical legitimate publications on the
@@ -961,6 +971,19 @@ public abstract class MultiProxyHandler {
 		boolean suppress = onPrefixed ? ++copies.prefixed <= copies.legacy : ++copies.legacy <= copies.prefixed;
 		if (copies.paired()) copies.expiresAtNanos = now + UNSIGNED_BRIDGE_WINDOW_NANOS;
 		return suppress;
+	}
+
+	private synchronized void extendUnsignedBridgeWindow(JsonEnvelope envelope, String channel) {
+		if (!useLegacyMultiProxyRedisChannel() || channel == null
+				|| hasOriginBoundReliableVoteIdentity(envelope)) return;
+		UnsignedBridgeCopies copies = unsignedBridgeCopies.get(unsignedBridgeFingerprint(envelope));
+		if (copies != null && !copies.paired()) {
+			copies.expiresAtNanos = unsignedBridgeNowNanos() + UNSIGNED_BRIDGE_UNMATCHED_WINDOW_NANOS;
+		}
+	}
+
+	private void removeExpiredUnsignedBridgeEntries(long now) {
+		unsignedBridgeCopies.entrySet().removeIf(entry -> entry.getValue().expiresAtNanos <= now);
 	}
 
 	private boolean removePairedUnsignedBridgeEntry() {
@@ -1002,9 +1025,13 @@ public abstract class MultiProxyHandler {
 	}
 
 	private static final class UnsignedBridgeCopies {
-		private long expiresAtNanos = Long.MAX_VALUE;
+		private long expiresAtNanos;
 		private int prefixed;
 		private int legacy;
+
+		private UnsignedBridgeCopies(long expiresAtNanos) {
+			this.expiresAtNanos = expiresAtNanos;
+		}
 
 		private boolean paired() {
 			return prefixed == legacy;
