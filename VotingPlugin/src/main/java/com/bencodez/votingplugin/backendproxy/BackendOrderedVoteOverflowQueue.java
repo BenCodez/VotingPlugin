@@ -341,11 +341,26 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 
 	/** Persists completion off the platform thread before removing the durable head. */
 	void acknowledgeAsync(PendingEnvelope expected, Consumer<Boolean> completion) {
+		completeHeadAsync(expected, null, completion);
+	}
+
+	/** Atomically replaces the durable head with follow-up work. */
+	void replaceAsync(PendingEnvelope expected, JsonEnvelope replacement, Consumer<Boolean> completion) {
+		PendingEnvelope pendingReplacement = pending(replacement);
+		if (pendingReplacement == null) {
+			completion.accept(false);
+			return;
+		}
+		completeHeadAsync(expected, pendingReplacement, completion);
+	}
+
+	private void completeHeadAsync(PendingEnvelope expected, PendingEnvelope replacement,
+			Consumer<Boolean> completion) {
 		PendingAcknowledgement request = null;
 		synchronized (lock) {
 			if (!closeRequested.get() && !closed && !loadFailed && expected != null && entries.peekFirst() == expected
 					&& pendingAcknowledgement == null && pendingFailure == null) {
-				request = new PendingAcknowledgement(expected, completion);
+				request = new PendingAcknowledgement(expected, replacement, completion);
 				pendingAcknowledgement = request;
 			}
 		}
@@ -382,6 +397,7 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 				}
 				List<String> active = payloadSnapshotLocked();
 				active.remove(0);
+				if (request.replacement != null) active.add(0, request.replacement.payload);
 				try {
 					writeSnapshotLocked(active, failedSnapshotLocked());
 				} catch (IOException failure) {
@@ -389,6 +405,7 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 					return false;
 				}
 				entries.removeFirst();
+				if (request.replacement != null) entries.addFirst(request.replacement);
 				durableVersion = ++stateVersion;
 				request.stored = true;
 				pendingAcknowledgement = null;
@@ -464,7 +481,8 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 		return VotingPluginWire.SUB_VOTE.equals(subChannel)
 				|| VotingPluginWire.SUB_VOTE_ONLINE.equals(subChannel)
 				|| VotingPluginWire.SUB_VOTE_UPDATE.equals(subChannel)
-				|| VotingPluginWire.SUB_VOTE_DELIVERY_RECEIPT_RELEASE.equals(subChannel);
+				|| VotingPluginWire.SUB_VOTE_DELIVERY_RECEIPT_RELEASE.equals(subChannel)
+				|| BackendProxyHandler.isLegacyDeliveryRetirement(envelope);
 	}
 
 	private void requestPersistenceLocked() {
@@ -689,7 +707,12 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 					&& (closingFailure.expected == null || entries.peekFirst() == closingFailure.expected);
 			canStoreAcknowledgement = closingAcknowledgement != null && !closingAcknowledgement.stored
 					&& entries.peekFirst() == closingAcknowledgement.expected;
-			if (canStoreAcknowledgement) snapshot.remove(0);
+			if (canStoreAcknowledgement) {
+				snapshot.remove(0);
+				if (closingAcknowledgement.replacement != null) {
+					snapshot.add(0, closingAcknowledgement.replacement.payload);
+				}
+			}
 			if (canStoreFailure) {
 				if (closingFailure.expected != null) snapshot.remove(0);
 				if (!closingFailureAlreadyStored) failures.add(closingFailure.failed.payload);
@@ -733,6 +756,9 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 		if (saved && canStoreAcknowledgement) {
 			synchronized (lock) {
 				entries.removeFirst();
+				if (closingAcknowledgement.replacement != null) {
+					entries.addFirst(closingAcknowledgement.replacement);
+				}
 				closingAcknowledgement.stored = true;
 			}
 		}
@@ -756,12 +782,15 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 
 	private static final class PendingAcknowledgement {
 		private final PendingEnvelope expected;
+		private final PendingEnvelope replacement;
 		private final Consumer<Boolean> completion;
 		private final AtomicBoolean completed = new AtomicBoolean();
 		private boolean stored;
 
-		private PendingAcknowledgement(PendingEnvelope expected, Consumer<Boolean> completion) {
+		private PendingAcknowledgement(PendingEnvelope expected, PendingEnvelope replacement,
+				Consumer<Boolean> completion) {
 			this.expected = expected;
+			this.replacement = replacement;
 			this.completion = completion;
 		}
 

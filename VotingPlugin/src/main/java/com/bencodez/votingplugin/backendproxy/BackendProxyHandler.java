@@ -40,6 +40,7 @@ import lombok.Getter;
  * Coordinates backend/proxy communication components.
  */
 public class BackendProxyHandler implements Listener {
+	private static final String SUB_LEGACY_DELIVERY_RETIREMENT = "LegacyVoteDeliveryRetirement";
 
 	private final VotingPluginMain plugin;
 	static final int MAX_ORDERED_VOTE_QUEUE = 256;
@@ -436,6 +437,16 @@ public class BackendProxyHandler implements Listener {
 			}
 		};
 		try {
+			if (isLegacyDeliveryRetirement(next)) {
+				try {
+					completeLegacyDeliveryRetirement(next);
+					complete.accept(OrderedVoteOutcome.COMPLETE_WITHOUT_RETIREMENT);
+				} catch (RuntimeException retirementFailure) {
+					plugin.debug(retirementFailure);
+					complete.accept(OrderedVoteOutcome.RETRY);
+				}
+				return;
+			}
 			if (dispatchDurableReceiptRelease(messageRouter, next)) {
 				complete.accept(OrderedVoteOutcome.COMPLETE);
 				return;
@@ -470,6 +481,16 @@ public class BackendProxyHandler implements Listener {
 		boolean successful = outcome == OrderedVoteOutcome.COMPLETE
 				|| outcome == OrderedVoteOutcome.COMPLETE_WITHOUT_RETIREMENT;
 		boolean retireDelivery = outcome == OrderedVoteOutcome.COMPLETE;
+		if (successful && retireDelivery && requiresLegacyDeliveryRetirement(envelope)) {
+			JsonEnvelope retirement = legacyDeliveryRetirement(envelope);
+			if (overflowEntry != null && orderedVoteOverflow != null) {
+				orderedVoteOverflow.replaceAsync(overflowEntry, retirement,
+						stored -> completeOrderedVoteAcknowledgement(stored, retirement, false));
+			} else {
+				replaceInMemoryVoteWithRetirement(envelope, retirement);
+			}
+			return;
+		}
 		if (successful && overflowEntry != null && orderedVoteOverflow != null) {
 			orderedVoteOverflow.acknowledgeAsync(overflowEntry,
 					stored -> completeOrderedVoteAcknowledgement(stored, envelope, retireDelivery));
@@ -490,6 +511,48 @@ public class BackendProxyHandler implements Listener {
 			else retryOrderedVoteDispatchLocked();
 		}
 		if (completedInMemory && retireDelivery) completeVoteDelivery(envelope);
+	}
+
+	private boolean requiresLegacyDeliveryRetirement(JsonEnvelope envelope) {
+		if (envelope == null || VotingPluginWire.requestsVoteDeliveryAcknowledgement(envelope)) return false;
+		if (!VotingPluginWire.SUB_VOTE.equals(envelope.getSubChannel())
+				&& !VotingPluginWire.SUB_VOTE_ONLINE.equals(envelope.getSubChannel())) return false;
+		return VotingPluginWire.resolveVoteId(VotingPluginWire.readVote(envelope)) != null;
+	}
+
+	static boolean isLegacyDeliveryRetirement(JsonEnvelope envelope) {
+		return envelope != null && SUB_LEGACY_DELIVERY_RETIREMENT.equals(envelope.getSubChannel());
+	}
+
+	private JsonEnvelope legacyDeliveryRetirement(JsonEnvelope envelope) {
+		UUID voteId = VotingPluginWire.resolveVoteId(VotingPluginWire.readVote(envelope));
+		return JsonEnvelope.builder(SUB_LEGACY_DELIVERY_RETIREMENT)
+				.put(VotingPluginWire.K_VOTE_ID, voteId.toString()).build();
+	}
+
+	private void completeLegacyDeliveryRetirement(JsonEnvelope envelope) {
+		VoteShopPurchaseService.completeVoteDelivery(plugin,
+				UUID.fromString(envelope.getFields().get(VotingPluginWire.K_VOTE_ID)));
+	}
+
+	private void replaceInMemoryVoteWithRetirement(JsonEnvelope envelope, JsonEnvelope retirement) {
+		synchronized (orderedVoteDispatch) {
+			if (orderedVoteDispatchInFlight != envelope || orderedVoteDispatchQueue.peekFirst() != envelope) {
+				orderedVoteQuarantineFailed = true;
+				orderedVoteDispatchPaused = true;
+				if (plugin != null && plugin.getLogger() != null) {
+					plugin.getLogger().severe("Unable to retain legacy proxy vote retirement; processing has stopped");
+				}
+			} else {
+				orderedVoteDispatchQueue.removeFirst();
+				orderedVoteDispatchQueue.addFirst(retirement);
+			}
+			orderedVoteDispatchInFlight = null;
+			orderedVoteOverflowInFlight = null;
+			orderedVoteDispatchActive = false;
+			orderedVoteDispatch.notifyAll();
+			scheduleOrderedVoteDispatchLocked();
+		}
 	}
 
 	private void completeOrderedVoteAcknowledgement(boolean stored, JsonEnvelope envelope, boolean retireDelivery) {

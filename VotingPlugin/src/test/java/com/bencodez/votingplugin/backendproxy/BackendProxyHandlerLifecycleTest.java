@@ -104,8 +104,69 @@ class BackendProxyHandlerLifecycleTest {
 		handler.dispatchIncomingAfterPublication(VotingPluginWire.vote("Player", UUID.randomUUID().toString(),
 				"Service", 100L, true, true, legacyTotals, null, true, false, 1, 1), mock(Runnable.class));
 		asyncTasks.removeFirst().run();
+		asyncTasks.removeFirst().run();
 
 		verify(serverData).clearVoteReplayUnsafe(voteId);
+		verify(router).handleOrderedVote(any(JsonEnvelope.class), any());
+	}
+
+	@Test
+	void failedLegacyVoteRetirementKeepsDurableQueueOwnershipAndRetries(@TempDir Path tempDir) throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		ServerData serverData = mock(ServerData.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		when(plugin.getServerData()).thenReturn(serverData);
+		when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+		when(plugin.getLogger()).thenReturn(Logger.getLogger("legacy-retirement-retry-test"));
+		LinkedBlockingQueue<Runnable> asyncTasks = new LinkedBlockingQueue<>();
+		doAnswer(invocation -> {
+			asyncTasks.add(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).runTaskAsynchronously(eq(plugin), any(Runnable.class));
+		BackendOrderedVoteOverflowQueue overflow = new BackendOrderedVoteOverflowQueue(plugin);
+		BackendProxyHandler handler = new BackendProxyHandler(plugin, new ProcessedVoteCache(), overflow);
+		BackendProxyMessageRouter router = mock(BackendProxyMessageRouter.class);
+		setField(handler, "messageRouter", router);
+		doAnswer(invocation -> {
+			invocation.<java.util.function.Consumer<OrderedVoteOutcome>>getArgument(1)
+					.accept(OrderedVoteOutcome.COMPLETE);
+			return null;
+		}).when(router).handleOrderedVote(any(JsonEnvelope.class), any());
+		handler.activateInboundMessages();
+		UUID voteId = UUID.randomUUID();
+		doThrow(new IllegalStateException("storage unavailable")).doNothing()
+				.when(serverData).clearVoteReplayUnsafe(voteId);
+		JsonEnvelope vote = VotingPluginWire.vote("Player", UUID.randomUUID().toString(),
+				"Service", 100L, true, true, "1//2//3//4//5//0//6//7//8//" + voteId,
+				null, true, false, 1, 1);
+
+		try {
+			assertTrue(overflow.enqueue(vote));
+			asyncTasks.poll(3, TimeUnit.SECONDS).run();
+			Runnable retirement = asyncTasks.poll(3, TimeUnit.SECONDS);
+			assertNotNull(retirement, "durable vote must be replaced by retirement work");
+
+			BackendOrderedVoteOverflowQueue recovered = new BackendOrderedVoteOverflowQueue(plugin);
+			try {
+				assertEquals(1, recovered.size(), "retirement ownership must survive restart");
+				assertTrue(BackendProxyHandler.isLegacyDeliveryRetirement(recovered.peekDurable().envelope()));
+			} finally {
+				recovered.close();
+			}
+
+			retirement.run();
+			Runnable retry = asyncTasks.poll(3, TimeUnit.SECONDS);
+			assertNotNull(retry, "failed retirement must retry from the durable queue");
+			retry.run();
+			long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
+			while (overflow.size() != 0 && System.nanoTime() < deadline) Thread.sleep(10L);
+			assertEquals(0, overflow.size());
+			verify(serverData, times(2)).clearVoteReplayUnsafe(voteId);
+			verify(router).handleOrderedVote(any(JsonEnvelope.class), any());
+		} finally {
+			overflow.close();
+		}
 	}
 
 	@Test
@@ -853,7 +914,7 @@ class BackendProxyHandlerLifecycleTest {
 			setField(handler, "messageRouter", router);
 			doAnswer(invocation -> {
 				invocation.<java.util.function.Consumer<OrderedVoteOutcome>>getArgument(1)
-						.accept(OrderedVoteOutcome.COMPLETE);
+						.accept(OrderedVoteOutcome.COMPLETE_WITHOUT_RETIREMENT);
 				return null;
 			}).when(router).handleOrderedVote(any(JsonEnvelope.class), any());
 			handler.activateInboundMessages();
