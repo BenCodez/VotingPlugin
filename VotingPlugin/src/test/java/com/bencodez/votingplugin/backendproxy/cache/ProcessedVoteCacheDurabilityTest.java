@@ -26,6 +26,17 @@ class ProcessedVoteCacheDurabilityTest {
 		assertTrue(cache.getProcessedVotes().containsKey(expired));
 		assertTrue(cache.reserveWithOutcome(UUID.randomUUID()) == ProcessedVoteCache.Reservation.RESERVED);
 	}
+
+	@Test
+	void expiredHeadRetryReclaimsItsSlotBeforeSaturationCheck() {
+		ProcessedVoteCache cache = new ProcessedVoteCache(TimeUnit.MINUTES.toMillis(30), 1);
+		UUID expired = UUID.randomUUID();
+		cache.getProcessedVotes().put(expired, 0L);
+
+		assertTrue(cache.reserveWithOutcome(expired) == ProcessedVoteCache.Reservation.RESERVED);
+		assertTrue(cache.getProcessedVotes().containsKey(expired));
+	}
+
 	@TempDir
 	Path directory;
 

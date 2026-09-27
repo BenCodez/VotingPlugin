@@ -112,11 +112,9 @@ public class ProcessedVoteCache {
 				return Reservation.DUPLICATE;
 			}
 
-			if (!admittedVotes.contains(voteId) && !hasAdmissionCapacity()) return Reservation.SATURATED;
-			if (processedVotes.replace(voteId, currentExpiry, expiresAt)) {
+			if (processedVotes.remove(voteId, currentExpiry)) {
 				completedVotes.remove(voteId);
-				admittedVotes.add(voteId);
-				return Reservation.RESERVED;
+				admittedVotes.remove(voteId);
 			}
 		}
 	}
