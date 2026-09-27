@@ -53,7 +53,7 @@ public class VoteURLVoteSite extends GUIHandler {
 		}
 		VoteSite site = plugin.getVoteSiteManager().getVoteSite(voteSite, true);
 		BInventory inv = new BInventory(plugin.getGui().getChestVoteURLSiteName());
-		inv.addPlaceholder("site", site.getDisplayName());
+		inv.addPlaceholder("site", site.getDisplayNameForFormatting());
 		inv.setMeta(player, "VoteSite", site);
 		if (!plugin.getConfigFile().isAlwaysCloseInventory()) {
 			inv.dontClose();
@@ -117,8 +117,8 @@ public class VoteURLVoteSite extends GUIHandler {
 		VoteSite site = plugin.getVoteSiteManager().getVoteSite(voteSite, true);
 
 		com.bencodez.simpleapi.dialog.MultiActionDialogBuilder dialog = plugin.getDialogService().multiAction(player)
-				.placeholder("player", user.getPlayerName()).placeholder("site", site.getDisplayName())
-				.placeholder("sitename", site.getDisplayName()).placeholder("SiteName", site.getDisplayName())
+				.placeholder("player", user.getPlayerName()).placeholder("site", site.getDisplayNameForFormatting())
+				.placeholder("sitename", site.getDisplayNameForFormatting()).placeholder("SiteName", site.getDisplayNameForFormatting())
 				.placeholder("servicesite", site.getServiceSiteForFormatting())
 				.placeholder("ServiceSite", site.getServiceSiteForFormatting())
 				.placeholder("VoteDelay", "" + site.getVoteDelay())

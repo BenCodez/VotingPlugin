@@ -26,6 +26,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
+import com.bencodez.advancedcore.api.rewards.RewardDisplayPlaceholders;
 import com.bencodez.simpleapi.time.ParsedDuration;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.VotingPluginUser;
@@ -487,6 +488,10 @@ public final class VoteRemindersManager {
 	}
 
 	public void onVoteCast(VotingPluginUser user, String siteKey) {
+		onVoteCast(user, siteKey, siteKey);
+	}
+
+	public void onVoteCast(VotingPluginUser user, String siteKey, String displaySite) {
 		if (!isEnabled() || user == null) {
 			return;
 		}
@@ -499,9 +504,10 @@ public final class VoteRemindersManager {
 			return;
 		}
 
-		Map<String, String> ph = new HashMap<>();
+		HashMap<String, String> ph = new HashMap<>();
 		if (siteKey != null && !siteKey.isEmpty()) {
 			ph.put("site", siteKey);
+			RewardDisplayPlaceholders.put(ph, "site", displaySite);
 		}
 
 		queueTrigger(user, VoteReminderType.VOTE_CAST, ph);

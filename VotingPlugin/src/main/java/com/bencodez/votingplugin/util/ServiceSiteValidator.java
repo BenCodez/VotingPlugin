@@ -17,7 +17,7 @@ public final class ServiceSiteValidator {
 	 *
 	 * @param serviceSite service-site name supplied by a vote source
 	 * @return {@code true} for a bounded, visible service-site name that does not
-	 *         contain formatting or placeholder delimiters
+	 *         contain structural formatting delimiters or control characters
 	 */
 	public static boolean isValid(String serviceSite) {
 		if (serviceSite == null || serviceSite.length() > MAX_LENGTH) {
@@ -25,24 +25,8 @@ public final class ServiceSiteValidator {
 		}
 
 		boolean hasVisibleCharacter = false;
-		int previousPercent = -1;
 		for (int offset = 0; offset < serviceSite.length();) {
 			int codePoint = serviceSite.codePointAt(offset);
-			if (codePoint == '%') {
-				if (offset + 2 >= serviceSite.length() || !isHex(serviceSite.charAt(offset + 1))
-						|| !isHex(serviceSite.charAt(offset + 2))) return false;
-				// PlaceholderAPI identifiers require an expansion/parameter separator.
-				// Reject that form between otherwise valid URL escapes while keeping
-				// ordinary names with multiple encoded octets usable.
-				if (previousPercent >= 0
-						&& serviceSite.substring(previousPercent + 1, offset).indexOf('_') >= 0) return false;
-				previousPercent = offset;
-			}
-			if (codePoint == '&' && offset + 1 < serviceSite.length()
-					&& (isLegacyColorCode(serviceSite.charAt(offset + 1))
-							|| isHexColor(serviceSite, offset))) {
-				return false;
-			}
 			if (isDisallowed(codePoint)) {
 				return false;
 			}
@@ -89,7 +73,14 @@ public final class ServiceSiteValidator {
 	 */
 	public static String inertForFormatting(String value) {
 		if (value == null || value.isEmpty()) return value == null ? "" : value;
-		return FORMATTING_BOUNDARY + value + FORMATTING_BOUNDARY;
+		StringBuilder inert = new StringBuilder(value.length() + 2).append(FORMATTING_BOUNDARY);
+		for (int offset = 0; offset < value.length();) {
+			int codePoint = value.codePointAt(offset);
+			inert.appendCodePoint(codePoint);
+			if (codePoint == '%' || codePoint == '&') inert.append(FORMATTING_BOUNDARY);
+			offset += Character.charCount(codePoint);
+		}
+		return inert.append(FORMATTING_BOUNDARY).toString();
 	}
 
 	private static boolean isDisallowed(int codePoint) {
@@ -102,25 +93,6 @@ public final class ServiceSiteValidator {
 		int type = Character.getType(codePoint);
 		return type == Character.CONTROL || type == Character.FORMAT || type == Character.LINE_SEPARATOR
 				|| type == Character.PARAGRAPH_SEPARATOR || type == Character.SURROGATE;
-	}
-
-	private static boolean isLegacyColorCode(char value) {
-		char normalized = Character.toLowerCase(value);
-		return normalized >= '0' && normalized <= '9' || normalized >= 'a' && normalized <= 'f'
-				|| normalized >= 'k' && normalized <= 'o' || normalized == 'r' || normalized == 'x';
-	}
-
-	private static boolean isHexColor(String value, int ampersandOffset) {
-		if (ampersandOffset + 7 >= value.length() || value.charAt(ampersandOffset + 1) != '#') return false;
-		for (int index = ampersandOffset + 2; index < ampersandOffset + 8; index++) {
-			if (!isHex(value.charAt(index))) return false;
-		}
-		return true;
-	}
-
-	private static boolean isHex(char value) {
-		return value >= '0' && value <= '9' || value >= 'a' && value <= 'f'
-				|| value >= 'A' && value <= 'F';
 	}
 
 	private static boolean isVisibleBaseCharacter(int codePoint) {

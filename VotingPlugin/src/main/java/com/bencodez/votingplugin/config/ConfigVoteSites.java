@@ -83,7 +83,6 @@ public class ConfigVoteSites extends YMLFile {
 			plugin.getLogger().warning("Creating VoteSite " + siteName + " for the service site '" + org + "'");
 			setEnabled(siteName, true);
 			setServiceSite(siteName, org);
-			setDisplayName(siteName, ServiceSiteValidator.inertForFormatting(org));
 			setVoteURL(siteName, "VoteURL");
 			setVoteDelay(siteName, "24h");
 			set(siteName, "DisplayItem.Material", "STONE");
