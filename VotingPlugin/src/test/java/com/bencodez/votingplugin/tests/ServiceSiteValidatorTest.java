@@ -49,6 +49,22 @@ class ServiceSiteValidatorTest {
 	}
 
 	@Test
+	void actionGuardPreventsTokensAcrossTemplateBoundaries() {
+		String guarded = ServiceSiteValidator.inertForActions("player_name%", true);
+
+		assertFalse(("%" + guarded).contains("%player_name%"));
+		assertFalse(("&" + ServiceSiteValidator.inertForActions("aGreen", true)).contains("&aGreen"));
+		assertEquals("player_name%", guarded.replace("\u2060", ""));
+	}
+
+	@Test
+	void detectsOnlyTemplatesThatOpenSyntaxBeforeThePlaceholder() {
+		assertTrue(ServiceSiteValidator.requiresLeadingActionBoundary("say %%ServiceSite%%", "ServiceSite"));
+		assertTrue(ServiceSiteValidator.requiresLeadingActionBoundary("say &%SiteName%", "SiteName"));
+		assertFalse(ServiceSiteValidator.requiresLeadingActionBoundary("say %ServiceSite%", "ServiceSite"));
+	}
+
+	@Test
 	void rejectsMissingAndOversizedNames() {
 		assertFalse(ServiceSiteValidator.isValid(null));
 		assertFalse(ServiceSiteValidator.isValid(""));

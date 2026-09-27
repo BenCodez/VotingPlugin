@@ -90,8 +90,14 @@ public final class ServiceSiteValidator {
 	 * markers around otherwise safe values.
 	 */
 	public static String inertForActions(String value) {
+		return inertForActions(value, false);
+	}
+
+	/** Guards an action value, optionally breaking a token opened by its trusted template. */
+	public static String inertForActions(String value, boolean leadingBoundary) {
 		if (value == null || value.isEmpty()) return value == null ? "" : value;
 		StringBuilder inert = new StringBuilder(value.length() + 2);
+		if (leadingBoundary) inert.append(FORMATTING_BOUNDARY);
 		for (int offset = 0; offset < value.length();) {
 			int codePoint = value.codePointAt(offset);
 			inert.appendCodePoint(codePoint);
@@ -99,6 +105,19 @@ public final class ServiceSiteValidator {
 			offset += Character.charCount(codePoint);
 		}
 		return inert.toString();
+	}
+
+	/** Returns whether a trusted template opens placeholder/color syntax immediately before this token. */
+	public static boolean requiresLeadingActionBoundary(String template, String placeholder) {
+		if (template == null || placeholder == null || placeholder.isEmpty()) return false;
+		String token = "%" + placeholder + "%";
+		for (int offset = 0; offset <= template.length() - token.length(); offset++) {
+			if (template.regionMatches(true, offset, token, 0, token.length()) && offset > 0) {
+				char previous = template.charAt(offset - 1);
+				if (previous == '%' || previous == '&') return true;
+			}
+		}
+		return false;
 	}
 
 	private static boolean isDisallowed(int codePoint) {
