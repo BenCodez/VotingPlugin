@@ -63,6 +63,20 @@ class TransportEnvelopeEncryptionTest {
 	}
 
 	@Test
+	void inboundPolicyEquivalenceRequiresSameKeyDomainAndMode() {
+		TransportEnvelopeEncryption enabled = TransportEnvelopeEncryption.forTesting(KEY, Domain.PROXY_BACKEND, true);
+
+		assertTrue(enabled.hasEquivalentInboundPolicy(
+				TransportEnvelopeEncryption.forTesting(KEY.clone(), Domain.PROXY_BACKEND, true)));
+		assertFalse(enabled.hasEquivalentInboundPolicy(TransportEnvelopeEncryption.forTesting(
+				"different-key-material-32-bytes!".getBytes(StandardCharsets.US_ASCII), Domain.PROXY_BACKEND, true)));
+		assertFalse(enabled.hasEquivalentInboundPolicy(
+				TransportEnvelopeEncryption.forTesting(KEY, Domain.MULTI_PROXY, true)));
+		assertFalse(enabled.hasEquivalentInboundPolicy(
+				TransportEnvelopeEncryption.forTesting(KEY, Domain.PROXY_BACKEND, false)));
+	}
+
+	@Test
 	void keyFileIsCreatedOnceAndNeverReplaced(@TempDir Path directory) throws Exception {
 		Path keyFile = directory.resolve("secretkey.key");
 		assertTrue(SharedSecretKeyFile.ensure(keyFile));

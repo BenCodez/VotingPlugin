@@ -86,11 +86,13 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 	private GlobalMessageHandler messageHandler;
 	private GlobalMessageHandler handoffMessageHandler;
 	private String publishChannel;
+	private String subscriptionChannel;
 	private volatile SharedTransportEnvelopeAuthenticator authenticator;
 
 	void updateAuthenticator(SharedTransportEnvelopeAuthenticator replacement) {
 		authenticator = java.util.Objects.requireNonNull(replacement);
 	}
+
 	private final AtomicBoolean authenticationFailureLogged = new AtomicBoolean();
 
 	public RedisBackendProxyTransport(VotingPluginMain plugin) {
@@ -115,6 +117,8 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 		}
 		warnIfCompatibilityMode();
 		publishChannel = VotingPluginRedisChannels.proxy(plugin.getBungeeSettings().getRedisPrefix());
+		subscriptionChannel = VotingPluginRedisChannels.backend(plugin.getBungeeSettings().getRedisPrefix(),
+				plugin.getBungeeSettings().getServer());
 		retiredAfterHandoff = false;
 		standbySubscriber = !processedVoteCache.registerRedisSubscriber(subscriberIdentity);
 		redisHandler = new RedisHandler(plugin.getBungeeSettings().getRedisHost(),
@@ -131,9 +135,7 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 		RedisHandler handler = redisHandler;
 		CountDownLatch ready = new CountDownLatch(1);
 		subscriptionReady = ready;
-		RedisListener listener = new RedisListener(handler,
-				VotingPluginRedisChannels.backend(plugin.getBungeeSettings().getRedisPrefix(),
-						plugin.getBungeeSettings().getServer()),
+		RedisListener listener = new RedisListener(handler, subscriptionChannel,
 				(ch, payload) -> {
 					try {
 						JsonEnvelope envelope = com.bencodez.simpleapi.servercomm.codec.JsonEnvelopeCodec.decode(payload);
@@ -150,6 +152,10 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 		listenerThread = new Thread(() -> handler.loadListener(listener), "VotingPlugin-Redis-Backend");
 		listenerThread.setDaemon(true);
 		listenerThread.start();
+	}
+
+	SharedInboundPolicy sharedInboundPolicySnapshot() {
+		return new SharedInboundPolicy(getClass(), subscriptionChannel, authenticator);
 	}
 
 	void acceptAuthenticatedEnvelope(JsonEnvelope envelope, String channel) {

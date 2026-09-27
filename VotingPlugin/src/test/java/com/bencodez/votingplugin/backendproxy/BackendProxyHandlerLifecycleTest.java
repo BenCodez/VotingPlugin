@@ -1358,6 +1358,48 @@ class BackendProxyHandlerLifecycleTest {
 	}
 
 	@Test
+	void stagedInboundIsNotForwardedAcrossDifferentSharedAuthenticationPolicies(@TempDir Path dataDirectory)
+			throws Exception {
+		Path keyFile = dataDirectory.resolve("secretkey.key");
+		Files.writeString(keyFile, Base64.getEncoder().encodeToString(
+				"0123456789abcdef0123456789abcdef".getBytes(StandardCharsets.US_ASCII)));
+		BackendProxyHandler previous = new BackendProxyHandler(null);
+		BackendProxyHandler replacement = new BackendProxyHandler(null);
+		setField(previous, "method", BungeeMethod.REDIS);
+		setField(replacement, "method", BungeeMethod.REDIS);
+		GlobalMessageHandler previousMessages = mock(GlobalMessageHandler.class);
+		setField(previous, "globalMessageHandler", previousMessages);
+		installRedisAuthenticator(previous, SharedTransportEnvelopeAuthenticator.load(keyFile, Mode.REQUIRED));
+		installRedisAuthenticator(replacement,
+				SharedTransportEnvelopeAuthenticator.load(keyFile, Mode.COMPATIBILITY));
+		JsonEnvelope envelope = JsonEnvelope.builder("rollback").build();
+		Runnable replacementDispatch = mock(Runnable.class);
+		CountDownLatch started = new CountDownLatch(1);
+
+		CompletableFuture<Void> callback = CompletableFuture.runAsync(() -> {
+			started.countDown();
+			replacement.dispatchIncomingAfterPublication(envelope, replacementDispatch);
+		});
+		assertTrue(started.await(1, TimeUnit.SECONDS));
+		assertFalse(callback.isDone());
+
+		replacement.abortStagedInboundTo(previous);
+		callback.get(1, TimeUnit.SECONDS);
+		verifyNoInteractions(previousMessages);
+		verify(replacementDispatch, never()).run();
+	}
+
+	private void installRedisAuthenticator(BackendProxyHandler handler,
+			SharedTransportEnvelopeAuthenticator authenticator) throws Exception {
+		Field managerField = BackendProxyHandler.class.getDeclaredField("transportManager");
+		managerField.setAccessible(true);
+		BackendProxyTransportManager manager = (BackendProxyTransportManager) managerField.get(handler);
+		RedisBackendProxyTransport transport = new RedisBackendProxyTransport(null);
+		setField(transport, "authenticator", authenticator);
+		setField(manager, "transport", transport);
+	}
+
+	@Test
 	void failedPluginMessagePublicationRestoresPreviousSharedState() {
 		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
 		BungeeSettings settings = mock(BungeeSettings.class);

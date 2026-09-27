@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.GeneralSecurityException;
+import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Base64;
 
@@ -130,6 +131,12 @@ public final class TransportEnvelopeEncryption {
 
 	public boolean enabled() {
 		return enabled;
+	}
+
+	/** Returns whether another instance enforces the exact same inbound policy and key. */
+	public boolean hasEquivalentInboundPolicy(TransportEnvelopeEncryption other) {
+		return other != null && enabled == other.enabled && domain == other.domain
+				&& MessageDigest.isEqual(key.getEncoded(), other.key.getEncoded());
 	}
 
 	private byte[] aad() {

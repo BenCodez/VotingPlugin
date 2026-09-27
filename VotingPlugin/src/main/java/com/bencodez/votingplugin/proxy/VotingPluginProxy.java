@@ -4746,16 +4746,24 @@ public abstract class VotingPluginProxy {
 		return config.build();
 	}
 
-	private synchronized SharedTransportEnvelopeAuthenticator sharedTransportAuthenticator() {
-		if (sharedTransportAuthenticator != null) {
-			warnIfSharedTransportCompatibilityMode(sharedTransportAuthenticator);
-			return sharedTransportAuthenticator;
+	private SharedTransportEnvelopeAuthenticator sharedTransportAuthenticator() {
+		SharedTransportEnvelopeAuthenticator authenticator;
+		synchronized (transportSecurityLock) {
+			authenticator = sharedTransportAuthenticatorLocked();
 		}
-		sharedTransportAuthenticator = createSharedTransportAuthenticator(method);
-		if (sharedTransportAuthenticator == null)
-			throw new IllegalStateException("Shared transport authentication requested without a shared transport");
-		warnIfSharedTransportCompatibilityMode(sharedTransportAuthenticator);
-		return sharedTransportAuthenticator;
+		warnIfSharedTransportCompatibilityMode(authenticator);
+		return authenticator;
+	}
+
+	private SharedTransportEnvelopeAuthenticator sharedTransportAuthenticatorLocked() {
+		SharedTransportEnvelopeAuthenticator authenticator = sharedTransportAuthenticator;
+		if (authenticator == null) {
+			authenticator = createSharedTransportAuthenticator(method);
+			if (authenticator == null)
+				throw new IllegalStateException("Shared transport authentication requested without a shared transport");
+			sharedTransportAuthenticator = authenticator;
+		}
+		return authenticator;
 	}
 
 	private SharedTransportEnvelopeAuthenticator createSharedTransportAuthenticator(BungeeMethod configuredMethod) {
@@ -4794,16 +4802,19 @@ public abstract class VotingPluginProxy {
 
 	void acceptSharedTransportEnvelope(JsonEnvelope envelope, Domain domain, String destination,
 			java.util.function.Consumer<JsonEnvelope> accepted) {
+		SharedTransportEnvelopeAuthenticator authenticator;
+		SharedTransportEnvelopeAuthenticator.Verification verification;
 		synchronized (transportSecurityLock) {
-			SharedTransportEnvelopeAuthenticator.Verification verification = sharedTransportAuthenticator().verify(envelope,
-					domain, destination);
-			if (!verification.accepted()) {
-				if (sharedTransportAuthenticationFailureLogged.compareAndSet(false, true)) log(
-						"Shared transport message rejected by envelope authentication (" + verification.rejection() + ")");
-				return;
-			}
-			accepted.accept(verification.envelope());
+			authenticator = sharedTransportAuthenticatorLocked();
+			verification = authenticator.verify(envelope, domain, destination);
 		}
+		warnIfSharedTransportCompatibilityMode(authenticator);
+		if (!verification.accepted()) {
+			if (sharedTransportAuthenticationFailureLogged.compareAndSet(false, true)) log(
+					"Shared transport message rejected by envelope authentication (" + verification.rejection() + ")");
+			return;
+		}
+		accepted.accept(verification.envelope());
 	}
 
 	public boolean sendRedisEnvelopeServer(String server, JsonEnvelope envelope) {
@@ -4822,7 +4833,7 @@ public abstract class VotingPluginProxy {
 			synchronized (transportSecurityLock) {
 				channel = VotingPluginRedisChannels.backend(getConfig().getRedisPrefix(), server);
 				JsonEnvelope identified = VotingPluginWire.withRedisDeliveryId(encryptCommunicationEnvelope(envelope));
-				authenticated = sharedTransportAuthenticator().sign(identified, Domain.REDIS_PROXY_BACKEND,
+				authenticated = sharedTransportAuthenticatorLocked().sign(identified, Domain.REDIS_PROXY_BACKEND,
 						getConfig().getProxyServerName(), channel);
 			}
 			long subscribers = jedis.publish(channel, JsonEnvelopeCodec.encode(authenticated));
@@ -4846,7 +4857,7 @@ public abstract class VotingPluginProxy {
 			String topic = getConfig().getMqttPrefix() + "votingplugin/servers/" + server;
 			JsonEnvelope authenticated;
 			synchronized (transportSecurityLock) {
-				authenticated = sharedTransportAuthenticator().sign(encryptCommunicationEnvelope(envelope),
+				authenticated = sharedTransportAuthenticatorLocked().sign(encryptCommunicationEnvelope(envelope),
 						Domain.MQTT_PROXY_BACKEND, getConfig().getProxyServerName(), topic);
 			}
 			mqttHandler.publishEnvelope(topic, authenticated);

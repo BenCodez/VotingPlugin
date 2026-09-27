@@ -217,6 +217,19 @@ class SharedTransportEnvelopeAuthenticatorTest {
 				"backend-a", "test-channel").getFields());
 	}
 
+	@Test
+	void inboundPolicyEquivalenceRequiresSameKeyAndMode() {
+		SharedTransportEnvelopeAuthenticator required = authenticator();
+
+		assertTrue(required.hasEquivalentInboundPolicy(
+				SharedTransportEnvelopeAuthenticator.forTesting(KEY.clone(), Mode.REQUIRED, CLOCK)));
+		assertFalse(required.hasEquivalentInboundPolicy(SharedTransportEnvelopeAuthenticator.forTesting(
+				"different-key-material-32-bytes!".getBytes(java.nio.charset.StandardCharsets.US_ASCII), Mode.REQUIRED,
+				CLOCK)));
+		assertFalse(required.hasEquivalentInboundPolicy(
+				SharedTransportEnvelopeAuthenticator.forTesting(KEY, Mode.COMPATIBILITY, CLOCK)));
+	}
+
 	private static SharedTransportEnvelopeAuthenticator authenticator() {
 		return SharedTransportEnvelopeAuthenticator.forTesting(KEY, Mode.REQUIRED, CLOCK);
 	}

@@ -141,6 +141,17 @@ public final class SharedTransportEnvelopeAuthenticator {
 		return mode;
 	}
 
+	/** Returns whether another instance accepts the same authenticated wire policy. */
+	public boolean hasEquivalentInboundPolicy(SharedTransportEnvelopeAuthenticator other) {
+		if (other == null || mode != other.mode || domainKeys.size() != other.domainKeys.size()) return false;
+		for (Domain domain : Domain.values()) {
+			byte[] key = domainKeys.get(domain);
+			byte[] otherKey = other.domainKeys.get(domain);
+			if (key == null ? otherKey != null : otherKey == null || !MessageDigest.isEqual(key, otherKey)) return false;
+		}
+		return true;
+	}
+
 	public JsonEnvelope sign(JsonEnvelope envelope, Domain domain, String sender, String destination) {
 		if (envelope == null) throw new IllegalArgumentException("envelope is required");
 		Objects.requireNonNull(domain, "domain");

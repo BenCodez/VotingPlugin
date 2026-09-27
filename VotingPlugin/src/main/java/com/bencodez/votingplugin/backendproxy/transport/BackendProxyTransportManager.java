@@ -118,6 +118,20 @@ public class BackendProxyTransportManager {
 		else throw new IllegalStateException("No active shared backend transport to update");
 	}
 
+	private synchronized SharedInboundPolicy sharedInboundPolicySnapshot() {
+		if (transport instanceof RedisBackendProxyTransport redis) return redis.sharedInboundPolicySnapshot();
+		if (transport instanceof MqttBackendProxyTransport mqtt) return mqtt.sharedInboundPolicySnapshot();
+		return null;
+	}
+
+	/** Compares broker authentication and the destination bound into its MAC without nesting manager locks. */
+	public boolean hasEquivalentSharedInboundPolicy(BackendProxyTransportManager other) {
+		if (other == null) return false;
+		SharedInboundPolicy current = sharedInboundPolicySnapshot();
+		SharedInboundPolicy restored = other.sharedInboundPolicySnapshot();
+		return current != null && current.hasEquivalentPolicy(restored);
+	}
+
 	private void acceptPreparedSend(JsonEnvelope envelope) {
 		if (preparedSends.size() < MAX_PREPARED_SENDS) {
 			preparedSends.addLast(envelope);

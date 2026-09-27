@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin.proxy;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -90,6 +91,42 @@ class VotingPluginProxyLifecycleTest {
 				"VotingPlugin", accepted);
 
 		verifyNoInteractions(accepted);
+	}
+
+	@Test
+	void acceptedSharedTransportCallbackRunsOutsideSecurityLock(@TempDir Path dataDirectory) throws Exception {
+		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
+		Path keyFile = dataDirectory.resolve("secretkey.key");
+		Files.writeString(keyFile, Base64.getEncoder().encodeToString(
+				"0123456789abcdef0123456789abcdef".getBytes(StandardCharsets.US_ASCII)));
+		SharedTransportEnvelopeAuthenticator authenticator = SharedTransportEnvelopeAuthenticator.load(keyFile,
+				Mode.REQUIRED);
+		Field authentication = VotingPluginProxy.class.getDeclaredField("sharedTransportAuthenticator");
+		authentication.setAccessible(true);
+		authentication.set(proxy, authenticator);
+		Field securityLockField = VotingPluginProxy.class.getDeclaredField("transportSecurityLock");
+		securityLockField.setAccessible(true);
+		Object securityLock = securityLockField.get(proxy);
+		String channel = "vp:VotingPlugin";
+		JsonEnvelope signed = authenticator.sign(VotingPluginWire.status("backend-a"),
+				Domain.REDIS_PROXY_BACKEND, "backend-a", channel);
+
+		assertDoesNotThrow(() -> ((VotingPluginProxy) proxy).acceptSharedTransportEnvelope(signed,
+				Domain.REDIS_PROXY_BACKEND, channel, ignored -> {
+					CountDownLatch acquired = new CountDownLatch(1);
+					Thread contender = new Thread(() -> {
+						synchronized (securityLock) {
+							acquired.countDown();
+						}
+					});
+					contender.start();
+					try {
+						assertTrue(acquired.await(1, TimeUnit.SECONDS));
+					} catch (InterruptedException interrupted) {
+						Thread.currentThread().interrupt();
+						throw new AssertionError(interrupted);
+					}
+				}));
 	}
 
 	@Test

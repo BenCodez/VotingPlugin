@@ -32,10 +32,15 @@ public class MqttBackendProxyTransport implements BackendProxyTransport {
 	void updateAuthenticator(SharedTransportEnvelopeAuthenticator replacement) {
 		authenticator = java.util.Objects.requireNonNull(replacement);
 	}
+
 	private final AtomicBoolean authenticationFailureLogged = new AtomicBoolean();
 
 	public MqttBackendProxyTransport(VotingPluginMain plugin) {
 		this.plugin = plugin;
+	}
+
+	SharedInboundPolicy sharedInboundPolicySnapshot() {
+		return new SharedInboundPolicy(getClass(), subscriptionTopic, authenticator);
 	}
 
 	@Override

@@ -219,14 +219,29 @@ public class BackendProxyHandler implements Listener {
 		activateOrderedVoteDispatch();
 	}
 
-	/** Routes an already accepted staged callback through the restored predecessor on rollback. */
+	/**
+	 * Routes a staged callback through the restored predecessor only when both
+	 * runtimes enforced the exact same inbound cryptographic policy. A callback
+	 * accepted under a different replacement policy must not bypass the restored
+	 * runtime's authentication or encryption boundary as plaintext.
+	 */
 	public void abortStagedInboundTo(BackendProxyHandler previous) {
+		BackendProxyHandler safeRollbackTarget = hasEquivalentInboundSecurity(previous) ? previous : null;
 		synchronized (inboundPublication) {
 			if (inboundPublished || inboundAborted) return;
-			inboundRollbackTarget = previous;
+			inboundRollbackTarget = safeRollbackTarget;
 			inboundAborted = true;
 			inboundPublication.notifyAll();
 		}
+	}
+
+	private boolean hasEquivalentInboundSecurity(BackendProxyHandler previous) {
+		if (previous == null || method != previous.method) return false;
+		if (communicationEncryption == null || previous.communicationEncryption == null) {
+			if (communicationEncryption != previous.communicationEncryption) return false;
+		} else if (!communicationEncryption.hasEquivalentInboundPolicy(previous.communicationEncryption)) return false;
+		if (method != BungeeMethod.REDIS && method != BungeeMethod.MQTT) return true;
+		return transportManager.hasEquivalentSharedInboundPolicy(previous.transportManager);
 	}
 
 	void dispatchIncomingAfterPublication(JsonEnvelope envelope, Runnable localDispatch) {
