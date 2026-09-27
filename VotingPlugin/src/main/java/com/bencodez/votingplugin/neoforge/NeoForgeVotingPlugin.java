@@ -13,7 +13,7 @@ import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
-/** Native NeoForge entry point. Native vote ingress is intentionally not registered yet. */
+/** Native NeoForge entry point. */
 @Mod("votingplugin")
 public final class NeoForgeVotingPlugin {
     private static final Logger LOGGER = Logger.getLogger(NeoForgeVotingPlugin.class.getName());
@@ -30,9 +30,10 @@ public final class NeoForgeVotingPlugin {
     private void started(ServerStartedEvent ignored) {
         try {
             runtime = NeoForgeRuntime.start(FMLPaths.CONFIGDIR.get().resolve("votingplugin"), serverFromEvent(ignored));
-            LOGGER.info("VotingPlugin NeoForge bootstrap started; retained supported rewards are replaying");
+            LOGGER.info("VotingPlugin NeoForge started; reward replay active"
+                    + (runtime.proxySocket().isPresent() ? "; proxy delivery active" : ""));
         } catch (IOException failure) {
-            throw new IllegalStateException("VotingPlugin NeoForge bootstrap failed", failure);
+            throw new IllegalStateException("VotingPlugin NeoForge startup failed", failure);
         }
     }
 
@@ -40,9 +41,9 @@ public final class NeoForgeVotingPlugin {
         if (runtime != null) {
             try {
                 runtime.close();
-                LOGGER.info("VotingPlugin NeoForge bootstrap stopped");
+                LOGGER.info("VotingPlugin NeoForge stopped");
             } catch (RuntimeException failure) {
-                LOGGER.log(Level.SEVERE, "VotingPlugin NeoForge shutdown failed", failure);
+                LOGGER.log(Level.SEVERE, "NeoForge shutdown failed", failure);
             } finally {
                 runtime = null;
             }
@@ -54,11 +55,17 @@ public final class NeoForgeVotingPlugin {
     }
 
     private void joined(PlayerEvent.PlayerLoggedInEvent event) {
-        if (runtime != null) runtime.players().joined(NeoForgePlayerDirectory.playerFromEvent(event));
+        if (runtime != null) {
+            var identity = runtime.players().joined(NeoForgePlayerDirectory.playerFromEvent(event));
+            runtime.proxySocket().ifPresent(proxy -> proxy.playerOnline(identity));
+        }
     }
 
     private void left(PlayerEvent.PlayerLoggedOutEvent event) {
-        if (runtime != null) runtime.players().left(NeoForgePlayerDirectory.playerFromEvent(event));
+        if (runtime != null) {
+            runtime.players().left(NeoForgePlayerDirectory.playerFromEvent(event))
+                    .ifPresent(identity -> runtime.proxySocket().ifPresent(proxy -> proxy.playerOffline(identity)));
+        }
     }
 
     private static Object serverFromEvent(Object event) {
@@ -66,7 +73,7 @@ public final class NeoForgeVotingPlugin {
             return event.getClass().getMethod("getServer").invoke(event);
         } catch (ReflectiveOperationException failure) {
             Throwable cause = failure instanceof InvocationTargetException ? failure.getCause() : failure;
-            throw new IllegalStateException("NeoForge server bridge cannot access the server", cause);
+            throw new IllegalStateException("Cannot access NeoForge server", cause);
         }
     }
 }

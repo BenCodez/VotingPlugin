@@ -312,10 +312,11 @@ public class VotingPluginWireTest {
 				acknowledgement.getFields().get(VotingPluginWire.K_VOTE_DELIVERY_SUBCHANNEL));
 
 		JsonEnvelope release = VotingPluginWire.voteDeliveryReceiptRelease(
-				"survival", voteId, VotingPluginWire.SUB_VOTE);
+				"survival", voteId, VotingPluginWire.SUB_VOTE, "player-uuid");
 		JsonEnvelope releaseAck = VotingPluginWire.voteDeliveryReceiptReleaseAcknowledgement(
 				"survival", voteId, VotingPluginWire.SUB_VOTE);
 		assertEquals(VotingPluginWire.SUB_VOTE_DELIVERY_RECEIPT_RELEASE, release.getSubChannel());
+		assertEquals("player-uuid", release.getFields().get(VotingPluginWire.K_UUID));
 		assertEquals(VotingPluginWire.SUB_VOTE_DELIVERY_RECEIPT_RELEASE_ACK, releaseAck.getSubChannel());
 		assertTrue(VotingPluginWire.requestsVoteDeliveryAcknowledgement(release));
 	}

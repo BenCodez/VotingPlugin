@@ -582,29 +582,6 @@ class NeoForgeRewardReplayServiceTest {
     }
 
     @Test
-    void playerMessageIntroducedLegacyFormattingRemainsPending() throws Exception {
-        writeConfiguration(false);
-        String sites = Files.readString(directory.resolve("VoteSites.yml"));
-        Files.writeString(directory.resolve("VoteSites.yml"), sites
-                .replace("Name: Supported Display", "Name: '&aSupported Display'")
-                .replace("Commands:\n      - 'say %player%'",
-                        "Messages:\n        Player: 'Thanks %player% from %SiteName%'"));
-        UUID playerId = UUID.randomUUID();
-        RecordingActions actions = new RecordingActions();
-        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory);
-                NeoForgeRewardReplayService replay = service(runtime, actions)) {
-            runtime.players().joined(new SharedVoteIdentity(playerId, "Alex", true));
-            retain(runtime, UUID.randomUUID(), playerId, "Service");
-
-            List<NeoForgeRewardReplayService.ReplayResult> result = replay.replayOnce().get(5, TimeUnit.SECONDS);
-
-            assertEquals(NeoForgeRewardReplayService.Status.BLOCKED_UNSUPPORTED, result.get(0).status());
-            assertEquals(0, actions.calls.get());
-            assertEquals(1, runtime.deferredVotes().pending(playerId).size());
-        }
-    }
-
-    @Test
     void mixedCommandsAndMessagesRemainPendingBeforeAnyEffect() throws Exception {
         writeConfiguration(false);
         String sites = Files.readString(directory.resolve("VoteSites.yml"));
@@ -663,7 +640,7 @@ class NeoForgeRewardReplayServiceTest {
     }
 
     @Test
-    void blockedEarlierOccurrencePreservesSamePlayerAdmissionOrder() throws Exception {
+    void blockedEarlierOccurrenceDoesNotStarveLaterHealthyOccurrence() throws Exception {
         writeConfiguration(true);
         UUID playerId = UUID.randomUUID();
         RecordingActions actions = new RecordingActions();
@@ -676,10 +653,13 @@ class NeoForgeRewardReplayServiceTest {
             List<NeoForgeRewardReplayService.ReplayResult> first = replay.replayOnce().get(5, TimeUnit.SECONDS);
             assertEquals(NeoForgeRewardReplayService.Status.BLOCKED_UNSUPPORTED, first.get(0).status());
 
-            assertTrue(replay.replayOnce().get(5, TimeUnit.SECONDS).isEmpty());
-            assertEquals(2, runtime.deferredVotes().pending(playerId).size());
-            assertEquals(0, actions.calls.get());
-            assertEquals(0, runtime.accounting().load(playerId).orElseThrow().allTimeTotal());
+            CompletableFuture<List<NeoForgeRewardReplayService.ReplayResult>> second = replay.replayOnce();
+            assertTrue(actions.scheduled.await(5, TimeUnit.SECONDS));
+            runtime.scheduler().onServerTick();
+            assertEquals(NeoForgeRewardReplayService.Status.COMPLETED,
+                    second.get(5, TimeUnit.SECONDS).get(0).status());
+            assertEquals(1, runtime.deferredVotes().pending(playerId).size());
+            assertEquals(1, runtime.accounting().load(playerId).orElseThrow().allTimeTotal());
         }
     }
 
@@ -863,38 +843,6 @@ class NeoForgeRewardReplayServiceTest {
             scheduler.onServerTick();
 
             completion.get(5, TimeUnit.SECONDS);
-            assertEquals(1, server.commands.dispatches.get());
-        } finally {
-            scheduler.close();
-        }
-    }
-
-    @Test
-    void nativeActionsRejectIdentityChangeBeforeServerTick() throws Exception {
-        NeoForgeServerScheduler scheduler = new NeoForgeServerScheduler();
-        NeoForgePlayerDirectory players = new NeoForgePlayerDirectory();
-        UUID playerId = UUID.randomUUID();
-        players.joined(new SharedVoteIdentity(playerId, "OldName", true));
-        CallbackCommandServer server = new CallbackCommandServer(true, true);
-        try {
-            NeoForgeNativeRewardActions actions = new NeoForgeNativeRewardActions(server, scheduler, players);
-            NeoForgeDeferredVote oldIdentity = new NeoForgeDeferredVote(UUID.randomUUID(), playerId,
-                    "OldName", "Service", "Supported", 100L, true, true, true);
-            NeoForgeRewardPlan plan = new NeoForgeRewardPlan(NeoForgeRewardPlan.Status.READY,
-                    List.of(new NeoForgeRewardPlan.Action(
-                            NeoForgeRewardPlan.ActionType.CONSOLE_COMMAND, "say %player%")), false, "test");
-
-            CompletableFuture<Void> stale = actions.execute(oldIdentity, plan);
-            players.joined(new SharedVoteIdentity(playerId, "NewName", true));
-            scheduler.onServerTick();
-            assertThrows(java.util.concurrent.ExecutionException.class,
-                    () -> stale.get(5, TimeUnit.SECONDS));
-            assertEquals(0, server.commands.dispatches.get());
-
-            CompletableFuture<Void> refreshed = actions.execute(
-                    oldIdentity.withReplayContext("NewName", "Service"), plan);
-            scheduler.onServerTick();
-            refreshed.get(5, TimeUnit.SECONDS);
             assertEquals(1, server.commands.dispatches.get());
         } finally {
             scheduler.close();

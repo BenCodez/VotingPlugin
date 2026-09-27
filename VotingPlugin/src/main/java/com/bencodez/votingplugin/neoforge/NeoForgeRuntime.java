@@ -26,22 +26,27 @@ public final class NeoForgeRuntime implements AutoCloseable {
     private final ConfigurationNode config;
     private final ConfigurationNode voteSites;
     private final ConfigurationNode specialRewards;
+    private final ConfigurationNode bungeeSettings;
     private final NeoForgeVoteConfiguration voteConfiguration;
     private final SqlUserBackend storage;
     private final NeoForgeVoteAccountingStore accounting;
     private final NeoForgeDeferredVoteStore deferredVotes;
     private final NeoForgeVoteProcessor voteProcessor;
     private final NeoForgeRewardReplayService rewardReplay;
+    private final NeoForgeProxySocketService proxySocket;
     private final NeoForgeServerScheduler scheduler = new NeoForgeServerScheduler();
     private final NeoForgePlayerDirectory players = new NeoForgePlayerDirectory();
     private boolean closed;
 
-    private NeoForgeRuntime(ConfigurationNode config, ConfigurationNode voteSites,
-            ConfigurationNode specialRewards, NeoForgeVoteConfiguration voteConfiguration,
+    private NeoForgeRuntime(Path directory, ConfigurationNode config, ConfigurationNode voteSites,
+            ConfigurationNode specialRewards, ConfigurationNode bungeeSettings,
+            NeoForgeVoteConfiguration voteConfiguration,
+            NeoForgeProxySocketConfiguration proxyConfiguration,
             SqlUserBackend storage, Clock clock, Object server) {
         this.config = config;
         this.voteSites = voteSites;
         this.specialRewards = specialRewards;
+        this.bungeeSettings = bungeeSettings;
         this.voteConfiguration = voteConfiguration;
         this.storage = storage;
         accounting = new NeoForgeVoteAccountingStore(storage, voteConfiguration);
@@ -50,7 +55,22 @@ public final class NeoForgeRuntime implements AutoCloseable {
         rewardReplay = server == null ? null : new NeoForgeRewardReplayService(voteConfiguration,
                 new NeoForgeRewardConfiguration(config, voteSites, specialRewards), accounting,
                 deferredVotes, players, new NeoForgeNativeRewardActions(server, scheduler, players));
-        if (rewardReplay != null) rewardReplay.start();
+        NeoForgeProxySocketService startedProxy = null;
+        try {
+            if (server != null && proxyConfiguration.enabled()) {
+                startedProxy = NeoForgeProxySocketService.start(directory, proxyConfiguration, voteProcessor, players);
+            }
+            if (rewardReplay != null) rewardReplay.start();
+        } catch (RuntimeException failure) {
+            NeoForgeProxySocketService failedProxy = startedProxy;
+            RuntimeException cleanupFailure = closeAll(
+                    () -> { if (failedProxy != null) failedProxy.close(); },
+                    () -> { if (rewardReplay != null) rewardReplay.close(); },
+                    scheduler::close);
+            if (cleanupFailure != null) failure.addSuppressed(cleanupFailure);
+            throw failure;
+        }
+        proxySocket = startedProxy;
     }
 
     public static NeoForgeRuntime start(Path directory) throws IOException {
@@ -72,13 +92,21 @@ public final class NeoForgeRuntime implements AutoCloseable {
         Path configFile = installDefault(directory, "Config.yml");
         Path voteSitesFile = installDefault(directory, "VoteSites.yml");
         Path specialRewardsFile = installDefault(directory, "SpecialRewards.yml");
+        Path bungeeSettingsFile = installDefault(directory, "BungeeSettings.yml");
         ConfigurationNode config = YamlConfigurationLoader.builder().path(configFile).build().load();
         ConfigurationNode voteSites = YamlConfigurationLoader.builder().path(voteSitesFile).build().load();
         ConfigurationNode specialRewards = YamlConfigurationLoader.builder().path(specialRewardsFile).build().load();
+        ConfigurationNode bungeeSettings = YamlConfigurationLoader.builder().path(bungeeSettingsFile).build().load();
         NeoForgeVoteConfiguration voteConfiguration = NeoForgeVoteConfiguration.load(config, voteSites);
+        NeoForgeProxySocketConfiguration proxyConfiguration;
+        try {
+            proxyConfiguration = NeoForgeProxySocketConfiguration.load(bungeeSettings);
+        } catch (IllegalArgumentException invalid) {
+            throw new IOException("Invalid proxy configuration", invalid);
+        }
         String storageMode = config.node("DataStorage").getString("SQLITE");
         if (!"SQLITE".equalsIgnoreCase(storageMode)) {
-            throw new IOException("NeoForge bootstrap currently supports only SQLITE storage; configured: " + storageMode);
+            throw new IOException("NeoForge supports only SQLITE; configured: " + storageMode);
         }
         SqlUserBackend storage;
         try {
@@ -87,9 +115,15 @@ public final class NeoForgeRuntime implements AutoCloseable {
             storage = SqlUserBackendFactory.sqlite(directory, "VotingPlugin", USER_TABLE_NAME,
                     storageKeys(), SqlBackendLogger.NO_OP);
         } catch (RuntimeException failure) {
-            throw new IOException("Could not initialize NeoForge user storage", failure);
+            throw new IOException("User storage initialization failed", failure);
         }
-        return new NeoForgeRuntime(config, voteSites, specialRewards, voteConfiguration, storage, clock, server);
+        try {
+            return new NeoForgeRuntime(directory, config, voteSites, specialRewards, bungeeSettings,
+                    voteConfiguration, proxyConfiguration, storage, clock, server);
+        } catch (RuntimeException failure) {
+            storage.close();
+            throw new IOException("Proxy delivery initialization failed", failure);
+        }
     }
 
     private static List<UserDataKey> storageKeys() {
@@ -116,6 +150,7 @@ public final class NeoForgeRuntime implements AutoCloseable {
     public ConfigurationNode config() { return config; }
     public ConfigurationNode voteSites() { return voteSites; }
     public ConfigurationNode specialRewards() { return specialRewards; }
+    public ConfigurationNode bungeeSettings() { return bungeeSettings; }
     public NeoForgeVoteConfiguration voteConfiguration() { return voteConfiguration; }
     public SqlUserBackend storage() { return storage; }
     public NeoForgeVoteAccountingStore accounting() { return accounting; }
@@ -124,15 +159,32 @@ public final class NeoForgeRuntime implements AutoCloseable {
     public NeoForgePlayerDirectory players() { return players; }
     public NeoForgeVoteProcessor voteProcessor() { return voteProcessor; }
     public Optional<NeoForgeRewardReplayService> rewardReplay() { return Optional.ofNullable(rewardReplay); }
+    public Optional<NeoForgeProxySocketService> proxySocket() { return Optional.ofNullable(proxySocket); }
 
     @Override public synchronized void close() {
         if (closed) return;
         closed = true;
-        voteProcessor.stop();
-        if (rewardReplay != null) rewardReplay.stopAdmission();
-        scheduler.close();
-        if (rewardReplay != null) rewardReplay.close();
-        players.clear();
-        storage.close();
+        RuntimeException failure = closeAll(
+                () -> { if (proxySocket != null) proxySocket.close(); },
+                voteProcessor::stop,
+                () -> { if (rewardReplay != null) rewardReplay.stopAdmission(); },
+                scheduler::close,
+                () -> { if (rewardReplay != null) rewardReplay.close(); },
+                players::clear,
+                storage::close);
+        if (failure != null) throw failure;
+    }
+
+    static RuntimeException closeAll(Runnable... steps) {
+        RuntimeException failure = null;
+        for (Runnable step : steps) {
+            try {
+                step.run();
+            } catch (RuntimeException closeFailure) {
+                if (failure == null) failure = closeFailure;
+                else failure.addSuppressed(closeFailure);
+            }
+        }
+        return failure;
     }
 }

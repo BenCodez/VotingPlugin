@@ -30,7 +30,8 @@ public final class SharedTransportEnvelopeAuthenticator {
 	public enum Domain {
 		REDIS_PROXY_BACKEND("votingplugin-shared-redis-proxy-backend-envelope-v1"),
 		MQTT_PROXY_BACKEND("votingplugin-shared-mqtt-proxy-backend-envelope-v1"),
-		REDIS_MULTI_PROXY("votingplugin-shared-redis-multi-proxy-envelope-v1");
+		REDIS_MULTI_PROXY("votingplugin-shared-redis-multi-proxy-envelope-v1"),
+		SOCKET_PROXY_BACKEND("votingplugin-socket-proxy-backend-envelope-v1");
 
 		private final String value;
 

@@ -5,13 +5,19 @@ import java.util.UUID;
 
 /** Trusted internal vote input. This is not a network or public ingress API. */
 public record NeoForgeVoteRequest(UUID voteId, UUID playerId, String playerName, String serviceSite,
-        long voteTime, boolean realVote, boolean addTotals, boolean online, Scope scope) {
+        long voteTime, boolean realVote, boolean addTotals, boolean online, boolean wasOnline, Scope scope) {
     public NeoForgeVoteRequest {
         Objects.requireNonNull(voteId, "voteId");
         Objects.requireNonNull(playerId, "playerId");
         Objects.requireNonNull(playerName, "playerName");
         Objects.requireNonNull(serviceSite, "serviceSite");
         Objects.requireNonNull(scope, "scope");
+    }
+
+    public NeoForgeVoteRequest(UUID voteId, UUID playerId, String playerName, String serviceSite,
+            long voteTime, boolean realVote, boolean addTotals, boolean online, Scope scope) {
+        this(voteId, playerId, playerName, serviceSite, voteTime, realVote, addTotals,
+                online, online, scope);
     }
 
     /**

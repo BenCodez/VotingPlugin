@@ -250,7 +250,8 @@
                                         <exclude>org/slf4j/**</exclude>
                                         <exclude>org/checkerframework/**</exclude>
                                         <exclude>META-INF/services/org.slf4j.spi.SLF4JServiceProvider</exclude>
-                                        <exclude>META-INF/maven/org.slf4j/**</exclude>
+                                        <!-- Dependency Maven descriptors are build metadata and are not used at runtime. -->
+                                        <exclude>META-INF/maven/**</exclude>
                                         <exclude>META-INF/*.SF</exclude>
                                         <exclude>META-INF/*.DSA</exclude>
                                         <exclude>META-INF/*.RSA</exclude>

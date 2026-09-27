@@ -71,12 +71,12 @@ public final class NeoForgeVoteProcessor {
         }
         long now = clock.millis();
         SharedVoteInput input = new SharedVoteInput(request.voteId(), identity.playerName(), request.serviceSite(),
-                request.voteTime(), request.realVote(), request.addTotals(), false, false, identity.online())
+                request.voteTime(), request.realVote(), request.addTotals(), false, false, request.wasOnline())
                 .normalizedVoteTime(now);
         NeoForgeVoteSite site = resolved.get();
         if (request.scope() == NeoForgeVoteRequest.Scope.COMPLETE) {
             NeoForgeVoteAccountingDecision decision = NeoForgeVoteAccountingDecision.capture(input,
-                    configuration.policyFor(site), identity.online(), configuration.pointsOnVote(),
+                    configuration.policyFor(site), input.wasOnline(), configuration.pointsOnVote(),
                     configuration.limitVotePoints());
             NeoForgeDeferredVoteStore.DeferralResult deferred = deferredVotes.defer(identity, input, site, decision);
             if (deferred.status() == NeoForgeDeferredVoteStore.Status.CAPACITY_REACHED) {
@@ -103,6 +103,8 @@ public final class NeoForgeVoteProcessor {
     }
 
     synchronized void stop() { stopped = true; }
+
+    NeoForgeDeferredVoteStore deferredVotes() { return deferredVotes; }
 
     private static NeoForgeVoteResult result(NeoForgeVoteResult.Status status, String detail) {
         return new NeoForgeVoteResult(status, null, detail);

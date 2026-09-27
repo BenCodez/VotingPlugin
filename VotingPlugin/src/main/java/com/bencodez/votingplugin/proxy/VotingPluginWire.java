@@ -291,9 +291,16 @@ public final class VotingPluginWire {
 
 	/** Confirms durable proxy outbox completion so the backend can retire its receipt. */
 	public static JsonEnvelope voteDeliveryReceiptRelease(String server, UUID voteId, String voteSubchannel) {
+		return voteDeliveryReceiptRelease(server, voteId, voteSubchannel, "");
+	}
+
+	/** Confirms durable proxy outbox completion and identifies the receipt owner. */
+	public static JsonEnvelope voteDeliveryReceiptRelease(String server, UUID voteId, String voteSubchannel,
+			String playerUuid) {
 		return base(SUB_VOTE_DELIVERY_RECEIPT_RELEASE).put(K_SERVER, safe(server))
 				.put(K_VOTE_ID, voteId == null ? "" : voteId.toString())
 				.put(K_VOTE_DELIVERY_SUBCHANNEL, safe(voteSubchannel))
+				.put(K_UUID, safe(playerUuid))
 				.put(K_VOTE_DELIVERY_ACK_VERSION, VOTE_DELIVERY_ACK_VERSION).build();
 	}
 

@@ -11,6 +11,7 @@ import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.UUID;
 
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
@@ -141,6 +142,11 @@ final class ReliableVoteDeliveryOutbox {
 
 	synchronized List<Entry> snapshot() {
 		return new ArrayList<>(entries.values());
+	}
+
+	synchronized Optional<Entry> find(String server, UUID voteId, String subChannel) {
+		if (voteId == null || server == null || subChannel == null) return Optional.empty();
+		return Optional.ofNullable(entries.get(normalized(server) + '|' + subChannel + '|' + voteId));
 	}
 
 	synchronized List<Entry> pendingVotes() {
