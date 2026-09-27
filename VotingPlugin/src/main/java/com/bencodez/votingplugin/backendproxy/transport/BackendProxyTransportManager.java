@@ -176,11 +176,9 @@ public class BackendProxyTransportManager {
 
 	public void close() {
 		awaitNonHttpHandoffBeforeClose();
-		Thread httpCleanup;
 		synchronized (this) {
-			httpCleanup = closeLocked();
+			closeLocked();
 		}
-		awaitHttpHandoffCleanup(httpCleanup);
 	}
 
 	/** Gives restored broker/socket sends a bounded chance to leave before their transport is detached. */
@@ -203,7 +201,7 @@ public class BackendProxyTransportManager {
 	}
 
 	/** Captures all manager-owned state while preventing a concurrent send admission. */
-	private Thread closeLocked() {
+	private void closeLocked() {
 		boolean interruptedWhileAwaitingHttpAdmission = false;
 		while (httpHandoffSendInProgress) {
 			try {
@@ -223,10 +221,9 @@ public class BackendProxyTransportManager {
 		}
 		asyncHandoffSends.clear();
 		notifyAll();
-		Thread httpCleanup = null;
 		if (transport != null) {
 			if (transport instanceof HttpBackendProxyTransport http) {
-				httpCleanup = startHttpCloseWithPendingHandoff(http, httpShutdownHandoff);
+				startHttpCloseWithPendingHandoff(http, httpShutdownHandoff);
 			} else {
 				transport.close();
 			}
@@ -258,11 +255,10 @@ public class BackendProxyTransportManager {
 		}
 		completedRedisHandoffTransport = null;
 		if (forwardingManager == null) preparedSends.clear();
-		return httpCleanup;
 	}
 
 	/** Resolves wire-policy adapters off the server thread before HTTP performs its bounded final flush. */
-	private Thread startHttpCloseWithPendingHandoff(HttpBackendProxyTransport http,
+	private void startHttpCloseWithPendingHandoff(HttpBackendProxyTransport http,
 			java.util.ArrayDeque<PendingHandoffEnvelope> pending) {
 		Thread cleanup = new Thread(() -> {
 			try {
@@ -295,7 +291,15 @@ public class BackendProxyTransportManager {
 		}, "VotingPlugin-Backend-HTTP-Handoff-Close");
 		cleanup.setDaemon(true);
 		cleanup.start();
-		return cleanup;
+		retainHttpCleanupThroughJvmShutdown(cleanup);
+	}
+
+	/** Keeps the bounded daemon cleanup alive without waiting on the Bukkit lifecycle thread. */
+	private void retainHttpCleanupThroughJvmShutdown(Thread cleanup) {
+		Thread owner = new Thread(() -> awaitHttpHandoffCleanup(cleanup),
+				"VotingPlugin-Backend-HTTP-Handoff-Owner");
+		owner.setDaemon(false);
+		owner.start();
 	}
 
 	private void awaitHttpHandoffCleanup(Thread cleanup) {

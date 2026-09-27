@@ -869,6 +869,48 @@ class HttpBackendProxyTransportTest {
 
 	@Test
 	@SuppressWarnings("unchecked")
+	void ordinaryHttpCloseDoesNotWaitForFinalFlushOnLifecycleThread() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getAnonymousLogger());
+		BackendProxyTransportManager manager = new BackendProxyTransportManager(plugin);
+		HttpBackendProxyTransport transport = new HttpBackendProxyTransport(plugin);
+		HttpBackendTransportConnector connector = mock(HttpBackendTransportConnector.class);
+		JsonEnvelope envelope = JsonEnvelope.builder("shutdown").build();
+		CountDownLatch sending = new CountDownLatch(1);
+		CountDownLatch release = new CountDownLatch(1);
+		setField(manager, "transport", transport);
+		setField(transport, "connector", connector);
+		setField(transport, "published", true);
+		((java.util.ArrayDeque<JsonEnvelope>) field(transport, "handoffQueue")).add(envelope);
+		when(connector.send(envelope)).thenAnswer(invocation -> {
+			sending.countDown();
+			release.await();
+			return true;
+		});
+		when(connector.flushOutgoing(org.mockito.ArgumentMatchers.anyLong())).thenReturn(true);
+
+		Thread lifecycle = new Thread(manager::close);
+		try {
+			lifecycle.start();
+			assertTrue(sending.await(1, TimeUnit.SECONDS));
+			lifecycle.join(TimeUnit.SECONDS.toMillis(1));
+			assertFalse(lifecycle.isAlive(), "Bukkit lifecycle must not wait for the HTTP final flush");
+			assertTrue(Thread.getAllStackTraces().keySet().stream()
+					.anyMatch(thread -> "VotingPlugin-Backend-HTTP-Handoff-Owner".equals(thread.getName())
+							&& !thread.isDaemon()),
+					"a bounded non-daemon owner must retain cleanup through JVM shutdown");
+		} finally {
+			release.countDown();
+			lifecycle.join(TimeUnit.SECONDS.toMillis(1));
+		}
+
+		verify(connector, org.mockito.Mockito.timeout(1_000)).send(envelope);
+		verify(connector, org.mockito.Mockito.timeout(1_000))
+				.flushOutgoing(org.mockito.ArgumentMatchers.anyLong());
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
 	void failedHandoffAdmissionLeavesTheOldPreparedQueuesIntact() throws Exception {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);
 		BackendProxyTransportManager previous = new BackendProxyTransportManager(plugin);
