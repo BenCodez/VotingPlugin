@@ -107,15 +107,13 @@ public final class ServiceSiteValidator {
 		return inert.toString();
 	}
 
-	/** Returns whether a trusted template opens placeholder/color syntax immediately before this token. */
+	/** Returns whether substitution occurs inside open placeholder/color syntax. */
 	public static boolean requiresLeadingActionBoundary(String template, String placeholder) {
 		if (template == null || placeholder == null || placeholder.isEmpty()) return false;
 		String token = "%" + placeholder + "%";
 		for (int offset = 0; offset <= template.length() - token.length(); offset++) {
-			if (template.regionMatches(true, offset, token, 0, token.length()) && offset > 0) {
-				char previous = template.charAt(offset - 1);
-				if (previous == '%' || previous == '&') return true;
-			}
+			if (template.regionMatches(true, offset, token, 0, token.length())
+					&& opensActionTokenAt(template, offset)) return true;
 		}
 		return false;
 	}
@@ -127,14 +125,35 @@ public final class ServiceSiteValidator {
 		StringBuilder result = null;
 		int copiedThrough = 0;
 		for (int offset = 0; offset <= template.length() - token.length(); offset++) {
-			if (!template.regionMatches(true, offset, token, 0, token.length()) || offset == 0) continue;
-			char previous = template.charAt(offset - 1);
-			if (previous != '%' && previous != '&') continue;
+			if (!template.regionMatches(true, offset, token, 0, token.length())
+					|| !opensActionTokenAt(template, offset)) continue;
 			if (result == null) result = new StringBuilder(template.length() + 4);
 			result.append(template, copiedThrough, offset).append(FORMATTING_BOUNDARY);
 			copiedThrough = offset;
 		}
 		return result == null ? template : result.append(template, copiedThrough, template.length()).toString();
+	}
+
+	private static boolean opensActionTokenAt(String template, int offset) {
+		if (offset <= 0) return false;
+		if (opensColorTokenAt(template, offset)) return true;
+		boolean openPercent = false;
+		for (int index = 0; index < offset; index++) {
+			if (template.charAt(index) == '%') openPercent = !openPercent;
+		}
+		return openPercent;
+	}
+
+	private static boolean opensColorTokenAt(String template, int offset) {
+		int ampersand = template.lastIndexOf('&', offset - 1);
+		if (ampersand < 0) return false;
+		int partialLength = offset - ampersand - 1;
+		if (partialLength == 0) return true;
+		if (template.charAt(ampersand + 1) != '#' || partialLength > 6) return false;
+		for (int index = ampersand + 2; index < offset; index++) {
+			if (Character.digit(template.charAt(index), 16) < 0) return false;
+		}
+		return true;
 	}
 
 	private static boolean isDisallowed(int codePoint) {

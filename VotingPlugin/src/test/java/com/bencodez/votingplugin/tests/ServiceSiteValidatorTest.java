@@ -61,7 +61,13 @@ class ServiceSiteValidatorTest {
 	void detectsOnlyTemplatesThatOpenSyntaxBeforeThePlaceholder() {
 		assertTrue(ServiceSiteValidator.requiresLeadingActionBoundary("say %%ServiceSite%%", "ServiceSite"));
 		assertTrue(ServiceSiteValidator.requiresLeadingActionBoundary("say &%SiteName%", "SiteName"));
+		assertTrue(ServiceSiteValidator.requiresLeadingActionBoundary("say &#ab%SiteName%", "SiteName"));
+		assertTrue(ServiceSiteValidator.requiresLeadingActionBoundary(
+				"say %player_%ServiceSite%%", "ServiceSite"));
 		assertFalse(ServiceSiteValidator.requiresLeadingActionBoundary("say %ServiceSite%", "ServiceSite"));
+		assertFalse(ServiceSiteValidator.requiresLeadingActionBoundary(
+				"say %SiteName%%ServiceSite%", "ServiceSite"));
+		assertFalse(ServiceSiteValidator.requiresLeadingActionBoundary("say &a%SiteName%", "SiteName"));
 	}
 
 	@Test
@@ -71,6 +77,15 @@ class ServiceSiteValidatorTest {
 		assertEquals("unsafe %\u2060%ServiceSite% and &\u2060%ServiceSite%",
 				ServiceSiteValidator.inertTemplateBoundaries(
 						"unsafe %%ServiceSite% and &%ServiceSite%", "ServiceSite"));
+		assertEquals("adjacent %SiteName%%ServiceSite%",
+				ServiceSiteValidator.inertTemplateBoundaries(
+						"adjacent %SiteName%%ServiceSite%", "ServiceSite"));
+		assertEquals("unsafe %player_\u2060%ServiceSite%%",
+				ServiceSiteValidator.inertTemplateBoundaries(
+						"unsafe %player_%ServiceSite%%", "ServiceSite"));
+		assertEquals("unsafe &#ab\u2060%ServiceSite%",
+				ServiceSiteValidator.inertTemplateBoundaries(
+						"unsafe &#ab%ServiceSite%", "ServiceSite"));
 	}
 
 	@Test
