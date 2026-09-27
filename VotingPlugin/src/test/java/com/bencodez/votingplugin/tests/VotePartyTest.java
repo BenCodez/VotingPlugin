@@ -134,6 +134,32 @@ public class VotePartyTest {
 	}
 
 	@Test
+	public void vote_OfflineHistoricalStateDoesNotCountWhenDisabled() {
+		when(plugin.getSpecialRewardsConfig().isVotePartyEnabled()).thenReturn(true);
+		when(plugin.getSpecialRewardsConfig().isVotePartyCountFakeVotes()).thenReturn(true);
+		when(plugin.getSpecialRewardsConfig().isVotePartyCountOfflineVotes()).thenReturn(false);
+		when(user.isOnline()).thenReturn(true);
+
+		voteParty.vote(user, true, false, false);
+
+		verify(voteParty, never()).addTotal(user);
+	}
+
+	@Test
+	public void vote_OnlineHistoricalStateCountsEvenIfPlayerIsCurrentlyOffline() {
+		when(plugin.getSpecialRewardsConfig().isVotePartyEnabled()).thenReturn(true);
+		when(plugin.getSpecialRewardsConfig().isVotePartyCountFakeVotes()).thenReturn(true);
+		when(plugin.getSpecialRewardsConfig().isVotePartyCountOfflineVotes()).thenReturn(false);
+		when(plugin.getSpecialRewardsConfig().getVotePartyVotesRequired()).thenReturn(10);
+		when(plugin.getServerData().getData().getInt("VoteParty.Total")).thenReturn(0);
+		when(user.isOnline()).thenReturn(false);
+
+		voteParty.vote(user, true, false, true);
+
+		verify(voteParty).addTotal(user);
+	}
+
+	@Test
 	public void getNeededVotes_ReturnsCorrectValue() {
 		when(plugin.getServerData().getData().getInt("VoteParty.Total")).thenReturn(5);
 		when(plugin.getSpecialRewardsConfig().getVotePartyVotesRequired()).thenReturn(10);

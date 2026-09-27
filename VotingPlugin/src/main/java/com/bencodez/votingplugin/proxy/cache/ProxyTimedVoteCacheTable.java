@@ -50,7 +50,9 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 					+ qi("broadcastTargets") + " TEXT, "
 					+ qi("broadcastForwardedServers") + " TEXT, "
 					+ qi("httpBroadcastDeliveryIds") + " TEXT, "
-					+ qi("multiProxyLegacyPendingRecipients") + " TEXT"
+					+ qi("multiProxyLegacyPendingRecipients") + " TEXT, "
+					+ qi("wasOnline") + " BOOLEAN NOT NULL DEFAULT FALSE, "
+					+ qi("wasOnlineKnown") + " BOOLEAN NOT NULL DEFAULT FALSE"
 					+ ");";
 		}
 
@@ -76,6 +78,8 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 				+ qi("broadcastForwardedServers") + " TEXT,"
 				+ qi("httpBroadcastDeliveryIds") + " TEXT,"
 				+ qi("multiProxyLegacyPendingRecipients") + " TEXT,"
+				+ qi("wasOnline") + " TINYINT(1) NOT NULL DEFAULT 0,"
+				+ qi("wasOnlineKnown") + " TINYINT(1) NOT NULL DEFAULT 0,"
 				+ "INDEX idx_time (" + qi("time") + ")"
 				+ ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
 	}
@@ -151,6 +155,10 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 		ensureColumn("multiProxyAcknowledgedServers", "TEXT");
 		ensureColumn("httpBroadcastDeliveryIds", "TEXT");
 		ensureColumn("multiProxyLegacyPendingRecipients", "TEXT");
+		ensureColumn("wasOnline", getDbType() == DbType.POSTGRESQL
+				? "BOOLEAN NOT NULL DEFAULT FALSE" : "TINYINT(1) NOT NULL DEFAULT 0");
+		ensureColumn("wasOnlineKnown", getDbType() == DbType.POSTGRESQL
+				? "BOOLEAN NOT NULL DEFAULT FALSE" : "TINYINT(1) NOT NULL DEFAULT 0");
 	}
 
 	private void ensureColumn(String column, String type) {
@@ -202,7 +210,7 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 			boolean multiProxyCapabilityDiscoveryPending,
 			boolean realVote, String multiProxyOrigin, boolean multiProxyCompletionPending, String multiProxyRecipients,
 			String multiProxyAcknowledgedServers, String httpBroadcastDeliveryIds,
-			String multiProxyLegacyPendingRecipients) {
+			String multiProxyLegacyPendingRecipients, boolean wasOnline, boolean wasOnlineKnown) {
 		String sql = "INSERT INTO " + qi(getTableName()) + " (" + qi("playerName") + ", " + qi("service") + ", "
 				+ qi("time") + ", " + qi("voteId") + ", " + qi("uuid") + ", " + qi("proxyBroadcastHandled") + ", "
 				+ qi("broadcastTargets") + ", " + qi("broadcastForwardedServers") + ", " + qi("totals") + ", "
@@ -211,8 +219,8 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 				+ ", " + qi("multiProxyCapabilityDiscoveryPending")
 				+ ", " + qi("multiProxyCompletionPending") + ", " + qi("multiProxyRecipients") + ", "
 				+ qi("multiProxyAcknowledgedServers") + ", " + qi("httpBroadcastDeliveryIds") + ", "
-				+ qi("multiProxyLegacyPendingRecipients")
-				+ ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+				+ qi("multiProxyLegacyPendingRecipients") + ", " + qi("wasOnline") + ", " + qi("wasOnlineKnown")
+				+ ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
 		try (Connection conn = mysql.getConnectionManager().getConnection();
 				PreparedStatement ps = conn.prepareStatement(sql)) {
 			ps.setString(1, playerName);
@@ -251,6 +259,13 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 			ps.setString(18, multiProxyAcknowledgedServers);
 			ps.setString(19, httpBroadcastDeliveryIds);
 			ps.setString(20, multiProxyLegacyPendingRecipients);
+			if (getDbType() == DbType.POSTGRESQL) {
+				ps.setBoolean(21, wasOnline);
+				ps.setBoolean(22, wasOnlineKnown);
+			} else {
+				ps.setInt(21, wasOnline ? 1 : 0);
+				ps.setInt(22, wasOnlineKnown ? 1 : 0);
+			}
 			ps.executeUpdate();
 			return true;
 		} catch (SQLException e) {
@@ -269,7 +284,8 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 				vote.getMultiProxyOrigin(),
 				vote.isMultiProxyCompletionPending(),
 				vote.encodeMultiProxyRecipients(), vote.encodeMultiProxyAcknowledgedServers(),
-				vote.encodeHttpBroadcastDeliveryIds(), vote.encodeMultiProxyLegacyPendingRecipients());
+				vote.encodeHttpBroadcastDeliveryIds(), vote.encodeMultiProxyLegacyPendingRecipients(),
+				vote.isWasOnline(), vote.isWasOnlineKnown());
 	}
 
 	/** Backward-compatible insert overload. */
@@ -278,7 +294,7 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 			boolean processed, boolean multiProxyForwardingHandled, String httpBroadcastDeliveryIds) {
 		return insertTimedVote(voteId, uuid, playerName, service, time, proxyBroadcastHandled, broadcastTargets,
 				broadcastForwardedServers, totals, processed, multiProxyForwardingHandled, false, false, true, "", false, "", "",
-				httpBroadcastDeliveryIds, "");
+				httpBroadcastDeliveryIds, "", false, false);
 	}
 
 	/** Backward-compatible insert overload without HTTP delivery state. */
@@ -525,7 +541,8 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 							rs.getString("multiProxyRecipients"),
 							rs.getString("multiProxyAcknowledgedServers"),
 							rs.getString("httpBroadcastDeliveryIds"),
-							rs.getString("multiProxyLegacyPendingRecipients")
+							rs.getString("multiProxyLegacyPendingRecipients"),
+							rs.getBoolean("wasOnline"), rs.getBoolean("wasOnlineKnown")
 					));
 				}
 			}
@@ -571,6 +588,8 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 		private final String multiProxyAcknowledgedServers;
 		private final String httpBroadcastDeliveryIds;
 		private final String multiProxyLegacyPendingRecipients;
+		private final boolean wasOnline;
+		private final boolean wasOnlineKnown;
 
 		/**
 		 * Constructor for TimedVoteRow.
@@ -591,7 +610,7 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 				boolean multiProxyCapabilityDiscoveryPending, boolean realVote, String multiProxyOrigin,
 				boolean multiProxyCompletionPending, String multiProxyRecipients,
 				String multiProxyAcknowledgedServers, String httpBroadcastDeliveryIds,
-				String multiProxyLegacyPendingRecipients) {
+				String multiProxyLegacyPendingRecipients, boolean wasOnline, boolean wasOnlineKnown) {
 			this.id = id;
 			this.playerName = playerName;
 			this.service = service;
@@ -613,6 +632,8 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 			this.multiProxyAcknowledgedServers = multiProxyAcknowledgedServers;
 			this.httpBroadcastDeliveryIds = httpBroadcastDeliveryIds;
 			this.multiProxyLegacyPendingRecipients = multiProxyLegacyPendingRecipients;
+			this.wasOnline = wasOnline;
+			this.wasOnlineKnown = wasOnlineKnown;
 		}
 
 		/** Backward-compatible row constructor without HTTP delivery state. */
@@ -620,7 +641,8 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 				boolean proxyBroadcastHandled, String broadcastTargets, String broadcastForwardedServers, String totals,
 				boolean processed) {
 			this(id, playerName, service, time, voteId, uuid, proxyBroadcastHandled, broadcastTargets,
-					broadcastForwardedServers, totals, processed, false, false, false, true, "", false, "", "", null, null);
+					broadcastForwardedServers, totals, processed, false, false, false, true, "", false, "", "", null, null,
+					false, false);
 		}
 
 		/** Backward-compatible row constructor without the durable multi-proxy forwarding fence. */
@@ -629,7 +651,7 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 				boolean processed, String httpBroadcastDeliveryIds) {
 			this(id, playerName, service, time, voteId, uuid, proxyBroadcastHandled, broadcastTargets,
 					broadcastForwardedServers, totals, processed, false, false, false, true, "", false, "", "",
-					httpBroadcastDeliveryIds, null);
+					httpBroadcastDeliveryIds, null, false, false);
 		}
 
 		/**
@@ -722,5 +744,8 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 		public String getHttpBroadcastDeliveryIds() {
 			return httpBroadcastDeliveryIds;
 		}
+
+		public boolean isWasOnline() { return wasOnline; }
+		public boolean isWasOnlineKnown() { return wasOnlineKnown; }
 	}
 }

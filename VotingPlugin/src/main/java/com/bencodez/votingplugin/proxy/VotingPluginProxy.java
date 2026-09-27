@@ -158,6 +158,7 @@ public abstract class VotingPluginProxy {
 		private String uuid;
 		private long time;
 		private boolean realVote;
+		private boolean playerOnline;
 
 	}
 
@@ -1136,7 +1137,7 @@ public abstract class VotingPluginProxy {
 
 								if (!sendVoteEnvelopeAccepted(server, delay,
 										VotingPluginWire.vote(cache.getPlayerName(), cache.getUuid(),
-												cache.getService(), cache.getTime(), false, cache.isRealVote(),
+												cache.getService(), cache.getTime(), resolveCachedWasOnline(cache), cache.isRealVote(),
 												cache.getText(), cache.getVoteId(), getConfig().getBungeeManageTotals(),
 												broadcastHere, num, numberOfVotes), cache)) {
 									debug("Retaining cached vote because the transport rejected delivery for " + server);
@@ -1222,7 +1223,7 @@ public abstract class VotingPluginProxy {
 						if (!cache.isRewardDelivered()) {
 							if (!sendVoteEnvelopeAccepted(server, delay,
 									VotingPluginWire.voteOnline(cache.getPlayerName(), cache.getUuid(), cache.getService(),
-											cache.getTime(), false, cache.isRealVote(), cache.getText(), cache.getVoteId(),
+											cache.getTime(), resolveCachedWasOnline(cache), cache.isRealVote(), cache.getText(), cache.getVoteId(),
 											getConfig().getBungeeManageTotals(), broadcastHere, num, numberOfVotes), cache)) {
 								debug("Retaining online vote because the transport rejected delivery for " + server);
 								persistOnlineVoteDelivery(uuid, cache);
@@ -5449,8 +5450,12 @@ public abstract class VotingPluginProxy {
 
 			player = getProperName(uuid, player);
 
-			// Cache online state/server once (IMPORTANT for broadcast logic correctness)
-			final boolean playerOnline = isPlayerOnlineForVoteRouting(player);
+			// Cache online state/server once. In-memory retries reuse the original sample.
+			final boolean playerOnline = retryState != null
+					? retryState.playerOnline
+					: queuedVote != null && queuedVote.isWasOnlineKnown()
+							? queuedVote.isWasOnline()
+							: isPlayerOnlineForVoteRouting(player);
 			final String playerServer = playerOnline ? getCurrentPlayerServerForVoteRouting(player) : null;
 			long time = retryState != null ? retryState.time
 					: (queueTime != 0 ? queueTime
@@ -5515,6 +5520,7 @@ public abstract class VotingPluginProxy {
 						proxyBroadcastHandled, broadcastTargets, broadcastForwardedServers,
 						projectedTotals == null ? "" : projectedTotals.toString(), false, uuid);
 				delayedVote.setRealVote(realVote);
+				delayedVote.setWasOnline(playerOnline);
 				if (!getVoteCacheHandler().addTimeVoteToCache(delayedVote)) {
 					logSevere("Unable to persist queued rollover vote for " + player + "/" + service
 							+ "; skipping proxy broadcast");
@@ -5546,6 +5552,7 @@ public abstract class VotingPluginProxy {
 				retryState.uuid = uuid;
 				retryState.time = time;
 				retryState.realVote = realVote;
+				retryState.playerOnline = playerOnline;
 				liveVoteRetries.put(voteId, retryState);
 			}
 			if (queuedVote != null) {
@@ -5650,6 +5657,7 @@ public abstract class VotingPluginProxy {
 							text == null ? "" : text.toString(), false, true, proxyBroadcastTargets,
 							broadcastForwardedServers, !getConfig().getSendVotesToAllServers(), Collections.emptyMap(), queuedVote == null
 								? Collections.emptyMap() : queuedVote.getHttpBroadcastDeliveryIds());
+					standaloneBroadcastState.setWasOnline(playerOnline);
 					if (getConfig().getSendVotesToAllServers()) markRewardJournalTargets(standaloneBroadcastState, rewardServers);
 					retryState.standaloneBroadcastState = standaloneBroadcastState;
 					retryState.rewardJournalOwner = standaloneBroadcastState;
@@ -5688,7 +5696,7 @@ public abstract class VotingPluginProxy {
 				OfflineBungeeVote rewardJournalOwner = retryState.rewardJournalOwner;
 				if (rewardJournalOwner == null) {
 					rewardJournalOwner = createCachedRewardVote(voteId, player, uuid, service, time, realVote,
-							text.toString(), false);
+							text.toString(), false, playerOnline);
 					markRewardJournalTargets(rewardJournalOwner, rewardServers);
 					retryState.rewardJournalOwner = rewardJournalOwner;
 					if (!getVoteCacheHandler().addOnlineVoteDurably(uuid, rewardJournalOwner)) {
@@ -5703,7 +5711,7 @@ public abstract class VotingPluginProxy {
 					OfflineBungeeVote rewardState = retryState.rewardStates.get(server.toLowerCase(Locale.ROOT));
 					if (rewardState == null) {
 						rewardState = createCachedRewardVote(voteId, player, uuid, service, time,
-								realVote, text.toString(), standaloneProxyBroadcast);
+								realVote, text.toString(), standaloneProxyBroadcast, playerOnline);
 						retryState.rewardStates.put(server.toLowerCase(Locale.ROOT), rewardState);
 					}
 					// Every target begins as pending so a crash before its send cannot lose
@@ -5755,7 +5763,7 @@ public abstract class VotingPluginProxy {
 
 						OfflineBungeeVote pendingVote = retryState.rewardStates.get(s.toLowerCase(Locale.ROOT));
 						boolean rewardAccepted = sendVoteEnvelopeAccepted(s, 2,
-								VotingPluginWire.vote(player, uuid, service, time, true, realVote, text.toString(),
+								VotingPluginWire.vote(player, uuid, service, time, playerOnline, realVote, text.toString(),
 										voteId, getConfig().getBungeeManageTotals(), broadcastHere, 1, 1), pendingVote);
 						if (!rewardAccepted) {
 							pendingVote.setRewardDelivered(false);
@@ -5795,13 +5803,14 @@ public abstract class VotingPluginProxy {
 							? new OfflineBungeeVote(voteId, player, uuid, service, time, realVote, text.toString(), false,
 									true, proxyBroadcastTargets, broadcastForwardedServers, false, Collections.emptyMap(),
 									standaloneBroadcastState.getHttpBroadcastDeliveryIds())
-							: createCachedRewardVote(voteId, player, uuid, service, time, realVote, text.toString(), false);
+							: createCachedRewardVote(voteId, player, uuid, service, time, realVote, text.toString(), false, playerOnline);
 						retryState.rewardStates.put(server.toLowerCase(Locale.ROOT), pendingVote);
 					}
+					pendingVote.setWasOnline(playerOnline);
 					boolean rewardAccepted = retryState.deliveredRewardServers.contains(server);
 					if (!rewardAccepted) {
 						rewardAccepted = sendVoteEnvelopeAccepted(server, 1,
-								VotingPluginWire.voteOnline(player, uuid, service, time, true, realVote, text.toString(),
+								VotingPluginWire.voteOnline(player, uuid, service, time, playerOnline, realVote, text.toString(),
 										voteId, getConfig().getBungeeManageTotals(), broadcastHere, 1, 1), pendingVote);
 						if (rewardAccepted) retryState.deliveredRewardServers.add(server);
 					}
@@ -5880,7 +5889,8 @@ public abstract class VotingPluginProxy {
 							? new OfflineBungeeVote(voteId, player, uuid, service, time, realVote, text.toString(), false,
 									true, proxyBroadcastTargets, broadcastForwardedServers, false, Collections.emptyMap(),
 									standaloneBroadcastState.getHttpBroadcastDeliveryIds())
-							: createCachedRewardVote(voteId, player, uuid, service, time, realVote, text.toString(), false);
+							: createCachedRewardVote(voteId, player, uuid, service, time, realVote, text.toString(), false, playerOnline);
+					cachedReward.setWasOnline(playerOnline);
 					retryState.pendingOnlineRewardState = cachedReward;
 					boolean cachedDurably = getVoteCacheHandler().addOnlineVoteDurably(uuid, cachedReward);
 					if (!cachedDurably) {
@@ -6349,11 +6359,24 @@ public abstract class VotingPluginProxy {
 	 * backend row. Marking the local row as already broadcast prevents it from
 	 * emitting a second broadcast while its reward waits for the player.
 	 */
+	private boolean resolveCachedWasOnline(OfflineBungeeVote vote) {
+		return vote.isWasOnlineKnown() ? vote.isWasOnline() : isPlayerOnlineForVoteRouting(vote.getPlayerName());
+	}
+
 	protected OfflineBungeeVote createCachedRewardVote(UUID voteId, String player, String uuid, String service, long time,
-			boolean realVote, String text, boolean standaloneProxyBroadcast) {
-		return new OfflineBungeeVote(voteId, player, uuid, service, time, realVote, text,
+			boolean realVote, String text, boolean standaloneProxyBroadcast, boolean wasOnline) {
+		return createCachedRewardVote(voteId, player, uuid, service, time, realVote, text, standaloneProxyBroadcast,
+				wasOnline, true);
+	}
+
+	private OfflineBungeeVote createCachedRewardVote(UUID voteId, String player, String uuid, String service, long time,
+			boolean realVote, String text, boolean standaloneProxyBroadcast, boolean wasOnline,
+			boolean wasOnlineKnown) {
+		OfflineBungeeVote vote = new OfflineBungeeVote(voteId, player, uuid, service, time, realVote, text,
 				standaloneProxyBroadcast, false, Collections.emptySet(), Collections.emptySet(), false,
 				Collections.emptyMap(), Collections.emptyMap());
+		if (wasOnlineKnown) vote.setWasOnline(wasOnline);
+		return vote;
 	}
 
 	private void markRewardJournalTargets(OfflineBungeeVote owner, Set<String> targets) {
@@ -6410,7 +6433,7 @@ public abstract class VotingPluginProxy {
 			String deliveryId = entry.getValue();
 			OfflineBungeeVote reward = createCachedRewardVote(owner.getVoteId(), owner.getPlayerName(), owner.getUuid(),
 					owner.getService(), owner.getTime(), owner.isRealVote(), owner.getText(),
-					owner.isProxyBroadcastHandled());
+					owner.isProxyBroadcastHandled(), owner.isWasOnline(), owner.isWasOnlineKnown());
 			reward.setHttpDeliveryId(server, deliveryId);
 			if (!getVoteCacheHandler().addServerVoteDurably(server, reward)) return false;
 		}
@@ -6427,10 +6450,13 @@ public abstract class VotingPluginProxy {
 
 	private OfflineBungeeVote createCachedRewardVote(OfflineBungeeVote deliveryState,
 			boolean standaloneProxyBroadcast) {
-		return new OfflineBungeeVote(deliveryState.getVoteId(), deliveryState.getPlayerName(), deliveryState.getUuid(),
-				deliveryState.getService(), deliveryState.getTime(), deliveryState.isRealVote(), deliveryState.getText(),
-				standaloneProxyBroadcast, false, Collections.emptySet(), Collections.emptySet(), false,
-				OfflineBungeeVote.decodeHttpDeliveryIds(deliveryState.encodeHttpDeliveryIds()), Collections.emptyMap());
+		OfflineBungeeVote vote = new OfflineBungeeVote(deliveryState.getVoteId(), deliveryState.getPlayerName(),
+				deliveryState.getUuid(), deliveryState.getService(), deliveryState.getTime(), deliveryState.isRealVote(),
+				deliveryState.getText(), standaloneProxyBroadcast, false, Collections.emptySet(), Collections.emptySet(),
+				false, OfflineBungeeVote.decodeHttpDeliveryIds(deliveryState.encodeHttpDeliveryIds()),
+				Collections.emptyMap());
+		if (deliveryState.isWasOnlineKnown()) vote.setWasOnline(deliveryState.isWasOnline());
+		return vote;
 	}
 
 	protected boolean persistUncachedStandaloneBroadcast(String uuid, OfflineBungeeVote state,

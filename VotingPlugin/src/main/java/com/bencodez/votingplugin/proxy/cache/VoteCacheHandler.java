@@ -133,7 +133,7 @@ public abstract class VoteCacheHandler {
 		boolean stored;
 		if (useMySQL) {
 			int rowId = voteCacheTable.tryInsertVoteAndGetId(vote.getVoteId(), vote.getUuid(), vote.getPlayerName(), vote.getService(),
-					vote.getTime(), vote.isRealVote(), vote.getText(), vote.isBroadcastForwarded(),
+					vote.getTime(), vote.isRealVote(), vote.isWasOnline(), vote.isWasOnlineKnown(), vote.getText(), vote.isBroadcastForwarded(),
 					vote.isProxyBroadcastHandled(), vote.encodeBroadcastTargets(),
 					vote.encodeBroadcastForwardedServers(), vote.isRewardDelivered(), vote.encodeHttpDeliveryIds(),
 					vote.encodeHttpBroadcastDeliveryIds(), server);
@@ -301,7 +301,7 @@ public abstract class VoteCacheHandler {
 		boolean stored;
 		if (useMySQL) {
 			int rowId = onlineVoteCacheTable.tryInsertVoteAndGetId(vote.getVoteId(), vote.getUuid(), vote.getPlayerName(), vote.getService(),
-					vote.getTime(), vote.isRealVote(), vote.getText(), vote.isBroadcastForwarded(),
+					vote.getTime(), vote.isRealVote(), vote.isWasOnline(), vote.isWasOnlineKnown(), vote.getText(), vote.isBroadcastForwarded(),
 					vote.isProxyBroadcastHandled(), vote.encodeBroadcastTargets(),
 					vote.encodeBroadcastForwardedServers(), vote.isRewardDelivered(), vote.encodeHttpDeliveryIds(),
 					vote.encodeHttpBroadcastDeliveryIds());
@@ -1267,6 +1267,7 @@ public abstract class VoteCacheHandler {
 						VoteTimeQueue.decodeBroadcastForwardedServers(voteRow.getBroadcastForwardedServers()),
 						voteRow.isRewardDelivered(), OfflineBungeeVote.decodeHttpDeliveryIds(voteRow.getHttpDeliveryIds()),
 						OfflineBungeeVote.decodeHttpBroadcastDeliveryIds(voteRow.getHttpBroadcastDeliveryIds()));
+				if (voteRow.isWasOnlineKnown()) vote.setWasOnline(voteRow.isWasOnline());
 				vote.setServerVoteCacheRowId(voteRow.getId());
 				String server = voteRow.getServer();
 				cachedVotes.putIfAbsent(server, new ArrayList<>());
@@ -1282,6 +1283,7 @@ public abstract class VoteCacheHandler {
 						VoteTimeQueue.decodeBroadcastForwardedServers(voteRow.getBroadcastForwardedServers()),
 						voteRow.isRewardDelivered(), OfflineBungeeVote.decodeHttpDeliveryIds(voteRow.getHttpDeliveryIds()),
 						OfflineBungeeVote.decodeHttpBroadcastDeliveryIds(voteRow.getHttpBroadcastDeliveryIds()));
+				if (voteRow.isWasOnlineKnown()) vote.setWasOnline(voteRow.isWasOnline());
 				vote.setOnlineVoteCacheRowId(voteRow.getId());
 				String player = vote.getUuid();
 				cachedOnlineVotes.putIfAbsent(player, new ArrayList<>());
@@ -1302,6 +1304,7 @@ public abstract class VoteCacheHandler {
 				voteTimeQueue.setMultiProxyCapabilityDiscoveryPending(
 						timedVoteRow.isMultiProxyCapabilityDiscoveryPending());
 				voteTimeQueue.setRealVote(timedVoteRow.isRealVote());
+				if (timedVoteRow.isWasOnlineKnown()) voteTimeQueue.setWasOnline(timedVoteRow.isWasOnline());
 				voteTimeQueue.setMultiProxyOrigin(timedVoteRow.getMultiProxyOrigin() == null ? ""
 						: timedVoteRow.getMultiProxyOrigin());
 				voteTimeQueue.setMultiProxyCompletionPending(timedVoteRow.isMultiProxyCompletionPending());
@@ -1362,6 +1365,8 @@ public abstract class VoteCacheHandler {
 									? data.get("HttpBroadcastDeliveryIds").asString() : "";
 							boolean rewardDelivered = data.has("RewardDelivered")
 									&& data.get("RewardDelivered").asBoolean();
+							boolean wasOnlineKnown = data.has("WasOnlineKnown")
+									&& data.get("WasOnlineKnown").asBoolean();
 
 							OfflineBungeeVote vote = new OfflineBungeeVote(voteId, name, uuid, service, time, real, text,
 									broadcastForwarded, proxyBroadcastHandled,
@@ -1369,6 +1374,7 @@ public abstract class VoteCacheHandler {
 									VoteTimeQueue.decodeBroadcastForwardedServers(broadcastForwardedServers),
 								rewardDelivered, OfflineBungeeVote.decodeHttpDeliveryIds(httpDeliveryIds),
 								OfflineBungeeVote.decodeHttpBroadcastDeliveryIds(httpBroadcastDeliveryIds));
+							if (wasOnlineKnown) vote.setWasOnline(data.get("WasOnline").asBoolean());
 							vote.setServerVoteCacheJsonKey(num);
 							votes.add(vote);
 						}
@@ -1410,6 +1416,8 @@ public abstract class VoteCacheHandler {
 									? data.get("HttpBroadcastDeliveryIds").asString() : "";
 							boolean rewardDelivered = data.has("RewardDelivered")
 									&& data.get("RewardDelivered").asBoolean();
+							boolean wasOnlineKnown = data.has("WasOnlineKnown")
+									&& data.get("WasOnlineKnown").asBoolean();
 
 							OfflineBungeeVote vote = new OfflineBungeeVote(voteId, name, uuid, service, time, real, text,
 									broadcastForwarded, proxyBroadcastHandled,
@@ -1417,6 +1425,7 @@ public abstract class VoteCacheHandler {
 									VoteTimeQueue.decodeBroadcastForwardedServers(broadcastForwardedServers),
 								rewardDelivered, OfflineBungeeVote.decodeHttpDeliveryIds(httpDeliveryIds),
 								OfflineBungeeVote.decodeHttpBroadcastDeliveryIds(httpBroadcastDeliveryIds));
+							if (wasOnlineKnown) vote.setWasOnline(data.get("WasOnline").asBoolean());
 							vote.setOnlineVoteCacheJsonKey(num);
 							votes.add(vote);
 						}
@@ -1564,6 +1573,9 @@ public abstract class VoteCacheHandler {
 		queuedVote.setMultiProxyCapabilityDiscoveryPending(data.has("MultiProxyCapabilityDiscoveryPending")
 				&& data.get("MultiProxyCapabilityDiscoveryPending").asBoolean());
 		queuedVote.setRealVote(!data.has("RealVote") || data.get("RealVote").asBoolean());
+		if (data.has("WasOnlineKnown") && data.get("WasOnlineKnown").asBoolean()) {
+			queuedVote.setWasOnline(data.get("WasOnline").asBoolean());
+		}
 		queuedVote.setMultiProxyOrigin(data.has("MultiProxyOrigin")
 				? data.get("MultiProxyOrigin").asString() : "");
 		queuedVote.setMultiProxyCompletionPending(data.has("MultiProxyCompletionPending")
@@ -1601,11 +1613,14 @@ public abstract class VoteCacheHandler {
 		String httpBroadcastDeliveryIds = data.has("HttpBroadcastDeliveryIds")
 				? data.get("HttpBroadcastDeliveryIds").asString() : "";
 		boolean rewardDelivered = data.has("RewardDelivered") && data.get("RewardDelivered").asBoolean();
-		return new OfflineBungeeVote(voteId, name, uuid, service, time, real, text, broadcastForwarded,
+		boolean wasOnlineKnown = data.has("WasOnlineKnown") && data.get("WasOnlineKnown").asBoolean();
+		OfflineBungeeVote vote = new OfflineBungeeVote(voteId, name, uuid, service, time, real, text, broadcastForwarded,
 				proxyBroadcastHandled, VoteTimeQueue.decodeBroadcastForwardedServers(broadcastTargets),
 				VoteTimeQueue.decodeBroadcastForwardedServers(broadcastForwardedServers), rewardDelivered,
 				OfflineBungeeVote.decodeHttpDeliveryIds(httpDeliveryIds),
 				OfflineBungeeVote.decodeHttpBroadcastDeliveryIds(httpBroadcastDeliveryIds));
+		if (wasOnlineKnown) vote.setWasOnline(data.get("WasOnline").asBoolean());
+		return vote;
 	}
 
 	private final boolean useMySQL;

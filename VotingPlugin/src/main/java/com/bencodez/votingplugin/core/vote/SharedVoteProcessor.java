@@ -61,7 +61,7 @@ public final class SharedVoteProcessor {
         UUID proxyVoteId();
         void cache(U user);
         void updateName(U user);
-        void voteParty(U user, boolean realVote, boolean forceProxyRouting);
+        void voteParty(U user, boolean realVote, boolean forceProxyRouting, boolean onlineAtVoteTime);
         long incomingTime();
         void setTime(U user, S site, long time);
         void setTimeNow(U user, S site);
@@ -169,7 +169,8 @@ public final class SharedVoteProcessor {
         String userId = ops.userId(user);
         ops.cache(user);
         ops.updateName(user);
-        ops.voteParty(user, ops.realVote(), ops.forceProxyRouting());
+        boolean onlineAtVoteTime = ops.proxyVote() ? ops.wasOnline() : ops.userOnline(user);
+        ops.voteParty(user, ops.realVote(), ops.forceProxyRouting(), onlineAtVoteTime);
         if (ops.broadcastEnabled() && ops.hasBroadcastHandler()) {
             boolean currentOnline = ops.userOnline(user);
             boolean online = currentOnline;

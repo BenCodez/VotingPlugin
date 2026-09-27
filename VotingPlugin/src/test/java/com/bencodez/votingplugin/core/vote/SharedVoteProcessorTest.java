@@ -62,7 +62,7 @@ class SharedVoteProcessorTest {
         order.verify(ops).lastVoteTime(user, site);
         order.verify(ops).cache(user);
         order.verify(ops).updateName(user);
-        order.verify(ops).voteParty(user, true, false);
+        order.verify(ops).voteParty(user, true, false, true);
         order.verify(ops).broadcast(any(UUID.class), eq("Ben"), any(), eq(true));
         order.verify(ops).setTime(user, site, 123L);
         order.verify(ops).playerVote(user, site, true, false);
@@ -107,6 +107,30 @@ class SharedVoteProcessorTest {
         ArgumentCaptor<UUID> id = ArgumentCaptor.forClass(UUID.class);
         verify(ops).postVote(eq(site), eq(user), eq("Ben"), eq(321L), id.capture(), eq(false));
         assertEquals(proxyId, id.getValue());
+    }
+
+    @Test
+    void proxyVoteUsesHistoricalOfflineStateForVotePartyWhenPlayerIsNowOnline() {
+        var ops = accepted();
+        when(ops.proxyVote()).thenReturn(true);
+        when(ops.wasOnline()).thenReturn(false);
+        when(ops.userOnline(user)).thenReturn(true);
+
+        SharedVoteProcessor.process(ops);
+
+        verify(ops).voteParty(user, true, false, false);
+    }
+
+    @Test
+    void proxyVoteUsesHistoricalOnlineStateForVotePartyWhenPlayerIsNowOffline() {
+        var ops = accepted();
+        when(ops.proxyVote()).thenReturn(true);
+        when(ops.wasOnline()).thenReturn(true);
+        when(ops.userOnline(user)).thenReturn(false);
+
+        SharedVoteProcessor.process(ops);
+
+        verify(ops).voteParty(user, true, false, true);
     }
 
     @Test
