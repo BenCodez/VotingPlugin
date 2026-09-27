@@ -36,6 +36,55 @@ import com.bencodez.votingplugin.proxy.BungeeMethod;
 
 class VotingPluginMainBackendProxyPublicationTest {
 	@Test
+	void ordinaryBackendSecurityReloadCallsActiveHandler() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
+		BackendProxyHandler active = mock(BackendProxyHandler.class);
+		BungeeSettings settings = mock(BungeeSettings.class);
+		setBackendProxyHandler(plugin, active);
+		setField(plugin, "bungeeSettings", settings);
+		when(settings.isUseBungeecoord()).thenReturn(true);
+
+		plugin.reloadBackendProxyRuntime(true, false);
+
+		verify(active).reloadSharedTransportSecurity();
+		verify(active).reloadPresenceReporting();
+	}
+
+	@Test
+	void failedControlReplacementKeepsPreviousTransportSecurityPolicy() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
+		BackendProxyHandler previous = mock(BackendProxyHandler.class);
+		BackendProxyHandler replacement = mock(BackendProxyHandler.class);
+		BungeeSettings settings = mock(BungeeSettings.class);
+		setBackendProxyHandler(plugin, previous);
+		setField(plugin, "bungeeSettings", settings);
+		when(settings.isUseBungeecoord()).thenReturn(true);
+		doThrow(new IllegalStateException("handoff failed")).when(previous).completeHttpHandoff(replacement);
+
+		// Full-editor Control preparation reloads settings before this replacement
+		// can be validated or published. It must not reconfigure the live handler.
+		plugin.reloadBackendProxyRuntime(false, false);
+		VotingPluginMain.BackendProxyRestart restart = restart(previous, replacement);
+		assertThrows(IllegalStateException.class, () -> plugin.completeBackendProxyHandlerRestart(restart));
+
+		assertSame(previous, plugin.getBackendProxyHandler());
+		verify(previous, never()).reloadPresenceReporting();
+		verify(previous, never()).reloadSharedTransportSecurity();
+	}
+
+	@Test
+	void controlPreparationDoesNotStartUnpublishedBackendRuntime() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
+		BungeeSettings settings = mock(BungeeSettings.class);
+		setField(plugin, "bungeeSettings", settings);
+		when(settings.isUseBungeecoord()).thenReturn(true);
+
+		plugin.reloadBackendProxyRuntime(false, false);
+
+		assertNull(plugin.getBackendProxyHandler());
+	}
+
+	@Test
 	void malformedReceiptStoreDisablesOnlyBackendProxyTransport(@TempDir Path directory) throws Exception {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
 		AdvancedCoreConfigOptions options = mock(AdvancedCoreConfigOptions.class);

@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.net.ssl.SSLParameters;
 
@@ -14,6 +15,12 @@ import com.bencodez.simpleapi.servercomm.redis.RedisListener;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.backendproxy.cache.ProcessedVoteCache;
 import com.bencodez.votingplugin.proxy.VotingPluginWire;
+import com.bencodez.votingplugin.proxy.redis.VotingPluginRedisChannels;
+import com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator;
+import com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.Domain;
+import com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.Mode;
+import com.bencodez.votingplugin.proxy.security.TransportEnvelopeEncryption;
+import com.bencodez.votingplugin.proxy.security.TransportEnvelopeEncryption.Decryption;
 
 import redis.clients.jedis.DefaultJedisClientConfig;
 import redis.clients.jedis.HostAndPort;
@@ -81,6 +88,19 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 	private GlobalMessageHandler messageHandler;
 	private GlobalMessageHandler handoffMessageHandler;
 	private String publishChannel;
+	private String subscriptionChannel;
+	private volatile SharedTransportEnvelopeAuthenticator authenticator;
+	private volatile SharedTransportSecurityPolicy securityPolicy;
+
+	void updateSecurity(SharedTransportEnvelopeAuthenticator replacementAuthenticator,
+			TransportEnvelopeEncryption replacementEncryption) {
+		SharedTransportSecurityPolicy current = securityPolicy();
+		SharedTransportSecurityPolicy replacement = current.replace(replacementAuthenticator, replacementEncryption);
+		authenticator = replacement.authenticator();
+		securityPolicy = replacement;
+	}
+
+	private final AtomicBoolean authenticationFailureLogged = new AtomicBoolean();
 
 	public RedisBackendProxyTransport(VotingPluginMain plugin) {
 		this(plugin, new ProcessedVoteCache());
@@ -94,7 +114,22 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 	@Override
 	public void start(GlobalMessageHandler messageHandler) {
 		this.messageHandler = messageHandler;
-		publishChannel = plugin.getBungeeSettings().getRedisPrefix() + "VotingPlugin";
+		try {
+			authenticator = SharedTransportEnvelopeAuthenticator.load(
+					plugin.getDataFolder().toPath().resolve("secretkey.key"),
+					Mode.parse(plugin.getBungeeSettings().getSharedTransportAuthentication()));
+			securityPolicy = new SharedTransportSecurityPolicy(authenticator, TransportEnvelopeEncryption.load(
+					plugin.getDataFolder().toPath().resolve("secretkey.key"),
+					TransportEnvelopeEncryption.Domain.PROXY_BACKEND,
+					plugin.getBungeeSettings().isCommunicationEncryption()));
+		} catch (java.io.IOException authenticationFailure) {
+			throw new IllegalStateException("Redis backend transport authentication initialization failed",
+					authenticationFailure);
+		}
+		warnIfCompatibilityMode();
+		publishChannel = VotingPluginRedisChannels.proxy(plugin.getBungeeSettings().getRedisPrefix());
+		subscriptionChannel = VotingPluginRedisChannels.backend(plugin.getBungeeSettings().getRedisPrefix(),
+				plugin.getBungeeSettings().getServer());
 		retiredAfterHandoff = false;
 		standbySubscriber = !processedVoteCache.registerRedisSubscriber(subscriberIdentity);
 		redisHandler = new RedisHandler(plugin.getBungeeSettings().getRedisHost(),
@@ -111,13 +146,11 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 		RedisHandler handler = redisHandler;
 		CountDownLatch ready = new CountDownLatch(1);
 		subscriptionReady = ready;
-		RedisListener listener = new RedisListener(handler,
-				plugin.getBungeeSettings().getRedisPrefix() + "VotingPlugin_" + plugin.getBungeeSettings().getServer(),
+		RedisListener listener = new RedisListener(handler, subscriptionChannel,
 				(ch, payload) -> {
 					try {
 						JsonEnvelope envelope = com.bencodez.simpleapi.servercomm.codec.JsonEnvelopeCodec.decode(payload);
-						String deliveryId = envelope.getFields().get(VotingPluginWire.K_REDIS_DELIVERY_ID);
-						dispatchReceivedSubscriberEnvelope(envelope, deliveryId);
+						acceptAuthenticatedEnvelope(envelope, ch);
 					} catch (Exception e) {
 						plugin.debug("Redis decode failed: " + e.getMessage());
 					}
@@ -130,6 +163,47 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 		listenerThread = new Thread(() -> handler.loadListener(listener), "VotingPlugin-Redis-Backend");
 		listenerThread.setDaemon(true);
 		listenerThread.start();
+	}
+
+	SharedInboundPolicy sharedInboundPolicySnapshot() {
+		SharedTransportSecurityPolicy policy = securityPolicy();
+		return new SharedInboundPolicy(getClass(), subscriptionChannel, policy.authenticator(), policy.encryption());
+	}
+
+	void acceptAuthenticatedEnvelope(JsonEnvelope envelope, String channel) {
+		SharedTransportSecurityPolicy policy = securityPolicy();
+		SharedTransportEnvelopeAuthenticator.Verification verification = policy.authenticator().verify(envelope,
+				Domain.REDIS_PROXY_BACKEND, channel);
+		if (!verification.accepted()) {
+			logAuthenticationFailure("Redis", verification.rejection());
+			return;
+		}
+		JsonEnvelope accepted = verification.envelope();
+		String deliveryId = accepted.getFields().get(VotingPluginWire.K_REDIS_DELIVERY_ID);
+		Decryption decrypted = policy.encryption().decrypt(accepted);
+		if (!decrypted.accepted()) {
+			logAuthenticationFailure("Redis", SharedTransportEnvelopeAuthenticator.Rejection.INVALID);
+			return;
+		}
+		dispatchReceivedSubscriberEnvelope(decrypted.envelope(), deliveryId);
+	}
+
+	private SharedTransportSecurityPolicy securityPolicy() {
+		SharedTransportSecurityPolicy current = securityPolicy;
+		if (current != null) return current;
+		return new SharedTransportSecurityPolicy(java.util.Objects.requireNonNull(authenticator),
+				TransportEnvelopeEncryption.disabled(TransportEnvelopeEncryption.Domain.PROXY_BACKEND));
+	}
+
+	private void warnIfCompatibilityMode() {
+		if (authenticator.mode() == Mode.COMPATIBILITY) plugin.getLogger().warning(
+				"SharedTransportAuthentication is COMPATIBILITY; unsigned Redis messages are accepted during this rolling upgrade");
+	}
+
+	private void logAuthenticationFailure(String transport,
+			SharedTransportEnvelopeAuthenticator.Rejection rejection) {
+		if (plugin != null && authenticationFailureLogged.compareAndSet(false, true)) plugin.getLogger().warning(
+				transport + " shared transport message rejected by envelope authentication (" + rejection + ")");
 	}
 
 	/**
@@ -845,8 +919,10 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 	@Override
 	public boolean send(JsonEnvelope envelope) {
 		if (redisHandler != null) {
-			redisHandler.publishEnvelope(publishChannel,
-					VotingPluginWire.withRedisDeliveryId(envelope));
+			SharedTransportSecurityPolicy policy = securityPolicy();
+			JsonEnvelope identified = VotingPluginWire.withRedisDeliveryId(policy.encryption().encrypt(envelope));
+			redisHandler.publishEnvelope(publishChannel, policy.authenticator().sign(identified, Domain.REDIS_PROXY_BACKEND,
+					plugin.getBungeeSettings().getServer(), publishChannel));
 			return true;
 		}
 		return false;
