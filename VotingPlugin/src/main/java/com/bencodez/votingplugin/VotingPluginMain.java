@@ -1951,7 +1951,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		stopBackendControlConnectorLifecycle();
 		if (getBackendProxyHandler() != null) {
 			try {
-				getBackendProxyHandler().close();
+				getBackendProxyHandler().closeForShutdown();
 			} catch (Exception e) {
 				debug(e);
 			}

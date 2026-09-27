@@ -181,6 +181,46 @@ public class BackendProxyTransportManager {
 		}
 	}
 
+	/** Keeps a bounded non-HTTP handoff alive without waiting on the Bukkit shutdown thread. */
+	public void closeForShutdown() {
+		if (!requiresAsyncNonHttpClose()) {
+			close();
+			return;
+		}
+		Thread cleanup = new Thread(this::close, "VotingPlugin-Backend-Handoff-Close");
+		cleanup.setDaemon(true);
+		cleanup.start();
+		retainNonHttpCleanupThroughJvmShutdown(cleanup);
+	}
+
+	private synchronized boolean requiresAsyncNonHttpClose() {
+		return !(transport instanceof HttpBackendProxyTransport)
+				&& !(transport instanceof PluginMessagingBackendProxyTransport)
+				&& hasPendingAsyncHandoff();
+	}
+
+	private void retainNonHttpCleanupThroughJvmShutdown(Thread cleanup) {
+		Thread owner = new Thread(() -> awaitNonHttpHandoffCleanup(cleanup),
+				"VotingPlugin-Backend-Handoff-Owner");
+		owner.setDaemon(false);
+		owner.start();
+	}
+
+	private void awaitNonHttpHandoffCleanup(Thread cleanup) {
+		try {
+			cleanup.join(HTTP_HANDOFF_CLOSE_GRACE_MILLIS + 1_000L);
+		} catch (InterruptedException interrupted) {
+			Thread.currentThread().interrupt();
+		}
+		if (cleanup.isAlive()) {
+			cleanup.interrupt();
+			if (plugin != null && plugin.getLogger() != null) {
+				plugin.getLogger().severe(
+						"Backend proxy handoff cleanup exceeded its bounded shutdown grace; delivery remains at risk");
+			}
+		}
+	}
+
 	/** Gives restored broker/socket sends a bounded chance to leave before their transport is detached. */
 	private void awaitNonHttpHandoffBeforeClose() {
 		synchronized (this) {

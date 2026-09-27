@@ -911,6 +911,31 @@ class HttpBackendProxyTransportTest {
 	}
 
 	@Test
+	void nonHttpShutdownCloseDoesNotWaitForPendingHandoffOnLifecycleThread() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getAnonymousLogger());
+		BackendProxyTransportManager manager = new BackendProxyTransportManager(plugin);
+		BackendProxyTransport transport = mock(BackendProxyTransport.class);
+		setField(manager, "transport", transport);
+		setField(manager, "asyncHandoffWorker", new Thread(() -> { }));
+
+		Thread lifecycle = new Thread(manager::closeForShutdown);
+		lifecycle.start();
+		lifecycle.join(TimeUnit.SECONDS.toMillis(1));
+
+		assertFalse(lifecycle.isAlive(), "Bukkit lifecycle must not wait for a non-HTTP handoff");
+		assertTrue(Thread.getAllStackTraces().keySet().stream()
+				.anyMatch(thread -> "VotingPlugin-Backend-Handoff-Owner".equals(thread.getName())
+						&& !thread.isDaemon()),
+				"a bounded non-daemon owner must retain non-HTTP cleanup through JVM shutdown");
+		synchronized (manager) {
+			setField(manager, "asyncHandoffWorker", null);
+			manager.notifyAll();
+		}
+		verify(transport, org.mockito.Mockito.timeout(1_000)).close();
+	}
+
+	@Test
 	@SuppressWarnings("unchecked")
 	void failedHandoffAdmissionLeavesTheOldPreparedQueuesIntact() throws Exception {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);

@@ -203,6 +203,15 @@ public class BackendProxyHandler implements Listener {
 	 * Closes backend/proxy components and persists cached proxy state.
 	 */
 	public void close() {
+		close(false);
+	}
+
+	/** Closes shutdown handoffs without waiting on the Bukkit lifecycle thread. */
+	public void closeForShutdown() {
+		close(true);
+	}
+
+	private void close(boolean shutdown) {
 		synchronized (inboundPublication) {
 			if (!inboundPublished && !inboundAborted) inboundAborted = true;
 			inboundPublication.notifyAll();
@@ -219,7 +228,8 @@ public class BackendProxyHandler implements Listener {
 		// transport is still usable. BackendGlobalDataSync bounds this drain and
 		// force-closes an owned SQL runtime when its grace expires.
 		globalDataSync.close();
-		transportManager.close();
+		if (shutdown) transportManager.closeForShutdown();
+		else transportManager.close();
 	}
 
 	/** Opens inbound dispatch only after the replacement and all handoffs are committed. */
