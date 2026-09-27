@@ -528,7 +528,8 @@ final class SharedMysqlPurchaseJournal {
 				long cutoff = retiredAt - TERMINAL_RETENTION_MILLIS;
 				String select = "SELECT " + qi("vote_id") + " FROM " + qiAccounting() + " WHERE "
 						+ qi("retired_at") + " IS NOT NULL AND " + qi("retired_at")
-						+ " <= ? ORDER BY " + qi("retired_at") + " ASC LIMIT ?";
+						+ " <= ? AND " + qi("requested") + " = " + qi("completed") + " ORDER BY "
+						+ qi("retired_at") + " ASC LIMIT ?";
 				List<String> expired = new ArrayList<>();
 				try (PreparedStatement statement = connection.prepareStatement(select)) {
 					statement.setLong(1, cutoff);
@@ -538,7 +539,8 @@ final class SharedMysqlPurchaseJournal {
 					}
 				}
 				String delete = "DELETE FROM " + qiAccounting() + " WHERE " + qi("vote_id") + " = ? AND "
-						+ qi("retired_at") + " IS NOT NULL AND " + qi("retired_at") + " <= ?";
+						+ qi("retired_at") + " IS NOT NULL AND " + qi("retired_at") + " <= ? AND "
+						+ qi("requested") + " = " + qi("completed");
 				try (PreparedStatement statement = connection.prepareStatement(delete)) {
 					for (String expiredId : expired) {
 						statement.setString(1, expiredId);

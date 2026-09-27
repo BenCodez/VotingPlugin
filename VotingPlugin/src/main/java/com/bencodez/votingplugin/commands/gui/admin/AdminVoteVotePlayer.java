@@ -60,7 +60,7 @@ public class AdminVoteVotePlayer extends GUIHandler {
 				@Override
 				public void onClick(ClickEvent clickEvent) {
 					VoteSite site = (VoteSite) getData("site");
-					PlayerVoteEvent voteEvent = new PlayerVoteEvent(site, playerName, site.getServiceSite(), false);
+					PlayerVoteEvent voteEvent = new PlayerVoteEvent(site, playerName, site.getServiceSite(), false, false);
 					sendMessage(clickEvent.getPlayer(), "&cTriggering vote...");
 					if (voteEvent.getVoteSite() != null) {
 						if (!voteEvent.getVoteSite().isVaidServiceSite()) {

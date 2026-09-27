@@ -1,5 +1,7 @@
 package com.bencodez.votingplugin.commands.gui.admin;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
@@ -25,14 +27,20 @@ class AdminVoteVotePlayerTest {
 		PluginManager pluginManager = mock(PluginManager.class);
 		ScheduledExecutorService voteTimer = mock(ScheduledExecutorService.class);
 		Player player = mock(Player.class);
-		PlayerVoteEvent event = new PlayerVoteEvent(null, "Steve", "example.org", false);
+		PlayerVoteEvent event = new PlayerVoteEvent(null, "Steve", "example.org", false, false);
 		when(plugin.getServer()).thenReturn(server);
 		when(server.getPluginManager()).thenReturn(pluginManager);
 		when(plugin.getVoteTimer()).thenReturn(voteTimer);
 
 		new AdminVoteVotePlayer(plugin, player, "Steve").dispatchVote(player, event);
 
+		assertFalse(event.isAsynchronous());
 		verify(pluginManager).callEvent(event);
 		verify(voteTimer, never()).submit(any(Runnable.class));
+	}
+
+	@Test
+	void existingVoteEventConstructorRetainsItsAsynchronousContract() {
+		assertTrue(new PlayerVoteEvent(null, "Steve", "example.org", false).isAsynchronous());
 	}
 }

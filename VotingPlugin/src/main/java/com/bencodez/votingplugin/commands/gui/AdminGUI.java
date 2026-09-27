@@ -323,7 +323,7 @@ public class AdminGUI {
 								Object ob = PlayerUtils.getPlayerMeta(plugin, player, "VoteSite");
 								if (ob != null) {
 									VoteSite site = (VoteSite) ob;
-									PlayerVoteEvent voteEvent = new PlayerVoteEvent(site, value, site.getServiceSite(), false);
+									PlayerVoteEvent voteEvent = new PlayerVoteEvent(site, value, site.getServiceSite(), false, false);
 									plugin.getServer().getPluginManager().callEvent(voteEvent);
 									voteEvent.getProcessingCompletion().whenComplete((completed, failure) -> {
 										if (failure == null && !completed.isProcessingIncomplete()) return;

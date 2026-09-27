@@ -43,6 +43,10 @@ class SharedMysqlPurchaseJournalTest {
 		verify(select).setLong(1, 5000L);
 		verify(delete).setString(1, "expired-vote-id");
 		verify(delete).setLong(2, 5000L);
+		org.mockito.ArgumentCaptor<String> sql = org.mockito.ArgumentCaptor.forClass(String.class);
+		verify(fixture.work, org.mockito.Mockito.times(3)).prepareStatement(sql.capture());
+		assertTrue(sql.getAllValues().get(1).contains("`requested` = `completed`"));
+		assertTrue(sql.getAllValues().get(2).contains("`requested` = `completed`"));
 		verify(fixture.work).commit();
 	}
 	@Test

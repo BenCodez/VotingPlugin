@@ -146,7 +146,21 @@ public class PlayerVoteEvent extends Event {
 	 * @param realVote whether this is a real vote
 	 */
 	public PlayerVoteEvent(VoteSite voteSite, String voteUsername, String serviceSite, boolean realVote) {
-		super(true);
+		this(voteSite, voteUsername, serviceSite, realVote, true);
+	}
+
+	/**
+	 * Constructs a vote event with an explicit Bukkit dispatch contract.
+	 *
+	 * @param voteSite the vote site
+	 * @param voteUsername the username of the voter
+	 * @param serviceSite the service site name
+	 * @param realVote whether this is a real vote
+	 * @param asynchronous whether Bukkit will dispatch the event off its primary thread
+	 */
+	public PlayerVoteEvent(VoteSite voteSite, String voteUsername, String serviceSite, boolean realVote,
+			boolean asynchronous) {
+		super(asynchronous);
 		this.player = voteUsername;
 		this.voteSite = voteSite;
 		this.realVote = realVote;

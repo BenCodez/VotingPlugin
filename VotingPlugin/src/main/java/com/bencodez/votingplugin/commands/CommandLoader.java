@@ -1401,7 +1401,7 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				sendMessage(sender, "&cTriggering vote for all voting sites...");
 				for (VoteSite site : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
-					PlayerVoteEvent voteEvent = new PlayerVoteEvent(site, args[1], site.getServiceSite(), false);
+					PlayerVoteEvent voteEvent = new PlayerVoteEvent(site, args[1], site.getServiceSite(), false, false);
 					if (!voteEvent.getVoteSite().isVaidServiceSite()
 							&& !plugin.getConfigFile().isDisableNoServiceSiteMessage()) {
 						sendMessage(sender,
@@ -1424,7 +1424,7 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSiteManager().getVoteSite(args[2], true),
-						args[1], args[2], false);
+						args[1], args[2], false, false);
 				if (voteEvent.getVoteSite() != null) {
 					if (!voteEvent.getVoteSite().isVaidServiceSite()
 							&& !plugin.getConfigFile().isDisableNoServiceSiteMessage()) {
@@ -1453,7 +1453,7 @@ public class CommandLoader {
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 						PlayerVoteEvent voteEvent = new PlayerVoteEvent(
-								plugin.getVoteSiteManager().getVoteSite(args[2], true), args[1], args[2], false);
+								plugin.getVoteSiteManager().getVoteSite(args[2], true), args[1], args[2], false, false);
 						if (!plugin.getConfigFile().isDisableNoServiceSiteMessage() && !isPlayer(sender)) {
 							sendMessage(sender, "&cTriggering vote...");
 						}
@@ -1501,7 +1501,7 @@ public class CommandLoader {
 						sendMessage(sender, "&cTriggering vote for all voting sites...");
 						for (VoteSite site : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
 							PlayerVoteEvent voteEvent = new PlayerVoteEvent(site, args[1], site.getServiceSite(),
-									false);
+									false, false);
 							if (voteEvent.getVoteSite() != null) {
 								if (!voteEvent.getVoteSite().isVaidServiceSite()
 										&& !plugin.getConfigFile().isDisableNoServiceSiteMessage()) {
@@ -1527,7 +1527,7 @@ public class CommandLoader {
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 						PlayerVoteEvent voteEvent = new PlayerVoteEvent(
-								plugin.getVoteSiteManager().getVoteSite(args[3], true), args[1], args[3], false);
+								plugin.getVoteSiteManager().getVoteSite(args[3], true), args[1], args[3], false, false);
 						if (!plugin.getConfigFile().isDisableNoServiceSiteMessage() && !isPlayer(sender)) {
 							sendMessage(sender, "&cTriggering vote...");
 						}
@@ -3195,11 +3195,11 @@ public class CommandLoader {
 													@Override
 													public void onInput(Player player, String value) {
 														PlayerVoteEvent voteEvent = new PlayerVoteEvent(
-																plugin.getVoteSiteManager().getVoteSite(value, true),
-																UserGUI.getInstance().getCurrentPlayer(player),
-																plugin.getVoteSiteManager()
-																		.getVoteSiteServiceSite(value),
-																false);
+														plugin.getVoteSiteManager().getVoteSite(value, true),
+														UserGUI.getInstance().getCurrentPlayer(player),
+														plugin.getVoteSiteManager()
+																.getVoteSiteServiceSite(value),
+														false, false);
 														String target = UserGUI.getInstance().getCurrentPlayer(player);
 														submitVoteAndReport(player, voteEvent, () -> player
 																.sendMessage("Forced vote for " + target + " on " + value));
