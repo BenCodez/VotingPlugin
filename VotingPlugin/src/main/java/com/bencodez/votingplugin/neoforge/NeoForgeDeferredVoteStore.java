@@ -42,6 +42,7 @@ public final class NeoForgeDeferredVoteStore {
     static final int MAX_COMPLETED_PER_USER = 4_096;
     static final int MAX_COMPLETED_TOTAL = 262_144;
     private static final String VERSION = "v1";
+    private static final String PENDING_VERSION = "v2";
     private static final String PENDING_INDEX = "VotingPlugin_NeoForgeDeferredPending";
     private static final String COMPLETED_INDEX = "VotingPlugin_NeoForgeDeferredCompleted";
     private static final Base64.Encoder ENCODER = Base64.getUrlEncoder().withoutPadding();
@@ -89,12 +90,15 @@ public final class NeoForgeDeferredVoteStore {
                 new UserDataKeyString(COMPLETED_DEFERRED_VOTES).setColumnType("MEDIUMTEXT"));
     }
 
-    synchronized DeferralResult defer(SharedVoteIdentity identity, SharedVoteInput input, NeoForgeVoteSite site) {
+    synchronized DeferralResult defer(SharedVoteIdentity identity, SharedVoteInput input, NeoForgeVoteSite site,
+            NeoForgeVoteAccountingDecision accountingDecision) {
         Objects.requireNonNull(identity, "identity");
         Objects.requireNonNull(input, "input");
         Objects.requireNonNull(site, "site");
+        Objects.requireNonNull(accountingDecision, "accountingDecision");
         NeoForgeDeferredVote vote = new NeoForgeDeferredVote(input.voteId(), identity.uuid(), identity.playerName(),
-                input.serviceSite(), site.key(), input.voteTime(), input.realVote(), input.addTotals(), identity.online());
+                input.serviceSite(), site.key(), input.voteTime(), input.realVote(), input.addTotals(), identity.online(),
+                accountingDecision);
         SqlUserStorage user = backend.user(identity.uuid());
         Map<String, DataValue> existingRow = row(user.readRow(backend.storageType()));
         List<CompletionReceipt> existingCompleted = parseCompleted(value(existingRow, COMPLETED_DEFERRED_VOTES));
@@ -398,10 +402,21 @@ public final class NeoForgeDeferredVoteStore {
     private static String serializePending(List<NeoForgeDeferredVote> votes) {
         ArrayList<String> lines = new ArrayList<>(votes.size());
         for (NeoForgeDeferredVote vote : votes) {
-            lines.add(String.join("|", VERSION, vote.voteId().toString(), encode(vote.playerName()),
-                    encode(vote.serviceSite()), encode(vote.siteKey()), Long.toString(vote.voteTime()),
-                    Boolean.toString(vote.realVote()), Boolean.toString(vote.addTotals()),
-                    Boolean.toString(vote.wasOnline())));
+            NeoForgeVoteAccountingDecision decision = vote.accountingDecision();
+            if (decision == null) {
+                lines.add(String.join("|", VERSION, vote.voteId().toString(), encode(vote.playerName()),
+                        encode(vote.serviceSite()), encode(vote.siteKey()), Long.toString(vote.voteTime()),
+                        Boolean.toString(vote.realVote()), Boolean.toString(vote.addTotals()),
+                        Boolean.toString(vote.wasOnline())));
+            } else {
+                lines.add(String.join("|", PENDING_VERSION, vote.voteId().toString(), encode(vote.playerName()),
+                        encode(vote.serviceSite()), encode(vote.siteKey()), Long.toString(vote.voteTime()),
+                        Boolean.toString(vote.realVote()), Boolean.toString(vote.addTotals()),
+                        Boolean.toString(vote.wasOnline()), Integer.toString(decision.total()),
+                        Integer.toString(decision.daily()), Integer.toString(decision.weekly()),
+                        Integer.toString(decision.points()), Boolean.toString(decision.pointsApplied()),
+                        Integer.toString(decision.pointLimit())));
+            }
         }
         return String.join("\n", lines);
     }
@@ -411,13 +426,19 @@ public final class NeoForgeDeferredVoteStore {
         if (stored == null || stored.isEmpty()) return votes;
         for (String line : stored.split("\\n", -1)) {
             String[] fields = line.split("\\|", -1);
-            if (fields.length != 9 || !VERSION.equals(fields[0])) {
+            if ((fields.length != 9 || !VERSION.equals(fields[0]))
+                    && (fields.length != 15 || !PENDING_VERSION.equals(fields[0]))) {
                 throw new MalformedDeferredVoteData("Unsupported or malformed deferred NeoForge vote data");
             }
             try {
+                NeoForgeVoteAccountingDecision decision = fields.length == 9 ? null
+                        : new NeoForgeVoteAccountingDecision(Integer.parseInt(fields[9]),
+                                Integer.parseInt(fields[10]), Integer.parseInt(fields[11]),
+                                Integer.parseInt(fields[12]), parseBoolean(fields[13]),
+                                Integer.parseInt(fields[14]));
                 votes.add(new NeoForgeDeferredVote(UUID.fromString(fields[1]), playerId,
                         decode(fields[2]), decode(fields[3]), decode(fields[4]), Long.parseLong(fields[5]),
-                        parseBoolean(fields[6]), parseBoolean(fields[7]), parseBoolean(fields[8])));
+                        parseBoolean(fields[6]), parseBoolean(fields[7]), parseBoolean(fields[8]), decision));
             } catch (IllegalArgumentException failure) {
                 throw new MalformedDeferredVoteData("Malformed deferred NeoForge vote data", failure);
             }

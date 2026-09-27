@@ -178,7 +178,8 @@ class NeoForgeDeferredVoteStoreTest {
                     store.state(playerId, completedVote));
             assertTrue(store.claim(playerId, completedVote).isEmpty());
             assertEquals(NeoForgeDeferredVoteStore.Status.ALREADY_COMPLETED,
-                    store.defer(identity, input(completedVote), site).status());
+                    store.defer(identity, input(completedVote), site,
+                            accountingDecision(runtime, input(completedVote), site)).status());
             assertEquals(NeoForgeVoteResult.Status.ALREADY_COMPLETED,
                     runtime.voteProcessor().process(complete(completedVote, playerId, 200L)).status());
             assertEquals(malformedPending, storedPending(runtime, playerId));
@@ -186,7 +187,8 @@ class NeoForgeDeferredVoteStoreTest {
             assertThrows(IllegalStateException.class, () -> store.pending(playerId));
             assertThrows(IllegalStateException.class, () -> store.state(playerId, otherVote));
             assertThrows(IllegalStateException.class, () -> store.claim(playerId, otherVote));
-            assertThrows(IllegalStateException.class, () -> store.defer(identity, input(otherVote), site));
+            assertThrows(IllegalStateException.class, () -> store.defer(identity, input(otherVote), site,
+                    accountingDecision(runtime, input(otherVote), site)));
             assertEquals(malformedPending, storedPending(runtime, playerId));
         }
     }
@@ -679,6 +681,12 @@ class NeoForgeDeferredVoteStoreTest {
     private static SharedVoteInput input(UUID voteId) {
         return new SharedVoteInput(voteId, "Alex", "example.test", 100L,
                 true, true, false, false, true);
+    }
+
+    private static NeoForgeVoteAccountingDecision accountingDecision(NeoForgeRuntime runtime,
+            SharedVoteInput input, NeoForgeVoteSite site) {
+        return NeoForgeVoteAccountingDecision.capture(input, runtime.voteConfiguration().policyFor(site),
+                true, runtime.voteConfiguration().pointsOnVote(), runtime.voteConfiguration().limitVotePoints());
     }
 
     private static String storedPending(NeoForgeRuntime runtime, UUID playerId) {

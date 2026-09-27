@@ -2,8 +2,10 @@ package com.bencodez.votingplugin.neoforge;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Executes supported reward actions on the NeoForge server tick lane. */
 final class NeoForgeNativeRewardActions implements NeoForgeRewardActions {
@@ -57,12 +59,41 @@ final class NeoForgeNativeRewardActions implements NeoForgeRewardActions {
         if (exceptions instanceof java.util.Map<?, ?> errors && !errors.isEmpty()) {
             throw new IllegalStateException("NeoForge reward command is invalid");
         }
-        Method execute = findMethod(commands.getClass(), "performPrefixedCommand", 2);
-        Object result = invokeCommand(commands, execute, source,
-                command.startsWith("/") ? command.substring(1) : command);
-        if (result instanceof Number number && number.intValue() == 0) {
-            throw new UncertainRewardOutcomeException("NeoForge reward command returned an ambiguous zero result");
+        CommandOutcome outcome = new CommandOutcome();
+        Method withCallback = findMethod(source.getClass(), "withCallback", 1);
+        Class<?> callbackType = withCallback.getParameterTypes()[0];
+        if (!callbackType.isInterface()) {
+            throw new NoSuchMethodException("NeoForge command callback is not an interface");
         }
+        Object callback = Proxy.newProxyInstance(callbackType.getClassLoader(), new Class<?>[] { callbackType },
+                (proxy, method, arguments) -> commandCallback(proxy, method, arguments, outcome));
+        Object callbackSource = invoke(source, withCallback, callback);
+        Method execute = findMethod(commands.getClass(), "performPrefixedCommand", 2);
+        invokeCommand(commands, execute, callbackSource,
+                command.startsWith("/") ? command.substring(1) : command);
+        if (!outcome.reported.get() || !outcome.successful.get()) {
+            throw new UncertainRewardOutcomeException(
+                    "NeoForge reward command did not report successful completion");
+        }
+    }
+
+    private static Object commandCallback(Object proxy, Method method, Object[] arguments, CommandOutcome outcome) {
+        if (method.getDeclaringClass() == Object.class) {
+            return switch (method.getName()) {
+                case "toString" -> "NeoForgeRewardCommandCallback";
+                case "hashCode" -> System.identityHashCode(proxy);
+                case "equals" -> proxy == arguments[0];
+                default -> null;
+            };
+        }
+        if (arguments == null || arguments.length != 2
+                || !(arguments[0] instanceof Boolean successful)
+                || !(arguments[1] instanceof Number)) {
+            throw new IllegalStateException("Unexpected NeoForge command callback signature");
+        }
+        outcome.reported.set(true);
+        if (successful) outcome.successful.set(true);
+        return null;
     }
 
     private static void sendMessage(Object player, String message) throws ReflectiveOperationException {
@@ -132,6 +163,11 @@ final class NeoForgeNativeRewardActions implements NeoForgeRewardActions {
             throw new UncertainRewardOutcomeException(
                     "NeoForge reward command threw after dispatch began", failure.getCause());
         }
+    }
+
+    private static final class CommandOutcome {
+        private final AtomicBoolean reported = new AtomicBoolean();
+        private final AtomicBoolean successful = new AtomicBoolean();
     }
 
     static final class UncertainRewardOutcomeException extends IllegalStateException {

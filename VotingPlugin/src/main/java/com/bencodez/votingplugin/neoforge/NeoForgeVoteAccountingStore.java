@@ -21,7 +21,6 @@ import com.bencodez.simpleapi.sql.Column;
 import com.bencodez.simpleapi.sql.data.DataValue;
 import com.bencodez.simpleapi.sql.data.DataValueInt;
 import com.bencodez.simpleapi.sql.data.DataValueString;
-import com.bencodez.votingplugin.core.vote.SharedVoteAccounting;
 import com.bencodez.votingplugin.core.vote.SharedVoteIdentity;
 import com.bencodez.votingplugin.core.vote.SharedVoteInput;
 import com.bencodez.votingplugin.core.vote.SharedVotePolicy;
@@ -86,10 +85,8 @@ public final class NeoForgeVoteAccountingStore {
         Objects.requireNonNull(site, "site");
         Objects.requireNonNull(delayCheck, "delayCheck");
 
-        AccountingDelta delta = new AccountingDelta();
-        SharedVoteAccounting.apply(input, policy, identity::online,
-                delta::addTotal, delta::addDaily, delta::addWeekly,
-                () -> delta.addPoints(pointsOnVote));
+        NeoForgeVoteAccountingDecision decision = NeoForgeVoteAccountingDecision.capture(input, policy,
+                identity.online(), pointsOnVote, pointLimit);
 
         SqlUserStorage user = backend.user(identity.uuid());
         return user.transaction(backend.storageType(),
@@ -99,12 +96,13 @@ public final class NeoForgeVoteAccountingStore {
                     if (!delayCheck.allows(lastVotes)) return AccountingResult.delayed();
                     replaceLastVote(lastVotes, site.key(), input.voteTime());
 
-                    int allTimeTotal = current.integer(ALL_TIME_TOTAL) + delta.total;
-                    int monthTotal = current.integer(MONTH_TOTAL) + delta.total;
-                    int dailyTotal = current.integer(DAILY_TOTAL) + delta.daily;
-                    int weeklyTotal = current.integer(WEEKLY_TOTAL) + delta.weekly;
-                    int points = current.integer(POINTS) + delta.points;
-                    if (delta.pointsApplied && pointLimit > 0 && points > pointLimit) points = pointLimit;
+                    int allTimeTotal = current.integer(ALL_TIME_TOTAL) + decision.total();
+                    int monthTotal = current.integer(MONTH_TOTAL) + decision.total();
+                    int dailyTotal = current.integer(DAILY_TOTAL) + decision.daily();
+                    int weeklyTotal = current.integer(WEEKLY_TOTAL) + decision.weekly();
+                    int points = current.integer(POINTS) + decision.points();
+                    if (decision.pointsApplied() && decision.pointLimit() > 0
+                            && points > decision.pointLimit()) points = decision.pointLimit();
 
                     HashMap<String, DataValue> updates = new HashMap<>();
                     updates.put(PLAYER_NAME, new DataValueString(identity.playerName()));
@@ -133,25 +131,25 @@ public final class NeoForgeVoteAccountingStore {
     PreparedAccounting prepareDeferred(NeoForgeDeferredVote vote, NeoForgeVoteSite site, List<Column> columns,
             boolean currentlyOnline, String currentPlayerName) {
         SharedVoteIdentity identity = new SharedVoteIdentity(vote.playerId(), currentPlayerName, currentlyOnline);
-        SharedVoteInput input = new SharedVoteInput(vote.voteId(), vote.playerName(), vote.serviceSite(),
-                vote.voteTime(), vote.realVote(), vote.addTotals(), false, false, vote.wasOnline());
-        SharedVotePolicy policy = configuration.policyFor(site);
-        AccountingDelta delta = new AccountingDelta();
-        SharedVoteAccounting.apply(input, policy, identity::online,
-                delta::addTotal, delta::addDaily, delta::addWeekly,
-                () -> delta.addPoints(configuration.pointsOnVote()));
+        NeoForgeVoteAccountingDecision decision = vote.accountingDecision();
+        if (decision == null) {
+            SharedVoteInput input = new SharedVoteInput(vote.voteId(), vote.playerName(), vote.serviceSite(),
+                    vote.voteTime(), vote.realVote(), vote.addTotals(), false, false, vote.wasOnline());
+            decision = NeoForgeVoteAccountingDecision.capture(input, configuration.policyFor(site),
+                    identity.online(), configuration.pointsOnVote(), configuration.limitVotePoints());
+        }
 
         Row current = Row.from(columns);
         LinkedHashMap<String, Long> lastVotes = parseLastVotes(current.string(LAST_VOTES));
         replaceLastVoteIfNewer(lastVotes, site.key(), vote.voteTime());
-        int allTimeTotal = current.integer(ALL_TIME_TOTAL) + delta.total;
-        int monthTotal = current.integer(MONTH_TOTAL) + delta.total;
-        int dailyTotal = current.integer(DAILY_TOTAL) + delta.daily;
-        int weeklyTotal = current.integer(WEEKLY_TOTAL) + delta.weekly;
-        int points = current.integer(POINTS) + delta.points;
-        if (delta.pointsApplied && configuration.limitVotePoints() > 0
-                && points > configuration.limitVotePoints()) {
-            points = configuration.limitVotePoints();
+        int allTimeTotal = current.integer(ALL_TIME_TOTAL) + decision.total();
+        int monthTotal = current.integer(MONTH_TOTAL) + decision.total();
+        int dailyTotal = current.integer(DAILY_TOTAL) + decision.daily();
+        int weeklyTotal = current.integer(WEEKLY_TOTAL) + decision.weekly();
+        int points = current.integer(POINTS) + decision.points();
+        if (decision.pointsApplied() && decision.pointLimit() > 0
+                && points > decision.pointLimit()) {
+            points = decision.pointLimit();
         }
         HashMap<String, DataValue> updates = new HashMap<>();
         updates.put(PLAYER_NAME, new DataValueString(identity.playerName()));
@@ -199,18 +197,6 @@ public final class NeoForgeVoteAccountingStore {
         List<String> values = new ArrayList<>(votes.size());
         votes.forEach((key, value) -> values.add(key + "//" + value));
         return String.join("%line%", values);
-    }
-
-    private static final class AccountingDelta {
-        int total;
-        int daily;
-        int weekly;
-        int points;
-        boolean pointsApplied;
-        void addTotal() { total++; }
-        void addDaily() { daily++; }
-        void addWeekly() { weekly++; }
-        void addPoints(int amount) { points += amount; pointsApplied = true; }
     }
 
     private record Row(Map<String, DataValue> values) {

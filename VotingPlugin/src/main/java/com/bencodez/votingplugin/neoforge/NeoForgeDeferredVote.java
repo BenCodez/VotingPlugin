@@ -6,7 +6,7 @@ import java.util.UUID;
 /** Immutable complete-vote input retained until NeoForge can finish its effects. */
 public record NeoForgeDeferredVote(UUID voteId, UUID playerId, String playerName,
         String serviceSite, String siteKey, long voteTime, boolean realVote,
-        boolean addTotals, boolean wasOnline) {
+        boolean addTotals, boolean wasOnline, NeoForgeVoteAccountingDecision accountingDecision) {
     public NeoForgeDeferredVote {
         Objects.requireNonNull(voteId, "voteId");
         Objects.requireNonNull(playerId, "playerId");
@@ -15,11 +15,18 @@ public record NeoForgeDeferredVote(UUID voteId, UUID playerId, String playerName
         Objects.requireNonNull(siteKey, "siteKey");
     }
 
+    public NeoForgeDeferredVote(UUID voteId, UUID playerId, String playerName,
+            String serviceSite, String siteKey, long voteTime, boolean realVote,
+            boolean addTotals, boolean wasOnline) {
+        this(voteId, playerId, playerName, serviceSite, siteKey, voteTime,
+                realVote, addTotals, wasOnline, null);
+    }
+
     NeoForgeDeferredVote withReplayContext(String currentName, String configuredServiceSite) {
         Objects.requireNonNull(currentName, "currentName");
         Objects.requireNonNull(configuredServiceSite, "configuredServiceSite");
         if (playerName.equals(currentName) && serviceSite.equals(configuredServiceSite)) return this;
         return new NeoForgeDeferredVote(voteId, playerId, currentName, configuredServiceSite, siteKey,
-                voteTime, realVote, addTotals, wasOnline);
+                voteTime, realVote, addTotals, wasOnline, accountingDecision);
     }
 }

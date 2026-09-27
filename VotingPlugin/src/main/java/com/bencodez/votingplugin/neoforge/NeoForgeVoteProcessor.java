@@ -75,7 +75,10 @@ public final class NeoForgeVoteProcessor {
                 .normalizedVoteTime(now);
         NeoForgeVoteSite site = resolved.get();
         if (request.scope() == NeoForgeVoteRequest.Scope.COMPLETE) {
-            NeoForgeDeferredVoteStore.DeferralResult deferred = deferredVotes.defer(identity, input, site);
+            NeoForgeVoteAccountingDecision decision = NeoForgeVoteAccountingDecision.capture(input,
+                    configuration.policyFor(site), identity.online(), configuration.pointsOnVote(),
+                    configuration.limitVotePoints());
+            NeoForgeDeferredVoteStore.DeferralResult deferred = deferredVotes.defer(identity, input, site, decision);
             if (deferred.status() == NeoForgeDeferredVoteStore.Status.CAPACITY_REACHED) {
                 return result(NeoForgeVoteResult.Status.DEFERRED_CAPACITY_REACHED,
                         "NeoForge deferred-vote capacity is exhausted; the caller must not acknowledge this vote");
