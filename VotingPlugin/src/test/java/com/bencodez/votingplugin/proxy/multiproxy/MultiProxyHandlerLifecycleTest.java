@@ -364,6 +364,23 @@ class MultiProxyHandlerLifecycleTest {
 	}
 
 	@Test
+	void retiredReusedRedisCallbackCannotAcceptMessagesAfterReload(@TempDir Path dataDirectory) throws Exception {
+		MultiProxyHandler retired = mock(MultiProxyHandler.class,
+				org.mockito.Mockito.withSettings().useConstructor().defaultAnswer(org.mockito.Mockito.CALLS_REAL_METHODS));
+		SharedTransportEnvelopeAuthenticator authenticator = authenticator(dataDirectory);
+		org.mockito.Mockito.when(retired.getSharedTransportAuthenticator()).thenReturn(authenticator);
+		String channel = "network-a:VotingPluginProxy_Proxy2";
+		JsonEnvelope signed = authenticator.sign(
+				VotingPluginWire.clearVotePrimary("player-uuid", "Player", "Proxy1"),
+				Domain.REDIS_MULTI_PROXY, "Proxy1", channel);
+
+		retired.close();
+		retired.acceptRedisEnvelope(signed, channel);
+
+		verify(retired, org.mockito.Mockito.never()).clearVote("player-uuid");
+	}
+
+	@Test
 	void copiedMultiProxyMessageCannotAuthenticateOnAnotherRecipientChannel(@TempDir Path dataDirectory)
 			throws Exception {
 		MultiProxyHandler handler = mock(MultiProxyHandler.class,

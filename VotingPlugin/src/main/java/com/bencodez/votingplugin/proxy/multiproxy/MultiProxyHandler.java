@@ -85,6 +85,7 @@ public abstract class MultiProxyHandler {
 	private static final long UNSIGNED_BRIDGE_WINDOW_NANOS = TimeUnit.SECONDS.toNanos(2);
 	private final Map<String, UnsignedBridgeCopies> unsignedBridgeCopies = new LinkedHashMap<>();
 	private TransportEnvelopeEncryption communicationEncryption;
+	private volatile boolean redisCallbacksActive = true;
 	private long lastVoteCapabilityAdvertisementMillis = Long.MIN_VALUE;
 	/** A newly persisted discovery deadline must cause an initial handshake promptly. */
 	private boolean voteCapabilityDiscoveryAnnouncementRequired;
@@ -123,6 +124,11 @@ public abstract class MultiProxyHandler {
 	 * Closes the multi-proxy handler.
 	 */
 	public synchronized void close() {
+		// RedisHandler owns listeners when the multi-proxy transport reuses the
+		// global connection. Fence this retired handler before the current
+		// encryption policy can be replaced so those callbacks cannot accept or
+		// mutate state after a soft reload.
+		redisCallbacksActive = false;
 		if (multiproxySocketHandler != null) {
 			multiproxySocketHandler.closeConnection();
 			multiproxySocketHandler = null;
@@ -655,6 +661,7 @@ public abstract class MultiProxyHandler {
 	 * Loads multi-proxy support.
 	 */
 	public synchronized void loadMultiProxySupport() {
+		redisCallbacksActive = false;
 		acknowledgedVoteCapabilityPeers.clear();
 		knownVoteCapabilityPeers.clear();
 		voteCapabilityDiscoveryDeadlines.clear();
@@ -729,6 +736,7 @@ public abstract class MultiProxyHandler {
 				};
 			}
 
+			redisCallbacksActive = true;
 			runAsnc(() -> {
 				loadMultiProxyRedisListener(
 						VotingPluginRedisChannels.multiProxy(getRedisPrefix(), getMultiProxyServerName()));
@@ -884,7 +892,8 @@ public abstract class MultiProxyHandler {
 		acceptRedisEnvelope(envelope, null);
 	}
 
-	void acceptRedisEnvelope(JsonEnvelope envelope, String channel) {
+	synchronized void acceptRedisEnvelope(JsonEnvelope envelope, String channel) {
+		if (!redisCallbacksActive) return;
 		SharedTransportEnvelopeAuthenticator authenticator = getSharedTransportAuthenticator();
 		if (authenticator == null) return;
 		SharedTransportEnvelopeAuthenticator.Verification verification = authenticator.verify(envelope,
