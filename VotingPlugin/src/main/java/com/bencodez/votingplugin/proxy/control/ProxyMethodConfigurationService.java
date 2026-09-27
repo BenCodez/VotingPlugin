@@ -20,7 +20,7 @@ public final class ProxyMethodConfigurationService {
 	}
 
 	public ProxyMethodConfiguration read() {
-		return new ProxyMethodConfiguration(BungeeMethod.getByName(proxy.getConfig().getBungeeMethod()));
+		return new ProxyMethodConfiguration(BungeeMethod.getByName(proxy.getConfig().getProxyCommunicationMethod()));
 	}
 
 	public void validate(ProxyMethodConfiguration proposal) {
