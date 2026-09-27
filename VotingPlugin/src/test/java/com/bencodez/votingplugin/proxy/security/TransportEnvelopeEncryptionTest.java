@@ -63,6 +63,18 @@ class TransportEnvelopeEncryptionTest {
 	}
 
 	@Test
+	void disabledModeStartsWithoutAReadableKeyAndRejectsEncryptedTraffic(@TempDir Path directory) throws Exception {
+		JsonEnvelope plain = JsonEnvelope.builder("Status").put("server", "backend-a").build();
+		TransportEnvelopeEncryption enabled = TransportEnvelopeEncryption.forTesting(KEY, Domain.PROXY_BACKEND, true);
+		TransportEnvelopeEncryption disabled = TransportEnvelopeEncryption.load(
+				directory.resolve("missing-secretkey.key"), Domain.PROXY_BACKEND, false);
+
+		assertSame(plain, disabled.decrypt(plain).envelope());
+		assertFalse(disabled.decrypt(enabled.encrypt(plain)).accepted());
+		assertFalse(disabled.enabled());
+	}
+
+	@Test
 	void inboundPolicyEquivalenceRequiresSameKeyDomainAndMode() {
 		TransportEnvelopeEncryption enabled = TransportEnvelopeEncryption.forTesting(KEY, Domain.PROXY_BACKEND, true);
 

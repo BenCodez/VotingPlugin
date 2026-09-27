@@ -157,6 +157,36 @@ class VotingPluginProxyLifecycleTest {
 	}
 
 	@Test
+	void softReloadRetainsEquivalentAuthenticatorReplayState(@TempDir Path dataDirectory) throws Exception {
+		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
+		proxy.setDataFolder(dataDirectory.toFile());
+		Path keyFile = dataDirectory.resolve("secretkey.key");
+		Files.writeString(keyFile, Base64.getEncoder().encodeToString(
+				"0123456789abcdef0123456789abcdef".getBytes(StandardCharsets.US_ASCII)));
+		when(proxy.getConfig().getBungeeMethod()).thenReturn("REDIS");
+		when(proxy.getConfig().getSharedTransportAuthentication()).thenReturn("REQUIRED");
+		when(proxy.getConfig().getCommunicationEncryption()).thenReturn(true);
+		SharedTransportEnvelopeAuthenticator original = SharedTransportEnvelopeAuthenticator.load(keyFile, Mode.REQUIRED);
+		String channel = "vp:VotingPlugin";
+		JsonEnvelope signed = original.sign(VotingPluginWire.status("backend-a"),
+				Domain.REDIS_PROXY_BACKEND, "backend-a", channel);
+		assertTrue(original.verify(signed, Domain.REDIS_PROXY_BACKEND, channel).accepted());
+		Field authentication = VotingPluginProxy.class.getDeclaredField("sharedTransportAuthenticator");
+		authentication.setAccessible(true);
+		authentication.set(proxy, original);
+		Field encryption = VotingPluginProxy.class.getDeclaredField("communicationEncryption");
+		encryption.setAccessible(true);
+		encryption.set(proxy, TransportEnvelopeEncryption.load(keyFile,
+				TransportEnvelopeEncryption.Domain.PROXY_BACKEND, true));
+
+		proxy.reloadFromControl();
+
+		assertSame(original, authentication.get(proxy));
+		assertEquals(SharedTransportEnvelopeAuthenticator.Rejection.REPLAY,
+				original.verify(signed, Domain.REDIS_PROXY_BACKEND, channel).rejection());
+	}
+
+	@Test
 	void completionAckTransitionsThroughDurableReceiptRelease(@TempDir Path directory) throws Exception {
 		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
 		GlobalMessageProxyHandler messages = mock(GlobalMessageProxyHandler.class);

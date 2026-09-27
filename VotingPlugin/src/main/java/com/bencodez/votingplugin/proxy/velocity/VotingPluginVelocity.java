@@ -395,7 +395,13 @@ public class VotingPluginVelocity {
 			if (!config.getCommunicationEncryption()) logger.warn(
 					"CommunicationEncryption is disabled. Copy this proxy's secretkey.key to every VotingPlugin node, enable CommunicationEncryption everywhere, and restart (recommended).");
 		} catch (IOException failure) {
-			throw new IllegalStateException("Unable to prepare VotingPlugin communication secretkey.key", failure);
+			boolean required = config.getCommunicationEncryption()
+					|| com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.Mode
+							.parse(config.getSharedTransportAuthentication())
+							== com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.Mode.REQUIRED;
+			if (required) throw new IllegalStateException(
+					"Unable to prepare required VotingPlugin communication secretkey.key", failure);
+			logger.warn("Unable to create optional secretkey.key; continuing with legacy plaintext/unsigned communication. Fix the data-folder permissions before enabling communication security.");
 		}
 	}
 

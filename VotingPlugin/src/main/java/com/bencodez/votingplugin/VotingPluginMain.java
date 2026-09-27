@@ -890,7 +890,13 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			if (!bungeeSettings.isCommunicationEncryption()) getLogger().warning(
 					"CommunicationEncryption is disabled. Copy the proxy secretkey.key to every VotingPlugin node, enable CommunicationEncryption everywhere, and restart (recommended).");
 		} catch (java.io.IOException failure) {
-			throw new IllegalStateException("Unable to prepare VotingPlugin communication secretkey.key", failure);
+			boolean required = bungeeSettings.isCommunicationEncryption()
+					|| com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.Mode
+							.parse(bungeeSettings.getSharedTransportAuthentication())
+							== com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.Mode.REQUIRED;
+			if (required) throw new IllegalStateException(
+					"Unable to prepare required VotingPlugin communication secretkey.key", failure);
+			getLogger().warning("Unable to create optional secretkey.key; continuing with legacy plaintext/unsigned communication. Fix data-folder permissions before enabling communication security.");
 		}
 	}
 

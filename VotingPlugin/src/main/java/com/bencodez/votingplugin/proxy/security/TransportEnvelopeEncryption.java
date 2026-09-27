@@ -57,7 +57,7 @@ public final class TransportEnvelopeEncryption {
 	private final SecureRandom random;
 
 	private TransportEnvelopeEncryption(byte[] masterKey, Domain domain, boolean enabled, SecureRandom random) {
-		this.key = new SecretKeySpec(deriveKey(masterKey, domain), "AES");
+		this.key = masterKey == null ? null : new SecretKeySpec(deriveKey(masterKey, domain), "AES");
 		this.domain = domain;
 		this.enabled = enabled;
 		this.random = random;
@@ -66,12 +66,19 @@ public final class TransportEnvelopeEncryption {
 	public static TransportEnvelopeEncryption load(Path keyFile, Domain domain, boolean enabled) throws IOException {
 		byte[] decoded = null;
 		try {
-			if (!Files.isRegularFile(keyFile)) throw new IOException("Transport encryption requires secretkey.key");
+			if (!Files.isRegularFile(keyFile)) {
+				if (!enabled) return new TransportEnvelopeEncryption(null, domain, false, new SecureRandom());
+				throw new IOException("Transport encryption requires secretkey.key");
+			}
 			decoded = Base64.getDecoder().decode(Files.readString(keyFile, StandardCharsets.US_ASCII).trim());
 			if (decoded.length < 16) throw new IOException("Transport encryption key is too short");
 			return new TransportEnvelopeEncryption(decoded, domain, enabled, new SecureRandom());
 		} catch (IllegalArgumentException invalid) {
+			if (!enabled) return new TransportEnvelopeEncryption(null, domain, false, new SecureRandom());
 			throw new IOException("Transport encryption key is invalid", invalid);
+		} catch (IOException unavailable) {
+			if (!enabled) return new TransportEnvelopeEncryption(null, domain, false, new SecureRandom());
+			throw unavailable;
 		} finally {
 			if (decoded != null) java.util.Arrays.fill(decoded, (byte) 0);
 		}
@@ -106,6 +113,7 @@ public final class TransportEnvelopeEncryption {
 		if (!SUBCHANNEL.equals(envelope.getSubChannel())) {
 			return enabled ? Decryption.reject("unencrypted envelope") : Decryption.accept(envelope);
 		}
+		if (key == null) return Decryption.reject("encryption key unavailable");
 		try {
 			if (!VERSION.equals(envelope.getFields().get(K_VERSION))
 					|| !domain.value.equals(envelope.getFields().get(K_DOMAIN))) return Decryption.reject("invalid metadata");
@@ -135,8 +143,9 @@ public final class TransportEnvelopeEncryption {
 
 	/** Returns whether another instance enforces the exact same inbound policy and key. */
 	public boolean hasEquivalentInboundPolicy(TransportEnvelopeEncryption other) {
-		return other != null && enabled == other.enabled && domain == other.domain
-				&& MessageDigest.isEqual(key.getEncoded(), other.key.getEncoded());
+		if (other == null || enabled != other.enabled || domain != other.domain) return false;
+		if (key == null || other.key == null) return key == other.key;
+		return MessageDigest.isEqual(key.getEncoded(), other.key.getEncoded());
 	}
 
 	private byte[] aad() {

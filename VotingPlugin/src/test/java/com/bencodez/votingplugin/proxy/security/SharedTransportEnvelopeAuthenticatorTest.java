@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
@@ -215,6 +216,14 @@ class SharedTransportEnvelopeAuthenticatorTest {
 		JsonEnvelope original = JsonEnvelope.builder(VotingPluginWire.SUB_STATUS).build();
 		assertEquals(original.getFields(), compatibility.sign(original, Domain.REDIS_PROXY_BACKEND,
 				"backend-a", "test-channel").getFields());
+
+		Path invalidKey = dataDirectory.resolve("invalid-secretkey.key");
+		Files.writeString(invalidKey, "not-base64");
+		SharedTransportEnvelopeAuthenticator invalidCompatibility =
+				SharedTransportEnvelopeAuthenticator.load(invalidKey, Mode.COMPATIBILITY);
+		assertTrue(invalidCompatibility.verify(original, Domain.REDIS_PROXY_BACKEND, "test-channel").accepted());
+		assertThrows(java.io.IOException.class,
+				() -> SharedTransportEnvelopeAuthenticator.load(invalidKey, Mode.REQUIRED));
 	}
 
 	@Test

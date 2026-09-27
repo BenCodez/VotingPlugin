@@ -3906,8 +3906,14 @@ public abstract class VotingPluginProxy {
 	private void installTransportSecurity(SharedTransportEnvelopeAuthenticator authenticator,
 			TransportEnvelopeEncryption encryption) {
 		synchronized (transportSecurityLock) {
-			sharedTransportAuthenticator = authenticator;
-			communicationEncryption = encryption;
+			if (sharedTransportAuthenticator == null || authenticator == null
+					|| !sharedTransportAuthenticator.hasEquivalentInboundPolicy(authenticator)) {
+				sharedTransportAuthenticator = authenticator;
+			}
+			if (communicationEncryption == null || encryption == null
+					|| !communicationEncryption.hasEquivalentInboundPolicy(encryption)) {
+				communicationEncryption = encryption;
+			}
 			communicationEncryptionFailureLogged.set(false);
 		}
 	}

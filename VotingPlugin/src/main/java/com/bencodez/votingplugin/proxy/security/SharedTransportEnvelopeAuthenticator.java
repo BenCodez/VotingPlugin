@@ -124,7 +124,13 @@ public final class SharedTransportEnvelopeAuthenticator {
 			if (decoded.length < 16) throw new IOException("Shared transport authentication key is too short");
 			return new SharedTransportEnvelopeAuthenticator(decoded, mode, Clock.systemUTC());
 		} catch (IllegalArgumentException invalid) {
+			if (mode == Mode.COMPATIBILITY)
+				return new SharedTransportEnvelopeAuthenticator(null, mode, Clock.systemUTC());
 			throw new IOException("Shared transport authentication key is invalid", invalid);
+		} catch (IOException unavailable) {
+			if (mode == Mode.COMPATIBILITY)
+				return new SharedTransportEnvelopeAuthenticator(null, mode, Clock.systemUTC());
+			throw unavailable;
 		}
 	}
 
