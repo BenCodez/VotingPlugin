@@ -751,9 +751,10 @@ class NeoForgeRewardReplayServiceTest {
     void uncertainRewardStopsAutomaticReplay() throws Exception {
         writeConfiguration(false);
         UUID playerId = UUID.randomUUID();
+        UUID voteId = UUID.randomUUID();
         try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
             runtime.players().joined(new SharedVoteIdentity(playerId, "Alex", true));
-            retain(runtime, UUID.randomUUID(), playerId, "Service");
+            retain(runtime, voteId, playerId, "Service");
             NeoForgeRewardActions uncertainActions = (vote, plan) -> CompletableFuture.failedFuture(
                     new NeoForgeNativeRewardActions.UncertainRewardOutcomeException("uncertain"));
             try (NeoForgeRewardReplayService replay = new NeoForgeRewardReplayService(runtime.voteConfiguration(),
@@ -763,8 +764,20 @@ class NeoForgeRewardReplayServiceTest {
                 assertEquals(NeoForgeRewardReplayService.Status.REWARD_UNCERTAIN,
                         result.get(5, TimeUnit.SECONDS).get(0).status());
                 assertTrue(replay.replayOnce().get(5, TimeUnit.SECONDS).isEmpty());
-                assertEquals(1, runtime.deferredVotes().pending(playerId).size());
+                NeoForgeDeferredVote pending = runtime.deferredVotes().pending(playerId).get(0);
+                assertTrue(pending.quarantined());
             }
+        }
+
+        RecordingActions actions = new RecordingActions();
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory);
+                NeoForgeRewardReplayService replay = service(runtime, actions)) {
+            runtime.players().joined(new SharedVoteIdentity(playerId, "Alex", true));
+            List<NeoForgeRewardReplayService.ReplayResult> result = replay.replayOnce().get(5, TimeUnit.SECONDS);
+            assertEquals(NeoForgeRewardReplayService.Status.REWARD_UNCERTAIN, result.get(0).status());
+            assertEquals(0, actions.calls.get());
+            assertTrue(runtime.deferredVotes().pending(playerId).get(0).quarantined());
+            assertTrue(replay.replayOnce().get(5, TimeUnit.SECONDS).isEmpty());
         }
     }
 

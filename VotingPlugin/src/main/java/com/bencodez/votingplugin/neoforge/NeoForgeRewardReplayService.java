@@ -128,6 +128,11 @@ public final class NeoForgeRewardReplayService implements AutoCloseable {
     }
 
     private CompletableFuture<ReplayResult> replay(NeoForgeDeferredVote vote) {
+        if (vote.quarantined()) {
+            retryAfter.put(vote.voteId(), Long.MAX_VALUE);
+            return CompletableFuture.completedFuture(result(vote, Status.REWARD_UNCERTAIN,
+                    "Durably quarantined after an uncertain external effect; operator action is required"));
+        }
         var onlineIdentity = players.online(vote.playerId());
         String currentName = onlineIdentity.map(identity -> identity.playerName()).orElse(vote.playerName());
         if (!MinecraftUsernameValidator.isValid(currentName, configuration.bedrockPlayerPrefix())) {
@@ -163,8 +168,7 @@ public final class NeoForgeRewardReplayService implements AutoCloseable {
 
     private ReplayResult rewardFailure(NeoForgeDeferredVote vote, Throwable failure) {
         if (containsUncertainOutcome(failure)) {
-            retryAfter.put(vote.voteId(), Long.MAX_VALUE);
-            return result(vote, Status.REWARD_UNCERTAIN, safeFailure(failure));
+            return quarantine(vote, Status.REWARD_UNCERTAIN, safeFailure(failure));
         }
         return delayed(vote, Status.REWARD_FAILED, safeFailure(failure), 5);
     }
@@ -177,21 +181,26 @@ public final class NeoForgeRewardReplayService implements AutoCloseable {
                 completion.complete(rewardFailure(vote, failure));
                 return;
             }
-            try (claim) {
-                NeoForgeDeferredVoteStore.CompletionOutcome outcome =
-                        claim.completeWithAccounting(accounting, site,
-                                vote.wasOnline(), vote.playerName());
+            try {
+                NeoForgeDeferredVoteStore.CompletionOutcome outcome;
+                try (claim) {
+                    outcome = claim.completeWithAccounting(accounting, site,
+                            vote.wasOnline(), vote.playerName());
+                }
                 Status status = outcome.result() == NeoForgeDeferredVoteStore.CompletionResult.COMPLETED
                         || outcome.result() == NeoForgeDeferredVoteStore.CompletionResult.ALREADY_COMPLETED
                                 ? Status.COMPLETED : Status.NOT_CLAIMED;
-                completion.complete(new ReplayResult(vote.voteId(), status, outcome.account(),
-                        "Completion result: " + outcome.result()));
-                if (status == Status.COMPLETED) retryAfter.remove(vote.voteId());
+                if (status == Status.COMPLETED) {
+                    retryAfter.remove(vote.voteId());
+                    completion.complete(new ReplayResult(vote.voteId(), status, outcome.account(),
+                            "Completion result: " + outcome.result()));
+                } else {
+                    completion.complete(quarantine(vote, Status.COMPLETION_UNCERTAIN,
+                            "Completion result: " + outcome.result()));
+                }
             } catch (Throwable completionFailure) {
-                retryAfter.put(vote.voteId(), Long.MAX_VALUE);
-                LOGGER.warning("NeoForge deferred vote " + vote.voteId()
-                        + " has an uncertain completion write and will not retry before restart");
-                completion.complete(result(vote, Status.COMPLETION_UNCERTAIN, safeFailure(completionFailure)));
+                completion.complete(quarantine(vote, Status.COMPLETION_UNCERTAIN,
+                        safeFailure(completionFailure)));
             }
         };
         try {
@@ -210,6 +219,30 @@ public final class NeoForgeRewardReplayService implements AutoCloseable {
         Long previous = retryAfter.put(vote.voteId(), System.nanoTime() + TimeUnit.SECONDS.toNanos(seconds));
         if (previous == null) LOGGER.warning("NeoForge deferred vote " + vote.voteId() + " is " + status);
         return result(vote, status, detail);
+    }
+
+    private ReplayResult quarantine(NeoForgeDeferredVote vote, Status status, String detail) {
+        retryAfter.put(vote.voteId(), Long.MAX_VALUE);
+        try {
+            NeoForgeDeferredVoteStore.QuarantineResult outcome = deferred.quarantine(
+                    vote.playerId(), vote.voteId());
+            if (outcome == NeoForgeDeferredVoteStore.QuarantineResult.ALREADY_COMPLETED) {
+                retryAfter.remove(vote.voteId());
+                return result(vote, Status.COMPLETED, "Completion receipt was already durable");
+            }
+            if (outcome == NeoForgeDeferredVoteStore.QuarantineResult.NOT_PENDING) {
+                LOGGER.severe("NeoForge deferred vote " + vote.voteId()
+                        + " could not be durably quarantined because its pending record is missing");
+                return result(vote, status, detail + "; quarantine=" + outcome);
+            }
+            LOGGER.warning("NeoForge deferred vote " + vote.voteId()
+                    + " is durably quarantined after an uncertain external effect");
+            return result(vote, status, detail + "; quarantine=" + outcome);
+        } catch (Throwable quarantineFailure) {
+            LOGGER.severe("Failed to durably quarantine NeoForge deferred vote " + vote.voteId()
+                    + "; automatic replay is stopped for this process");
+            return result(vote, status, detail + "; quarantine=" + safeFailure(quarantineFailure));
+        }
     }
 
     private static String safeFailure(Throwable failure) {

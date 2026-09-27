@@ -43,6 +43,7 @@ public final class NeoForgeDeferredVoteStore {
     static final int MAX_COMPLETED_TOTAL = 262_144;
     private static final String VERSION = "v1";
     private static final String PENDING_VERSION = "v2";
+    private static final String QUARANTINED_PENDING_VERSION = "v3";
     private static final String PENDING_INDEX = "VotingPlugin_NeoForgeDeferredPending";
     private static final String COMPLETED_INDEX = "VotingPlugin_NeoForgeDeferredCompleted";
     private static final Base64.Encoder ENCODER = Base64.getUrlEncoder().withoutPadding();
@@ -191,7 +192,7 @@ public final class NeoForgeDeferredVoteStore {
         }
         Optional<NeoForgeDeferredVote> vote = parsePending(value(row, DEFERRED_VOTES), playerId).stream()
                 .filter(candidate -> candidate.voteId().equals(voteId)).findFirst();
-        if (vote.isEmpty()) return Optional.empty();
+        if (vote.isEmpty() || vote.get().quarantined()) return Optional.empty();
         ensureCounts();
         if (completed.size() + receiptReservationsByUser.getOrDefault(playerId, 0)
                 >= completedPerUserLimit || completedCount + receiptReservationsTotal >= completedTotalLimit) {
@@ -201,6 +202,34 @@ public final class NeoForgeDeferredVoteStore {
         receiptReservationsByUser.merge(playerId, 1, Integer::sum);
         receiptReservationsTotal++;
         return Optional.of(new Claim(key, vote.get()));
+    }
+
+    /** Durably prevents automatic replay after an external effect may have happened. */
+    synchronized QuarantineResult quarantine(UUID playerId, UUID voteId) {
+        Objects.requireNonNull(playerId, "playerId");
+        Objects.requireNonNull(voteId, "voteId");
+        OccurrenceKey key = new OccurrenceKey(playerId, voteId);
+        if (activeClaims.contains(key)) {
+            throw new IllegalStateException("Cannot quarantine an active deferred vote claim");
+        }
+        QuarantineResult result = backend.user(playerId).transaction(backend.storageType(), Map.of(), scope -> {
+            Map<String, DataValue> row = row(scope.readRow());
+            if (containsReceipt(parseCompleted(value(row, COMPLETED_DEFERRED_VOTES)), voteId)) {
+                return QuarantineResult.ALREADY_COMPLETED;
+            }
+            List<NeoForgeDeferredVote> pending = parsePending(value(row, DEFERRED_VOTES), playerId);
+            for (int index = 0; index < pending.size(); index++) {
+                NeoForgeDeferredVote vote = pending.get(index);
+                if (!vote.voteId().equals(voteId)) continue;
+                if (vote.quarantined()) return QuarantineResult.ALREADY_QUARANTINED;
+                pending.set(index, vote.quarantinedCopy());
+                scope.writeValues(Map.of(DEFERRED_VOTES, new DataValueString(serializePending(pending))));
+                return QuarantineResult.QUARANTINED;
+            }
+            return QuarantineResult.NOT_PENDING;
+        });
+        if (result == QuarantineResult.ALREADY_COMPLETED) reconcileCompleted(playerId, voteId);
+        return result;
     }
 
     private synchronized CompletionOutcome complete(Claim claim, NeoForgeVoteAccountingStore accounting,
@@ -333,7 +362,7 @@ public final class NeoForgeDeferredVoteStore {
                 UUID playerId = parseCanonicalUuid(result.getString(1));
                 String pendingData = result.getString(2);
                 String completedData = result.getString(3);
-                if (pendingData != null && !pendingData.isEmpty() && discovered.size() < totalLimit) {
+                if (pendingData != null && !pendingData.isEmpty()) {
                     discovered.add(playerId);
                 }
                 try {
@@ -403,7 +432,19 @@ public final class NeoForgeDeferredVoteStore {
         ArrayList<String> lines = new ArrayList<>(votes.size());
         for (NeoForgeDeferredVote vote : votes) {
             NeoForgeVoteAccountingDecision decision = vote.accountingDecision();
-            if (decision == null) {
+            if (vote.quarantined()) {
+                lines.add(String.join("|", QUARANTINED_PENDING_VERSION, vote.voteId().toString(),
+                        encode(vote.playerName()), encode(vote.serviceSite()), encode(vote.siteKey()),
+                        Long.toString(vote.voteTime()), Boolean.toString(vote.realVote()),
+                        Boolean.toString(vote.addTotals()), Boolean.toString(vote.wasOnline()),
+                        Boolean.toString(true), Boolean.toString(decision != null),
+                        decision == null ? "" : Integer.toString(decision.total()),
+                        decision == null ? "" : Integer.toString(decision.daily()),
+                        decision == null ? "" : Integer.toString(decision.weekly()),
+                        decision == null ? "" : Integer.toString(decision.points()),
+                        decision == null ? "" : Boolean.toString(decision.pointsApplied()),
+                        decision == null ? "" : Integer.toString(decision.pointLimit())));
+            } else if (decision == null) {
                 lines.add(String.join("|", VERSION, vote.voteId().toString(), encode(vote.playerName()),
                         encode(vote.serviceSite()), encode(vote.siteKey()), Long.toString(vote.voteTime()),
                         Boolean.toString(vote.realVote()), Boolean.toString(vote.addTotals()),
@@ -426,19 +467,24 @@ public final class NeoForgeDeferredVoteStore {
         if (stored == null || stored.isEmpty()) return votes;
         for (String line : stored.split("\\n", -1)) {
             String[] fields = line.split("\\|", -1);
-            if ((fields.length != 9 || !VERSION.equals(fields[0]))
-                    && (fields.length != 15 || !PENDING_VERSION.equals(fields[0]))) {
+            boolean legacy = fields.length == 9 && VERSION.equals(fields[0]);
+            boolean versionTwo = fields.length == 15 && PENDING_VERSION.equals(fields[0]);
+            boolean versionThree = fields.length == 17 && QUARANTINED_PENDING_VERSION.equals(fields[0]);
+            if (!legacy && !versionTwo && !versionThree) {
                 throw new MalformedDeferredVoteData("Unsupported or malformed deferred NeoForge vote data");
             }
             try {
-                NeoForgeVoteAccountingDecision decision = fields.length == 9 ? null
-                        : new NeoForgeVoteAccountingDecision(Integer.parseInt(fields[9]),
-                                Integer.parseInt(fields[10]), Integer.parseInt(fields[11]),
-                                Integer.parseInt(fields[12]), parseBoolean(fields[13]),
-                                Integer.parseInt(fields[14]));
+                boolean hasDecision = versionTwo || versionThree && parseBoolean(fields[10]);
+                int decisionOffset = versionThree ? 11 : 9;
+                NeoForgeVoteAccountingDecision decision = !hasDecision ? null
+                        : new NeoForgeVoteAccountingDecision(Integer.parseInt(fields[decisionOffset]),
+                                Integer.parseInt(fields[decisionOffset + 1]), Integer.parseInt(fields[decisionOffset + 2]),
+                                Integer.parseInt(fields[decisionOffset + 3]), parseBoolean(fields[decisionOffset + 4]),
+                                Integer.parseInt(fields[decisionOffset + 5]));
                 votes.add(new NeoForgeDeferredVote(UUID.fromString(fields[1]), playerId,
                         decode(fields[2]), decode(fields[3]), decode(fields[4]), Long.parseLong(fields[5]),
-                        parseBoolean(fields[6]), parseBoolean(fields[7]), parseBoolean(fields[8]), decision));
+                        parseBoolean(fields[6]), parseBoolean(fields[7]), parseBoolean(fields[8]), decision,
+                        versionThree && parseBoolean(fields[9])));
             } catch (IllegalArgumentException failure) {
                 throw new MalformedDeferredVoteData("Malformed deferred NeoForge vote data", failure);
             }
@@ -509,6 +555,7 @@ public final class NeoForgeDeferredVoteStore {
     }
 
     public enum OccurrenceState { UNKNOWN, PENDING, COMPLETED }
+    enum QuarantineResult { QUARANTINED, ALREADY_QUARANTINED, ALREADY_COMPLETED, NOT_PENDING }
     enum Status { RETAINED, ALREADY_RETAINED, ALREADY_COMPLETED, CAPACITY_REACHED }
     public enum CompletionResult { COMPLETED, ALREADY_COMPLETED, NOT_PENDING, RECEIPT_CAPACITY_REACHED }
     public record CompletionOutcome(CompletionResult result, NeoForgeVoteAccount account) { }

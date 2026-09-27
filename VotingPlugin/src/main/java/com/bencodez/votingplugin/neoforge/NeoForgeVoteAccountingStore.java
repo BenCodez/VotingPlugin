@@ -136,7 +136,7 @@ public final class NeoForgeVoteAccountingStore {
             SharedVoteInput input = new SharedVoteInput(vote.voteId(), vote.playerName(), vote.serviceSite(),
                     vote.voteTime(), vote.realVote(), vote.addTotals(), false, false, vote.wasOnline());
             decision = NeoForgeVoteAccountingDecision.capture(input, configuration.policyFor(site),
-                    identity.online(), configuration.pointsOnVote(), configuration.limitVotePoints());
+                    vote.wasOnline(), configuration.pointsOnVote(), configuration.limitVotePoints());
         }
 
         Row current = Row.from(columns);

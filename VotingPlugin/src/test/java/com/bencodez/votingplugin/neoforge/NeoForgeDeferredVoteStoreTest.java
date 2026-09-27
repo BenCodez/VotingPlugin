@@ -19,6 +19,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -50,6 +51,22 @@ class NeoForgeDeferredVoteStoreTest {
         }
         try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
             assertEquals(List.of(pending), runtime.deferredVotes().users());
+        }
+    }
+
+    @Test
+    void restartDiscoveryIncludesEveryPendingRowEvenAboveCurrentAdmissionLimit() throws IOException {
+        writeConfiguration();
+        UUID first = new UUID(0L, 1L);
+        UUID second = new UUID(0L, 2L);
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            runtime.players().joined(new SharedVoteIdentity(first, "First", true));
+            runtime.players().joined(new SharedVoteIdentity(second, "Second", true));
+            runtime.voteProcessor().process(complete(UUID.randomUUID(), first, "First", 100L));
+            runtime.voteProcessor().process(complete(UUID.randomUUID(), second, "Second", 100L));
+
+            NeoForgeDeferredVoteStore bounded = new NeoForgeDeferredVoteStore(runtime.storage(), 1, 1);
+            assertEquals(Set.of(first, second), Set.copyOf(bounded.users()));
         }
     }
 
@@ -125,6 +142,53 @@ class NeoForgeDeferredVoteStoreTest {
             assertEquals(NeoForgeDeferredVoteStore.OccurrenceState.PENDING,
                     runtime.deferredVotes().state(playerId, voteId));
             assertTrue(runtime.deferredVotes().claim(playerId, voteId).isPresent());
+        }
+    }
+
+    @Test
+    void quarantinedVoteRemainsFencedAcrossRestart() throws IOException {
+        writeConfiguration();
+        UUID playerId = UUID.randomUUID();
+        UUID voteId = UUID.randomUUID();
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            runtime.players().joined(new SharedVoteIdentity(playerId, "Alex", true));
+            runtime.storage().user(playerId).write(UserStorage.SQLITE,
+                    NeoForgeDeferredVoteStore.DEFERRED_VOTES,
+                    new DataValueString("v1|" + voteId
+                            + "|QWxleA|ZXhhbXBsZS50ZXN0|RXhhbXBsZQ|100|true|true|true"));
+            assertEquals(NeoForgeDeferredVoteStore.QuarantineResult.QUARANTINED,
+                    runtime.deferredVotes().quarantine(playerId, voteId));
+            assertTrue(runtime.deferredVotes().pending(playerId).get(0).quarantined());
+            assertTrue(runtime.deferredVotes().claim(playerId, voteId).isEmpty());
+        }
+
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            NeoForgeDeferredVote vote = runtime.deferredVotes().pending(playerId).get(0);
+            assertEquals(voteId, vote.voteId());
+            assertTrue(vote.quarantined());
+            assertTrue(runtime.deferredVotes().claim(playerId, voteId).isEmpty());
+        }
+    }
+
+    @Test
+    void legacyAccountingUsesRetainedOfflineState() throws IOException {
+        writeConfiguration();
+        Files.writeString(directory.resolve("Config.yml"), Files.readString(directory.resolve("Config.yml"))
+                .replace("AddTotalsOffline: true", "AddTotalsOffline: false"));
+        UUID playerId = UUID.randomUUID();
+        UUID voteId = UUID.randomUUID();
+        String legacy = "v1|" + voteId
+                + "|QWxleA|ZXhhbXBsZS50ZXN0|RXhhbXBsZQ|100|true|true|false";
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            runtime.storage().user(playerId).write(UserStorage.SQLITE,
+                    NeoForgeDeferredVoteStore.DEFERRED_VOTES, new DataValueString(legacy));
+            NeoForgeVoteSite site = runtime.voteConfiguration().configuredSite("Example").orElseThrow();
+            try (NeoForgeDeferredVoteStore.Claim claim = runtime.deferredVotes()
+                    .claim(playerId, voteId).orElseThrow()) {
+                assertEquals(NeoForgeDeferredVoteStore.CompletionResult.COMPLETED,
+                        claim.completeWithAccounting(runtime.accounting(), site, true).result());
+            }
+            assertEquals(0, runtime.accounting().load(playerId).orElseThrow().allTimeTotal());
         }
     }
 
