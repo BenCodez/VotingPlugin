@@ -722,6 +722,7 @@ class HttpBackendProxyTransportTest {
 		setField(transport, "configuredConnectionCode", "");
 		setField(transport, "configuredMessageHandler", mock(GlobalMessageHandler.class));
 		setField(transport, "restoreUnenrolledState", true);
+		setField(transport, "wireCodec", com.bencodez.simpleapi.servercomm.http.HttpEnvelopeWireCodec.identity());
 		List<JsonEnvelope> queued = new ArrayList<>();
 		JsonEnvelope startup = JsonEnvelope.builder("startup").build();
 		queued.add(startup);

@@ -1,5 +1,6 @@
 package com.bencodez.votingplugin.tests;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -13,8 +14,14 @@ class ServiceSiteValidatorTest {
 	void acceptsCommonServiceSiteNames() {
 		for (String serviceSite : new String[] { "PlanetMinecraft.com", "Minecraft Server List", "Crafty.gg",
 				"https://example.com/vote", "https://list.example/vote?id=1&source=proxy#top",
-				"https://example.com/search?q=site%20name+network", "site_name-2", "Site, Other; Network!",
-				"Serviço de votação", "Site\u00A0Name", "Site\uFE0F", "Cafe\u0301", "Site\u3164Name" }) {
+				"Research & Development", "R&D", "site_name-2", "Site, Other; Network!",
+				"site%20name", "site%2Bname", "site%20%2Bname", "site%20name%2Bnetwork",
+				"site%20name_with%20spaces", "Top 100% Servers", "%player_name%", "%javascript_vote%",
+				"%be_secret%20", "%25player_name%25", "site%", "site%2", "site%GG",
+				"&kSpoofed", "&aGreen", "&rReset",
+				"&xHex", "&#ff0000Spoofed", "&#ABCDEFText",
+				"Serviço de votação",
+				"Site\u00A0Name", "Site\uFE0F", "Cafe\u0301", "Site\u3164Name" }) {
 			assertTrue(ServiceSiteValidator.isValid(serviceSite), serviceSite);
 		}
 	}
@@ -22,9 +29,23 @@ class ServiceSiteValidatorTest {
 	@Test
 	void rejectsUnsupportedCharacters() {
 		for (String serviceSite : new String[] { "[Javascript=1]", "Site's", "\"Site\"", "Site`Name",
-				"Site\\Name", "Site\nName", "Site\tName", "Site\u0000Name", "Site\u200BName" }) {
+				"Site\\Name", "Site\nName", "Site\tName", "Site\u0000Name", "Site\u200BName",
+				"{player}", "\u00A7kSpoofed", "\u00A7aGreen" }) {
 			assertFalse(ServiceSiteValidator.isValid(serviceSite), serviceSite);
 		}
+	}
+
+	@Test
+	void formattingGuardPreventsTokensAcrossTemplateBoundaries() {
+		String value = "%player_name% &aGreen &#ff0000Red kSpoofed&";
+		String guarded = ServiceSiteValidator.inertForFormatting(value);
+
+		assertFalse(("&" + guarded + "a").contains("&k"));
+		assertFalse(("%" + guarded + "player_name%").contains("%kSpoofed&player_name%"));
+		assertFalse(guarded.contains("%player_name%"));
+		assertFalse(guarded.contains("&a"));
+		assertFalse(guarded.contains("&#ff0000"));
+		assertEquals(value, guarded.replace("\u2060", ""));
 	}
 
 	@Test

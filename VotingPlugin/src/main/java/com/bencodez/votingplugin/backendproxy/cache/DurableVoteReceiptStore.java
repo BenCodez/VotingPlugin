@@ -16,14 +16,16 @@ import com.bencodez.votingplugin.util.DurableFiles;
 
 /** Bounded append journal for backend vote IDs completed before acknowledgement. */
 final class DurableVoteReceiptStore {
-	private static final int MAX_ACTIVE_RECEIPTS = 262144;
+	static final int MAX_ACTIVE_RECEIPTS = 262144;
 	/* Larger than the complete in-memory and durable ordered lane (256 + 512). */
-	private static final int COMPLETION_HEADROOM = 1024;
+	static final int COMPLETION_HEADROOM = 1024;
 	/* Covers slightly more than three completed votes per second for the full 24-hour replay window. */
 	static final int MAX_RELEASE_TOMBSTONES = 262144;
-	private static final long MAX_FILE_BYTES = 16L * 1024L * 1024L;
+	static final long MAX_FILE_BYTES = 16L * 1024L * 1024L;
 	private static final String HEADER = "VP-VOTE-RECEIPTS-1";
 	private static final String RELEASE = "R";
+	static final int MAX_RECORD_BYTES = 57;
+	static final int MAX_TOTAL_RECEIPTS = (int) ((MAX_FILE_BYTES - HEADER.length() - 1L) / MAX_RECORD_BYTES);
 	static final long RELEASE_TOMBSTONE_TTL_MILLIS = TimeUnit.HOURS.toMillis(24);
 	private static final ConcurrentHashMap<Path, Object> FILE_LOCKS = new ConcurrentHashMap<>();
 
@@ -32,6 +34,7 @@ final class DurableVoteReceiptStore {
 	private final int maxActiveReceipts;
 	private final int completionHeadroom;
 	private final int maxReleaseTombstones;
+	private final int maxTotalReceipts;
 	private final LinkedHashMap<UUID, Long> receipts = new LinkedHashMap<>();
 	private int activeReceipts;
 	private int releaseTombstones;
@@ -39,16 +42,23 @@ final class DurableVoteReceiptStore {
 	private boolean repairRequired;
 
 	DurableVoteReceiptStore(Path file) throws IOException {
-		this(file, MAX_ACTIVE_RECEIPTS, COMPLETION_HEADROOM, MAX_RELEASE_TOMBSTONES);
+		this(file, MAX_ACTIVE_RECEIPTS, COMPLETION_HEADROOM, MAX_RELEASE_TOMBSTONES, MAX_TOTAL_RECEIPTS);
 	}
 
 	DurableVoteReceiptStore(Path file, int maxActiveReceipts, int completionHeadroom,
 			int maxReleaseTombstones) throws IOException {
+		this(file, maxActiveReceipts, completionHeadroom, maxReleaseTombstones,
+				maxActiveReceipts + completionHeadroom + maxReleaseTombstones);
+	}
+
+	DurableVoteReceiptStore(Path file, int maxActiveReceipts, int completionHeadroom,
+			int maxReleaseTombstones, int maxTotalReceipts) throws IOException {
 		this.file = file.toAbsolutePath().normalize();
 		this.fileLock = FILE_LOCKS.computeIfAbsent(this.file, ignored -> new Object());
 		this.maxActiveReceipts = maxActiveReceipts;
 		this.completionHeadroom = completionHeadroom;
 		this.maxReleaseTombstones = maxReleaseTombstones;
+		this.maxTotalReceipts = maxTotalReceipts;
 		synchronized (fileLock) {
 			load();
 		}
@@ -64,12 +74,24 @@ final class DurableVoteReceiptStore {
 		return voteId != null && receipts.containsKey(voteId);
 	}
 
+	/** Returns whether every admitted in-flight vote can still obtain an active receipt. */
+	synchronized boolean hasCompletionCapacity(int admittedVotes) {
+		if (admittedVotes < 0) return false;
+		cleanupReleasedTombstones(System.currentTimeMillis());
+		return activeReceipts <= maxActiveReceipts + completionHeadroom - admittedVotes
+				&& receipts.size() <= maxTotalReceipts - admittedVotes;
+	}
+
+	int maximumTrackedReceipts() {
+		return maxTotalReceipts;
+	}
+
 	synchronized long complete(UUID voteId) {
 		if (voteId == null) return 0L;
 		cleanupReleasedTombstones(System.currentTimeMillis());
 		Long current = receipts.get(voteId);
 		if (current != null) return current;
-		if (activeReceipts >= maxActiveReceipts + completionHeadroom) return 0L;
+		if (activeReceipts >= maxActiveReceipts + completionHeadroom || receipts.size() >= maxTotalReceipts) return 0L;
 		long expiresAt = Long.MAX_VALUE;
 		String record = voteId + "\t" + expiresAt + '\n';
 		synchronized (fileLock) {
@@ -86,7 +108,8 @@ final class DurableVoteReceiptStore {
 		cleanupReleasedTombstones(now);
 		Long current = receipts.get(voteId);
 		if (current != null && current != Long.MAX_VALUE) return current;
-		if (releaseTombstones >= maxReleaseTombstones) return 0L;
+		if (releaseTombstones >= maxReleaseTombstones
+				|| (current == null && receipts.size() >= maxTotalReceipts)) return 0L;
 		long expiresAt = now + RELEASE_TOMBSTONE_TTL_MILLIS;
 		String record = RELEASE + '\t' + voteId + '\t' + expiresAt + '\n';
 		synchronized (fileLock) {

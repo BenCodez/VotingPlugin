@@ -79,6 +79,33 @@ class ReliableVoteDeliveryOutboxTest {
 	}
 
 	@Test
+	void durablyRetiresFencedAndPreviouslyCompletedLegacyDeliveries() throws Exception {
+		Path fencedFile = directory.resolve("fenced.dat");
+		UUID fencedId = UUID.randomUUID();
+		JsonEnvelope fenced = VotingPluginWire.voteDelayRejected(
+				"Player", UUID.randomUUID().toString(), "site", true, fencedId);
+		ReliableVoteDeliveryOutbox fencedOutbox = new ReliableVoteDeliveryOutbox(fencedFile);
+		assertTrue(fencedOutbox.offer("survival", fenced));
+		assertTrue(fencedOutbox.beginLegacyDelivery(
+				"survival", fencedId, VotingPluginWire.SUB_VOTE_DELAY_REJECTED));
+		assertTrue(new ReliableVoteDeliveryOutbox(fencedFile).retireLegacyDelivery(
+				"survival", fencedId, VotingPluginWire.SUB_VOTE_DELAY_REJECTED));
+		assertEquals(0, new ReliableVoteDeliveryOutbox(fencedFile).size());
+
+		Path completedFile = directory.resolve("completed.dat");
+		UUID completedId = UUID.randomUUID();
+		JsonEnvelope completed = VotingPluginWire.voteDelayRejected(
+				"Player", UUID.randomUUID().toString(), "site", true, completedId);
+		ReliableVoteDeliveryOutbox completedOutbox = new ReliableVoteDeliveryOutbox(completedFile);
+		assertTrue(completedOutbox.offer("survival", completed));
+		assertTrue(completedOutbox.acknowledgeCompletion(
+				"survival", completedId, VotingPluginWire.SUB_VOTE_DELAY_REJECTED));
+		assertTrue(new ReliableVoteDeliveryOutbox(completedFile).retireLegacyDelivery(
+				"survival", completedId, VotingPluginWire.SUB_VOTE_DELAY_REJECTED));
+		assertEquals(0, new ReliableVoteDeliveryOutbox(completedFile).size());
+	}
+
+	@Test
 	void removalRecordSurvivesRestartWithoutDroppingOtherVotes() throws Exception {
 		Path file = directory.resolve("outbox.dat");
 		UUID firstId = UUID.randomUUID();

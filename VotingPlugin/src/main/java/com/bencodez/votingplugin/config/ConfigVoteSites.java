@@ -87,7 +87,7 @@ public class ConfigVoteSites extends YMLFile {
 			setVoteDelay(siteName, "24h");
 			set(siteName, "DisplayItem.Material", "STONE");
 			set(siteName, "DisplayItem.Amount", 1);
-			set(siteName, "Rewards.Messages.Player", "&aThanks for voting on %ServiceSite%!");
+			set(siteName, "Rewards.Messages.Player", "&aThanks for voting on %SiteName%!");
 			set(siteName, "WaitUntilVoteDelayRewards", Collections.emptyMap());
 
 			plugin.loadVoteSites();

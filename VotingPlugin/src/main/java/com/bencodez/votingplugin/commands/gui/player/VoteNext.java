@@ -60,7 +60,7 @@ public class VoteNext extends GUIHandler {
 
 				msgLine = MessageAPI.replaceIgnoreCase(msgLine, "%info%", user.voteCommandNextInfo(voteSite));
 
-				msgLine = MessageAPI.replaceIgnoreCase(msgLine, "%SiteName%", voteSite.getDisplayName());
+				msgLine = MessageAPI.replaceIgnoreCase(msgLine, "%SiteName%", voteSite.getDisplayNameForFormatting());
 				msg.add(MessageAPI.colorize(msgLine));
 			}
 		}
@@ -81,10 +81,10 @@ public class VoteNext extends GUIHandler {
 			String siteNameDisplay = plugin.getGui().getChestVoteNextCustomSiteNamesDisplays(site.getKey());
 
 			if (siteNameDisplay.isEmpty()) {
-				siteNameDisplay = site.getDisplayName();
+				siteNameDisplay = site.getDisplayNameForFormatting();
 			}
 
-			dialog.placeholder("sitename", site.getDisplayName()).placeholder("SiteName", site.getDisplayName())
+			dialog.placeholder("sitename", site.getDisplayNameForFormatting()).placeholder("SiteName", site.getDisplayNameForFormatting())
 					.placeholder("info", user.voteCommandNextInfo(site))
 					.button(siteNameDisplay, user.voteCommandNextInfo(site), payload -> {
 
@@ -117,7 +117,7 @@ public class VoteNext extends GUIHandler {
 			if (!site.isHidden()) {
 				Layout nextLayout = new Layout(new ArrayList<>(Arrays.asList("[Json]")));
 				nextLayout.replaceTextComponent("[Json]",
-						BookUtil.TextBuilder.of(book.colorize(site.getDisplayName()))
+						BookUtil.TextBuilder.of(book.colorize(site.getDisplayNameForFormatting()))
 								.onClick(BookUtil.ClickAction.openUrl(site.getVoteURLJsonStrip()))
 								.onHover(BookUtil.HoverAction.showText(user.voteCommandNextInfo(site))).build());
 				book.addLayout(nextLayout);
@@ -141,7 +141,7 @@ public class VoteNext extends GUIHandler {
 			if (!site.isHidden()) {
 				String siteNameDisplay = plugin.getGui().getChestVoteNextCustomSiteNamesDisplays(site.getKey());
 				if (siteNameDisplay.isEmpty()) {
-					siteNameDisplay = site.getDisplayName();
+					siteNameDisplay = site.getDisplayNameForFormatting();
 				}
 				inv.addButton(inv.getNextSlot(),
 						new UpdatingBInventoryButton(plugin,
@@ -159,7 +159,7 @@ public class VoteNext extends GUIHandler {
 
 							@Override
 							public ItemBuilder onUpdate(Player player) {
-								return site.getItem().setName(site.getDisplayName())
+								return site.getItem().setName(site.getDisplayNameForFormatting())
 										.setLore(user.voteCommandNextInfo(site)).setAmountNone(1)
 										.addPlaceholder("player", user.getPlayerName());
 							}

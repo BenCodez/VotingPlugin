@@ -17,6 +17,8 @@ import lombok.Getter;
 public class ProcessedVoteCache {
 
 	private static final long DEFAULT_TTL_MILLIS = TimeUnit.MINUTES.toMillis(30);
+	static final int DEFAULT_MAX_TRACKED_VOTES = Math.min(DurableVoteReceiptStore.MAX_TOTAL_RECEIPTS,
+			DurableVoteReceiptStore.MAX_ACTIVE_RECEIPTS + DurableVoteReceiptStore.COMPLETION_HEADROOM);
 	private static final int MAX_REDIS_DELIVERIES = 4096;
 	public static final int MAX_LEGACY_REDIS_DELIVERY_BYTES = 256 * 1024;
 	public static final int MAX_LEGACY_REDIS_TOTAL_BYTES = 4 * 1024 * 1024;
@@ -25,7 +27,9 @@ public class ProcessedVoteCache {
 	private final ConcurrentHashMap<UUID, Long> processedVotes = new ConcurrentHashMap<>();
 	private final java.util.Set<UUID> completedVotes = ConcurrentHashMap.newKeySet();
 	private final java.util.Set<UUID> completedAwaitingReceipt = ConcurrentHashMap.newKeySet();
+	private final java.util.Set<UUID> admittedVotes = ConcurrentHashMap.newKeySet();
 	private final long ttlMillis;
+	private final int maxTrackedVotes;
 	private final DurableVoteReceiptStore durableReceipts;
 	private final LinkedHashMap<String, Long> processedRedisDeliveries = new LinkedHashMap<>();
 	private final LinkedHashMap<String, Integer> legacyRedisDeliveries = new LinkedHashMap<>();
@@ -35,23 +39,29 @@ public class ProcessedVoteCache {
 	private Object standbyRedisSubscriber;
 
 	public ProcessedVoteCache() {
-		this(DEFAULT_TTL_MILLIS, (DurableVoteReceiptStore) null);
+		this(DEFAULT_TTL_MILLIS, DEFAULT_MAX_TRACKED_VOTES, null);
 	}
 
 	public ProcessedVoteCache(long ttlMillis) {
-		this(ttlMillis, (DurableVoteReceiptStore) null);
+		this(ttlMillis, DEFAULT_MAX_TRACKED_VOTES, null);
 	}
 
 	public ProcessedVoteCache(Path receiptFile) {
-		this(DEFAULT_TTL_MILLIS, loadReceipts(receiptFile));
+		this(DEFAULT_TTL_MILLIS, DEFAULT_MAX_TRACKED_VOTES, loadReceipts(receiptFile));
 	}
 
 	ProcessedVoteCache(long ttlMillis, Path receiptFile) {
-		this(ttlMillis, loadReceipts(receiptFile));
+		this(ttlMillis, DEFAULT_MAX_TRACKED_VOTES, loadReceipts(receiptFile));
 	}
 
-	private ProcessedVoteCache(long ttlMillis, DurableVoteReceiptStore durableReceipts) {
+	ProcessedVoteCache(long ttlMillis, int maxTrackedVotes) {
+		this(ttlMillis, maxTrackedVotes, null);
+	}
+
+	ProcessedVoteCache(long ttlMillis, int maxTrackedVotes, DurableVoteReceiptStore durableReceipts) {
+		if (maxTrackedVotes <= 0) throw new IllegalArgumentException("maxTrackedVotes must be positive");
 		this.ttlMillis = ttlMillis;
+		this.maxTrackedVotes = maxTrackedVotes;
 		this.durableReceipts = durableReceipts;
 		if (durableReceipts != null) {
 			Map<UUID, Long> receipts = durableReceipts.snapshot();
@@ -69,34 +79,57 @@ public class ProcessedVoteCache {
 	}
 
 	public boolean reserve(UUID voteId) {
+		return reserveWithOutcome(voteId) == Reservation.RESERVED;
+	}
+
+	/** Reserves one vote identity without evicting a still-live replay fence. */
+	public synchronized Reservation reserveWithOutcome(UUID voteId) {
 		if (voteId == null) {
-			return true;
+			return Reservation.RESERVED;
 		}
 
 		long now = System.currentTimeMillis();
 		long expiresAt = now + ttlMillis;
 
 		while (true) {
-			if (completedAwaitingReceipt.contains(voteId)) return false;
+			if (completedAwaitingReceipt.contains(voteId)) return Reservation.DUPLICATE;
 			Long currentExpiry = processedVotes.get(voteId);
 			if (currentExpiry == null) {
-				if (processedVotes.putIfAbsent(voteId, expiresAt) == null) {
+				if (durableReceipts != null
+						&& processedVotes.size() >= durableReceipts.maximumTrackedReceipts()) cleanup(now);
+				if (!hasAdmissionCapacity()) {
 					cleanup(now);
-					return true;
+					if (!hasAdmissionCapacity()) return Reservation.SATURATED;
+				}
+				if (processedVotes.putIfAbsent(voteId, expiresAt) == null) {
+					admittedVotes.add(voteId);
+					return Reservation.RESERVED;
 				}
 				continue;
 			}
 
 			if (currentExpiry > now) {
-				return false;
+				return Reservation.DUPLICATE;
 			}
 
-			if (processedVotes.replace(voteId, currentExpiry, expiresAt)) {
+			if (processedVotes.remove(voteId, currentExpiry)) {
 				completedVotes.remove(voteId);
-				cleanup(now);
-				return true;
+				admittedVotes.remove(voteId);
 			}
 		}
+	}
+
+	/** Releases a reservation only when no vote effects were applied. */
+	public synchronized void cancelReservation(UUID voteId) {
+		if (voteId == null || completedVotes.contains(voteId) || completedAwaitingReceipt.contains(voteId)) return;
+		processedVotes.remove(voteId);
+		admittedVotes.remove(voteId);
+	}
+
+	public enum Reservation {
+		RESERVED,
+		DUPLICATE,
+		SATURATED
 	}
 
 	/** Persists successful processing before the backend emits a delivery acknowledgement. */
@@ -106,6 +139,7 @@ public class ProcessedVoteCache {
 		if (durableReceipts == null) {
 			completedVotes.add(voteId);
 			completedAwaitingReceipt.remove(voteId);
+			admittedVotes.remove(voteId);
 			return true;
 		}
 		long expiresAt = durableReceipts.complete(voteId);
@@ -113,6 +147,7 @@ public class ProcessedVoteCache {
 		processedVotes.put(voteId, expiresAt);
 		completedVotes.add(voteId);
 		completedAwaitingReceipt.remove(voteId);
+		admittedVotes.remove(voteId);
 		return true;
 	}
 
@@ -243,8 +278,16 @@ public class ProcessedVoteCache {
 
 	private void cleanup(long now) {
 		processedVotes.forEach((voteId, expiresAt) -> {
-			if (expiresAt <= now && processedVotes.remove(voteId, expiresAt)) completedVotes.remove(voteId);
+			if (expiresAt <= now && processedVotes.remove(voteId, expiresAt)) {
+				completedVotes.remove(voteId);
+				admittedVotes.remove(voteId);
+			}
 		});
+	}
+
+	private boolean hasAdmissionCapacity() {
+		if (durableReceipts == null) return processedVotes.size() < maxTrackedVotes;
+		return durableReceipts.hasCompletionCapacity(admittedVotes.size() + 1);
 	}
 
 	/** Returns an exact UTF-8 length up to the per-delivery cap, then cap + 1. */

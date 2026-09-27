@@ -106,6 +106,20 @@ final class ReliableVoteDeliveryOutbox {
 		return remove(key);
 	}
 
+	/**
+	 * Retires a one-way legacy delivery after its durable pre-send fence has
+	 * prevented any later resend. Completed entries from an earlier runtime are
+	 * accepted as well so a backend capability downgrade cannot strand them
+	 * waiting for a receipt-release acknowledgement the legacy backend cannot send.
+	 */
+	synchronized boolean retireLegacyDelivery(String server, UUID voteId, String subChannel) {
+		if (voteId == null || server == null || subChannel == null) return false;
+		String key = normalized(server) + '|' + subChannel + '|' + voteId;
+		Entry entry = entries.get(key);
+		if (entry == null || (!entry.legacyDeliveryFenced() && !entry.awaitingReceiptRelease())) return false;
+		return remove(key);
+	}
+
 	private boolean remove(String key) {
 		if (entries.size() == 1) {
 			try {

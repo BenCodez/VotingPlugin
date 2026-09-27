@@ -347,6 +347,7 @@ public class VotingPluginVelocity {
 		}
 
 		config = new VelocityConfig(configFile);
+		ensureCommunicationSecret();
 
 		channel = buildChannelIdentifier(config.getPluginMessageChannel());
 		server.getChannelRegistrar().register(channel);
@@ -383,6 +384,24 @@ public class VotingPluginVelocity {
 				+ ", Internal Jar Version: " + version);
 		if (!"NOTSET".equals(buildNumber)) {
 			logger.info("Detected using dev build number: " + buildNumber);
+		}
+	}
+
+	private void ensureCommunicationSecret() {
+		try {
+			boolean created = com.bencodez.votingplugin.proxy.security.SharedSecretKeyFile
+					.ensure(dataDirectory.resolve("secretkey.key"));
+			if (created) logger.info("Created secretkey.key for VotingPlugin communication security");
+			if (!config.getCommunicationEncryption()) logger.warn(
+					"CommunicationEncryption is disabled. Copy this proxy's secretkey.key to every VotingPlugin node, enable CommunicationEncryption everywhere, and restart (recommended).");
+		} catch (IOException failure) {
+			boolean required = config.getCommunicationEncryption()
+					|| com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.Mode
+							.parse(config.getSharedTransportAuthentication())
+							== com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.Mode.REQUIRED;
+			if (required) throw new IllegalStateException(
+					"Unable to prepare required VotingPlugin communication secretkey.key", failure);
+			logger.warn("Unable to create optional secretkey.key; continuing with legacy plaintext/unsigned communication. Fix the data-folder permissions before enabling communication security.");
 		}
 	}
 

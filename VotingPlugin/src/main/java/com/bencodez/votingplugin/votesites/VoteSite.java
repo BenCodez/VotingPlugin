@@ -12,14 +12,15 @@ import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.simpleapi.time.ParsedDuration;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.util.ServiceSiteValidator;
 
 import lombok.Getter;
 import lombok.Setter;
 
 public class VoteSite {
 	@Getter
-	@Setter
 	private String displayName;
+	private boolean displayNameFallback;
 
 	@Getter
 	@Setter
@@ -126,15 +127,9 @@ public class VoteSite {
 	}
 
 	public void giveRewards(VotingPluginUser user, boolean online, boolean bungee) {
-		new RewardBuilder(plugin.getConfigVoteSites().getData(), plugin.getConfigVoteSites().getEverySiteRewardPath())
-				.setOnline(online).withPlaceHolder("ServiceSite", getServiceSite())
-				.withPlaceHolder("SiteName", getDisplayName()).withPlaceHolder("VoteDelay", "" + getVoteDelay())
-				.withPlaceHolder("VoteURL", getVoteURL()).setServer(bungee).send(user);
+		createRewardBuilder(plugin.getConfigVoteSites().getEverySiteRewardPath(), online, bungee).send(user);
 
-		new RewardBuilder(plugin.getConfigVoteSites().getData(), plugin.getConfigVoteSites().getRewardsPath(key))
-				.setOnline(online).withPlaceHolder("ServiceSite", getServiceSite())
-				.withPlaceHolder("SiteName", getDisplayName()).withPlaceHolder("VoteDelay", "" + getVoteDelay())
-				.withPlaceHolder("VoteURL", getVoteURL()).setServer(bungee).send(user);
+		createRewardBuilder(plugin.getConfigVoteSites().getRewardsPath(key), online, bungee).send(user);
 
 	}
 
@@ -146,17 +141,41 @@ public class VoteSite {
 	 * @param bungee whether the vote came through the proxy
 	 */
 	public void giveWaitUntilVoteDelayRewards(VotingPluginUser user, boolean online, boolean bungee) {
-		new RewardBuilder(plugin.getConfigVoteSites().getData(),
-				plugin.getConfigVoteSites().getWaitUntilVoteDelayRewardsPath(key)).setOnline(online)
-						.withPlaceHolder("ServiceSite", getServiceSite())
-						.withPlaceHolder("SiteName", getDisplayName())
-						.withPlaceHolder("VoteDelay", "" + getVoteDelay())
-						.withPlaceHolder("VoteURL", getVoteURL()).setServer(bungee).send(user);
+		createRewardBuilder(plugin.getConfigVoteSites().getWaitUntilVoteDelayRewardsPath(key), online, bungee)
+				.send(user);
+	}
+
+	private RewardBuilder createRewardBuilder(String path, boolean online, boolean bungee) {
+		// Reward placeholders also feed commands and other exact-value actions. The
+		// service identifier is already validated at ingress, so preserve it here;
+		// display-only callers use getServiceSiteForFormatting() instead.
+		return new RewardBuilder(plugin.getConfigVoteSites().getData(), path).setOnline(online)
+				.withPlaceHolder("ServiceSite", getServiceSite()).withPlaceHolder("SiteName", getDisplayName())
+				.withDisplayPlaceHolder("ServiceSite", getServiceSiteForFormatting())
+				.withDisplayPlaceHolder("SiteName", getDisplayNameForFormatting())
+				.withPlaceHolder("VoteDelay", "" + getVoteDelay()).withPlaceHolder("VoteURL", getVoteURL())
+				.setServer(bungee);
 	}
 
 	public boolean hasRewards() {
 		return plugin.getRewardHandler().hasRewards(plugin.getConfigVoteSites().getData(),
 				plugin.getConfigVoteSites().getRewardsPath(key));
+	}
+
+	/** Returns the configured service identifier guarded for trusted templates. */
+	public String getServiceSiteForFormatting() {
+		return ServiceSiteValidator.inertForFormatting(getServiceSite());
+	}
+
+	/** Sets an administrator-controlled display name. */
+	public void setDisplayName(String displayName) {
+		this.displayName = displayName;
+		this.displayNameFallback = false;
+	}
+
+	/** Returns the site label guarded only when it falls back to an external site key. */
+	public String getDisplayNameForFormatting() {
+		return displayNameFallback ? ServiceSiteValidator.inertForFormatting(getDisplayName()) : getDisplayName();
 	}
 
 	/**
@@ -169,7 +188,8 @@ public class VoteSite {
 		setEnabled(plugin.getConfigVoteSites().getVoteSiteEnabled(key));
 		setPriority(plugin.getConfigVoteSites().getPriority(key));
 		displayName = plugin.getConfigVoteSites().getDisplayName(key);
-		if (displayName == null || displayName.equals("")) {
+		displayNameFallback = displayName == null || displayName.equals("");
+		if (displayNameFallback) {
 			displayName = key;
 		}
 		item = plugin.getConfigVoteSites().getItem(key);

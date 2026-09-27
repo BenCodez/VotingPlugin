@@ -71,7 +71,7 @@ public class VoteURL extends GUIHandler {
 									plugin.getConfigFile().getFormatCommandsVoteURLS());
 							message.replacePlaceholder("num", Integer.toString(counter))
 									.replacePlaceholder("url", voteURL)
-									.replacePlaceholder("SiteName", voteSite.getDisplayName());
+									.replacePlaceholder("SiteName", voteSite.getDisplayNameForFormatting());
 							if (user != null && user.getPlayerName() != null) {
 								message.replacePlaceholder("player", "" + user.getPlayerName())
 										.replacePlaceholder("Next", "" + user.voteCommandNextInfo(voteSite));
@@ -150,14 +150,14 @@ public class VoteURL extends GUIHandler {
 			boolean canVote = finalUser.canVoteSite(voteSite);
 			String color = canVote ? "&a" : "&c";
 
-			dialog.placeholder("sitename", voteSite.getDisplayName())
-					.placeholder("SiteName", voteSite.getDisplayName())
-					.placeholder("servicesite", voteSite.getServiceSite())
-					.placeholder("ServiceSite", voteSite.getServiceSite())
+			dialog.placeholder("sitename", voteSite.getDisplayNameForFormatting())
+					.placeholder("SiteName", voteSite.getDisplayNameForFormatting())
+					.placeholder("servicesite", voteSite.getServiceSiteForFormatting())
+					.placeholder("ServiceSite", voteSite.getServiceSiteForFormatting())
 					.placeholder("VoteDelay", "" + voteSite.getVoteDelay())
 					.placeholder("VoteHour", "" + voteSite.getVoteDelayDailyHour())
 					.placeholder("Next", finalUser.voteCommandNextInfo(voteSite))
-					.button(color + voteSite.getDisplayName(),
+					.button(color + voteSite.getDisplayNameForFormatting(),
 							canVote ? "&aClick to view vote link" : "&c" + finalUser.voteCommandNextInfo(voteSite),
 							payload -> {
 								Player clicked = player.getServer().getPlayer(payload.owner());
@@ -166,9 +166,9 @@ public class VoteURL extends GUIHandler {
 											.getVotingPluginUser(clicked);
 									HashMap<String, String> placeholders = new HashMap<String, String>();
 									placeholders.put("voteurl", voteSite.getVoteURL());
-									placeholders.put("sitename", voteSite.getDisplayName());
+									placeholders.put("sitename", voteSite.getDisplayNameForFormatting());
 									placeholders.put("player", clicked.getName());
-									placeholders.put("servicesite", voteSite.getServiceSite());
+									placeholders.put("servicesite", voteSite.getServiceSiteForFormatting());
 									placeholders.put("VoteDelay", "" + voteSite.getVoteDelay());
 									placeholders.put("VoteHour", "" + voteSite.getVoteDelayDailyHour());
 									clickedUser.sendMessage(plugin.getGui().getChestVoteURLURLText(), placeholders);
@@ -218,8 +218,8 @@ public class VoteURL extends GUIHandler {
 			builder.setName(plugin.getGui().getChestVoteURLGUISiteName());
 			builder.addLoreLine(plugin.getGui().getChestVoteURLNextVote());
 		}
-		builder.addPlaceholder("ServiceSite", voteSite.getServiceSite());
-		builder.addPlaceholder("Name", voteSite.getDisplayName());
+		builder.addPlaceholder("ServiceSite", voteSite.getServiceSiteForFormatting());
+		builder.addPlaceholder("Name", voteSite.getDisplayNameForFormatting());
 		builder.addPlaceholder("VoteDelay", "" + voteSite.getVoteDelay());
 		builder.addPlaceholder("VoteHour", "" + voteSite.getVoteDelayDailyHour());
 		builder.addPlaceholder("Info", user.voteCommandNextInfo(voteSite));
@@ -240,7 +240,7 @@ public class VoteURL extends GUIHandler {
 			if (!site.isHidden()) {
 				if (site.getPermissionToView().isEmpty() || player.hasPermission(site.getPermissionToView())) {
 					Layout layout = new Layout(plugin.getGui().getBookVoteURLBookGUILayout())
-							.addPlaceholder("sitename", site.getDisplayName()).addPlaceholder("num", "" + i);
+							.addPlaceholder("sitename", site.getDisplayNameForFormatting()).addPlaceholder("num", "" + i);
 					String text = plugin.getGui().getBookVoteURLBookGUIAlreadyVotedText();
 					ChatColor color = ChatColor.valueOf(plugin.getGui().getBookVoteURLBookGUIAlreadyVotedColor());
 					if (user.canVoteSite(site)) {
@@ -342,9 +342,9 @@ public class VoteURL extends GUIHandler {
 								VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
 								HashMap<String, String> placeholders = new HashMap<>();
 								placeholders.put("voteurl", voteSite.getVoteURL());
-								placeholders.put("sitename", voteSite.getDisplayName());
+								placeholders.put("sitename", voteSite.getDisplayNameForFormatting());
 								placeholders.put("player", player.getName());
-								placeholders.put("servicesite", voteSite.getServiceSite());
+								placeholders.put("servicesite", voteSite.getServiceSiteForFormatting());
 								placeholders.put("VoteDelay", "" + voteSite.getVoteDelay());
 								placeholders.put("VoteHour", "" + voteSite.getVoteDelayDailyHour());
 								user.sendMessage(plugin.getGui().getChestVoteURLURLText(), placeholders);

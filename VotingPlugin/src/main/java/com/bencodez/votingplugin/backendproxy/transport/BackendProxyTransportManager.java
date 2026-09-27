@@ -11,6 +11,7 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.backendproxy.cache.ProcessedVoteCache;
 import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.bencodez.votingplugin.proxy.VotingPluginWire;
+import com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator;
 
 /**
  * Selects and owns the active backend-to-proxy transport.
@@ -22,6 +23,7 @@ public class BackendProxyTransportManager {
 
 	private final VotingPluginMain plugin;
 	private final ProcessedVoteCache processedVoteCache;
+	private com.bencodez.votingplugin.proxy.security.TransportEnvelopeEncryption httpEncryption;
 	private BackendProxyTransport transport;
 	private BackendProxyTransport preparedTransport;
 	private BackendProxyTransport retiredTransport;
@@ -51,6 +53,11 @@ public class BackendProxyTransportManager {
 		this.processedVoteCache = processedVoteCache;
 	}
 
+	public void setHttpEncryption(
+			com.bencodez.votingplugin.proxy.security.TransportEnvelopeEncryption httpEncryption) {
+		this.httpEncryption = httpEncryption;
+	}
+
 	public void start(BungeeMethod method, GlobalMessageHandler messageHandler) {
 		start(method, messageHandler, true);
 	}
@@ -68,7 +75,7 @@ public class BackendProxyTransportManager {
 			transport = new SocketBackendProxyTransport(plugin);
 			break;
 		case HTTP:
-			transport = new HttpBackendProxyTransport(plugin);
+			transport = new HttpBackendProxyTransport(plugin, httpEncryption);
 			break;
 		case REDIS:
 			transport = new RedisBackendProxyTransport(plugin, processedVoteCache);
@@ -109,6 +116,41 @@ public class BackendProxyTransportManager {
 		} else if (preparedTransport != null) {
 			acceptPreparedSend(envelope);
 		}
+	}
+
+	public synchronized void updateSharedTransportSecurity(SharedTransportEnvelopeAuthenticator authenticator,
+			com.bencodez.votingplugin.proxy.security.TransportEnvelopeEncryption encryption) {
+		if (transport instanceof RedisBackendProxyTransport redis) redis.updateSecurity(authenticator, encryption);
+		else if (transport instanceof MqttBackendProxyTransport mqtt) mqtt.updateSecurity(authenticator, encryption);
+		else throw new IllegalStateException("No active shared backend transport to update");
+	}
+
+	public synchronized boolean hasEquivalentSharedTransportAuthenticator(
+			SharedTransportEnvelopeAuthenticator authenticator) {
+		SharedInboundPolicy policy = sharedInboundPolicySnapshot();
+		return policy != null && policy.authenticator() != null
+				&& policy.authenticator().hasEquivalentInboundPolicy(authenticator);
+	}
+
+	public synchronized boolean hasEquivalentSharedTransportEncryption(
+			com.bencodez.votingplugin.proxy.security.TransportEnvelopeEncryption encryption) {
+		SharedInboundPolicy policy = sharedInboundPolicySnapshot();
+		return policy != null && policy.encryption() != null
+				&& policy.encryption().hasEquivalentInboundPolicy(encryption);
+	}
+
+	private synchronized SharedInboundPolicy sharedInboundPolicySnapshot() {
+		if (transport instanceof RedisBackendProxyTransport redis) return redis.sharedInboundPolicySnapshot();
+		if (transport instanceof MqttBackendProxyTransport mqtt) return mqtt.sharedInboundPolicySnapshot();
+		return null;
+	}
+
+	/** Compares broker authentication and the destination bound into its MAC without nesting manager locks. */
+	public boolean hasEquivalentSharedInboundPolicy(BackendProxyTransportManager other) {
+		if (other == null) return false;
+		SharedInboundPolicy current = sharedInboundPolicySnapshot();
+		SharedInboundPolicy restored = other.sharedInboundPolicySnapshot();
+		return current != null && current.hasEquivalentPolicy(restored);
 	}
 
 	private void acceptPreparedSend(JsonEnvelope envelope) {

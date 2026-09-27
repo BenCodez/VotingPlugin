@@ -7,6 +7,7 @@ public final class ServiceSiteValidator {
 	/** Maximum accepted UTF-16 length for a service-site identifier. */
 	public static final int MAX_LENGTH = 2048;
 	private static final int MAX_LOG_LENGTH = 128;
+	private static final String FORMATTING_BOUNDARY = "\u2060";
 
 	private ServiceSiteValidator() {
 	}
@@ -16,7 +17,7 @@ public final class ServiceSiteValidator {
 	 *
 	 * @param serviceSite service-site name supplied by a vote source
 	 * @return {@code true} for a bounded, visible service-site name that does not
-	 *         contain unsupported delimiters
+	 *         contain structural formatting delimiters or control characters
 	 */
 	public static boolean isValid(String serviceSite) {
 		if (serviceSite == null || serviceSite.length() > MAX_LENGTH) {
@@ -65,9 +66,27 @@ public final class ServiceSiteValidator {
 		return sanitized.toString();
 	}
 
+	/**
+	 * Keeps a validated external identifier visually unchanged while preventing a
+	 * surrounding trusted template from completing a formatting token across a
+	 * substitution boundary.
+	 */
+	public static String inertForFormatting(String value) {
+		if (value == null || value.isEmpty()) return value == null ? "" : value;
+		StringBuilder inert = new StringBuilder(value.length() + 2).append(FORMATTING_BOUNDARY);
+		for (int offset = 0; offset < value.length();) {
+			int codePoint = value.codePointAt(offset);
+			inert.appendCodePoint(codePoint);
+			if (codePoint == '%' || codePoint == '&') inert.append(FORMATTING_BOUNDARY);
+			offset += Character.charCount(codePoint);
+		}
+		return inert.append(FORMATTING_BOUNDARY).toString();
+	}
+
 	private static boolean isDisallowed(int codePoint) {
 		if (codePoint == '[' || codePoint == ']' || codePoint == '\'' || codePoint == '"' || codePoint == '`'
-				|| codePoint == '\\') {
+				|| codePoint == '\u00A7'
+				|| codePoint == '\\' || codePoint == '{' || codePoint == '}') {
 			return true;
 		}
 

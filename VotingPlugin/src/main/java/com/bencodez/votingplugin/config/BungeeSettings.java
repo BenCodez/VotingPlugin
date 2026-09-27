@@ -42,9 +42,9 @@ public class BungeeSettings extends YMLFile {
 	@Getter
 	private String pluginMessagingChannel = "vp:vp";
 
-	@ConfigDataBoolean(path = "PluginMessageEncryption")
+	@ConfigDataBoolean(path = "CommunicationEncryption")
 	@Getter
-	private boolean pluginMessageEncryption = false;
+	private boolean communicationEncryption = false;
 
 	@ConfigDataString(path = "Redis.Prefix")
 	@Getter
@@ -81,6 +81,10 @@ public class BungeeSettings extends YMLFile {
 	@ConfigDataString(path = "MQTT.Prefix")
 	@Getter
 	private String mqttPrefix = "";
+
+	@ConfigDataString(path = "SharedTransportAuthentication")
+	@Getter
+	private String sharedTransportAuthentication = "COMPATIBILITY";
 
 	@ConfigDataString(path = "BungeeServer.Host")
 	@Getter
@@ -163,6 +167,11 @@ public class BungeeSettings extends YMLFile {
 	 */
 	public String getServerNameStorage() {
 		return getServer().replace("-", "_");
+	}
+
+	/** Legacy plugin-message framing setting retained only for existing configuration files. */
+	public boolean isPluginMessageEncryption() {
+		return getData().getBoolean("PluginMessageEncryption", false);
 	}
 
 	@Override
