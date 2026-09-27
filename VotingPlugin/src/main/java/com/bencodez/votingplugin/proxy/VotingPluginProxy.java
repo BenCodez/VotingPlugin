@@ -3930,6 +3930,9 @@ public abstract class VotingPluginProxy {
 
 		setCurrentVotePartyVotesRequired(
 				getConfig().getVotePartyVotesRequired() + getVoteCacheVotePartyIncreaseVotesRequired());
+		if (!restartControlServices && multiProxyHandler != null) {
+			multiProxyHandler.refreshTransportSecurity(replacementAuthenticator);
+		}
 		if (restartControlServices) {
 			loadMultiProxySupport();
 			restartControlServicesAsync();
