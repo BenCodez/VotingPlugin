@@ -92,14 +92,13 @@ class SharedVoteProcessorTest {
         when(ops.identifiedQueuedProxyVote()).thenReturn(true);
         when(ops.wasOnline()).thenReturn(true);
         when(ops.incomingTime()).thenReturn(321L);
-        when(ops.lastVoteTime(user, site)).thenReturn(321L);
         when(ops.waitUntilVoteDelay(site)).thenReturn(true);
         when(ops.broadcastEnabled()).thenReturn(true);
         when(ops.hasBroadcastHandler()).thenReturn(true);
 
         SharedVoteProcessor.process(ops);
 
-        verify(ops).lastVoteTime(user, site);
+        verify(ops, never()).lastVoteTime(user, site);
         verify(ops, never()).canVoteSite(user, site);
         verify(ops).broadcast(any(UUID.class), eq("Ben"), any(), eq(true));
         verify(ops).playerVote(user, site, true, false);
@@ -146,15 +145,13 @@ class SharedVoteProcessorTest {
     }
 
     @Test
-    void upstreamValidatedModernVoteStillHonorsStricterBackendDelayUntilRecordedLocally() {
+    void upstreamValidatedModernVoteStillHonorsStricterBackendDelayWhenNotQueued() {
         var ops = accepted();
         UUID proxyId = UUID.randomUUID();
         when(ops.proxyVote()).thenReturn(true);
         when(ops.proxyVoteId()).thenReturn(proxyId);
-        when(ops.identifiedQueuedProxyVote()).thenReturn(true);
         when(ops.proxyDelayValidationKnown()).thenReturn(true);
         when(ops.incomingTime()).thenReturn(321L);
-        when(ops.lastVoteTime(user, site)).thenReturn(123L);
         when(ops.waitUntilVoteDelay(site)).thenReturn(true);
         when(ops.canVoteSite(user, site)).thenReturn(false);
         when(ops.processRewards()).thenReturn(true);
@@ -166,7 +163,7 @@ class SharedVoteProcessorTest {
     }
 
     @Test
-    void identifiedQueuedModernVoteCanBypassDelayOnlyAfterSameOccurrenceWasRecorded() {
+    void identifiedQueuedModernVoteCanBypassDelayRegardlessOfLastVotesOrder() {
         var ops = accepted();
         UUID proxyId = UUID.randomUUID();
         when(ops.proxyVote()).thenReturn(true);
@@ -174,13 +171,14 @@ class SharedVoteProcessorTest {
         when(ops.identifiedQueuedProxyVote()).thenReturn(true);
         when(ops.proxyDelayValidationKnown()).thenReturn(true);
         when(ops.incomingTime()).thenReturn(321L);
-        when(ops.lastVoteTime(user, site)).thenReturn(321L);
+        when(ops.lastVoteTime(user, site)).thenReturn(999L);
         when(ops.waitUntilVoteDelay(site)).thenReturn(true);
         when(ops.canVoteSite(user, site)).thenReturn(false);
         when(ops.processRewards()).thenReturn(true);
 
         SharedVoteProcessor.process(ops);
 
+        verify(ops, never()).lastVoteTime(user, site);
         verify(ops, never()).canVoteSite(user, site);
         verify(ops).playerVote(user, site, false, false);
         verify(ops, never()).giveWaitRewards(eq(site), eq(user), anyBoolean(), eq(true));
