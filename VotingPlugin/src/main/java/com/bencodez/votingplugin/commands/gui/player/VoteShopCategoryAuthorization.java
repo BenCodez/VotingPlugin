@@ -40,10 +40,12 @@ final class VoteShopCategoryAuthorization {
 		for (VoteShopEntry entry : entries) {
 			if (!(entry instanceof VoteShopCategoryButton button) || !authorized(button, permissionCheck)) continue;
 			String categoryId = button.getCategoryId();
-			if (targetCategory.equals(categoryId)) return true;
-			if (categoryId == null || !visited.add(categoryId)) continue;
+			if (categoryId == null) continue;
 			VoteShopCategory category = definition.getCategory(categoryId);
-			if (category != null && reaches(definition, category.getEntries().values(), targetCategory,
+			if (category == null) continue;
+			if (targetCategory.equals(categoryId)) return true;
+			if (!visited.add(categoryId)) continue;
+			if (reaches(definition, category.getEntries().values(), targetCategory,
 					permissionCheck, visited)) return true;
 		}
 		return false;

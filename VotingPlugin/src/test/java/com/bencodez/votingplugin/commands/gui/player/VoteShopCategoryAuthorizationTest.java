@@ -68,6 +68,17 @@ class VoteShopCategoryAuthorizationTest {
 		assertTrue(VoteShopCategoryAuthorization.canPurchase(definition, null, permission -> false));
 	}
 
+	@Test
+	void purchaseRejectsCategoryRemovedByReload() {
+		VoteShopDefinition definition = definition(button("restricted", "shop.category", false));
+		VoteShopCategory staleCategory = definition.getCategory("restricted");
+
+		definition.getCategories().remove("restricted");
+
+		assertFalse(VoteShopCategoryAuthorization.canPurchase(definition, staleCategory,
+				permission -> true));
+	}
+
 	private static VoteShopDefinition definition(VoteShopCategoryButton button) {
 		VoteShopDefinition definition = new VoteShopDefinition();
 		definition.getMainEntries().put("category", button);
