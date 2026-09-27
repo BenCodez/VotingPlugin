@@ -63,6 +63,7 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 	private String controlEnrollmentSource;
 	private int controlEnrollmentInstallCount;
 	private JsonEnvelope controlEnrollmentResult;
+	private boolean validateControlEnrollmentRequest;
 	private boolean controlEnrollmentRouteProved = true;
 
 	public List<String> getWarnings() {
@@ -186,6 +187,10 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 		return controlEnrollmentInstallCount;
 	}
 
+	public void setValidateControlEnrollmentRequest(boolean validate) {
+		validateControlEnrollmentRequest = validate;
+	}
+
 	public void setControlEnrollmentRouteProved(boolean proved) {
 		controlEnrollmentRouteProved = proved;
 	}
@@ -196,7 +201,8 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 
 	@Override
 	protected void handleControlEnrollmentRequest(String sourceServer, JsonEnvelope envelope) {
-		controlEnrollmentSource = sourceServer;
+		if (validateControlEnrollmentRequest) super.handleControlEnrollmentRequest(sourceServer, envelope);
+		else controlEnrollmentSource = sourceServer;
 	}
 
 	@Override
@@ -444,6 +450,13 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 		return super.sendVoteEnvelopeAccepted(server, delay, envelope);
 	}
 
+	@Override
+	protected boolean sendVoteEnvelopeAccepted(String server, int delay, JsonEnvelope envelope,
+			OfflineBungeeVote cachedVote) {
+		lastVoteEnvelope = envelope;
+		return super.sendVoteEnvelopeAccepted(server, delay, envelope, cachedVote);
+	}
+
 	public boolean sendVoteEnvelopeAcceptedForTest(String server, int delay, JsonEnvelope envelope) {
 		return sendVoteEnvelopeAccepted(server, delay, envelope);
 	}
@@ -539,6 +552,11 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 
 	public boolean sendStableHttpEnvelopeForTest(String server, String deliveryId, JsonEnvelope envelope) {
 		return sendStableHttpEnvelope(server, deliveryId, envelope);
+	}
+
+	public boolean sendDurableHttpEnvelopeThroughTransportForTest(String server, String deliveryId,
+			JsonEnvelope envelope) {
+		return super.sendHttpEnvelope(server, deliveryId, envelope);
 	}
 
 	public boolean sendHttpVoteEnvelopeWithRecoveryForTest(String server, JsonEnvelope envelope,

@@ -3,6 +3,7 @@ package com.bencodez.votingplugin.tests;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doNothing;
@@ -57,6 +58,8 @@ public class VotingPluginProxyTest {
 		votingPluginProxy.setGlobalDataHandler(globalDataHandler);
 		votingPluginProxy.setMultiProxyHandler(multiProxyHandler);
 		votingPluginProxy.setDataFolder(temporaryDirectory.toFile());
+		com.bencodez.votingplugin.proxy.security.SharedSecretKeyFile
+				.ensure(temporaryDirectory.resolve("secretkey.key"));
 		Mockito.when(multiProxyHandler.sendMultiProxyEnvelopeAccepted(Mockito.any())).thenReturn(true);
 		Mockito.when(multiProxyHandler.sendMultiProxyEnvelopeAccepted(Mockito.any(), Mockito.any())).thenReturn(true);
 		Mockito.when(multiProxyHandler.getMultiProxyVoteRecipients()).thenReturn(java.util.Set.of("Replica"));
@@ -132,6 +135,112 @@ public class VotingPluginProxyTest {
 				"Server1", "message-1", request));
 
 		assertEquals("Server1", proxy.getControlEnrollmentSource());
+	}
+
+	@Test
+	void decodedHttpEnvelopeKeepsAuthenticatedTlsSourceForRouting() throws Exception {
+		votingPluginProxy.setMethod(BungeeMethod.HTTP);
+		var handler = Mockito.mock(com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler.class);
+		votingPluginProxy.setGlobalMessageProxyHandlerForTest(handler);
+		JsonEnvelope status = VotingPluginWire.status("Server1");
+
+		votingPluginProxy.handleHttpTransportEnvelopeForTest(new HttpProxyTransportServer.ReceivedEnvelope(
+				"Server1", "message-1", status));
+		votingPluginProxy.handleHttpTransportEnvelopeForTest(new HttpProxyTransportServer.ReceivedEnvelope(
+				"Server2", "message-2", status));
+
+		org.mockito.ArgumentCaptor<JsonEnvelope> delivered = org.mockito.ArgumentCaptor.forClass(JsonEnvelope.class);
+		verify(handler).onMessage(delivered.capture());
+		assertEquals(status.getSubChannel(), delivered.getValue().getSubChannel());
+		assertEquals(status.getFields(), delivered.getValue().getFields());
+		Mockito.verifyNoMoreInteractions(handler);
+
+		JsonEnvelope enrollment = VotingPluginWire.controlEnrollmentRequest("Server1", "",
+				"http://control.example.test:2150", java.util.UUID.randomUUID());
+		votingPluginProxy.handleHttpTransportEnvelopeForTest(new HttpProxyTransportServer.ReceivedEnvelope(
+				"Server1", "message-3", enrollment));
+		assertEquals("Server1", votingPluginProxy.getControlEnrollmentSource());
+	}
+
+	@Test
+	void durableHttpQueueReceivesSemanticEnvelopeBeforeWireEncoding() throws Exception {
+		HttpProxyTransportServer transport = Mockito.mock(HttpProxyTransportServer.class);
+		setProxyField(votingPluginProxy, "httpTransportServer", transport);
+		JsonEnvelope semantic = VotingPluginWire.status("Server1");
+		Mockito.when(transport.send(Mockito.eq("Server1"), Mockito.eq("delivery-1"),
+				Mockito.any(JsonEnvelope.class))).thenReturn(true);
+
+		assertTrue(votingPluginProxy.sendDurableHttpEnvelopeThroughTransportForTest(
+				"Server1", "delivery-1", semantic));
+
+		org.mockito.ArgumentCaptor<JsonEnvelope> persisted = org.mockito.ArgumentCaptor.forClass(JsonEnvelope.class);
+		verify(transport).send(Mockito.eq("Server1"), Mockito.eq("delivery-1"), persisted.capture());
+		assertEquals(semantic.getSubChannel(), persisted.getValue().getSubChannel());
+		assertEquals(semantic.getFields(), persisted.getValue().getFields());
+	}
+
+	@Test
+	void multiProxyHandlerKeepsItsAuthenticatorGenerationDuringReload() throws Exception {
+		var oldAuthenticator = com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.load(
+				temporaryDirectory.resolve("secretkey.key"),
+				com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.Mode.COMPATIBILITY);
+		setProxyField(votingPluginProxy, "sharedTransportAuthenticator", oldAuthenticator);
+		votingPluginProxy.loadMultiProxySupport();
+		MultiProxyHandler installed = votingPluginProxy.getMultiProxyHandler();
+
+		byte[] replacementKey = new byte[32];
+		java.util.Arrays.fill(replacementKey, (byte) 1);
+		java.nio.file.Files.writeString(temporaryDirectory.resolve("secretkey.key"),
+				java.util.Base64.getEncoder().encodeToString(replacementKey));
+		var replacementAuthenticator = com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.load(
+				temporaryDirectory.resolve("secretkey.key"),
+				com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.Mode.REQUIRED);
+		setProxyField(votingPluginProxy, "sharedTransportAuthenticator", replacementAuthenticator);
+
+		assertSame(oldAuthenticator, installed.getSharedTransportAuthenticator());
+		assertSame(replacementAuthenticator, getProxyField(votingPluginProxy, "sharedTransportAuthenticator"));
+	}
+
+	@Test
+	void encryptedPluginEnrollmentUsesConnectionSourceValidation() throws Exception {
+		votingPluginProxy.setMethod(BungeeMethod.PLUGINMESSAGING);
+		votingPluginProxy.setValidateControlEnrollmentRequest(true);
+		java.nio.file.Files.writeString(temporaryDirectory.resolve("secretkey.key"),
+				java.util.Base64.getEncoder().encodeToString(new byte[32]));
+		JsonEnvelope enrollment = communicationEncryption().encrypt(VotingPluginWire.controlEnrollmentRequest(
+				"Server1", "a".repeat(64), "http://control.example.test:2150", java.util.UUID.randomUUID()));
+		byte[] packet = pluginMessagePacket(enrollment);
+
+		votingPluginProxy.onPluginMessageReceived(new java.io.DataInputStream(
+				new java.io.ByteArrayInputStream(packet)), "Server2");
+		assertEquals(0, votingPluginProxy.getControlEnrollmentInstallCount());
+		votingPluginProxy.onPluginMessageReceived(new java.io.DataInputStream(
+				new java.io.ByteArrayInputStream(packet)), "Server1");
+		assertEquals(1, votingPluginProxy.getControlEnrollmentInstallCount());
+		assertEquals("Server1", votingPluginProxy.getControlEnrollmentSource());
+	}
+
+	private com.bencodez.votingplugin.proxy.security.TransportEnvelopeEncryption communicationEncryption()
+			throws Exception {
+		java.nio.file.Path keyFile = temporaryDirectory.resolve("secretkey.key");
+		java.nio.file.Files.writeString(keyFile, java.util.Base64.getEncoder().encodeToString(new byte[32]));
+		var encryption = com.bencodez.votingplugin.proxy.security.TransportEnvelopeEncryption.load(keyFile,
+				com.bencodez.votingplugin.proxy.security.TransportEnvelopeEncryption.Domain.PROXY_BACKEND, true);
+		var field = VotingPluginProxy.class.getDeclaredField("communicationEncryption");
+		field.setAccessible(true);
+		field.set(votingPluginProxy, encryption);
+		return encryption;
+	}
+
+	private static byte[] pluginMessagePacket(JsonEnvelope envelope) throws Exception {
+		String payload = com.bencodez.simpleapi.servercomm.codec.JsonEnvelopeCodec.encode(envelope);
+		var bytes = new java.io.ByteArrayOutputStream();
+		try (var output = new java.io.DataOutputStream(bytes)) {
+			output.writeUTF(envelope.getSubChannel());
+			output.writeInt(payload.getBytes(java.nio.charset.StandardCharsets.UTF_8).length);
+			output.writeUTF(payload);
+		}
+		return bytes.toByteArray();
 	}
 
 	@Test
@@ -568,6 +677,8 @@ public class VotingPluginProxyTest {
 		Mockito.when(votingPluginProxy.getConfig().getBungeeManageTotals()).thenReturn(true);
 		Mockito.when(votingPluginProxy.getConfig().getMultiProxyOneGlobalReward()).thenReturn(false);
 		Mockito.when(votingPluginProxy.getConfig().getProxyServerName()).thenReturn("Proxy1");
+		Mockito.when(votingPluginProxy.getConfig().getWaitUntilVoteDelaySites()).thenReturn(java.util.List.of("Site"));
+		Mockito.when(votingPluginProxy.getConfig().getWaitUntilVoteDelayService("Site")).thenReturn("Service");
 		Mockito.when(multiProxyHandler.getMultiProxyVoteRecipients()).thenReturn(java.util.Set.of("Proxy2"));
 		Mockito.when(multiProxyHandler.getConfiguredMultiProxyVoteRecipients())
 				.thenReturn(new java.util.LinkedHashSet<>(java.util.Set.of("Proxy2", "ProxyLegacy")));
@@ -633,6 +744,8 @@ public class VotingPluginProxyTest {
 				.thenReturn(new java.util.LinkedHashSet<>(java.util.Set.of("ProxyLegacy")));
 		Mockito.when(multiProxyHandler.sendMultiProxyEnvelopeAccepted(Mockito.any(), Mockito.any())).thenReturn(false);
 		Mockito.when(votingPluginProxy.getConfig().getProxyServerName()).thenReturn("Proxy1");
+		Mockito.when(votingPluginProxy.getConfig().getWaitUntilVoteDelaySites()).thenReturn(java.util.List.of("Site"));
+		Mockito.when(votingPluginProxy.getConfig().getWaitUntilVoteDelayService("Site")).thenReturn("Service");
 
 		Class<?> retryType = Class.forName("com.bencodez.votingplugin.proxy.VotingPluginProxy$LiveVoteRetryState");
 		java.lang.reflect.Constructor<?> constructor = retryType.getDeclaredConstructor();
@@ -1178,6 +1291,8 @@ public class VotingPluginProxyTest {
 		Mockito.when(votingPluginProxy.getConfig().getMultiProxySupport()).thenReturn(true);
 		Mockito.when(votingPluginProxy.getConfig().getMultiProxyOneGlobalReward()).thenReturn(false);
 		Mockito.when(votingPluginProxy.getConfig().getProxyServerName()).thenReturn("Proxy1");
+		Mockito.when(votingPluginProxy.getConfig().getWaitUntilVoteDelaySites()).thenReturn(java.util.List.of("Site"));
+		Mockito.when(votingPluginProxy.getConfig().getWaitUntilVoteDelayService("Site")).thenReturn("Service");
 		Mockito.when(multiProxyHandler.getMultiProxyVoteRecipients()).thenReturn(java.util.Set.of("Proxy2"));
 		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
 		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
@@ -1223,6 +1338,8 @@ public class VotingPluginProxyTest {
 		Mockito.when(votingPluginProxy.getConfig().getMultiProxySupport()).thenReturn(true);
 		Mockito.when(votingPluginProxy.getConfig().getMultiProxyOneGlobalReward()).thenReturn(false);
 		Mockito.when(votingPluginProxy.getConfig().getProxyServerName()).thenReturn("Proxy1");
+		Mockito.when(votingPluginProxy.getConfig().getWaitUntilVoteDelaySites()).thenReturn(java.util.List.of("Site"));
+		Mockito.when(votingPluginProxy.getConfig().getWaitUntilVoteDelayService("Site")).thenReturn("Service");
 		Mockito.when(multiProxyHandler.getMultiProxyVoteRecipients()).thenReturn(java.util.Set.of("Proxy2"));
 		Mockito.when(multiProxyHandler.getConfiguredMultiProxyVoteRecipients())
 				.thenReturn(new java.util.LinkedHashSet<>(java.util.Set.of("Proxy2", "ProxyLegacy")));
@@ -1239,6 +1356,8 @@ public class VotingPluginProxyTest {
 
 		spyProxy.processQueue();
 		assertFalse(queued.isMultiProxyForwardingHandled());
+		assertTrue(queued.isDelayValidationKnown());
+		assertTrue(queued.isDelayValidated());
 		VoteTimeQueue restored = new VoteTimeQueue(queued.getVoteId(), queued.getName(), queued.getService(),
 				queued.getTime(), queued.isProxyBroadcastHandled(), queued.getBroadcastTargets(),
 				queued.getBroadcastForwardedServers(), queued.getTotals(), queued.isProcessed(),
@@ -1248,6 +1367,7 @@ public class VotingPluginProxyTest {
 		restored.setMultiProxyOrigin(queued.getMultiProxyOrigin());
 		restored.setMultiProxyRecipients(queued.getMultiProxyRecipients());
 		restored.setMultiProxyAcknowledgedServers(queued.getMultiProxyAcknowledgedServers());
+		restored.setDelayValidated(queued.isDelayValidated());
 		// The failed pre-publication update means no legacy copy was sent and durable
 		// storage still contains the pending recipient for restart recovery.
 		restored.setMultiProxyLegacyPendingRecipients(java.util.Set.of("ProxyLegacy"));
@@ -1267,6 +1387,155 @@ public class VotingPluginProxyTest {
 				.filter(value -> new java.util.HashSet<>(value).equals(java.util.Set.of("ProxyLegacy"))).count());
 		assertEquals(1, recipients.getAllValues().stream()
 				.filter(value -> new java.util.HashSet<>(value).equals(java.util.Set.of("proxy2"))).count());
+		@SuppressWarnings({ "rawtypes", "unchecked" })
+		org.mockito.ArgumentCaptor<JsonEnvelope> envelopes =
+				(org.mockito.ArgumentCaptor) org.mockito.ArgumentCaptor.forClass(JsonEnvelope.class);
+		verify(multiProxyHandler, Mockito.times(2)).sendMultiProxyEnvelopeAccepted(envelopes.capture(), Mockito.any());
+		JsonEnvelope reliable = envelopes.getAllValues().stream()
+				.filter(value -> value.getFields().containsKey(VotingPluginWire.K_MULTI_PROXY_ORIGIN))
+				.findFirst().orElseThrow();
+		assertTrue(VotingPluginWire.readVote(reliable).delayValidated);
+		assertTrue(VotingPluginWire.readVote(reliable).delayValidationKnown);
+	}
+
+	@Test
+	void primaryProxyForwardsUnmatchedDelayRuleAsUnknown() throws Exception {
+		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		java.util.Queue<VoteTimeQueue> queue = new java.util.concurrent.ConcurrentLinkedQueue<>();
+		VoteTimeQueue queued = new VoteTimeQueue(java.util.UUID.randomUUID(), "Player", "UnconfiguredService", 100L,
+				false, java.util.Collections.emptySet(), java.util.Collections.emptySet(), "totals", false,
+				"00000000-0000-0000-0000-000000000001");
+		queue.add(queued);
+		Mockito.when(voteCache.getTimeChangeQueue()).thenReturn(queue);
+		Mockito.when(voteCache.addOnlineVoteDurably(Mockito.anyString(), Mockito.any())).thenReturn(true);
+		Mockito.when(voteCache.addServerVoteDurably(Mockito.anyString(), Mockito.any())).thenReturn(true);
+		Mockito.when(voteCache.updateOnlineVote(Mockito.anyString(), Mockito.any())).thenReturn(true);
+		Mockito.when(voteCache.updateServerVote(Mockito.anyString(), Mockito.any())).thenReturn(true);
+		Mockito.when(voteCache.updateTimeVote(Mockito.any())).thenReturn(true);
+		Mockito.when(multiProxyHandler.getConfiguredMultiProxyVoteRecipients())
+				.thenReturn(new java.util.LinkedHashSet<>(java.util.Set.of("Replica")));
+		Mockito.when(votingPluginProxy.getConfig().getSendVotesToAllServers()).thenReturn(true);
+		Mockito.when(votingPluginProxy.getConfig().getPrimaryServer()).thenReturn(true);
+		Mockito.when(votingPluginProxy.getConfig().getBungeeManageTotals()).thenReturn(true);
+		Mockito.when(votingPluginProxy.getConfig().getMultiProxySupport()).thenReturn(true);
+		Mockito.when(votingPluginProxy.getConfig().getMultiProxyOneGlobalReward()).thenReturn(false);
+		Mockito.when(votingPluginProxy.getConfig().getProxyServerName()).thenReturn("Proxy1");
+		Mockito.when(votingPluginProxy.getConfig().getWaitUntilVoteDelaySites())
+				.thenReturn(java.util.Collections.emptyList());
+		Mockito.when(proxyMySQL.getExactQuery(Mockito.any())).thenReturn(new java.util.ArrayList<>());
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
+		Mockito.doNothing().when(spyProxy).addVoteParty();
+		java.lang.reflect.Field decider = VotingPluginProxy.class.getDeclaredField("proxyBroadcastDecider");
+		decider.setAccessible(true);
+		decider.set(spyProxy, new ProxyBroadcastDecider(spyProxy::getConfig, spyProxy::getAllAvailableServers,
+				server -> true, server -> false));
+
+		spyProxy.processQueue();
+
+		org.mockito.ArgumentCaptor<JsonEnvelope> forwarded = org.mockito.ArgumentCaptor.forClass(JsonEnvelope.class);
+		verify(multiProxyHandler).sendMultiProxyEnvelopeAccepted(forwarded.capture(), Mockito.any());
+		assertFalse(forwarded.getValue().getFields().containsKey(VotingPluginWire.K_DELAY_VALIDATED));
+		assertFalse(queued.isDelayValidationKnown());
+	}
+
+	@Test
+	void receivedMultiProxyValidationReachesBackendEnvelopeOnNonPrimaryProxy() throws Exception {
+		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		Mockito.when(voteCache.markMultiProxyVoteCompletedDurably(Mockito.any())).thenReturn(true);
+		Mockito.when(voteCache.getTimeChangeQueue()).thenReturn(new java.util.concurrent.ConcurrentLinkedQueue<>());
+		Mockito.when(votingPluginProxy.getConfig().getMultiProxySupport()).thenReturn(true);
+		Mockito.when(votingPluginProxy.getConfig().getPrimaryServer()).thenReturn(false);
+		Mockito.when(votingPluginProxy.getConfig().getBungeeManageTotals()).thenReturn(true);
+		Mockito.when(votingPluginProxy.getConfig().getSendVotesToAllServers()).thenReturn(false);
+		votingPluginProxy.setMethod(BungeeMethod.PLUGINMESSAGING);
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
+		Mockito.doNothing().when(spyProxy).addVoteParty();
+		spyProxy.setGlobalMessageProxyHandlerForTest(
+				new com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler() {
+					@Override
+					public void sendMessage(String server, int delay, JsonEnvelope envelope) { }
+				});
+		java.lang.reflect.Method receive = VotingPluginProxy.class.getDeclaredMethod("receiveMultiProxyVote",
+				String.class, String.class, boolean.class, boolean.class, long.class,
+				com.bencodez.votingplugin.proxy.VoteTotalsSnapshot.class, String.class, java.util.UUID.class,
+				String.class, boolean.class, boolean.class);
+		receive.setAccessible(true);
+
+		receive.invoke(spyProxy, "Player", "Service", true, false, 100L, null,
+				"00000000-0000-0000-0000-000000000001", java.util.UUID.randomUUID(), "Primary", true, true);
+
+		VotingPluginWire.Vote forwarded = VotingPluginWire.readVote(spyProxy.getLastVoteEnvelope());
+		assertTrue(forwarded.delayValidationKnown);
+		assertTrue(forwarded.delayValidated);
+	}
+
+	@Test
+	void legacyMultiProxyVoteKeepsUnknownDelayValidationOnNonPrimaryProxy() throws Exception {
+		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		Mockito.when(voteCache.markMultiProxyVoteCompletedDurably(Mockito.any())).thenReturn(true);
+		Mockito.when(voteCache.getTimeChangeQueue()).thenReturn(new java.util.concurrent.ConcurrentLinkedQueue<>());
+		Mockito.when(votingPluginProxy.getConfig().getMultiProxySupport()).thenReturn(true);
+		Mockito.when(votingPluginProxy.getConfig().getPrimaryServer()).thenReturn(false);
+		Mockito.when(votingPluginProxy.getConfig().getBungeeManageTotals()).thenReturn(false);
+		Mockito.when(votingPluginProxy.getConfig().getSendVotesToAllServers()).thenReturn(false);
+		votingPluginProxy.setMethod(BungeeMethod.PLUGINMESSAGING);
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
+		Mockito.doNothing().when(spyProxy).addVoteParty();
+		spyProxy.setGlobalMessageProxyHandlerForTest(
+				new com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler() {
+					@Override
+					public void sendMessage(String server, int delay, JsonEnvelope envelope) { }
+				});
+		java.lang.reflect.Method receive = VotingPluginProxy.class.getDeclaredMethod("receiveMultiProxyVote",
+				String.class, String.class, boolean.class, boolean.class, long.class,
+				com.bencodez.votingplugin.proxy.VoteTotalsSnapshot.class, String.class, java.util.UUID.class,
+				String.class, boolean.class, boolean.class);
+		receive.setAccessible(true);
+
+		receive.invoke(spyProxy, "Player", "Service", true, false, 100L, null,
+				"00000000-0000-0000-0000-000000000001", java.util.UUID.randomUUID(), "Legacy", false, false);
+
+		VotingPluginWire.Vote forwarded = VotingPluginWire.readVote(spyProxy.getLastVoteEnvelope());
+		assertFalse(forwarded.delayValidationKnown);
+		assertFalse(spyProxy.getLastVoteEnvelope().getFields().containsKey(VotingPluginWire.K_DELAY_VALIDATED));
+	}
+
+	@Test
+	void legacyMultiProxyVoteKeepsUnknownDelayValidationInOfflineCache() throws Exception {
+		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		Mockito.when(voteCache.markMultiProxyVoteCompletedDurably(Mockito.any())).thenReturn(true);
+		Mockito.when(voteCache.getTimeChangeQueue()).thenReturn(new java.util.concurrent.ConcurrentLinkedQueue<>());
+		Mockito.when(voteCache.addOnlineVoteDurably(Mockito.anyString(), Mockito.any())).thenReturn(true);
+		Mockito.when(votingPluginProxy.getConfig().getMultiProxySupport()).thenReturn(true);
+		Mockito.when(votingPluginProxy.getConfig().getPrimaryServer()).thenReturn(false);
+		Mockito.when(votingPluginProxy.getConfig().getBungeeManageTotals()).thenReturn(false);
+		Mockito.when(votingPluginProxy.getConfig().getSendVotesToAllServers()).thenReturn(false);
+		votingPluginProxy.setPlayerOnline(false);
+		votingPluginProxy.setMethod(BungeeMethod.PLUGINMESSAGING);
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
+		Mockito.doNothing().when(spyProxy).addVoteParty();
+		spyProxy.setGlobalMessageProxyHandlerForTest(
+				new com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler() {
+					@Override
+					public void sendMessage(String server, int delay, JsonEnvelope envelope) { }
+				});
+		java.lang.reflect.Method receive = VotingPluginProxy.class.getDeclaredMethod("receiveMultiProxyVote",
+				String.class, String.class, boolean.class, boolean.class, long.class,
+				com.bencodez.votingplugin.proxy.VoteTotalsSnapshot.class, String.class, java.util.UUID.class,
+				String.class, boolean.class, boolean.class);
+		receive.setAccessible(true);
+
+		receive.invoke(spyProxy, "Player", "Service", true, false, 100L, null,
+				"00000000-0000-0000-0000-000000000001", java.util.UUID.randomUUID(), "Legacy", false, false);
+
+		org.mockito.ArgumentCaptor<OfflineBungeeVote> cached =
+				org.mockito.ArgumentCaptor.forClass(OfflineBungeeVote.class);
+		verify(voteCache).addOnlineVoteDurably(Mockito.anyString(), cached.capture());
+		assertFalse(cached.getValue().isDelayValidationKnown());
 	}
 
 	@Test
@@ -1299,7 +1568,8 @@ public class VotingPluginProxyTest {
 				Mockito.any(java.util.concurrent.TimeUnit.class));
 		Runnable voteRetry = scheduled.getAllValues().stream()
 				.filter(task -> task.getClass().getName().contains("MultiProxyVoteRetry"))
-				.findFirst().orElseThrow();
+				.findFirst().orElseThrow(() -> new AssertionError("scheduled tasks: "
+						+ scheduled.getAllValues().stream().map(task -> task.getClass().getName()).toList()));
 		voteRetry.run();
 		// A duplicate socket/Redis delivery of the completed envelope is ignored.
 		receive.invoke(spyProxy, "Player", "Service", true, false, 100L, null,
@@ -1618,7 +1888,7 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
-	void liveVoteRetryKeepsTotalsInputAfterVotePartyFailure() {
+	void liveVoteRetryKeepsTotalsInputAfterVotePartyFailure() throws Exception {
 		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
 		Mockito.when(votingPluginProxy.getConfig().getSendVotesToAllServers()).thenReturn(true);
 		Mockito.when(votingPluginProxy.getConfig().getPrimaryServer()).thenReturn(true);
@@ -1640,6 +1910,12 @@ public class VotingPluginProxyTest {
 		assertThrows(VotingPluginProxy.VoteRetryException.class,
 				() -> spyProxy.vote("Player", "Service", true, false, 100L, null,
 						"00000000-0000-0000-0000-000000000001", voteId));
+		java.lang.reflect.Field retriesField = VotingPluginProxy.class.getDeclaredField("liveVoteRetries");
+		retriesField.setAccessible(true);
+		Object retry = ((java.util.Map<?, ?>) retriesField.get(spyProxy)).get(voteId);
+		java.lang.reflect.Field delayKnown = retry.getClass().getDeclaredField("delayValidationKnown");
+		delayKnown.setAccessible(true);
+		assertFalse(delayKnown.getBoolean(retry));
 		assertThrows(IllegalArgumentException.class,
 				() -> spyProxy.vote("OtherPlayer", "Service", true, false, 100L, null,
 						"00000000-0000-0000-0000-000000000002", voteId));
@@ -1648,6 +1924,7 @@ public class VotingPluginProxyTest {
 
 		verify(spyProxy).addVoteParty();
 		verify(proxyMySQL).update(Mockito.anyString(), Mockito.any(java.util.ArrayList.class));
+		assertFalse(spyProxy.getLastVoteEnvelope().getFields().containsKey(VotingPluginWire.K_DELAY_VALIDATED));
 	}
 
 	@Test
@@ -1711,6 +1988,20 @@ public class VotingPluginProxyTest {
 		assertTrue(row.getBroadcastTargets().isEmpty());
 		assertTrue(row.getBroadcastForwardedServers().isEmpty());
 		assertTrue(row.getHttpBroadcastDeliveryIds().isEmpty());
+	}
+
+	@Test
+	void cachedRewardKeepsDelayValidationUnknownUntilThisVoteChecksAMatchingRule() {
+		Mockito.when(votingPluginProxy.getConfig().getBungeeManageTotals()).thenReturn(true);
+		Mockito.when(votingPluginProxy.getConfig().getPrimaryServer()).thenReturn(true);
+		Mockito.when(votingPluginProxy.getConfig().getWaitUntilVoteDelaySites())
+				.thenReturn(java.util.Collections.emptyList());
+
+		OfflineBungeeVote row = votingPluginProxy.createCachedRewardVoteForTest(
+				java.util.UUID.randomUUID(), "Player", "player-uuid", "UnconfiguredService", 100L, true,
+				"totals", false);
+
+		assertFalse(row.isDelayValidationKnown());
 	}
 
 	@Test
@@ -2893,6 +3184,22 @@ public class VotingPluginProxyTest {
 				Mockito.any(), Mockito.eq(true));
 		verify(spyProxy, never()).sendPluginMessageData(Mockito.anyString(), Mockito.anyString(), Mockito.any(),
 				Mockito.anyBoolean());
+	}
+
+	@Test
+	void liveDelayRejectionRetriesWhenDurableDeliveryCannotBeAdmitted() {
+		votingPluginProxy.setPlayerOnline(true);
+		votingPluginProxy.setAvailableServers("Server1");
+		Mockito.when(votingPluginProxy.getConfig().getBungeeManageTotals()).thenReturn(true);
+		Mockito.when(votingPluginProxy.getConfig().getPrimaryServer()).thenReturn(true);
+		Mockito.when(proxyMySQL.containsKeyQuery(Mockito.anyString())).thenReturn(true);
+		Mockito.when(proxyMySQL.getExactQuery(Mockito.any())).thenReturn(new java.util.ArrayList<>());
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(false).when(spyProxy).checkVoteDelay(Mockito.anyString(), Mockito.anyString(),
+				Mockito.anyString(), Mockito.any(), Mockito.anyBoolean());
+
+		assertThrows(VotingPluginProxy.VoteRetryException.class,
+				() -> spyProxy.vote("Player", "Service", true, false, 0, null, null));
 	}
 
 	@Test

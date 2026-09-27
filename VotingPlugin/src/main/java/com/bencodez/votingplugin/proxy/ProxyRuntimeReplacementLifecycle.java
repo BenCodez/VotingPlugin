@@ -7,6 +7,7 @@ public final class ProxyRuntimeReplacementLifecycle {
 	/** Returns false for first initialization, which has no old runtime to prepare. */
 	public static boolean prepare(VotingPluginProxy previous) {
 		if (previous == null) return false;
+		previous.validateReplacementTransportSecurity();
 		previous.prepareForRuntimeReplacement();
 		return true;
 	}

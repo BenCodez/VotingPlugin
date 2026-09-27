@@ -29,6 +29,8 @@ import java.util.ArrayDeque;
 import java.util.UUID;
 import java.nio.file.Path;
 import java.nio.file.Files;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -65,6 +67,9 @@ import com.bencodez.votingplugin.backendproxy.messaging.BackendProxyMessageRoute
 import com.bencodez.votingplugin.backendproxy.presence.BackendPresenceManager;
 import com.bencodez.votingplugin.config.BungeeSettings;
 import com.bencodez.votingplugin.proxy.VotingPluginWire;
+import com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator;
+import com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.Mode;
+import com.bencodez.votingplugin.proxy.security.TransportEnvelopeEncryption;
 import com.bencodez.votingplugin.backendproxy.transport.MqttBackendProxyTransport;
 import com.bencodez.votingplugin.backendproxy.transport.MysqlBackendProxyTransport;
 import com.bencodez.votingplugin.backendproxy.transport.PluginMessagingBackendProxyTransport;
@@ -76,6 +81,162 @@ import com.bencodez.votingplugin.backendproxy.transport.SocketBackendProxyTransp
 import com.bencodez.votingplugin.proxy.BungeeMethod;
 
 class BackendProxyHandlerLifecycleTest {
+	@Test
+	void httpLeavesCommunicationEncryptionToItsWireCodec(@TempDir Path dataDirectory) throws Exception {
+		Path keyFile = dataDirectory.resolve("secretkey.key");
+		Files.writeString(keyFile, Base64.getEncoder().encodeToString(
+				"0123456789abcdef0123456789abcdef".getBytes(StandardCharsets.US_ASCII)));
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		doAnswer(invocation -> {
+			((Runnable) invocation.getArgument(1)).run();
+			return null;
+		}).when(scheduler).executeOrScheduleSync(eq(plugin), any(Runnable.class));
+		BackendProxyHandler handler = new BackendProxyHandler(plugin);
+		TransportEnvelopeEncryption encryption = TransportEnvelopeEncryption.load(
+				keyFile, TransportEnvelopeEncryption.Domain.PROXY_BACKEND, true);
+		setField(handler, "method", BungeeMethod.HTTP);
+		setField(handler, "communicationEncryption", encryption);
+		BackendProxyTransportManager manager = (BackendProxyTransportManager) getField(handler, "transportManager");
+		BackendProxyTransport transport = mock(BackendProxyTransport.class);
+		setField(manager, "transport", transport);
+		Class<?> type = Class.forName(BackendProxyHandler.class.getName() + "$EncryptedGlobalMessageHandler");
+		var constructor = type.getDeclaredConstructor(BackendProxyHandler.class);
+		constructor.setAccessible(true);
+		GlobalMessageHandler messages = (GlobalMessageHandler) constructor.newInstance(handler);
+		JsonEnvelope semantic = JsonEnvelope.builder("test").put("value", "payload").build();
+
+		messages.sendMessage(semantic);
+
+		org.mockito.ArgumentCaptor<JsonEnvelope> outbound = org.mockito.ArgumentCaptor.forClass(JsonEnvelope.class);
+		verify(transport).send(outbound.capture());
+		assertEquals(semantic.getSubChannel(), outbound.getValue().getSubChannel());
+		assertEquals(semantic.getFields(), outbound.getValue().getFields());
+		AtomicReference<JsonEnvelope> received = new AtomicReference<>();
+		messages.addListener(new com.bencodez.simpleapi.servercomm.global.GlobalMessageListener("test") {
+			@Override public void onReceive(JsonEnvelope envelope) { received.set(envelope); }
+		});
+		handler.activateInboundMessages();
+		messages.onMessage(semantic);
+		assertNotNull(received.get());
+		assertEquals(semantic.getSubChannel(), received.get().getSubChannel());
+		assertEquals(semantic.getFields(), received.get().getFields());
+	}
+
+	@Test
+	void redisAndMqttSecurityReloadAppliesChangedPolicyWithoutResettingUnchangedReplayState(
+			@TempDir Path dataDirectory) throws Exception {
+		Path keyFile = dataDirectory.resolve("secretkey.key");
+		Files.writeString(keyFile, Base64.getEncoder().encodeToString(
+				"0123456789abcdef0123456789abcdef".getBytes(StandardCharsets.US_ASCII)));
+		for (BungeeMethod method : new BungeeMethod[] { BungeeMethod.REDIS, BungeeMethod.MQTT }) {
+			com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+			BungeeSettings settings = mock(BungeeSettings.class);
+			when(plugin.getDataFolder()).thenReturn(dataDirectory.toFile());
+			when(plugin.getBungeeSettings()).thenReturn(settings);
+			when(settings.getSharedTransportAuthentication()).thenReturn("REQUIRED");
+			when(settings.isCommunicationEncryption()).thenReturn(true);
+			BackendProxyHandler handler = new BackendProxyHandler(plugin);
+			setField(handler, "method", method);
+			setField(handler, "sharedTransportMode", Mode.COMPATIBILITY);
+			setField(handler, "communicationEncryptionEnabled", false);
+			setField(handler, "communicationEncryption", TransportEnvelopeEncryption.load(keyFile,
+					TransportEnvelopeEncryption.Domain.PROXY_BACKEND, false));
+			BackendProxyTransportManager manager = (BackendProxyTransportManager) getField(handler, "transportManager");
+			BackendProxyTransport transport = method == BungeeMethod.REDIS
+					? new RedisBackendProxyTransport(plugin, new ProcessedVoteCache())
+					: new MqttBackendProxyTransport(plugin);
+			setField(transport, "authenticator", SharedTransportEnvelopeAuthenticator.load(keyFile,
+					Mode.COMPATIBILITY));
+			setField(manager, "transport", transport);
+
+			handler.reloadSharedTransportSecurity();
+
+			SharedTransportEnvelopeAuthenticator replacement =
+					(SharedTransportEnvelopeAuthenticator) getField(transport, "authenticator");
+			assertEquals(Mode.REQUIRED, replacement.mode());
+			assertTrue(((TransportEnvelopeEncryption) getField(handler, "communicationEncryption")).enabled());
+			handler.reloadSharedTransportSecurity();
+			assertSame(replacement, getField(transport, "authenticator"));
+
+			when(settings.getSharedTransportAuthentication()).thenReturn("COMPATIBILITY");
+			when(settings.isCommunicationEncryption()).thenReturn(false);
+			handler.reloadSharedTransportSecurity();
+			assertEquals(Mode.COMPATIBILITY,
+					((SharedTransportEnvelopeAuthenticator) getField(transport, "authenticator")).mode());
+			assertFalse(((TransportEnvelopeEncryption) getField(handler, "communicationEncryption")).enabled());
+		}
+	}
+
+	@Test
+	void failedSharedTransportSecurityReloadRetainsActivePolicy(@TempDir Path dataDirectory) throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BungeeSettings settings = mock(BungeeSettings.class);
+		when(plugin.getDataFolder()).thenReturn(dataDirectory.toFile());
+		when(plugin.getBungeeSettings()).thenReturn(settings);
+		when(settings.getSharedTransportAuthentication()).thenReturn("REQUIRED");
+		when(settings.isCommunicationEncryption()).thenReturn(true);
+		BackendProxyHandler handler = new BackendProxyHandler(plugin);
+		setField(handler, "method", BungeeMethod.REDIS);
+		setField(handler, "sharedTransportMode", Mode.COMPATIBILITY);
+		setField(handler, "communicationEncryptionEnabled", false);
+		RedisBackendProxyTransport transport = new RedisBackendProxyTransport(plugin, new ProcessedVoteCache());
+		SharedTransportEnvelopeAuthenticator original = SharedTransportEnvelopeAuthenticator.load(
+				dataDirectory.resolve("secretkey.key"), Mode.COMPATIBILITY);
+		setField(transport, "authenticator", original);
+		BackendProxyTransportManager manager = (BackendProxyTransportManager) getField(handler, "transportManager");
+		setField(manager, "transport", transport);
+
+		assertThrows(IllegalStateException.class, handler::reloadSharedTransportSecurity);
+		assertSame(original, getField(transport, "authenticator"));
+		assertEquals(Mode.COMPATIBILITY, getField(handler, "sharedTransportMode"));
+		assertEquals(false, getField(handler, "communicationEncryptionEnabled"));
+	}
+
+	@Test
+	void sharedTransportReloadReadsRotatedKeyWhenFlagsStayEnabled(@TempDir Path dataDirectory) throws Exception {
+		Path keyFile = dataDirectory.resolve("secretkey.key");
+		for (BungeeMethod method : new BungeeMethod[] { BungeeMethod.REDIS, BungeeMethod.MQTT }) {
+			Files.writeString(keyFile, Base64.getEncoder().encodeToString(
+					"0123456789abcdef0123456789abcdef".getBytes(StandardCharsets.US_ASCII)));
+			com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+			BungeeSettings settings = mock(BungeeSettings.class);
+			when(plugin.getDataFolder()).thenReturn(dataDirectory.toFile());
+			when(plugin.getBungeeSettings()).thenReturn(settings);
+			when(settings.getSharedTransportAuthentication()).thenReturn("REQUIRED");
+			when(settings.isCommunicationEncryption()).thenReturn(true);
+			BackendProxyHandler handler = new BackendProxyHandler(plugin);
+			setField(handler, "method", method);
+			setField(handler, "sharedTransportMode", Mode.REQUIRED);
+			setField(handler, "communicationEncryptionEnabled", true);
+			TransportEnvelopeEncryption originalEncryption = TransportEnvelopeEncryption.load(
+					keyFile, TransportEnvelopeEncryption.Domain.PROXY_BACKEND, true);
+			setField(handler, "communicationEncryption", originalEncryption);
+			BackendProxyTransportManager manager = (BackendProxyTransportManager) getField(handler, "transportManager");
+			BackendProxyTransport transport = method == BungeeMethod.REDIS
+					? new RedisBackendProxyTransport(plugin, new ProcessedVoteCache())
+					: new MqttBackendProxyTransport(plugin);
+			SharedTransportEnvelopeAuthenticator originalAuthenticator =
+					SharedTransportEnvelopeAuthenticator.load(keyFile, Mode.REQUIRED);
+			setField(transport, "authenticator", originalAuthenticator);
+			setField(manager, "transport", transport);
+			handler.reloadSharedTransportSecurity();
+			originalAuthenticator = (SharedTransportEnvelopeAuthenticator) getField(transport, "authenticator");
+			originalEncryption = (TransportEnvelopeEncryption) getField(handler, "communicationEncryption");
+
+			Files.writeString(keyFile, Base64.getEncoder().encodeToString(
+					"abcdef0123456789abcdef0123456789".getBytes(StandardCharsets.US_ASCII)));
+			handler.reloadSharedTransportSecurity();
+
+			SharedTransportEnvelopeAuthenticator replacement =
+					(SharedTransportEnvelopeAuthenticator) getField(transport, "authenticator");
+			assertFalse(originalAuthenticator.hasEquivalentInboundPolicy(replacement));
+			assertFalse(originalEncryption.hasEquivalentInboundPolicy(
+					(TransportEnvelopeEncryption) getField(handler, "communicationEncryption")));
+		}
+	}
+
 	@Test
 	void globalDataWakeupMovesOffTheCallingAndPrimaryThreads() {
 		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
@@ -316,6 +477,46 @@ class BackendProxyHandlerLifecycleTest {
 		verify(messages).sendMessage(argThat(ack -> VotingPluginWire.SUB_VOTE_DELIVERY_ACK.equals(ack.getSubChannel())
 				&& voteId.toString().equals(ack.getFields().get(VotingPluginWire.K_VOTE_ID))
 				&& "survival".equals(ack.getFields().get(VotingPluginWire.K_SERVER))));
+	}
+
+	@Test
+	void reliableDelayRejectionIsAcknowledgedAfterOrderedCompletion() throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		BungeeSettings settings = mock(BungeeSettings.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		when(plugin.getBungeeSettings()).thenReturn(settings);
+		when(settings.getServer()).thenReturn("survival");
+		BackendProxyHandler handler = new BackendProxyHandler(plugin);
+		BackendProxyMessageRouter router = mock(BackendProxyMessageRouter.class);
+		GlobalMessageHandler messages = mock(GlobalMessageHandler.class);
+		setField(handler, "messageRouter", router);
+		setField(handler, "globalMessageHandler", messages);
+		handler.activateInboundMessages();
+		AtomicReference<Runnable> dispatch = new AtomicReference<>();
+		AtomicReference<java.util.function.Consumer<OrderedVoteOutcome>> completion = new AtomicReference<>();
+		doAnswer(invocation -> {
+			dispatch.set(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).runTaskAsynchronously(eq(plugin), any(Runnable.class));
+		doAnswer(invocation -> {
+			completion.set(invocation.getArgument(1));
+			return null;
+		}).when(router).handleOrderedVote(any(JsonEnvelope.class), any());
+		UUID voteId = UUID.randomUUID();
+		JsonEnvelope envelope = VotingPluginWire.requestVoteDeliveryAcknowledgement(
+				VotingPluginWire.voteDelayRejected("Player", UUID.randomUUID().toString(),
+						"site", true, voteId));
+
+		handler.dispatchIncomingAfterPublication(envelope, mock(Runnable.class));
+		dispatch.get().run();
+		verifyNoInteractions(messages);
+		completion.get().accept(OrderedVoteOutcome.COMPLETE);
+
+		verify(messages).sendMessage(argThat(ack -> VotingPluginWire.SUB_VOTE_DELIVERY_ACK.equals(ack.getSubChannel())
+				&& voteId.toString().equals(ack.getFields().get(VotingPluginWire.K_VOTE_ID))
+				&& VotingPluginWire.SUB_VOTE_DELAY_REJECTED.equals(
+						ack.getFields().get(VotingPluginWire.K_VOTE_DELIVERY_SUBCHANNEL))));
 	}
 
 	@Test
@@ -1283,6 +1484,48 @@ class BackendProxyHandlerLifecycleTest {
 	}
 
 	@Test
+	void stagedInboundIsNotForwardedAcrossDifferentSharedAuthenticationPolicies(@TempDir Path dataDirectory)
+			throws Exception {
+		Path keyFile = dataDirectory.resolve("secretkey.key");
+		Files.writeString(keyFile, Base64.getEncoder().encodeToString(
+				"0123456789abcdef0123456789abcdef".getBytes(StandardCharsets.US_ASCII)));
+		BackendProxyHandler previous = new BackendProxyHandler(null);
+		BackendProxyHandler replacement = new BackendProxyHandler(null);
+		setField(previous, "method", BungeeMethod.REDIS);
+		setField(replacement, "method", BungeeMethod.REDIS);
+		GlobalMessageHandler previousMessages = mock(GlobalMessageHandler.class);
+		setField(previous, "globalMessageHandler", previousMessages);
+		installRedisAuthenticator(previous, SharedTransportEnvelopeAuthenticator.load(keyFile, Mode.REQUIRED));
+		installRedisAuthenticator(replacement,
+				SharedTransportEnvelopeAuthenticator.load(keyFile, Mode.COMPATIBILITY));
+		JsonEnvelope envelope = JsonEnvelope.builder("rollback").build();
+		Runnable replacementDispatch = mock(Runnable.class);
+		CountDownLatch started = new CountDownLatch(1);
+
+		CompletableFuture<Void> callback = CompletableFuture.runAsync(() -> {
+			started.countDown();
+			replacement.dispatchIncomingAfterPublication(envelope, replacementDispatch);
+		});
+		assertTrue(started.await(1, TimeUnit.SECONDS));
+		assertFalse(callback.isDone());
+
+		replacement.abortStagedInboundTo(previous);
+		callback.get(1, TimeUnit.SECONDS);
+		verifyNoInteractions(previousMessages);
+		verify(replacementDispatch, never()).run();
+	}
+
+	private void installRedisAuthenticator(BackendProxyHandler handler,
+			SharedTransportEnvelopeAuthenticator authenticator) throws Exception {
+		Field managerField = BackendProxyHandler.class.getDeclaredField("transportManager");
+		managerField.setAccessible(true);
+		BackendProxyTransportManager manager = (BackendProxyTransportManager) managerField.get(handler);
+		RedisBackendProxyTransport transport = new RedisBackendProxyTransport(null);
+		setField(transport, "authenticator", authenticator);
+		setField(manager, "transport", transport);
+	}
+
+	@Test
 	void failedPluginMessagePublicationRestoresPreviousSharedState() {
 		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
 		BungeeSettings settings = mock(BungeeSettings.class);
@@ -1853,7 +2096,7 @@ class BackendProxyHandlerLifecycleTest {
 	}
 
 	@Test
-	void redisSendKeepsTheChannelCapturedByTheActiveTransport() throws Exception {
+	void redisSendKeepsTheChannelCapturedByTheActiveTransport(@TempDir Path dataDirectory) throws Exception {
 		com.bencodez.votingplugin.VotingPluginMain plugin =
 				mock(com.bencodez.votingplugin.VotingPluginMain.class);
 		BungeeSettings settings = mock(BungeeSettings.class);
@@ -1863,6 +2106,8 @@ class BackendProxyHandlerLifecycleTest {
 		RedisHandler redis = mock(RedisHandler.class);
 		setField(transport, "redisHandler", redis);
 		setField(transport, "publishChannel", "old:VotingPlugin");
+		setField(transport, "authenticator", authenticator(dataDirectory));
+		when(settings.getServer()).thenReturn("backend-a");
 
 		transport.send(com.bencodez.simpleapi.servercomm.codec.JsonEnvelope.builder("vote").build());
 
@@ -1870,7 +2115,7 @@ class BackendProxyHandlerLifecycleTest {
 	}
 
 	@Test
-	void mqttSendKeepsTheTopicCapturedByTheActiveTransport() throws Exception {
+	void mqttSendKeepsTheTopicCapturedByTheActiveTransport(@TempDir Path dataDirectory) throws Exception {
 		com.bencodez.votingplugin.VotingPluginMain plugin =
 				mock(com.bencodez.votingplugin.VotingPluginMain.class);
 		BungeeSettings settings = mock(BungeeSettings.class);
@@ -1880,6 +2125,8 @@ class BackendProxyHandlerLifecycleTest {
 		MqttHandler mqtt = mock(MqttHandler.class);
 		setField(transport, "mqttHandler", mqtt);
 		setField(transport, "publishTopic", "old/votingplugin/servers/proxy");
+		setField(transport, "authenticator", authenticator(dataDirectory));
+		when(settings.getServer()).thenReturn("backend-a");
 
 		assertTrue(transport.send(com.bencodez.simpleapi.servercomm.codec.JsonEnvelope.builder("vote").build()));
 
@@ -1887,12 +2134,16 @@ class BackendProxyHandlerLifecycleTest {
 	}
 
 	@Test
-	void mqttAndMysqlReportRejectedHandoffDeliveries() throws Exception {
+	void mqttAndMysqlReportRejectedHandoffDeliveries(@TempDir Path dataDirectory) throws Exception {
 		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
 		MqttBackendProxyTransport mqttTransport = new MqttBackendProxyTransport(plugin);
 		MqttHandler mqtt = mock(MqttHandler.class);
 		setField(mqttTransport, "mqttHandler", mqtt);
 		setField(mqttTransport, "publishTopic", "votingplugin/servers/proxy");
+		setField(mqttTransport, "authenticator", authenticator(dataDirectory));
+		BungeeSettings mqttSettings = mock(BungeeSettings.class);
+		when(plugin.getBungeeSettings()).thenReturn(mqttSettings);
+		when(mqttSettings.getServer()).thenReturn("backend-a");
 		doThrow(new IllegalStateException("publish failed")).when(mqtt).publishEnvelope(any(), any());
 		JsonEnvelope mqttEnvelope = JsonEnvelope.builder("mqtt").build();
 
@@ -2351,6 +2602,13 @@ class BackendProxyHandlerLifecycleTest {
 			}
 		}
 		throw new NoSuchFieldException(name);
+	}
+
+	private static SharedTransportEnvelopeAuthenticator authenticator(Path dataDirectory) throws Exception {
+		Path keyFile = dataDirectory.resolve("secretkey.key");
+		Files.writeString(keyFile, Base64.getEncoder().encodeToString(
+				"0123456789abcdef0123456789abcdef".getBytes(StandardCharsets.US_ASCII)));
+		return SharedTransportEnvelopeAuthenticator.load(keyFile, Mode.REQUIRED);
 	}
 
 	private Object getField(Object target, String name) throws Exception {

@@ -1,5 +1,7 @@
 package com.bencodez.votingplugin.events;
 
+import java.util.UUID;
+
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
@@ -36,6 +38,11 @@ public class PlayerVoteEvent extends Event {
 	@Setter
 	private VoteTotalsSnapshot bungeeTextTotals;
 
+	/** Stable identity supplied by a proxy delivery, independent of totals. */
+	@Getter
+	@Setter
+	private UUID proxyVoteId;
+
 	@Getter
 	@Setter
 	private boolean cancelled;
@@ -71,6 +78,16 @@ public class PlayerVoteEvent extends Event {
 	@Getter
 	@Setter
 	private boolean wasOnline;
+
+	/** Whether this is an identified queued proxy delivery. */
+	@Getter
+	@Setter
+	private boolean queuedProxyVote;
+
+	/** Whether the proxy explicitly supplied its delay-validation decision. */
+	@Getter
+	@Setter
+	private boolean proxyDelayValidationKnown;
 
 	@Getter
 	@Setter

@@ -33,6 +33,30 @@ public class VotingPluginWireTest {
 		assertEquals("Player", vote.player);
 		assertEquals("Service", vote.service);
 		assertTrue(vote.wasOnlineKnown);
+		assertFalse(vote.delayValidated);
+		assertFalse(vote.delayValidationKnown);
+	}
+
+	@Test
+	public void voteRoundTripCarriesExplicitDelayValidation() {
+		JsonEnvelope envelope = VotingPluginWire.vote("Player", UUID.randomUUID().toString(), "Service", 100L,
+				true, true, "totals", UUID.randomUUID(), true, false, 1, 1, true);
+
+		Vote vote = VotingPluginWire.readVote(envelope);
+		assertTrue(vote.delayValidated);
+		assertTrue(vote.delayValidationKnown);
+	}
+
+	@Test
+	public void multiProxyVoteCarriesPrimaryDelayValidationAdditively() {
+		JsonEnvelope current = VotingPluginWire.multiProxyVote("Player", UUID.randomUUID().toString(), "Service",
+				100L, false, true, "totals", UUID.randomUUID(), false, false, 1, 1, "Primary", true);
+		JsonEnvelope legacy = VotingPluginWire.multiProxyVote("Player", UUID.randomUUID().toString(), "Service",
+				100L, false, true, "totals", UUID.randomUUID(), false, false, 1, 1, "Primary");
+
+		assertTrue(VotingPluginWire.readVote(current).delayValidated);
+		assertTrue(VotingPluginWire.readVote(current).delayValidationKnown);
+		assertFalse(VotingPluginWire.readVote(legacy).delayValidationKnown);
 	}
 
 	@Test
@@ -66,7 +90,8 @@ public class VotingPluginWireTest {
 	@Test
 	public void voteDelayRejectedRoundTripPreservesContext() {
 		String uuid = UUID.randomUUID().toString();
-		JsonEnvelope envelope = VotingPluginWire.voteDelayRejected("Player", uuid, "Service", true);
+		UUID voteId = UUID.randomUUID();
+		JsonEnvelope envelope = VotingPluginWire.voteDelayRejected("Player", uuid, "Service", true, voteId);
 
 		VoteDelayRejected rejected = VotingPluginWire.readVoteDelayRejected(envelope);
 
@@ -75,6 +100,23 @@ public class VotingPluginWireTest {
 		assertEquals(uuid, rejected.uuid);
 		assertEquals("Service", rejected.service);
 		assertEquals(true, rejected.wasOnline);
+		assertEquals(voteId, rejected.voteId);
+	}
+
+	@Test
+	public void statusAdvertisesDelayRejectionAcknowledgementsSeparately() {
+		JsonEnvelope status = VotingPluginWire.statusOkay("survival");
+
+		assertTrue(VotingPluginWire.advertisesVoteDeliveryAcknowledgement(status));
+		assertTrue(VotingPluginWire.advertisesVoteDelayRejectionAcknowledgement(status));
+	}
+
+	@Test
+	public void legacyVoteDelayRejectedAllowsMissingVoteId() {
+		VoteDelayRejected rejected = VotingPluginWire.readVoteDelayRejected(
+				VotingPluginWire.voteDelayRejected("Player", UUID.randomUUID().toString(), "Service", true));
+
+		assertNull(rejected.voteId);
 	}
 
 	@Test

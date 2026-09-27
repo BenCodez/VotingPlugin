@@ -14,6 +14,7 @@ import com.bencodez.simpleapi.servercomm.global.GlobalMessageHandler;
 import com.bencodez.simpleapi.servercomm.global.GlobalMessageListener;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.backendproxy.cache.ProcessedVoteCache;
+import com.bencodez.votingplugin.backendproxy.cache.ProcessedVoteCache.Reservation;
 import com.bencodez.votingplugin.backendproxy.global.BackendGlobalDataSync;
 import com.bencodez.votingplugin.backendproxy.presence.BackendPresenceManager;
 import com.bencodez.votingplugin.backendproxy.voteparty.BackendVotePartySync;
@@ -35,6 +36,7 @@ public class BackendProxyMessageRouter {
 	private final BackendGlobalDataSync globalDataSync;
 	private final BackendVotePartySync votePartySync;
 	private final ProcessedVoteCache processedVoteCache;
+	private final AtomicBoolean voteReplayCacheSaturationLogged = new AtomicBoolean();
 	private GlobalMessageHandler messages;
 
 	public BackendProxyMessageRouter(VotingPluginMain plugin, BackendPresenceManager presenceManager,
@@ -89,6 +91,8 @@ public class BackendProxyMessageRouter {
 				out.put(VotingPluginWire.K_SERVER, nvl(plugin.getOptions().getServer()));
 				out.put(VotingPluginWire.K_VOTE_DELIVERY_ACK_VERSION,
 						VotingPluginWire.VOTE_DELIVERY_ACK_VERSION);
+				out.put(VotingPluginWire.K_VOTE_DELAY_REJECTION_ACK_VERSION,
+						VotingPluginWire.VOTE_DELAY_REJECTION_ACK_VERSION);
 				String requestId = nvl(msg.getFields().get(VotingPluginWire.K_REQUEST_ID));
 				if (!requestId.isEmpty()) out.put(VotingPluginWire.K_REQUEST_ID, requestId);
 				sendSubChannel(messages, VotingPluginWire.SUB_STATUS_OKAY, out);
@@ -134,9 +138,38 @@ public class BackendProxyMessageRouter {
 			handleVoteUpdateWithOutcome(msg, completion);
 			return;
 		}
+		if (VotingPluginWire.SUB_VOTE_DELAY_REJECTED.equals(subChannel)) {
+			try {
+				WireVoteResult result = handleWireVoteDelayRejected(msg);
+				if (result != null && result.retryable()) {
+					completion.accept(OrderedVoteOutcome.RETRY);
+					return;
+				}
+				if (VotingPluginWire.requestsVoteDeliveryAcknowledgement(msg)
+						&& (result == null || !result.effectsComplete())) {
+					completion.accept(OrderedVoteOutcome.QUARANTINE);
+					return;
+				}
+				UUID completedVoteId = result == null ? null : result.voteId();
+				if (VotingPluginWire.requestsVoteDeliveryAcknowledgement(msg)
+						&& completedVoteId != null && !processedVoteCache.complete(completedVoteId)) {
+					completion.accept(OrderedVoteOutcome.RETRY);
+					return;
+				}
+			} catch (RuntimeException | Error failure) {
+				completion.accept(OrderedVoteOutcome.QUARANTINE);
+				throw failure;
+			}
+			completion.accept(OrderedVoteOutcome.COMPLETE);
+			return;
+		}
 		if (VotingPluginWire.SUB_VOTE.equals(subChannel) || VotingPluginWire.SUB_VOTE_ONLINE.equals(subChannel)) {
 			try {
 				WireVoteResult result = handleWireVote(msg);
+				if (result != null && result.retryable()) {
+					completion.accept(OrderedVoteOutcome.RETRY);
+					return;
+				}
 				if (VotingPluginWire.requestsVoteDeliveryAcknowledgement(msg)
 						&& (result == null || !result.effectsComplete())) {
 					completion.accept(OrderedVoteOutcome.QUARANTINE);
@@ -345,16 +378,22 @@ public class BackendProxyMessageRouter {
 		boolean online = fields.containsKey(VotingPluginWire.K_WAS_ONLINE)
 				? Boolean.parseBoolean(fields.get(VotingPluginWire.K_WAS_ONLINE)) : user.isOnline();
 		plugin.getBroadcastHandler().broadcastVote(user.getJavaUUID(), user.getPlayerName(),
-				voteSite.getDisplayName(), online, totals);
+				voteSite.getDisplayNameForFormatting(), online, totals);
 	}
 
-	private void handleWireVoteDelayRejected(JsonEnvelope msg) {
-		if (!validSchema(msg) || !plugin.getOptions().isProcessRewards()) {
-			return;
-		}
+	private WireVoteResult handleWireVoteDelayRejected(JsonEnvelope msg) {
+		if (!validSchema(msg)) return null;
 		VotingPluginWire.VoteDelayRejected rejected = VotingPluginWire.readVoteDelayRejected(msg);
+		boolean reliable = VotingPluginWire.requestsVoteDeliveryAcknowledgement(msg);
+		if (reliable && rejected.voteId == null) {
+			plugin.getLogger().warning("Rejected VoteDelayRejected without a valid vote ID from a capable proxy");
+			return null;
+		}
+		if (!plugin.getOptions().isProcessRewards()) {
+			return new WireVoteResult(rejected.voteId, true);
+		}
 		if (rejected.uuid.isEmpty() || rejected.service.isEmpty()) {
-			return;
+			return new WireVoteResult(rejected.voteId, true);
 		}
 		UUID javaUuid;
 		try {
@@ -362,19 +401,35 @@ public class BackendProxyMessageRouter {
 		} catch (IllegalArgumentException e) {
 			plugin.getLogger().warning("Invalid UUID in VoteDelayRejected: "
 					+ ServiceSiteValidator.sanitizeForLog(rejected.uuid));
-			return;
+			return new WireVoteResult(rejected.voteId, true);
 		}
 		VoteSite voteSite = plugin.getVoteSiteManager()
 				.getVoteSite(plugin.getVoteSiteManager().getVoteSiteName(true, rejected.service), true);
 		if (voteSite == null) {
 			plugin.getLogger().warning("No voting site with the service site: '"
 					+ ServiceSiteValidator.sanitizeForLog(rejected.service) + "'");
-			return;
+			return new WireVoteResult(rejected.voteId, true);
+		}
+		if (!voteSite.isEnabled() || !voteSite.isWaitUntilVoteDelay()) {
+			return new WireVoteResult(rejected.voteId, true);
 		}
 		VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(javaUuid, rejected.player);
 		user.cache();
 		user.updateName(true);
+		if (reliable && user.canVoteSite(voteSite)) {
+			return new WireVoteResult(rejected.voteId, true);
+		}
+		if (rejected.voteId != null) {
+			Reservation reservation = processedVoteCache.reserveWithOutcome(rejected.voteId);
+			if (reservation == Reservation.SATURATED) {
+				return new WireVoteResult(rejected.voteId, false, true);
+			}
+			if (reservation == Reservation.DUPLICATE) {
+				return new WireVoteResult(rejected.voteId, processedVoteCache.hasCompletedEffects(rejected.voteId));
+			}
+		}
 		voteSite.giveWaitUntilVoteDelayRewards(user, rejected.wasOnline && user.isOnline(), true);
+		return new WireVoteResult(rejected.voteId, true);
 	}
 
 	private WireVoteResult handleWireVote(JsonEnvelope msg) {
@@ -397,37 +452,49 @@ public class BackendProxyMessageRouter {
 		VoteTotalsSnapshot totals = VoteTotalsSnapshot.parseStorage(vote.totals == null ? "" : vote.totals);
 		@SuppressWarnings("deprecation")
 		UUID voteId = vote.voteId != null ? vote.voteId : totals.getVoteUUID();
-		if (!processedVoteCache.reserve(voteId)) {
+		Reservation reservation = processedVoteCache.reserveWithOutcome(voteId);
+		if (reservation == Reservation.SATURATED) {
+			if (voteReplayCacheSaturationLogged.compareAndSet(false, true)) {
+				plugin.getLogger().warning("Backend vote replay cache is full; retaining votes for retry");
+			}
+			return new WireVoteResult(voteId, false, true);
+		}
+		if (reservation == Reservation.DUPLICATE) {
 			plugin.debug("Ignoring duplicate wire vote " + voteId + " for "
 					+ ServiceSiteValidator.sanitizeForLog(vote.player) + " on "
 					+ ServiceSiteValidator.sanitizeForLog(vote.service));
-			return new WireVoteResult(voteId, processedVoteCache.hasCompletedEffects(voteId));
+			return new WireVoteResult(voteId, processedVoteCache.hasCompletedEffects(voteId), false);
 		}
+		voteReplayCacheSaturationLogged.set(false);
 
 		UUID javaUuid;
 		try {
 			javaUuid = UUID.fromString(vote.uuid);
 		} catch (IllegalArgumentException e) {
+			processedVoteCache.cancelReservation(voteId);
 			plugin.getLogger().warning("Invalid UUID in proxy vote: "
 					+ ServiceSiteValidator.sanitizeForLog(vote.uuid));
-			return new WireVoteResult(voteId, false);
+			return new WireVoteResult(voteId, false, false);
 		}
 		VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(javaUuid, vote.player);
 		votePartySync.replace(totals.getVotePartyCurrent(), totals.getVotePartyRequired());
 		user.cache();
 		boolean wasOnline = vote.wasOnlineKnown ? vote.wasOnline : user.isOnline();
 		user.bungeeVotePluginMessaging(vote.service, vote.time, totals, !vote.manageTotals,
-				wasOnline, vote.broadcast, vote.num);
+				wasOnline, vote.broadcast, vote.num, vote.delayValidated, vote.delayValidationKnown, voteId);
 		if (plugin.getBungeeSettings().isPerServerPoints()) {
 			user.addPoints(plugin.getConfigFile().getPointsOnVote());
 		}
 		if (vote.service != null && !vote.service.isEmpty()) {
 			plugin.getServerData().addServiceSite(vote.service);
 		}
-		return new WireVoteResult(voteId, true);
+		return new WireVoteResult(voteId, true, false);
 	}
 
-	private record WireVoteResult(UUID voteId, boolean effectsComplete) {
+	private record WireVoteResult(UUID voteId, boolean effectsComplete, boolean retryable) {
+		private WireVoteResult(UUID voteId, boolean effectsComplete) {
+			this(voteId, effectsComplete, false);
+		}
 	}
 
 	private boolean validSchema(JsonEnvelope msg) {
@@ -464,7 +531,8 @@ public class BackendProxyMessageRouter {
 		if (!plugin.getOptions().getServer().equalsIgnoreCase(server)) return null;
 		String subChannel = nvl(msg.getFields().get(VotingPluginWire.K_VOTE_DELIVERY_SUBCHANNEL));
 		if (!VotingPluginWire.SUB_VOTE.equals(subChannel)
-				&& !VotingPluginWire.SUB_VOTE_ONLINE.equals(subChannel)) return null;
+				&& !VotingPluginWire.SUB_VOTE_ONLINE.equals(subChannel)
+				&& !VotingPluginWire.SUB_VOTE_DELAY_REJECTED.equals(subChannel)) return null;
 		try {
 			return UUID.fromString(nvl(msg.getFields().get(VotingPluginWire.K_VOTE_ID)));
 		} catch (IllegalArgumentException invalidVoteId) {

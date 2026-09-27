@@ -95,7 +95,7 @@ public class PlayerVoteListener implements Listener {
         }
         @Override public boolean siteEnabled(VoteSite site) { return site.isEnabled(); }
         @Override public String siteKey(VoteSite site) { return site.getKey(); }
-        @Override public String siteDisplayName(VoteSite site) { return site.getDisplayName(); }
+        @Override public String siteDisplayName(VoteSite site) { return site.getDisplayNameForFormatting(); }
         @Override public VotingPluginUser resolveUser(String name) {
             if (event.getVotingPluginUser() != null) return event.getVotingPluginUser();
             Player player = Bukkit.getPlayerExact(name);
@@ -126,7 +126,9 @@ public class PlayerVoteListener implements Listener {
             plugin.getBroadcastHandler().broadcastVote(uuid, name, siteDisplayName, online);
         }
         @Override public boolean hasProxyTextTotals() { return event.getBungeeTextTotals() != null; }
-        @Override public UUID proxyVoteId() { return event.getBungeeTextTotals().getVoteUUID(); }
+        @Override public UUID proxyVoteId() { return resolveProxyVoteId(event); }
+        @Override public boolean identifiedQueuedProxyVote() { return event.isQueuedProxyVote(); }
+        @Override public boolean proxyDelayValidationKnown() { return event.isProxyDelayValidationKnown(); }
         @Override public void cache(VotingPluginUser user) { user.cache(); }
         @Override public void updateName(VotingPluginUser user) { user.updateName(true); }
         @Override public void voteParty(VotingPluginUser user, boolean realVote, boolean forceProxyRouting,
@@ -183,5 +185,11 @@ public class PlayerVoteListener implements Listener {
         @Override public void updatePlaceholders(VotingPluginUser user) { plugin.getPlaceholders().onUpdate(user, true); }
         @Override public void clearCache(VotingPluginUser user) { user.clearCache(); }
         @Override public void setUpdate() { plugin.setUpdate(true); }
+    }
+
+    @SuppressWarnings("deprecation")
+    static UUID resolveProxyVoteId(PlayerVoteEvent event) {
+        if (event.getProxyVoteId() != null) return event.getProxyVoteId();
+        return event.getBungeeTextTotals() == null ? null : event.getBungeeTextTotals().getVoteUUID();
     }
 }

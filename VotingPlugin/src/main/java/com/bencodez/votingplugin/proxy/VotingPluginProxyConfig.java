@@ -10,6 +10,10 @@ import java.util.Map;
  * Configuration interface for proxy server integration.
  */
 public interface VotingPluginProxyConfig {
+	/** Authentication policy for Redis, MQTT, and multi-proxy Redis envelopes. */
+	default String getSharedTransportAuthentication() {
+		return "COMPATIBILITY";
+	}
 	/** Atomically persists the small non-secret configuration domain exposed by Control. */
 	default void persistControlProxyRouting(boolean sendVotesToAllServers, List<String> blockedServers)
 			throws IOException {
@@ -269,6 +273,11 @@ public interface VotingPluginProxyConfig {
 	 * @return true if plugin message encryption is enabled
 	 */
 	public boolean getPluginMessageEncryption();
+
+	/** Encrypts complete VotingPlugin communication envelopes for every proxy method. */
+	default boolean getCommunicationEncryption() {
+		return false;
+	}
 
 	/**
 	 * Gets whether debug mode is enabled.

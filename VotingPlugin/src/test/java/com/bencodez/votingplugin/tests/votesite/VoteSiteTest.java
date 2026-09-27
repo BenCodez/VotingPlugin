@@ -15,6 +15,8 @@ import org.bukkit.configuration.MemoryConfiguration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import com.bencodez.advancedcore.api.rewards.RewardBuilder;
+import com.bencodez.advancedcore.api.rewards.RewardDisplayPlaceholders;
 import com.bencodez.simpleapi.time.ParsedDuration;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.config.Config;
@@ -63,6 +65,48 @@ public class VoteSiteTest {
 
 		ParsedDuration d = voteSite.getVoteDelay();
 		assertEquals(12L * 60L * 60L * 1000L, d.getMillis(), "VoteDelay millis should be 12h");
+	}
+
+	@Test
+	public void serviceSiteFormattingCannotJoinSurroundingColorCodes() {
+		VoteSite voteSite = new VoteSite(plugin, "site.test");
+
+		assertEquals("ServiceSite", voteSite.getServiceSiteForFormatting().replace("\u2060", ""));
+		assertTrue(("&" + voteSite.getServiceSiteForFormatting()).indexOf("&S") < 0);
+	}
+
+	@Test
+	public void rewardActionsReceiveTheExactValidatedServiceSite() throws Exception {
+		VoteSite voteSite = new VoteSite(plugin, "site.test");
+		java.lang.reflect.Method factory = VoteSite.class.getDeclaredMethod("createRewardBuilder", String.class,
+				boolean.class, boolean.class);
+		factory.setAccessible(true);
+
+		RewardBuilder builder = (RewardBuilder) factory.invoke(voteSite, "Rewards", true, false);
+
+		assertEquals("ServiceSite", builder.getRewardOptions().getPlaceholders().get("ServiceSite"));
+		assertEquals("ServiceSite", RewardDisplayPlaceholders
+				.forDisplay(builder.getRewardOptions().getPlaceholders()).get("ServiceSite").replace("\u2060", ""));
+	}
+
+	@Test
+	public void fallbackDisplayNameStaysRawForActionsAndGuardedForFormatting() throws Exception {
+		when(plugin.getConfigVoteSites().getDisplayName(anyString())).thenReturn("");
+		VoteSite voteSite = new VoteSite(plugin, "site.test");
+		java.lang.reflect.Method factory = VoteSite.class.getDeclaredMethod("createRewardBuilder", String.class,
+				boolean.class, boolean.class);
+		factory.setAccessible(true);
+		RewardBuilder builder = (RewardBuilder) factory.invoke(voteSite, "Rewards", true, false);
+
+		assertEquals("site_test", voteSite.getDisplayName());
+		assertEquals("site_test", builder.getRewardOptions().getPlaceholders().get("SiteName"));
+		assertEquals("site_test", voteSite.getDisplayNameForFormatting().replace("\u2060", ""));
+		assertTrue(voteSite.getDisplayNameForFormatting().startsWith("\u2060"));
+		assertEquals(voteSite.getDisplayNameForFormatting(), RewardDisplayPlaceholders
+				.forDisplay(builder.getRewardOptions().getPlaceholders()).get("SiteName"));
+
+		voteSite.setDisplayName("Configured %server_name%");
+		assertEquals("Configured %server_name%", voteSite.getDisplayNameForFormatting());
 	}
 
 	@Test

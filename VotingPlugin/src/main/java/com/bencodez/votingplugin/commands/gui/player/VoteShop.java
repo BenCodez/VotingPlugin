@@ -124,6 +124,10 @@ public class VoteShop extends GUIHandler {
 
 			@Override
 			public void onClick(ClickEvent event) {
+				if (!canPurchaseFromCategory(event.getPlayer(), category, item)) {
+					event.getPlayer().sendMessage(MessageAPI.colorize(plugin.getConfigFile().getFormatNoPerms()));
+					return;
+				}
 				VotingPluginUser clickedUser = getUser(event.getPlayer());
 				plugin.getVoteShopManager().getPurchaseService().refreshUserForPurchaseValidation(clickedUser,
 						item, plugin.getConfigFile().isExtraVoteShopCheck());
@@ -168,9 +172,9 @@ public class VoteShop extends GUIHandler {
 	 */
 	protected void addCategoryButton(BInventory inv, final Player player, final VotingPluginUser currentUser,
 			final VoteShopCategoryButton button) {
-		boolean hasPermission = plugin.getVoteShopManager().getPurchaseService().hasPermission(player,
-				button.getPermission());
-		if (!hasPermission && button.isHideOnNoPermission()) {
+		java.util.function.Predicate<String> permissionCheck = permission -> plugin.getVoteShopManager()
+				.getPurchaseService().hasPermission(player, permission);
+		if (!VoteShopCategoryAuthorization.mayDisplay(button, permissionCheck)) {
 			return;
 		}
 
@@ -185,6 +189,11 @@ public class VoteShop extends GUIHandler {
 
 			@Override
 			public void onClick(ClickEvent event) {
+				if (!VoteShopCategoryAuthorization.authorized(button, permission -> plugin.getVoteShopManager()
+						.getPurchaseService().hasPermission(event.getPlayer(), permission))) {
+					event.getPlayer().sendMessage(MessageAPI.colorize(plugin.getConfigFile().getFormatNoPerms()));
+					return;
+				}
 				new VoteShopCategoryMenu(plugin, event.getPlayer(), currentUser, category).open(GUIMethod.CHEST);
 			}
 		}.addData("identifier", button.getIdentifier()));
@@ -223,6 +232,10 @@ public class VoteShop extends GUIHandler {
 	 */
 	protected void handlePurchase(Player player, VotingPluginUser currentUser, VoteShopItem item,
 			VoteShopCategory category) {
+		if (!canPurchaseFromCategory(player, category, item)) {
+			player.sendMessage(MessageAPI.colorize(plugin.getConfigFile().getFormatNoPerms()));
+			return;
+		}
 		plugin.getVoteShopManager().purchase(player, currentUser, item, result -> {
 			if (result != VoteShopPurchaseResult.SUCCESS) {
 				plugin.getVoteShopManager().getPurchaseService().sendFailureMessage(player, currentUser, item, result);
@@ -238,6 +251,11 @@ public class VoteShop extends GUIHandler {
 				}
 			}
 		});
+	}
+
+	private boolean canPurchaseFromCategory(Player player, VoteShopCategory category, VoteShopItem item) {
+		return VoteShopCategoryAuthorization.canPurchase(plugin.getVoteShopManager().getDefinition(), category, item,
+				permission -> plugin.getVoteShopManager().getPurchaseService().hasPermission(player, permission));
 	}
 
 	/**
