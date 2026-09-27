@@ -15,9 +15,11 @@ public record NeoForgeDeferredVote(UUID voteId, UUID playerId, String playerName
         Objects.requireNonNull(siteKey, "siteKey");
     }
 
-    NeoForgeDeferredVote withPlayerName(String currentName) {
-        return playerName.equals(currentName) ? this : new NeoForgeDeferredVote(voteId, playerId,
-                Objects.requireNonNull(currentName, "currentName"), serviceSite, siteKey,
+    NeoForgeDeferredVote withReplayContext(String currentName, String configuredServiceSite) {
+        Objects.requireNonNull(currentName, "currentName");
+        Objects.requireNonNull(configuredServiceSite, "configuredServiceSite");
+        if (playerName.equals(currentName) && serviceSite.equals(configuredServiceSite)) return this;
+        return new NeoForgeDeferredVote(voteId, playerId, currentName, configuredServiceSite, siteKey,
                 voteTime, realVote, addTotals, wasOnline);
     }
 }

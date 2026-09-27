@@ -62,6 +62,49 @@ class NeoForgeRewardReplayServiceTest {
     }
 
     @Test
+    void replayUsesRetainedOnlineStateForOfflineAccountingPolicy() throws Exception {
+        writeConfiguration(false);
+        Files.writeString(directory.resolve("Config.yml"), Files.readString(directory.resolve("Config.yml"))
+                .replace("AddTotalsOffline: true", "AddTotalsOffline: false"));
+        UUID playerId = UUID.randomUUID();
+        RecordingActions actions = new RecordingActions();
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory);
+                NeoForgeRewardReplayService replay = service(runtime, actions)) {
+            retain(runtime, UUID.randomUUID(), playerId, "Service");
+            runtime.players().joined(new SharedVoteIdentity(playerId, "Alex", true));
+
+            assertEquals(NeoForgeRewardReplayService.Status.COMPLETED,
+                    runOne(runtime, replay, actions).status());
+            assertEquals(List.of("say Alex"), actions.rendered);
+            assertEquals(0, runtime.accounting().load(playerId).orElseThrow().allTimeTotal());
+        }
+    }
+
+    @Test
+    void replayUsesCurrentConfiguredServiceSiteForRewardPlaceholders() throws Exception {
+        writeConfiguration(false);
+        Files.writeString(directory.resolve("VoteSites.yml"), Files.readString(directory.resolve("VoteSites.yml"))
+                .replace("'say %player%'", "'say %ServiceSite%'"));
+        UUID playerId = UUID.randomUUID();
+        UUID voteId = UUID.randomUUID();
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            runtime.players().joined(new SharedVoteIdentity(playerId, "Alex", true));
+            retain(runtime, voteId, playerId, "Supported");
+        }
+        Files.writeString(directory.resolve("VoteSites.yml"), Files.readString(directory.resolve("VoteSites.yml"))
+                .replace("ServiceSite: Service", "ServiceSite: RenamedService"));
+        RecordingActions actions = new RecordingActions();
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory);
+                NeoForgeRewardReplayService replay = service(runtime, actions)) {
+            runtime.players().joined(new SharedVoteIdentity(playerId, "Alex", true));
+
+            assertEquals(NeoForgeRewardReplayService.Status.COMPLETED,
+                    runOne(runtime, replay, actions).status());
+            assertEquals(List.of("say RenamedService"), actions.rendered);
+        }
+    }
+
+    @Test
     void rewardKeysHonorConfiguredYamlCaseSensitivity() throws Exception {
         writeConfiguration(false);
         Files.writeString(directory.resolve("VoteSites.yml"), Files.readString(directory.resolve("VoteSites.yml"))

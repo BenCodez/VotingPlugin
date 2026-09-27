@@ -128,16 +128,17 @@ public final class NeoForgeRewardReplayService implements AutoCloseable {
     }
 
     private CompletableFuture<ReplayResult> replay(NeoForgeDeferredVote vote) {
-        NeoForgeDeferredVote effectiveVote = players.online(vote.playerId())
-                .map(identity -> vote.withPlayerName(identity.playerName())).orElse(vote);
-        if (!MinecraftUsernameValidator.isValid(effectiveVote.playerName(), configuration.bedrockPlayerPrefix())) {
+        var onlineIdentity = players.online(vote.playerId());
+        String currentName = onlineIdentity.map(identity -> identity.playerName()).orElse(vote.playerName());
+        if (!MinecraftUsernameValidator.isValid(currentName, configuration.bedrockPlayerPrefix())) {
             return CompletableFuture.completedFuture(delayed(vote, Status.BLOCKED_UNSUPPORTED,
                     "Retained player name is invalid and cannot be used in rewards", 60));
         }
         NeoForgeVoteSite site = configuration.configuredSite(vote.siteKey()).orElse(null);
         if (site == null) return CompletableFuture.completedFuture(
                 delayed(vote, Status.BLOCKED_UNSUPPORTED, "Configured vote site no longer exists", 60));
-        NeoForgeRewardPlan plan = rewards.plan(effectiveVote, site, players.online(vote.playerId()).isPresent());
+        NeoForgeDeferredVote effectiveVote = vote.withReplayContext(currentName, site.serviceSite());
+        NeoForgeRewardPlan plan = rewards.plan(effectiveVote, site, onlineIdentity.isPresent());
         if (plan.status() == NeoForgeRewardPlan.Status.BLOCKED_UNSUPPORTED) {
             return CompletableFuture.completedFuture(delayed(vote, Status.BLOCKED_UNSUPPORTED, plan.detail(), 60));
         }
@@ -179,7 +180,7 @@ public final class NeoForgeRewardReplayService implements AutoCloseable {
             try (claim) {
                 NeoForgeDeferredVoteStore.CompletionOutcome outcome =
                         claim.completeWithAccounting(accounting, site,
-                                players.online(vote.playerId()).isPresent(), vote.playerName());
+                                vote.wasOnline(), vote.playerName());
                 Status status = outcome.result() == NeoForgeDeferredVoteStore.CompletionResult.COMPLETED
                         || outcome.result() == NeoForgeDeferredVoteStore.CompletionResult.ALREADY_COMPLETED
                                 ? Status.COMPLETED : Status.NOT_CLAIMED;
