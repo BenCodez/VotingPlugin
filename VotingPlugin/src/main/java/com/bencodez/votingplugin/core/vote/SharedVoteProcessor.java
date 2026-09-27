@@ -156,10 +156,16 @@ public final class SharedVoteProcessor {
             return;
         }
         U user = ops.resolveUser(playerName);
+        boolean timestampMatchesRecordedVote = ops.proxyVote() && ops.incomingTime() > 0L
+                && ops.incomingTime() == ops.lastVoteTime(user, site);
         boolean recordedProxyVote = isIdentifiedQueuedProxyVote(
-                ops.proxyVote(), ops.identifiedQueuedProxyVote(), ops.proxyVoteId());
-        boolean legacyRecordedProxyVote = !recordedProxyVote && ops.proxyVote() && !ops.proxyDelayValidationKnown()
-                && ops.incomingTime() > 0L && ops.incomingTime() == ops.lastVoteTime(user, site);
+                ops.proxyVote(), ops.identifiedQueuedProxyVote(), ops.proxyVoteId())
+                && timestampMatchesRecordedVote;
+        // Only pre-stable-ID proxy messages may use the rolling-upgrade timestamp
+        // fallback. A modern vote with its own ID must never become authorized merely
+        // because another occurrence happens to share the same millisecond timestamp.
+        boolean legacyRecordedProxyVote = !recordedProxyVote && ops.proxyVote() && ops.proxyVoteId() == null
+                && !ops.proxyDelayValidationKnown() && timestampMatchesRecordedVote;
         recordedProxyVote |= legacyRecordedProxyVote;
         if (ops.waitUntilVoteDelay(site) && !recordedProxyVote && !ops.canVoteSite(user, site)) {
             if (!ops.realVote()) {
