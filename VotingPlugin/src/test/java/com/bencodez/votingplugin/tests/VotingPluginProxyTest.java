@@ -3,6 +3,7 @@ package com.bencodez.votingplugin.tests;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doNothing;
@@ -176,6 +177,28 @@ public class VotingPluginProxyTest {
 		verify(transport).send(Mockito.eq("Server1"), Mockito.eq("delivery-1"), persisted.capture());
 		assertEquals(semantic.getSubChannel(), persisted.getValue().getSubChannel());
 		assertEquals(semantic.getFields(), persisted.getValue().getFields());
+	}
+
+	@Test
+	void multiProxyHandlerKeepsItsAuthenticatorGenerationDuringReload() throws Exception {
+		var oldAuthenticator = com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.load(
+				temporaryDirectory.resolve("secretkey.key"),
+				com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.Mode.COMPATIBILITY);
+		setProxyField(votingPluginProxy, "sharedTransportAuthenticator", oldAuthenticator);
+		votingPluginProxy.loadMultiProxySupport();
+		MultiProxyHandler installed = votingPluginProxy.getMultiProxyHandler();
+
+		byte[] replacementKey = new byte[32];
+		java.util.Arrays.fill(replacementKey, (byte) 1);
+		java.nio.file.Files.writeString(temporaryDirectory.resolve("secretkey.key"),
+				java.util.Base64.getEncoder().encodeToString(replacementKey));
+		var replacementAuthenticator = com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.load(
+				temporaryDirectory.resolve("secretkey.key"),
+				com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.Mode.REQUIRED);
+		setProxyField(votingPluginProxy, "sharedTransportAuthenticator", replacementAuthenticator);
+
+		assertSame(oldAuthenticator, installed.getSharedTransportAuthenticator());
+		assertSame(replacementAuthenticator, getProxyField(votingPluginProxy, "sharedTransportAuthenticator"));
 	}
 
 	@Test

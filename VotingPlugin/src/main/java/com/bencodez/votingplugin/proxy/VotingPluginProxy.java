@@ -2499,6 +2499,12 @@ public abstract class VotingPluginProxy {
 		if (multiProxyHandler != null) {
 			multiProxyHandler.close();
 		}
+		// A handler owns one transport-security generation. In particular, callbacks
+		// retained by a reused Redis connection must not start verifying with a newly
+		// installed authenticator while they still decrypt with this handler's old
+		// encryption policy during a soft reload.
+		SharedTransportEnvelopeAuthenticator multiProxyAuthenticator = getConfig().getMultiProxySupport()
+				? sharedTransportAuthenticator() : sharedTransportAuthenticator;
 		multiProxyHandler = new MultiProxyHandler() {
 
 			@Override
@@ -2624,7 +2630,7 @@ public abstract class VotingPluginProxy {
 
 			@Override
 			public SharedTransportEnvelopeAuthenticator getSharedTransportAuthenticator() {
-				return sharedTransportAuthenticator();
+				return multiProxyAuthenticator;
 			}
 
 			@Override
