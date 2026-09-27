@@ -91,6 +91,10 @@ public class PlayerVoteEvent extends Event {
 
 	@Getter
 	@Setter
+	private boolean targetedProxyVote;
+
+	@Getter
+	@Setter
 	private boolean broadcast = true;
 
 	@Getter

@@ -116,6 +116,7 @@ public class PlayerVoteListener implements Listener {
             site.giveWaitUntilVoteDelayRewards(user, online, proxyVote);
         }
         @Override public boolean proxyVote() { return event.isBungee(); }
+		@Override public boolean targetedProxyVote() { return event.isTargetedProxyVote(); }
         @Override public boolean forceProxyRouting() { return event.isForceBungee(); }
         @Override public boolean wasOnline() { return event.isWasOnline(); }
         @Override public boolean realVote() { return event.isRealVote(); }
