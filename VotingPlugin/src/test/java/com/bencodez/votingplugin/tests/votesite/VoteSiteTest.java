@@ -66,6 +66,14 @@ public class VoteSiteTest {
 	}
 
 	@Test
+	public void serviceSiteFormattingCannotJoinSurroundingColorCodes() {
+		VoteSite voteSite = new VoteSite(plugin, "site.test");
+
+		assertEquals("ServiceSite", voteSite.getServiceSiteForFormatting().replace("\u2060", ""));
+		assertTrue(("&" + voteSite.getServiceSiteForFormatting()).indexOf("&S") < 0);
+	}
+
+	@Test
 	public void testGetVoteURLJson() {
 		VoteSite voteSite = new VoteSite(plugin, "site.test");
 		String url = voteSite.getVoteURL(true);

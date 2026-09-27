@@ -12,6 +12,7 @@ import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.simpleapi.time.ParsedDuration;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.util.ServiceSiteValidator;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -127,12 +128,12 @@ public class VoteSite {
 
 	public void giveRewards(VotingPluginUser user, boolean online, boolean bungee) {
 		new RewardBuilder(plugin.getConfigVoteSites().getData(), plugin.getConfigVoteSites().getEverySiteRewardPath())
-				.setOnline(online).withPlaceHolder("ServiceSite", getServiceSite())
+				.setOnline(online).withPlaceHolder("ServiceSite", getServiceSiteForFormatting())
 				.withPlaceHolder("SiteName", getDisplayName()).withPlaceHolder("VoteDelay", "" + getVoteDelay())
 				.withPlaceHolder("VoteURL", getVoteURL()).setServer(bungee).send(user);
 
 		new RewardBuilder(plugin.getConfigVoteSites().getData(), plugin.getConfigVoteSites().getRewardsPath(key))
-				.setOnline(online).withPlaceHolder("ServiceSite", getServiceSite())
+				.setOnline(online).withPlaceHolder("ServiceSite", getServiceSiteForFormatting())
 				.withPlaceHolder("SiteName", getDisplayName()).withPlaceHolder("VoteDelay", "" + getVoteDelay())
 				.withPlaceHolder("VoteURL", getVoteURL()).setServer(bungee).send(user);
 
@@ -148,7 +149,7 @@ public class VoteSite {
 	public void giveWaitUntilVoteDelayRewards(VotingPluginUser user, boolean online, boolean bungee) {
 		new RewardBuilder(plugin.getConfigVoteSites().getData(),
 				plugin.getConfigVoteSites().getWaitUntilVoteDelayRewardsPath(key)).setOnline(online)
-						.withPlaceHolder("ServiceSite", getServiceSite())
+						.withPlaceHolder("ServiceSite", getServiceSiteForFormatting())
 						.withPlaceHolder("SiteName", getDisplayName())
 						.withPlaceHolder("VoteDelay", "" + getVoteDelay())
 						.withPlaceHolder("VoteURL", getVoteURL()).setServer(bungee).send(user);
@@ -157,6 +158,11 @@ public class VoteSite {
 	public boolean hasRewards() {
 		return plugin.getRewardHandler().hasRewards(plugin.getConfigVoteSites().getData(),
 				plugin.getConfigVoteSites().getRewardsPath(key));
+	}
+
+	/** Returns the configured service identifier guarded for trusted templates. */
+	public String getServiceSiteForFormatting() {
+		return ServiceSiteValidator.inertForFormatting(getServiceSite());
 	}
 
 	/**
@@ -170,7 +176,7 @@ public class VoteSite {
 		setPriority(plugin.getConfigVoteSites().getPriority(key));
 		displayName = plugin.getConfigVoteSites().getDisplayName(key);
 		if (displayName == null || displayName.equals("")) {
-			displayName = key;
+			displayName = ServiceSiteValidator.inertForFormatting(key);
 		}
 		item = plugin.getConfigVoteSites().getItem(key);
 		voteDelayDaily = plugin.getConfigVoteSites().getVoteSiteResetVoteDelayDaily(key);

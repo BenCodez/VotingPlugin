@@ -1,5 +1,6 @@
 package com.bencodez.votingplugin.tests;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -31,6 +32,15 @@ class ServiceSiteValidatorTest {
 				"\u00A7kSpoofed", "\u00A7aGreen" }) {
 			assertFalse(ServiceSiteValidator.isValid(serviceSite), serviceSite);
 		}
+	}
+
+	@Test
+	void formattingGuardPreventsTokensAcrossTemplateBoundaries() {
+		String guarded = ServiceSiteValidator.inertForFormatting("kSpoofed&");
+
+		assertFalse(("&" + guarded + "a").contains("&k"));
+		assertFalse(("%" + guarded + "player_name%").contains("%kSpoofed&player_name%"));
+		assertEquals("kSpoofed&", guarded.replace("\u2060", ""));
 	}
 
 	@Test

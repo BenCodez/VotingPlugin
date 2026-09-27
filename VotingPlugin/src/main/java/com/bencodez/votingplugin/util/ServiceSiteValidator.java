@@ -7,6 +7,7 @@ public final class ServiceSiteValidator {
 	/** Maximum accepted UTF-16 length for a service-site identifier. */
 	public static final int MAX_LENGTH = 2048;
 	private static final int MAX_LOG_LENGTH = 128;
+	private static final String FORMATTING_BOUNDARY = "\u2060";
 
 	private ServiceSiteValidator() {
 	}
@@ -79,6 +80,16 @@ public final class ServiceSiteValidator {
 			sanitized.append("...");
 		}
 		return sanitized.toString();
+	}
+
+	/**
+	 * Keeps a validated external identifier visually unchanged while preventing a
+	 * surrounding trusted template from completing a formatting token across a
+	 * substitution boundary.
+	 */
+	public static String inertForFormatting(String value) {
+		if (value == null || value.isEmpty()) return value == null ? "" : value;
+		return FORMATTING_BOUNDARY + value + FORMATTING_BOUNDARY;
 	}
 
 	private static boolean isDisallowed(int codePoint) {

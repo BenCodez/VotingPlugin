@@ -152,8 +152,8 @@ public class VoteURL extends GUIHandler {
 
 			dialog.placeholder("sitename", voteSite.getDisplayName())
 					.placeholder("SiteName", voteSite.getDisplayName())
-					.placeholder("servicesite", voteSite.getServiceSite())
-					.placeholder("ServiceSite", voteSite.getServiceSite())
+					.placeholder("servicesite", voteSite.getServiceSiteForFormatting())
+					.placeholder("ServiceSite", voteSite.getServiceSiteForFormatting())
 					.placeholder("VoteDelay", "" + voteSite.getVoteDelay())
 					.placeholder("VoteHour", "" + voteSite.getVoteDelayDailyHour())
 					.placeholder("Next", finalUser.voteCommandNextInfo(voteSite))
@@ -168,7 +168,7 @@ public class VoteURL extends GUIHandler {
 									placeholders.put("voteurl", voteSite.getVoteURL());
 									placeholders.put("sitename", voteSite.getDisplayName());
 									placeholders.put("player", clicked.getName());
-									placeholders.put("servicesite", voteSite.getServiceSite());
+									placeholders.put("servicesite", voteSite.getServiceSiteForFormatting());
 									placeholders.put("VoteDelay", "" + voteSite.getVoteDelay());
 									placeholders.put("VoteHour", "" + voteSite.getVoteDelayDailyHour());
 									clickedUser.sendMessage(plugin.getGui().getChestVoteURLURLText(), placeholders);
@@ -344,7 +344,7 @@ public class VoteURL extends GUIHandler {
 								placeholders.put("voteurl", voteSite.getVoteURL());
 								placeholders.put("sitename", voteSite.getDisplayName());
 								placeholders.put("player", player.getName());
-								placeholders.put("servicesite", voteSite.getServiceSite());
+								placeholders.put("servicesite", voteSite.getServiceSiteForFormatting());
 								placeholders.put("VoteDelay", "" + voteSite.getVoteDelay());
 								placeholders.put("VoteHour", "" + voteSite.getVoteDelayDailyHour());
 								user.sendMessage(plugin.getGui().getChestVoteURLURLText(), placeholders);
