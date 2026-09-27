@@ -330,7 +330,9 @@ class MultiProxyHandlerLifecycleTest {
 		JsonEnvelope clear = VotingPluginWire.clearVotePrimary("player-uuid", "Player", "Proxy1");
 
 		handler.acceptRedisEnvelope(clear, prefixed);
+		now.addAndGet(java.util.concurrent.TimeUnit.SECONDS.toNanos(3));
 		handler.acceptRedisEnvelope(clear, legacy);
+		verify(handler).clearVote("player-uuid");
 		now.addAndGet(java.util.concurrent.TimeUnit.SECONDS.toNanos(3));
 		handler.acceptRedisEnvelope(clear, legacy);
 		verify(handler, org.mockito.Mockito.times(2)).clearVote("player-uuid");
@@ -339,6 +341,9 @@ class MultiProxyHandlerLifecycleTest {
 			handler.acceptRedisEnvelope(VotingPluginWire.clearVotePrimary("player-" + index, "Player", "Proxy1"),
 					prefixed);
 		}
+		verify(handler, org.mockito.Mockito.never()).clearVote("player-1099");
+		handler.acceptRedisEnvelope(clear, prefixed);
+		verify(handler, org.mockito.Mockito.times(2)).clearVote("player-uuid");
 		java.lang.reflect.Field entries = MultiProxyHandler.class.getDeclaredField("unsignedBridgeCopies");
 		entries.setAccessible(true);
 		assertTrue(((Map<?, ?>) entries.get(handler)).size() <= 1024);
