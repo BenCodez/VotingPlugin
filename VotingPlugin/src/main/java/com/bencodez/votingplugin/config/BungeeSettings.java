@@ -22,9 +22,8 @@ public class BungeeSettings extends YMLFile {
 	@Getter
 	private boolean bungeeDebug = false;
 
-	@ConfigDataString(path = "BungeeMethod")
-	@Getter
-	private String bungeeMethod = "PLUGINMESSAGING";
+	@ConfigDataString(path = "ProxyCommunicationMethod")
+	private String proxyCommunicationMethod = "PLUGINMESSAGING";
 
 	@ConfigDataString(path = "Redis.Host")
 	@Getter
@@ -174,9 +173,26 @@ public class BungeeSettings extends YMLFile {
 		return getData().getBoolean("PluginMessageEncryption", false);
 	}
 
+	/** Gets the configured proxy communication method. */
+	public String getProxyCommunicationMethod() {
+		return proxyCommunicationMethod;
+	}
+
+	/**
+	 * Legacy accessor retained for binary/source compatibility with integrations that
+	 * still use the old BungeeMethod terminology.
+	 */
+	@Deprecated
+	public String getBungeeMethod() {
+		return getProxyCommunicationMethod();
+	}
+
 	@Override
 	public void loadValues() {
 		new AnnotationHandler().load(getData(), this);
+		if (!getData().contains("ProxyCommunicationMethod") && getData().contains("BungeeMethod")) {
+			proxyCommunicationMethod = getData().getString("BungeeMethod", "PLUGINMESSAGING");
+		}
 	}
 
 	@Override
