@@ -6268,7 +6268,7 @@ public abstract class VotingPluginProxy {
 					debug("Sending global proxy vote envelope");
 					if (!beginMultiProxyForwarding(retryState,
 							queuedVote == null ? retryState.queuedVote : queuedVote, player, uuid, service, time, realVote,
-							text, authoritativeDelayValidated, managesTotals || carriedDelayValidationKnown)) {
+							text, authoritativeDelayValidated, authoritativeDelayValidationKnown)) {
 						return QueuedVoteResult.RETRY;
 					}
 				} else {
@@ -6285,7 +6285,7 @@ public abstract class VotingPluginProxy {
 						debug("Sending global proxy voteonline envelope");
 						if (!beginMultiProxyForwarding(retryState,
 								queuedVote == null ? retryState.queuedVote : queuedVote, player, uuid, service, time, realVote,
-								text, authoritativeDelayValidated, managesTotals || carriedDelayValidationKnown)) {
+								text, authoritativeDelayValidated, authoritativeDelayValidationKnown)) {
 							return QueuedVoteResult.RETRY;
 						}
 					} else {
@@ -6354,8 +6354,10 @@ public abstract class VotingPluginProxy {
 	@SuppressWarnings("unused")
 	private boolean beginMultiProxyForwarding(LiveVoteRetryState retryState, VoteTimeQueue queuedVote, String player,
 			String uuid, String service, long time, boolean realVote, VoteTotalsSnapshot totals) {
+		boolean delayValidationKnown = getConfig().getBungeeManageTotals()
+				&& !getWaitUntilDelaySiteFromService(service).isEmpty();
 		return beginMultiProxyForwarding(retryState, queuedVote, player, uuid, service, time, realVote, totals,
-				getConfig().getBungeeManageTotals(), getConfig().getBungeeManageTotals());
+				delayValidationKnown, delayValidationKnown);
 	}
 
 	/**
