@@ -204,8 +204,15 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 	}
 
 	@Override
+	public String getProxyCommunicationMethod() {
+		String configured = getData().getString("ProxyCommunicationMethod", null);
+		return configured != null ? configured : getData().getString("BungeeMethod", "SOCKETS");
+	}
+
+	@Override
+	@Deprecated
 	public String getBungeeMethod() {
-		return getData().getString("BungeeMethod", "SOCKETS");
+		return getProxyCommunicationMethod();
 	}
 
 	@Override
@@ -628,7 +635,7 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 			byte[] sourceSnapshot = Files.readAllBytes(target);
 			Configuration latest = ConfigurationProvider.getProvider(YamlConfiguration.class).load(target.toFile());
 			ProxyMethodConfiguration current = new ProxyMethodConfiguration(
-					BungeeMethod.getByName(latest.getString("BungeeMethod", "SOCKETS")));
+					BungeeMethod.getByName(latest.getString("ProxyCommunicationMethod", latest.getString("BungeeMethod", "SOCKETS"))));
 			if (!java.util.Arrays.equals(sourceSnapshot, Files.readAllBytes(target))
 					|| !current.revision().equals(expectedRevision)) throw new StaleControlRevisionException();
 			BungeeConfig fresh = new BungeeConfig(bungee);
