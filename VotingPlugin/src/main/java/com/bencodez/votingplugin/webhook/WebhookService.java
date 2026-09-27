@@ -11,6 +11,7 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Asynchronous webhook dispatcher.
@@ -30,10 +31,14 @@ import java.util.concurrent.TimeUnit;
  */
 public final class WebhookService {
 
+	private static final int QUEUE_CAPACITY = 1024;
+
 	private final WebhookLogger logger;
 
 	private final Map<String, WebhookDefinition> definitions = new ConcurrentHashMap<>();
-	private final LinkedBlockingQueue<WebhookRequest> queue = new LinkedBlockingQueue<>();
+	private final LinkedBlockingQueue<WebhookRequest> queue;
+	private final Delay delay;
+	private final AtomicBoolean queueFullWarningLogged = new AtomicBoolean();
 
 	private volatile boolean running;
 	private Thread worker;
@@ -44,7 +49,16 @@ public final class WebhookService {
 	 * @param logger logger implementation
 	 */
 	public WebhookService(WebhookLogger logger) {
+		this(logger, QUEUE_CAPACITY, Thread::sleep);
+	}
+
+	WebhookService(WebhookLogger logger, int queueCapacity, Delay delay) {
 		this.logger = Objects.requireNonNull(logger, "logger");
+		if (queueCapacity <= 0) {
+			throw new IllegalArgumentException("queueCapacity must be positive");
+		}
+		this.queue = new LinkedBlockingQueue<>(queueCapacity);
+		this.delay = Objects.requireNonNull(delay, "delay");
 	}
 
 	/**
@@ -104,7 +118,9 @@ public final class WebhookService {
 			return;
 		}
 
-		queue.offer(request);
+		if (!queue.offer(request) && queueFullWarningLogged.compareAndSet(false, true)) {
+			logger.warn("[Webhooks] Queue is full; rejected request for " + def.getId());
+		}
 	}
 
 	private void runLoop() {
@@ -114,6 +130,7 @@ public final class WebhookService {
 				if (req == null) {
 					continue;
 				}
+				queueFullWarningLogged.set(false);
 
 				WebhookDefinition def = definitions.get(req.getDefinitionId());
 				if (def == null || !def.isEnabled()) {
@@ -147,18 +164,21 @@ public final class WebhookService {
 				}
 
 				// Discord 429 handling
+				if (attempts >= def.getRetryMaxAttempts()) {
+					logTerminalHttpFailure(def, code);
+					return;
+				}
+
 				if (code == 429 && def.isHandleDiscordRateLimits()) {
 					long waitMs = def.getLastRetryAfterMs();
 					if (waitMs > 0) {
-						Thread.sleep(waitMs);
+						delay.waitFor(waitMs);
 						continue;
 					}
 				}
 
-				if (!def.isRetryEnabled() || attempts >= def.getRetryMaxAttempts()) {
-					if (code != 429) {
-						logger.warn("[Webhooks] Non-success HTTP " + code + " for " + def.safeUrlForLog());
-					}
+				if (!def.isRetryEnabled()) {
+					logTerminalHttpFailure(def, code);
 					return;
 				}
 
@@ -171,11 +191,19 @@ public final class WebhookService {
 			}
 
 			if (def.isRetryEnabled()) {
-				Thread.sleep(backoffMs);
+				delay.waitFor(backoffMs);
 				backoffMs = Math.min(maxBackoffMs, Math.max(backoffMs + 250, backoffMs * 2));
 			} else {
 				return;
 			}
+		}
+	}
+
+	private void logTerminalHttpFailure(WebhookDefinition def, int code) {
+		if (code == 429) {
+			logger.warn("[Webhooks] Discord rate limit exhausted for " + def.safeUrlForLog());
+		} else {
+			logger.warn("[Webhooks] Non-success HTTP " + code + " for " + def.safeUrlForLog());
 		}
 	}
 
@@ -243,6 +271,11 @@ public final class WebhookService {
 		}
 
 		return code;
+	}
+
+	@FunctionalInterface
+	interface Delay {
+		void waitFor(long delayMs) throws InterruptedException;
 	}
 
 }

@@ -1155,7 +1155,9 @@ Webhooks:
       HandleDiscordRateLimits: true
       Retry:
         Enabled: true
+        # Includes the first HTTP attempt; allowed range is 1-10.
         MaxAttempts: 5
+        # Delays are milliseconds; allowed range is 0-60000.
         BackoffMs: 1500
         MaxBackoffMs: 15000
       Signature:
