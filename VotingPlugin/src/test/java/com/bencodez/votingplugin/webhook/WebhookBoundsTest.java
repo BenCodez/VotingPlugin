@@ -32,6 +32,24 @@ class WebhookBoundsTest {
 	}
 
 	@Test
+	void malformedRequestTargetDoesNotReachWorkerLog() throws Exception {
+		String secret = "never-log-this-token";
+		List<String> warnings = new CopyOnWriteArrayList<>();
+		WebhookService service = new WebhookService(warnings::add, 1, delayMs -> { });
+		try {
+			service.setDefinitions(Collections.singletonMap("hook",
+					definition("not a valid URL?token=" + secret)));
+			service.start();
+			service.submit(request());
+			awaitWarning(warnings, "Invalid request target");
+			assertTrue(warnings.stream().noneMatch(message -> message.contains(secret)));
+			assertTrue(warnings.stream().allMatch(message -> !message.contains("not a valid URL")));
+		} finally {
+			service.stop();
+		}
+	}
+
+	@Test
 	void rejectsAdmissionWhenTheBoundedQueueIsFull() throws Exception {
 		CountDownLatch firstRequestStarted = new CountDownLatch(1);
 		CountDownLatch releaseFirstRequest = new CountDownLatch(1);

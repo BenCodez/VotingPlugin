@@ -182,6 +182,11 @@ public final class WebhookService {
 					return;
 				}
 
+			} catch (IllegalArgumentException invalidRequest) {
+				// URI/HttpRequest validation messages can echo the complete configured
+				// target, including credentials. Invalid configuration is deterministic.
+				logger.warn("[Webhooks] Invalid request target " + def.safeUrlForLog());
+				return;
 			} catch (IOException e) {
 				if (!def.isRetryEnabled() || attempts >= def.getRetryMaxAttempts()) {
 					logger.warn("[Webhooks] Failed sending to " + def.safeUrlForLog() + " ("
