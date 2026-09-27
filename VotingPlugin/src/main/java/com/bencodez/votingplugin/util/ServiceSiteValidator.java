@@ -101,10 +101,34 @@ public final class ServiceSiteValidator {
 		for (int offset = 0; offset < value.length();) {
 			int codePoint = value.codePointAt(offset);
 			inert.appendCodePoint(codePoint);
-			if (codePoint == '%' || codePoint == '&') inert.append(FORMATTING_BOUNDARY);
+			if (codePoint == '%' && opensPlaceholderIn(value, offset)
+					|| codePoint == '&' && opensColorIn(value, offset)) inert.append(FORMATTING_BOUNDARY);
 			offset += Character.charCount(codePoint);
 		}
 		return inert.toString();
+	}
+
+	private static boolean opensPlaceholderIn(String value, int offset) {
+		int closing = value.indexOf('%', offset + 1);
+		if (closing <= offset + 1) return false;
+		return isPlaceholderFragment(value, offset + 1, closing);
+	}
+
+	private static boolean opensColorIn(String value, int offset) {
+		if (offset + 1 >= value.length()) return false;
+		char code = value.charAt(offset + 1);
+		if (isLegacyColorCode(code)) return true;
+		if (code != '#' || offset + 8 > value.length()) return false;
+		for (int index = offset + 2; index < offset + 8; index++) {
+			if (Character.digit(value.charAt(index), 16) < 0) return false;
+		}
+		return true;
+	}
+
+	private static boolean isLegacyColorCode(char code) {
+		char lower = Character.toLowerCase(code);
+		return lower >= '0' && lower <= '9' || lower >= 'a' && lower <= 'f'
+				|| lower >= 'k' && lower <= 'o' || lower == 'r' || lower == 'x';
 	}
 
 	/** Returns whether substitution occurs inside open placeholder/color syntax. */
@@ -137,11 +161,22 @@ public final class ServiceSiteValidator {
 	private static boolean opensActionTokenAt(String template, int offset) {
 		if (offset <= 0) return false;
 		if (opensColorTokenAt(template, offset)) return true;
-		boolean openPercent = false;
-		for (int index = 0; index < offset; index++) {
-			if (template.charAt(index) == '%') openPercent = !openPercent;
+		int opener = template.lastIndexOf('%', offset - 1);
+		if (opener < 0) return false;
+		if (opener + 1 < offset) return isPlaceholderFragment(template, opener + 1, offset);
+		int prior = template.lastIndexOf('%', opener - 1);
+		return prior < 0 || !isPlaceholderFragment(template, prior + 1, opener);
+	}
+
+	private static boolean isPlaceholderFragment(String value, int start, int end) {
+		if (start >= end) return false;
+		char first = value.charAt(start);
+		if (!Character.isLetter(first) && first != '_') return false;
+		for (int index = start + 1; index < end; index++) {
+			char character = value.charAt(index);
+			if (Character.isWhitespace(character) || character == '%') return false;
 		}
-		return openPercent;
+		return true;
 	}
 
 	private static boolean opensColorTokenAt(String template, int offset) {

@@ -58,6 +58,15 @@ class ServiceSiteValidatorTest {
 	}
 
 	@Test
+	void actionGuardPreservesBenignPercentAndAmpersandDelimiters() {
+		assertEquals("site%20name", ServiceSiteValidator.inertForActions("site%20name"));
+		assertEquals("site%20name%2Bnetwork",
+				ServiceSiteValidator.inertForActions("site%20name%2Bnetwork"));
+		assertEquals("example?x=1&source=proxy",
+				ServiceSiteValidator.inertForActions("example?x=1&source=proxy"));
+	}
+
+	@Test
 	void detectsOnlyTemplatesThatOpenSyntaxBeforeThePlaceholder() {
 		assertTrue(ServiceSiteValidator.requiresLeadingActionBoundary("say %%ServiceSite%%", "ServiceSite"));
 		assertTrue(ServiceSiteValidator.requiresLeadingActionBoundary("say &%SiteName%", "SiteName"));
@@ -68,6 +77,8 @@ class ServiceSiteValidatorTest {
 		assertFalse(ServiceSiteValidator.requiresLeadingActionBoundary(
 				"say %SiteName%%ServiceSite%", "ServiceSite"));
 		assertFalse(ServiceSiteValidator.requiresLeadingActionBoundary("say &a%SiteName%", "SiteName"));
+		assertFalse(ServiceSiteValidator.requiresLeadingActionBoundary(
+				"say 50% %ServiceSite%", "ServiceSite"));
 	}
 
 	@Test
@@ -86,6 +97,9 @@ class ServiceSiteValidatorTest {
 		assertEquals("unsafe &#ab\u2060%ServiceSite%",
 				ServiceSiteValidator.inertTemplateBoundaries(
 						"unsafe &#ab%ServiceSite%", "ServiceSite"));
+		assertEquals("literal 50% %ServiceSite% and &source %ServiceSite%",
+				ServiceSiteValidator.inertTemplateBoundaries(
+						"literal 50% %ServiceSite% and &source %ServiceSite%", "ServiceSite"));
 	}
 
 	@Test
