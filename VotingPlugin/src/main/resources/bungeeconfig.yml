@@ -12,7 +12,7 @@
 #  • Core requirements / MySQL connection
 #  • Optional MySQL features (GlobalData / VoteCache / NonVotedCache / VoteLogging)
 #  • Network routing (SendVotesToAllServers / BlockedServers / Whitelist)
-#  • Transport method (BungeeMethod + settings per method)
+#  • Transport method (ProxyCommunicationMethod + settings per method)
 #  • Vote handling (WaitForUserOnline / AllowUnJoined / Totals / Broadcast)
 #  • Bedrock prefix + vote limits + time offset
 #  • Proxy VoteParty
@@ -28,7 +28,7 @@
 #
 #  2) Configure this proxy file:
 #     - MySQL details (required)
-#     - BungeeMethod (PLUGINMESSAGING recommended)
+#     - ProxyCommunicationMethod (PLUGINMESSAGING recommended)
 #     - SendVotesToAllServers / BlockedServers / WhiteListedServers as needed
 #
 #  3) For shared player data across servers:
@@ -232,7 +232,7 @@ Debug: false
 # If false, will send to online server only
 SendVotesToAllServers: true
 # Enable only on a single dedicated voting proxy when regional proxies do not
-# run VotingPlugin. Requires a non-PLUGINMESSAGING BungeeMethod; online player
+# run VotingPlugin. Requires a non-PLUGINMESSAGING ProxyCommunicationMethod; online player
 # routing then uses backend presence reported through the global message system.
 # Unknown players are treated as offline and follow the existing vote cache path.
 DedicatedVotingProxy: false
@@ -258,7 +258,7 @@ WhiteListedServers: []
 # MYSQL (Not recommended)
 # PLUGINMESSAGING uses this proxy's player/server state and disables backend
 # presence messages. Other methods trust each backend's configured Server name.
-BungeeMethod: PLUGINMESSAGING
+ProxyCommunicationMethod: PLUGINMESSAGING
 
 ######################################################################################
 # Settings for each setup below
@@ -300,7 +300,7 @@ SharedTransportAuthentication: COMPATIBILITY
 # REDIS Settings
 ###########################################
 
-# Use Redis for between server communication, set BungeeMethod to REDIS to use this
+# Use Redis for between server communication, set ProxyCommunicationMethod to REDIS to use this
 Redis:
   Host: localhost
   Port: 6379
