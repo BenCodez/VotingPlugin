@@ -188,22 +188,44 @@ public final class VotingPluginWire {
 	public static JsonEnvelope multiProxyVote(String player, String uuid, String service, long time, boolean wasOnline,
 			boolean realVote, String totals, UUID voteId, boolean manageTotals, boolean bungeeBroadcast, int num,
 			int numberOfVotes, String origin) {
-		return base(SUB_VOTE).put(K_PLAYER, safe(player)).put(K_UUID, safe(uuid)).put(K_SERVICE, safe(service))
+		return multiProxyVoteBuilder(SUB_VOTE, player, uuid, service, time, wasOnline, realVote, totals, voteId,
+				manageTotals, bungeeBroadcast, num, numberOfVotes, origin).build();
+	}
+
+	/** Multi-proxy vote carrying the primary proxy's delay-validation decision. */
+	public static JsonEnvelope multiProxyVote(String player, String uuid, String service, long time, boolean wasOnline,
+			boolean realVote, String totals, UUID voteId, boolean manageTotals, boolean bungeeBroadcast, int num,
+			int numberOfVotes, String origin, boolean delayValidated) {
+		return multiProxyVoteBuilder(SUB_VOTE, player, uuid, service, time, wasOnline, realVote, totals, voteId,
+				manageTotals, bungeeBroadcast, num, numberOfVotes, origin)
+				.put(K_DELAY_VALIDATED, delayValidated).build();
+	}
+
+	private static JsonEnvelope.Builder multiProxyVoteBuilder(String subChannel, String player, String uuid,
+			String service, long time, boolean wasOnline, boolean realVote, String totals, UUID voteId,
+			boolean manageTotals, boolean bungeeBroadcast, int num, int numberOfVotes, String origin) {
+		return base(subChannel).put(K_PLAYER, safe(player)).put(K_UUID, safe(uuid)).put(K_SERVICE, safe(service))
 				.put(K_TIME, time).put(K_WAS_ONLINE, wasOnline).put(K_WAS_ONLINE_KNOWN, true).put(K_REAL_VOTE, realVote).put(K_TOTALS, safe(totals))
 				.put(K_VOTE_ID, voteId == null ? "" : voteId.toString()).put(K_SET_TOTALS, true)
 				.put(K_MANAGE_TOTALS, manageTotals).put(K_BUNGEE_BROADCAST, bungeeBroadcast).put(K_NUM, num)
-				.put(K_NUMBER_OF_VOTES, numberOfVotes).put(K_MULTI_PROXY_ORIGIN, safe(origin)).build();
+				.put(K_NUMBER_OF_VOTES, numberOfVotes).put(K_MULTI_PROXY_ORIGIN, safe(origin));
 	}
 
 	/** Reliable multi-proxy variant of {@link #voteOnline}. */
 	public static JsonEnvelope multiProxyVoteOnline(String player, String uuid, String service, long time,
 			boolean wasOnline, boolean realVote, String totals, UUID voteId, boolean manageTotals,
 			boolean bungeeBroadcast, int num, int numberOfVotes, String origin) {
-		return base(SUB_VOTE_ONLINE).put(K_PLAYER, safe(player)).put(K_UUID, safe(uuid)).put(K_SERVICE, safe(service))
-				.put(K_TIME, time).put(K_WAS_ONLINE, wasOnline).put(K_WAS_ONLINE_KNOWN, true).put(K_REAL_VOTE, realVote).put(K_TOTALS, safe(totals))
-				.put(K_VOTE_ID, voteId == null ? "" : voteId.toString()).put(K_SET_TOTALS, true)
-				.put(K_MANAGE_TOTALS, manageTotals).put(K_BUNGEE_BROADCAST, bungeeBroadcast).put(K_NUM, num)
-				.put(K_NUMBER_OF_VOTES, numberOfVotes).put(K_MULTI_PROXY_ORIGIN, safe(origin)).build();
+		return multiProxyVoteBuilder(SUB_VOTE_ONLINE, player, uuid, service, time, wasOnline, realVote, totals, voteId,
+				manageTotals, bungeeBroadcast, num, numberOfVotes, origin).build();
+	}
+
+	/** Reliable online multi-proxy vote carrying the primary delay decision. */
+	public static JsonEnvelope multiProxyVoteOnline(String player, String uuid, String service, long time,
+			boolean wasOnline, boolean realVote, String totals, UUID voteId, boolean manageTotals,
+			boolean bungeeBroadcast, int num, int numberOfVotes, String origin, boolean delayValidated) {
+		return multiProxyVoteBuilder(SUB_VOTE_ONLINE, player, uuid, service, time, wasOnline, realVote, totals, voteId,
+				manageTotals, bungeeBroadcast, num, numberOfVotes, origin)
+				.put(K_DELAY_VALIDATED, delayValidated).build();
 	}
 
 	public static JsonEnvelope voteDelayRejected(String player, String uuid, String service, boolean wasOnline) {

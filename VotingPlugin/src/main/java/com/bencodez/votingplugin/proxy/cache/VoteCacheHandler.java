@@ -1310,6 +1310,9 @@ public abstract class VoteCacheHandler {
 						timedVoteRow.isMultiProxyCapabilityDiscoveryPending());
 				voteTimeQueue.setRealVote(timedVoteRow.isRealVote());
 				if (timedVoteRow.isWasOnlineKnown()) voteTimeQueue.setWasOnline(timedVoteRow.isWasOnline());
+				if (timedVoteRow.getDelayValidation() >= 0) {
+					voteTimeQueue.setDelayValidated(timedVoteRow.getDelayValidation() == 1);
+				}
 				voteTimeQueue.setMultiProxyOrigin(timedVoteRow.getMultiProxyOrigin() == null ? ""
 						: timedVoteRow.getMultiProxyOrigin());
 				voteTimeQueue.setMultiProxyCompletionPending(timedVoteRow.isMultiProxyCompletionPending());
@@ -1584,6 +1587,9 @@ public abstract class VoteCacheHandler {
 		queuedVote.setRealVote(!data.has("RealVote") || data.get("RealVote").asBoolean());
 		if (data.has("WasOnlineKnown") && data.get("WasOnlineKnown").asBoolean()) {
 			queuedVote.setWasOnline(data.get("WasOnline").asBoolean());
+		}
+		if (data.has("DelayValidationKnown") && data.get("DelayValidationKnown").asBoolean()) {
+			queuedVote.setDelayValidated(data.has("DelayValidated") && data.get("DelayValidated").asBoolean());
 		}
 		queuedVote.setMultiProxyOrigin(data.has("MultiProxyOrigin")
 				? data.get("MultiProxyOrigin").asString() : "");

@@ -13,6 +13,17 @@ public final class SharedVoteProcessor {
         return proxyVote && queuedDelivery && voteId != null;
     }
 
+    /**
+     * Legacy timestamp comparison retained for binary compatibility only.
+     * Production vote-delay authorization uses {@link #isIdentifiedQueuedProxyVote(boolean, boolean, UUID)}.
+     *
+     * @deprecated timestamps are not stable occurrence identities
+     */
+    @Deprecated
+    public static boolean isQueuedVoteAlreadyRecorded(boolean proxyVote, long messageVoteTime, long storedVoteTime) {
+        return proxyVote && messageVoteTime > 0L && messageVoteTime == storedVoteTime;
+    }
+
     public record Validation(boolean valid, String normalizedName, String source, String reason, boolean bedrock) { }
     public record Name(String value, String rationale) { }
 

@@ -1239,6 +1239,8 @@ public class VotingPluginProxyTest {
 
 		spyProxy.processQueue();
 		assertFalse(queued.isMultiProxyForwardingHandled());
+		assertTrue(queued.isDelayValidationKnown());
+		assertTrue(queued.isDelayValidated());
 		VoteTimeQueue restored = new VoteTimeQueue(queued.getVoteId(), queued.getName(), queued.getService(),
 				queued.getTime(), queued.isProxyBroadcastHandled(), queued.getBroadcastTargets(),
 				queued.getBroadcastForwardedServers(), queued.getTotals(), queued.isProcessed(),
@@ -1248,6 +1250,7 @@ public class VotingPluginProxyTest {
 		restored.setMultiProxyOrigin(queued.getMultiProxyOrigin());
 		restored.setMultiProxyRecipients(queued.getMultiProxyRecipients());
 		restored.setMultiProxyAcknowledgedServers(queued.getMultiProxyAcknowledgedServers());
+		restored.setDelayValidated(queued.isDelayValidated());
 		// The failed pre-publication update means no legacy copy was sent and durable
 		// storage still contains the pending recipient for restart recovery.
 		restored.setMultiProxyLegacyPendingRecipients(java.util.Set.of("ProxyLegacy"));
@@ -1267,6 +1270,42 @@ public class VotingPluginProxyTest {
 				.filter(value -> new java.util.HashSet<>(value).equals(java.util.Set.of("ProxyLegacy"))).count());
 		assertEquals(1, recipients.getAllValues().stream()
 				.filter(value -> new java.util.HashSet<>(value).equals(java.util.Set.of("proxy2"))).count());
+		@SuppressWarnings({ "rawtypes", "unchecked" })
+		org.mockito.ArgumentCaptor<JsonEnvelope> envelopes =
+				(org.mockito.ArgumentCaptor) org.mockito.ArgumentCaptor.forClass(JsonEnvelope.class);
+		verify(multiProxyHandler, Mockito.times(2)).sendMultiProxyEnvelopeAccepted(envelopes.capture(), Mockito.any());
+		JsonEnvelope reliable = envelopes.getAllValues().stream()
+				.filter(value -> value.getFields().containsKey(VotingPluginWire.K_MULTI_PROXY_ORIGIN))
+				.findFirst().orElseThrow();
+		assertTrue(VotingPluginWire.readVote(reliable).delayValidated);
+		assertTrue(VotingPluginWire.readVote(reliable).delayValidationKnown);
+	}
+
+	@Test
+	void receivedMultiProxyValidationReachesBackendEnvelopeOnNonPrimaryProxy() throws Exception {
+		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		Mockito.when(voteCache.markMultiProxyVoteCompletedDurably(Mockito.any())).thenReturn(true);
+		Mockito.when(voteCache.getTimeChangeQueue()).thenReturn(new java.util.concurrent.ConcurrentLinkedQueue<>());
+		Mockito.when(votingPluginProxy.getConfig().getMultiProxySupport()).thenReturn(true);
+		Mockito.when(votingPluginProxy.getConfig().getPrimaryServer()).thenReturn(false);
+		Mockito.when(votingPluginProxy.getConfig().getBungeeManageTotals()).thenReturn(true);
+		Mockito.when(votingPluginProxy.getConfig().getSendVotesToAllServers()).thenReturn(false);
+		votingPluginProxy.setMethod(BungeeMethod.PLUGINMESSAGING);
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
+		Mockito.doNothing().when(spyProxy).addVoteParty();
+		java.lang.reflect.Method receive = VotingPluginProxy.class.getDeclaredMethod("receiveMultiProxyVote",
+				String.class, String.class, boolean.class, boolean.class, long.class,
+				com.bencodez.votingplugin.proxy.VoteTotalsSnapshot.class, String.class, java.util.UUID.class,
+				String.class, boolean.class, boolean.class);
+		receive.setAccessible(true);
+
+		receive.invoke(spyProxy, "Player", "Service", true, false, 100L, null,
+				"00000000-0000-0000-0000-000000000001", java.util.UUID.randomUUID(), "Primary", true, true);
+
+		VotingPluginWire.Vote forwarded = VotingPluginWire.readVote(spyProxy.getLastVoteEnvelope());
+		assertTrue(forwarded.delayValidationKnown);
+		assertTrue(forwarded.delayValidated);
 	}
 
 	@Test
@@ -1299,7 +1338,8 @@ public class VotingPluginProxyTest {
 				Mockito.any(java.util.concurrent.TimeUnit.class));
 		Runnable voteRetry = scheduled.getAllValues().stream()
 				.filter(task -> task.getClass().getName().contains("MultiProxyVoteRetry"))
-				.findFirst().orElseThrow();
+				.findFirst().orElseThrow(() -> new AssertionError("scheduled tasks: "
+						+ scheduled.getAllValues().stream().map(task -> task.getClass().getName()).toList()));
 		voteRetry.run();
 		// A duplicate socket/Redis delivery of the completed envelope is ignored.
 		receive.invoke(spyProxy, "Player", "Service", true, false, 100L, null,

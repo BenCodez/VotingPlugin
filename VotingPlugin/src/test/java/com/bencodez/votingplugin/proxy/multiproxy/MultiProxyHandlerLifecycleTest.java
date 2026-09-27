@@ -154,6 +154,26 @@ class MultiProxyHandlerLifecycleTest {
 	}
 
 	@Test
+	void forwardsPrimaryDelayValidationToDurableTrigger() throws Exception {
+		MultiProxyHandler handler = mock(MultiProxyHandler.class, org.mockito.Mockito.CALLS_REAL_METHODS);
+		UUID voteId = UUID.randomUUID();
+		Method handleEnvelope = MultiProxyHandler.class.getDeclaredMethod("handleEnvelope", JsonEnvelope.class);
+		handleEnvelope.setAccessible(true);
+
+		handleEnvelope.invoke(handler, VotingPluginWire.multiProxyVote("Player",
+				"00000000-0000-0000-0000-000000000001", "Service", 100L, false, true, "totals", voteId,
+				false, false, 1, 1, "Primary", true));
+
+		verify(handler).triggerVote(org.mockito.ArgumentMatchers.eq("Player"),
+				org.mockito.ArgumentMatchers.eq("Service"), org.mockito.ArgumentMatchers.eq(true),
+				org.mockito.ArgumentMatchers.eq(true), org.mockito.ArgumentMatchers.eq(0L),
+				org.mockito.ArgumentMatchers.any(VoteTotalsSnapshot.class),
+				org.mockito.ArgumentMatchers.eq("00000000-0000-0000-0000-000000000001"),
+				org.mockito.ArgumentMatchers.eq(voteId), org.mockito.ArgumentMatchers.eq("Primary"),
+				org.mockito.ArgumentMatchers.eq(true), org.mockito.ArgumentMatchers.eq(true));
+	}
+
+	@Test
 	void rejectsReliableVoteEnvelopeWithoutStableId() throws Exception {
 		MultiProxyHandler handler = mock(MultiProxyHandler.class, org.mockito.Mockito.CALLS_REAL_METHODS);
 		Method handleEnvelope = MultiProxyHandler.class.getDeclaredMethod("handleEnvelope", JsonEnvelope.class);

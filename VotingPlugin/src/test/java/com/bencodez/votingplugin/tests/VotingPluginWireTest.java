@@ -48,6 +48,18 @@ public class VotingPluginWireTest {
 	}
 
 	@Test
+	public void multiProxyVoteCarriesPrimaryDelayValidationAdditively() {
+		JsonEnvelope current = VotingPluginWire.multiProxyVote("Player", UUID.randomUUID().toString(), "Service",
+				100L, false, true, "totals", UUID.randomUUID(), false, false, 1, 1, "Primary", true);
+		JsonEnvelope legacy = VotingPluginWire.multiProxyVote("Player", UUID.randomUUID().toString(), "Service",
+				100L, false, true, "totals", UUID.randomUUID(), false, false, 1, 1, "Primary");
+
+		assertTrue(VotingPluginWire.readVote(current).delayValidated);
+		assertTrue(VotingPluginWire.readVote(current).delayValidationKnown);
+		assertFalse(VotingPluginWire.readVote(legacy).delayValidationKnown);
+	}
+
+	@Test
 	public void legacyVoteLeavesHistoricalOnlineStateUnknown() {
 		JsonEnvelope envelope = JsonEnvelope.builder(VotingPluginWire.SUB_VOTE)
 				.schema(VotingPluginWire.SCHEMA_VERSION)

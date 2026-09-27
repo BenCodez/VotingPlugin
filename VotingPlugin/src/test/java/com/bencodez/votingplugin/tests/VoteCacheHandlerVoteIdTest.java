@@ -1128,6 +1128,8 @@ public class VoteCacheHandlerVoteIdTest {
 				.toStorageString();
 		stubString(timedNode, "Totals", totals);
 		stubBoolean(timedNode, "Processed", true);
+		stubBoolean(timedNode, "DelayValidated", true);
+		stubBoolean(timedNode, "DelayValidationKnown", true);
 
 		handler = newHandler(stored);
 		handler.load();
@@ -1139,6 +1141,8 @@ public class VoteCacheHandlerVoteIdTest {
 		assertEquals(Set.of("Server1"), loaded.getBroadcastForwardedServers());
 		assertEquals(totals, loaded.getTotals());
 		assertTrue(loaded.isProcessed());
+		assertTrue(loaded.isDelayValidationKnown());
+		assertTrue(loaded.isDelayValidated());
 	}
 
 	@Test

@@ -77,6 +77,12 @@ public class VoteTimeQueue {
 	/** Whether the vote-time online state is known; legacy rows remain unknown. */
 	@Getter
 	private boolean wasOnlineKnown;
+	/** Whether the primary proxy already authorized this occurrence's delay. */
+	@Getter
+	private boolean delayValidated;
+	/** Whether delay validation was carried by the originating proxy. */
+	@Getter
+	private boolean delayValidationKnown;
 	/** Sender identity used to route acknowledgement envelopes. */
 	@Getter
 	@Setter
@@ -251,6 +257,12 @@ public class VoteTimeQueue {
 	public void setWasOnline(boolean wasOnline) {
 		this.wasOnline = wasOnline;
 		this.wasOnlineKnown = true;
+	}
+
+	/** Stores an authoritative upstream delay-validation decision. */
+	public void setDelayValidated(boolean delayValidated) {
+		this.delayValidated = delayValidated;
+		this.delayValidationKnown = true;
 	}
 
 	/** Configures the durable acknowledgement fence before the first send. */

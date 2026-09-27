@@ -326,6 +326,13 @@ public abstract class MultiProxyHandler {
 		triggerVote(player, service, realVote, timeQueue, queueTime, text, uuid, voteId);
 	}
 
+	/** Additive overload carrying an authoritative upstream delay decision. */
+	public void triggerVote(String player, String service, boolean realVote, boolean timeQueue, long queueTime,
+			VoteTotalsSnapshot text, String uuid, UUID voteId, String origin, boolean delayValidated,
+			boolean delayValidationKnown) {
+		triggerVote(player, service, realVote, timeQueue, queueTime, text, uuid, voteId, origin);
+	}
+
 	/** Called when a receiver acknowledges this proxy's stable vote ID. */
 	public void onMultiProxyVoteAcknowledged(UUID voteId, String recipient) {
 		// Optional for legacy implementations.
@@ -954,7 +961,7 @@ public abstract class MultiProxyHandler {
 					triggerVote(player, service, realVote, true, 0L, VoteTotalsSnapshot.parseStorage(totals), uuid);
 				} else {
 					triggerVote(player, service, realVote, true, 0L, VoteTotalsSnapshot.parseStorage(totals), uuid,
-							wireVote.voteId, origin);
+							wireVote.voteId, origin, wireVote.delayValidated, wireVote.delayValidationKnown);
 				}
 			}
 			return;

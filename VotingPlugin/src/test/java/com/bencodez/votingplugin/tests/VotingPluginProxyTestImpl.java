@@ -444,6 +444,13 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 		return super.sendVoteEnvelopeAccepted(server, delay, envelope);
 	}
 
+	@Override
+	protected boolean sendVoteEnvelopeAccepted(String server, int delay, JsonEnvelope envelope,
+			OfflineBungeeVote cachedVote) {
+		lastVoteEnvelope = envelope;
+		return super.sendVoteEnvelopeAccepted(server, delay, envelope, cachedVote);
+	}
+
 	public boolean sendVoteEnvelopeAcceptedForTest(String server, int delay, JsonEnvelope envelope) {
 		return sendVoteEnvelopeAccepted(server, delay, envelope);
 	}
