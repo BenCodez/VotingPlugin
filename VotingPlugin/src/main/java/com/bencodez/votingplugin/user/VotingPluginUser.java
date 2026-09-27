@@ -688,6 +688,16 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		return new SharedMysqlPointMutator(plugin).acknowledgePointAddition(operationId);
 	}
 
+	/** Makes a completed vote-point receipt eligible for bounded retirement. */
+	public static void acknowledgeVotePointDelivery(VotingPluginMain plugin, UUID voteId) {
+		if (voteId == null) return;
+		try {
+			new SharedMysqlPointMutator(plugin).acknowledgePointAdditionOrThrow("vote-points:" + voteId);
+		} catch (java.sql.SQLException failure) {
+			throw new IllegalStateException("Unable to acknowledge shared MySQL vote points", failure);
+		}
+	}
+
 	/**
 	 * Adds points and reports the committed total after shared-MySQL persistence
 	 * completes. The callback runs on the user's Bukkit/entity lane.

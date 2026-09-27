@@ -807,6 +807,7 @@ public class VoteShopPurchaseService {
 				throw new IllegalStateException("Unable to retire shared MySQL vote accounting", failure);
 			}
 		} else plugin.getServerData().clearVoteReplayUnsafe(voteId);
+		VotingPluginUser.acknowledgeVotePointDelivery(plugin, voteId);
 	}
 
 	public static void finishMysqlVoteAccounting(UUID voteId) {

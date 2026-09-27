@@ -65,6 +65,23 @@ import com.bencodez.votingplugin.voteshop.shop.VoteShopItem;
 
 class VoteShopPurchaseServiceTest {
 	@Test
+	void deliveryCompletionAcknowledgesVotePointReceipt() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		when(plugin.getStorageType()).thenReturn(UserStorage.SQLITE);
+		com.bencodez.votingplugin.data.ServerData serverData =
+				mock(com.bencodez.votingplugin.data.ServerData.class);
+		when(plugin.getServerData()).thenReturn(serverData);
+		UUID voteId = UUID.randomUUID();
+
+		try (org.mockito.MockedStatic<VotingPluginUser> users = org.mockito.Mockito.mockStatic(VotingPluginUser.class)) {
+			VoteShopPurchaseService.completeVoteDelivery(plugin, voteId);
+			users.verify(() -> VotingPluginUser.acknowledgeVotePointDelivery(plugin, voteId));
+		}
+
+		verify(serverData).clearVoteReplayUnsafe(voteId);
+	}
+
+	@Test
 	void purchaseRecoveryEligibilityIgnoresCurrentPerServerPointsSetting() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
 		when(plugin.getStorageType()).thenReturn(UserStorage.MYSQL);

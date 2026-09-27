@@ -66,4 +66,21 @@ class VotingPluginUserVotePointsTest {
 				org.mockito.ArgumentMatchers.eq(operationId), anyLong());
 		verify(pluginManager).callEvent(isA(PlayerReceivePointsEvent.class));
 	}
+
+	@Test
+	void deliveryCompletionAcknowledgesVotePointReceipt() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		when(plugin.getStorageType()).thenReturn(UserStorage.MYSQL);
+		MySQL table = mock(MySQL.class);
+		when(plugin.getMysql()).thenReturn(table);
+		SharedPointAdditionJournal journal = mock(SharedPointAdditionJournal.class);
+		UUID voteId = UUID.randomUUID();
+
+		try (MockedStatic<SharedPointAdditionJournal> journals = mockStatic(SharedPointAdditionJournal.class)) {
+			journals.when(() -> SharedPointAdditionJournal.forTable(table)).thenReturn(journal);
+			VotingPluginUser.acknowledgeVotePointDelivery(plugin, voteId);
+		}
+
+		verify(journal).acknowledge(org.mockito.ArgumentMatchers.eq("vote-points:" + voteId), anyLong());
+	}
 }

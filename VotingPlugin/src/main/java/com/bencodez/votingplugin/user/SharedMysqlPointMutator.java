@@ -328,6 +328,11 @@ final class SharedMysqlPointMutator {
 		}
 	}
 
+	void acknowledgePointAdditionOrThrow(String operationId) throws SQLException {
+		if (!canRecoverSharedMysqlPointJournals(plugin) || operationId == null || operationId.isEmpty()) return;
+		SharedPointAdditionJournal.forTable(plugin.getMysql()).acknowledge(operationId, System.currentTimeMillis());
+	}
+
 	void set(VotingPluginUser user, int value, boolean async) {
 		String pointsColumn = user.getPointsPath();
 		run(() -> setAbsolute(user, value, pointsColumn), async);
