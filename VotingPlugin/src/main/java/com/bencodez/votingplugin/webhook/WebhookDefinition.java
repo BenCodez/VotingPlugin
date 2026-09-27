@@ -155,34 +155,16 @@ public final class WebhookDefinition {
 		if (url == null) {
 			return "null";
 		}
-		String safeUrl = url;
 		try {
 			URI parsed = URI.create(url);
-			String userInfo = parsed.getRawUserInfo();
-			String authority = parsed.getRawAuthority();
-			if (userInfo != null) {
-				int authorityStart = authority == null ? -1 : safeUrl.indexOf(authority);
-				int userInfoEnd = authorityStart < 0 ? -1 : authorityStart + userInfo.length();
-				if (userInfoEnd < authorityStart || userInfoEnd >= safeUrl.length()
-						|| safeUrl.charAt(userInfoEnd) != '@') return "[REDACTED URL]";
-				safeUrl = safeUrl.substring(0, authorityStart) + "REDACTED"
-						+ safeUrl.substring(userInfoEnd);
-			}
+			String scheme = parsed.getScheme();
+			String host = parsed.getHost();
+			if (scheme == null || host == null) return "[REDACTED URL]";
+			String safeHost = host.indexOf(':') >= 0 && host.charAt(0) != '[' ? "[" + host + "]" : host;
+			return scheme + "://" + safeHost + (parsed.getPort() < 0 ? "" : ":" + parsed.getPort());
 		} catch (IllegalArgumentException invalidUrl) {
 			return "[REDACTED URL]";
 		}
-		// Discord webhooks: https://discord.com/api/webhooks/{id}/{token}
-		int idx = safeUrl.indexOf("/api/webhooks/");
-		if (idx == -1) {
-			return safeUrl;
-		}
-		String prefix = safeUrl.substring(0, idx);
-		String rest = safeUrl.substring(idx);
-		String[] parts = rest.split("/");
-		if (parts.length >= 5) {
-			return prefix + "/api/webhooks/" + parts[3] + "/REDACTED";
-		}
-		return prefix + "/api/webhooks/REDACTED";
 	}
 
 	/** @return retry_after in ms, or 0 if none */

@@ -21,11 +21,14 @@ import com.sun.net.httpserver.HttpServer;
 class WebhookBoundsTest {
 
 	@Test
-	void logUrlRedactsCredentialsAndDiscordTokens() {
-		WebhookDefinition credentials = definition("https://user:secret@example.com/hook");
-		assertEquals("https://REDACTED@example.com/hook", credentials.safeUrlForLog());
+	void logUrlOmitsAllPotentialCredentialLocations() {
+		WebhookDefinition credentials = definition(
+				"https://user:secret@example.com:8443/hook/api-key?token=secret#private");
+		assertEquals("https://example.com:8443", credentials.safeUrlForLog());
 		WebhookDefinition discord = definition("https://user:secret@discord.com/api/webhooks/123/token");
-		assertEquals("https://REDACTED@discord.com/api/webhooks/123/REDACTED", discord.safeUrlForLog());
+		assertEquals("https://discord.com", discord.safeUrlForLog());
+		assertEquals("https://[::1]:8080", definition("https://[::1]:8080/token").safeUrlForLog());
+		assertEquals("[REDACTED URL]", definition("not a valid URL?token=secret").safeUrlForLog());
 	}
 
 	@Test
