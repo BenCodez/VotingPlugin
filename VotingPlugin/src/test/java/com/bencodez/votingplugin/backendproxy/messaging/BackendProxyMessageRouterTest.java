@@ -392,7 +392,7 @@ class BackendProxyMessageRouterTest {
 	void reliableDelayRejectionExecutesOnceAndPersistsItsVoteId() {
 		UUID voteId = UUID.randomUUID();
 		ProcessedVoteCache cache = mock(ProcessedVoteCache.class);
-		when(cache.reserve(voteId)).thenReturn(true, false);
+		when(cache.reserveWithOutcome(voteId)).thenReturn(Reservation.RESERVED, Reservation.DUPLICATE);
 		when(cache.hasCompletedEffects(voteId)).thenReturn(true);
 		when(cache.complete(voteId)).thenReturn(true);
 		VoteSite site = configureDelayRejection(true);
@@ -409,8 +409,28 @@ class BackendProxyMessageRouterTest {
 		voteRouter.handleOrderedVote(rejection, outcome::set);
 
 		verify(site, times(1)).giveWaitUntilVoteDelayRewards(user, false, true);
-		verify(cache, times(2)).reserve(voteId);
+		verify(cache, times(2)).reserveWithOutcome(voteId);
 		verify(cache, times(2)).complete(voteId);
+	}
+
+	@Test
+	void saturatedReliableDelayRejectionRetriesWithoutRunningRewards() {
+		UUID voteId = UUID.randomUUID();
+		ProcessedVoteCache cache = mock(ProcessedVoteCache.class);
+		when(cache.reserveWithOutcome(voteId)).thenReturn(Reservation.SATURATED);
+		VoteSite site = configureDelayRejection(true);
+		BackendProxyMessageRouter voteRouter = new BackendProxyMessageRouter(plugin,
+				mock(BackendPresenceManager.class), mock(BackendGlobalDataSync.class),
+				mock(BackendVotePartySync.class), cache);
+		AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
+
+		voteRouter.handleOrderedVote(VotingPluginWire.requestVoteDeliveryAcknowledgement(
+				VotingPluginWire.voteDelayRejected("Player", PLAYER_UUID.toString(),
+						"known.example", true, voteId)), outcome::set);
+
+		assertEquals(OrderedVoteOutcome.RETRY, outcome.get());
+		verify(site, never()).giveWaitUntilVoteDelayRewards(any(), anyBoolean(), anyBoolean());
+		verify(cache, never()).complete(voteId);
 	}
 
 	@Test

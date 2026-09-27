@@ -677,6 +677,8 @@ public class VotingPluginProxyTest {
 		Mockito.when(votingPluginProxy.getConfig().getBungeeManageTotals()).thenReturn(true);
 		Mockito.when(votingPluginProxy.getConfig().getMultiProxyOneGlobalReward()).thenReturn(false);
 		Mockito.when(votingPluginProxy.getConfig().getProxyServerName()).thenReturn("Proxy1");
+		Mockito.when(votingPluginProxy.getConfig().getWaitUntilVoteDelaySites()).thenReturn(java.util.List.of("Site"));
+		Mockito.when(votingPluginProxy.getConfig().getWaitUntilVoteDelayService("Site")).thenReturn("Service");
 		Mockito.when(multiProxyHandler.getMultiProxyVoteRecipients()).thenReturn(java.util.Set.of("Proxy2"));
 		Mockito.when(multiProxyHandler.getConfiguredMultiProxyVoteRecipients())
 				.thenReturn(new java.util.LinkedHashSet<>(java.util.Set.of("Proxy2", "ProxyLegacy")));
@@ -742,6 +744,8 @@ public class VotingPluginProxyTest {
 				.thenReturn(new java.util.LinkedHashSet<>(java.util.Set.of("ProxyLegacy")));
 		Mockito.when(multiProxyHandler.sendMultiProxyEnvelopeAccepted(Mockito.any(), Mockito.any())).thenReturn(false);
 		Mockito.when(votingPluginProxy.getConfig().getProxyServerName()).thenReturn("Proxy1");
+		Mockito.when(votingPluginProxy.getConfig().getWaitUntilVoteDelaySites()).thenReturn(java.util.List.of("Site"));
+		Mockito.when(votingPluginProxy.getConfig().getWaitUntilVoteDelayService("Site")).thenReturn("Service");
 
 		Class<?> retryType = Class.forName("com.bencodez.votingplugin.proxy.VotingPluginProxy$LiveVoteRetryState");
 		java.lang.reflect.Constructor<?> constructor = retryType.getDeclaredConstructor();
@@ -1287,6 +1291,8 @@ public class VotingPluginProxyTest {
 		Mockito.when(votingPluginProxy.getConfig().getMultiProxySupport()).thenReturn(true);
 		Mockito.when(votingPluginProxy.getConfig().getMultiProxyOneGlobalReward()).thenReturn(false);
 		Mockito.when(votingPluginProxy.getConfig().getProxyServerName()).thenReturn("Proxy1");
+		Mockito.when(votingPluginProxy.getConfig().getWaitUntilVoteDelaySites()).thenReturn(java.util.List.of("Site"));
+		Mockito.when(votingPluginProxy.getConfig().getWaitUntilVoteDelayService("Site")).thenReturn("Service");
 		Mockito.when(multiProxyHandler.getMultiProxyVoteRecipients()).thenReturn(java.util.Set.of("Proxy2"));
 		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
 		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
@@ -1332,6 +1338,8 @@ public class VotingPluginProxyTest {
 		Mockito.when(votingPluginProxy.getConfig().getMultiProxySupport()).thenReturn(true);
 		Mockito.when(votingPluginProxy.getConfig().getMultiProxyOneGlobalReward()).thenReturn(false);
 		Mockito.when(votingPluginProxy.getConfig().getProxyServerName()).thenReturn("Proxy1");
+		Mockito.when(votingPluginProxy.getConfig().getWaitUntilVoteDelaySites()).thenReturn(java.util.List.of("Site"));
+		Mockito.when(votingPluginProxy.getConfig().getWaitUntilVoteDelayService("Site")).thenReturn("Service");
 		Mockito.when(multiProxyHandler.getMultiProxyVoteRecipients()).thenReturn(java.util.Set.of("Proxy2"));
 		Mockito.when(multiProxyHandler.getConfiguredMultiProxyVoteRecipients())
 				.thenReturn(new java.util.LinkedHashSet<>(java.util.Set.of("Proxy2", "ProxyLegacy")));
@@ -1839,7 +1847,7 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
-	void liveVoteRetryKeepsTotalsInputAfterVotePartyFailure() {
+	void liveVoteRetryKeepsTotalsInputAfterVotePartyFailure() throws Exception {
 		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
 		Mockito.when(votingPluginProxy.getConfig().getSendVotesToAllServers()).thenReturn(true);
 		Mockito.when(votingPluginProxy.getConfig().getPrimaryServer()).thenReturn(true);
@@ -1861,6 +1869,12 @@ public class VotingPluginProxyTest {
 		assertThrows(VotingPluginProxy.VoteRetryException.class,
 				() -> spyProxy.vote("Player", "Service", true, false, 100L, null,
 						"00000000-0000-0000-0000-000000000001", voteId));
+		java.lang.reflect.Field retriesField = VotingPluginProxy.class.getDeclaredField("liveVoteRetries");
+		retriesField.setAccessible(true);
+		Object retry = ((java.util.Map<?, ?>) retriesField.get(spyProxy)).get(voteId);
+		java.lang.reflect.Field delayKnown = retry.getClass().getDeclaredField("delayValidationKnown");
+		delayKnown.setAccessible(true);
+		assertFalse(delayKnown.getBoolean(retry));
 		assertThrows(IllegalArgumentException.class,
 				() -> spyProxy.vote("OtherPlayer", "Service", true, false, 100L, null,
 						"00000000-0000-0000-0000-000000000002", voteId));
@@ -1869,6 +1883,7 @@ public class VotingPluginProxyTest {
 
 		verify(spyProxy).addVoteParty();
 		verify(proxyMySQL).update(Mockito.anyString(), Mockito.any(java.util.ArrayList.class));
+		assertFalse(spyProxy.getLastVoteEnvelope().getFields().containsKey(VotingPluginWire.K_DELAY_VALIDATED));
 	}
 
 	@Test

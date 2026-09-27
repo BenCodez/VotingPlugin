@@ -141,6 +141,10 @@ public class BackendProxyMessageRouter {
 		if (VotingPluginWire.SUB_VOTE_DELAY_REJECTED.equals(subChannel)) {
 			try {
 				WireVoteResult result = handleWireVoteDelayRejected(msg);
+				if (result != null && result.retryable()) {
+					completion.accept(OrderedVoteOutcome.RETRY);
+					return;
+				}
 				if (VotingPluginWire.requestsVoteDeliveryAcknowledgement(msg)
 						&& (result == null || !result.effectsComplete())) {
 					completion.accept(OrderedVoteOutcome.QUARANTINE);
@@ -415,8 +419,14 @@ public class BackendProxyMessageRouter {
 		if (reliable && user.canVoteSite(voteSite)) {
 			return new WireVoteResult(rejected.voteId, true);
 		}
-		if (rejected.voteId != null && !processedVoteCache.reserve(rejected.voteId)) {
-			return new WireVoteResult(rejected.voteId, processedVoteCache.hasCompletedEffects(rejected.voteId));
+		if (rejected.voteId != null) {
+			Reservation reservation = processedVoteCache.reserveWithOutcome(rejected.voteId);
+			if (reservation == Reservation.SATURATED) {
+				return new WireVoteResult(rejected.voteId, false, true);
+			}
+			if (reservation == Reservation.DUPLICATE) {
+				return new WireVoteResult(rejected.voteId, processedVoteCache.hasCompletedEffects(rejected.voteId));
+			}
 		}
 		voteSite.giveWaitUntilVoteDelayRewards(user, rejected.wasOnline && user.isOnline(), true);
 		return new WireVoteResult(rejected.voteId, true);

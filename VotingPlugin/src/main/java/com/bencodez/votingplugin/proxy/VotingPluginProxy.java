@@ -5775,8 +5775,11 @@ public abstract class VotingPluginProxy {
 			boolean carriedDelayValidated = retryState != null ? retryState.delayValidated
 					: queuedVote != null && queuedVote.isDelayValidationKnown()
 							? queuedVote.isDelayValidated() : upstreamDelayValidated;
-			boolean authoritativeDelayValidated = managesTotals
+			boolean localDelayValidationKnown = managesTotals
+					&& !getWaitUntilDelaySiteFromService(service).isEmpty();
+			boolean authoritativeDelayValidated = localDelayValidationKnown
 					|| carriedDelayValidationKnown && carriedDelayValidated;
+			boolean authoritativeDelayValidationKnown = localDelayValidationKnown || carriedDelayValidationKnown;
 			boolean canValidateStandaloneBroadcast = canForwardStandaloneBroadcast(managesTotals);
 			ArrayList<Column> data = retryState == null ? null : retryState.totalsInput;
 			boolean queueForTimeChange = false;
@@ -5828,7 +5831,7 @@ public abstract class VotingPluginProxy {
 						projectedTotals == null ? "" : projectedTotals.toString(), false, uuid);
 				delayedVote.setRealVote(realVote);
 				delayedVote.setWasOnline(playerOnline);
-				if (managesTotals || carriedDelayValidationKnown) {
+				if (authoritativeDelayValidationKnown) {
 					delayedVote.setDelayValidated(authoritativeDelayValidated);
 				}
 				if (!getVoteCacheHandler().addTimeVoteToCache(delayedVote)) {
@@ -5864,7 +5867,7 @@ public abstract class VotingPluginProxy {
 				retryState.realVote = realVote;
 				retryState.playerOnline = playerOnline;
 				retryState.delayValidated = authoritativeDelayValidated;
-				retryState.delayValidationKnown = managesTotals || carriedDelayValidationKnown;
+				retryState.delayValidationKnown = authoritativeDelayValidationKnown;
 				liveVoteRetries.put(voteId, retryState);
 			}
 			if (queuedVote != null) {
