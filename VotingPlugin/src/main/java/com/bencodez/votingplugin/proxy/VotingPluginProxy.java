@@ -3930,6 +3930,9 @@ public abstract class VotingPluginProxy {
 
 		setCurrentVotePartyVotesRequired(
 				getConfig().getVotePartyVotesRequired() + getVoteCacheVotePartyIncreaseVotesRequired());
+		if (!restartControlServices && multiProxyHandler != null) {
+			multiProxyHandler.refreshTransportSecurity(replacementAuthenticator);
+		}
 		if (restartControlServices) {
 			loadMultiProxySupport();
 			restartControlServicesAsync();
@@ -5467,22 +5470,30 @@ public abstract class VotingPluginProxy {
 
 	private JsonEnvelope cachedVoteEnvelope(OfflineBungeeVote vote, boolean online, boolean broadcast,
 			int num, int numberOfVotes) {
+		JsonEnvelope envelope;
 		if (vote.isDelayValidationKnown()) {
-			return online
+			envelope = online
 					? VotingPluginWire.voteOnline(vote.getPlayerName(), vote.getUuid(), vote.getService(), vote.getTime(),
 							resolveCachedWasOnline(vote), vote.isRealVote(), vote.getText(), vote.getVoteId(),
 							getConfig().getBungeeManageTotals(), broadcast, num, numberOfVotes, vote.isDelayValidated())
 					: VotingPluginWire.vote(vote.getPlayerName(), vote.getUuid(), vote.getService(), vote.getTime(),
 							resolveCachedWasOnline(vote), vote.isRealVote(), vote.getText(), vote.getVoteId(),
 							getConfig().getBungeeManageTotals(), broadcast, num, numberOfVotes, vote.isDelayValidated());
+		} else {
+			envelope = online
+					? VotingPluginWire.voteOnline(vote.getPlayerName(), vote.getUuid(), vote.getService(), vote.getTime(),
+							resolveCachedWasOnline(vote), vote.isRealVote(), vote.getText(), vote.getVoteId(),
+							getConfig().getBungeeManageTotals(), broadcast, num, numberOfVotes)
+					: VotingPluginWire.vote(vote.getPlayerName(), vote.getUuid(), vote.getService(), vote.getTime(),
+							resolveCachedWasOnline(vote), vote.isRealVote(), vote.getText(), vote.getVoteId(),
+							getConfig().getBungeeManageTotals(), broadcast, num, numberOfVotes);
 		}
-		return online
-				? VotingPluginWire.voteOnline(vote.getPlayerName(), vote.getUuid(), vote.getService(), vote.getTime(),
-						resolveCachedWasOnline(vote), vote.isRealVote(), vote.getText(), vote.getVoteId(),
-						getConfig().getBungeeManageTotals(), broadcast, num, numberOfVotes)
-				: VotingPluginWire.vote(vote.getPlayerName(), vote.getUuid(), vote.getService(), vote.getTime(),
-						resolveCachedWasOnline(vote), vote.isRealVote(), vote.getText(), vote.getVoteId(),
-						getConfig().getBungeeManageTotals(), broadcast, num, numberOfVotes);
+		// A cache entry is only known to have passed the proxy's delay gate when
+		// that decision was persisted with it. Unknown legacy entries must still
+		// be checked by the receiving backend.
+		if (!vote.isQueueClassificationKnown()) return VotingPluginWire.legacyUnclassifiedDelivery(envelope);
+		return vote.isDelayValidationKnown() && vote.isDelayValidated()
+				? VotingPluginWire.queuedDelivery(envelope) : envelope;
 	}
 
 	public String getWaitUntilDelaySiteFromService(String service) {

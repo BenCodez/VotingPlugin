@@ -32,7 +32,8 @@ import lombok.Getter;
  */
 public abstract class VoteCacheHandler {
 	private static int delayValidation(OfflineBungeeVote vote) {
-		return vote.isDelayValidationKnown() ? vote.isDelayValidated() ? 1 : 0 : -1;
+		if (!vote.isQueueClassificationKnown()) return -1;
+		return vote.isDelayValidationKnown() && vote.isDelayValidated() ? 1 : 0;
 	}
 	private static final int MAX_PENDING_PERSISTENCE_VOTES = 1024;
 
@@ -1272,6 +1273,7 @@ public abstract class VoteCacheHandler {
 						OfflineBungeeVote.decodeHttpBroadcastDeliveryIds(voteRow.getHttpBroadcastDeliveryIds()));
 				if (voteRow.isWasOnlineKnown()) vote.setWasOnline(voteRow.isWasOnline());
 				if (voteRow.getDelayValidation() >= 0) vote.setDelayValidated(voteRow.getDelayValidation() == 1);
+				else vote.clearDelayValidation();
 				vote.setServerVoteCacheRowId(voteRow.getId());
 				String server = voteRow.getServer();
 				cachedVotes.putIfAbsent(server, new ArrayList<>());
@@ -1289,6 +1291,7 @@ public abstract class VoteCacheHandler {
 						OfflineBungeeVote.decodeHttpBroadcastDeliveryIds(voteRow.getHttpBroadcastDeliveryIds()));
 				if (voteRow.isWasOnlineKnown()) vote.setWasOnline(voteRow.isWasOnline());
 				if (voteRow.getDelayValidation() >= 0) vote.setDelayValidated(voteRow.getDelayValidation() == 1);
+				else vote.clearDelayValidation();
 				vote.setOnlineVoteCacheRowId(voteRow.getId());
 				String player = vote.getUuid();
 				cachedOnlineVotes.putIfAbsent(player, new ArrayList<>());
@@ -1312,7 +1315,7 @@ public abstract class VoteCacheHandler {
 				if (timedVoteRow.isWasOnlineKnown()) voteTimeQueue.setWasOnline(timedVoteRow.isWasOnline());
 				if (timedVoteRow.getDelayValidation() >= 0) {
 					voteTimeQueue.setDelayValidated(timedVoteRow.getDelayValidation() == 1);
-				}
+				} else voteTimeQueue.clearDelayValidation();
 				voteTimeQueue.setMultiProxyOrigin(timedVoteRow.getMultiProxyOrigin() == null ? ""
 						: timedVoteRow.getMultiProxyOrigin());
 				voteTimeQueue.setMultiProxyCompletionPending(timedVoteRow.isMultiProxyCompletionPending());
@@ -1385,6 +1388,7 @@ public abstract class VoteCacheHandler {
 							if (wasOnlineKnown) vote.setWasOnline(data.get("WasOnline").asBoolean());
 							if (data.has("DelayValidationKnown") && data.get("DelayValidationKnown").asBoolean())
 								vote.setDelayValidated(data.has("DelayValidated") && data.get("DelayValidated").asBoolean());
+							else vote.clearDelayValidation();
 							vote.setServerVoteCacheJsonKey(num);
 							votes.add(vote);
 						}
@@ -1438,6 +1442,7 @@ public abstract class VoteCacheHandler {
 							if (wasOnlineKnown) vote.setWasOnline(data.get("WasOnline").asBoolean());
 							if (data.has("DelayValidationKnown") && data.get("DelayValidationKnown").asBoolean())
 								vote.setDelayValidated(data.has("DelayValidated") && data.get("DelayValidated").asBoolean());
+							else vote.clearDelayValidation();
 							vote.setOnlineVoteCacheJsonKey(num);
 							votes.add(vote);
 						}
@@ -1590,7 +1595,7 @@ public abstract class VoteCacheHandler {
 		}
 		if (data.has("DelayValidationKnown") && data.get("DelayValidationKnown").asBoolean()) {
 			queuedVote.setDelayValidated(data.has("DelayValidated") && data.get("DelayValidated").asBoolean());
-		}
+		} else queuedVote.clearDelayValidation();
 		queuedVote.setMultiProxyOrigin(data.has("MultiProxyOrigin")
 				? data.get("MultiProxyOrigin").asString() : "");
 		queuedVote.setMultiProxyCompletionPending(data.has("MultiProxyCompletionPending")
@@ -1637,6 +1642,7 @@ public abstract class VoteCacheHandler {
 		if (wasOnlineKnown) vote.setWasOnline(data.get("WasOnline").asBoolean());
 		if (data.has("DelayValidationKnown") && data.get("DelayValidationKnown").asBoolean())
 			vote.setDelayValidated(data.has("DelayValidated") && data.get("DelayValidated").asBoolean());
+		else vote.clearDelayValidation();
 		return vote;
 	}
 

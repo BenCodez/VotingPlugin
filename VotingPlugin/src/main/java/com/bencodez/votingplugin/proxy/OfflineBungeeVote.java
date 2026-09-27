@@ -33,6 +33,8 @@ public class OfflineBungeeVote {
 	private boolean delayValidated;
 	@Getter
 	private boolean delayValidationKnown;
+	/** True only for cache rows written before queue classification was persisted. */
+	private boolean legacyQueueClassification;
 	@Getter
 	private String service;
 	@Getter
@@ -292,12 +294,19 @@ public class OfflineBungeeVote {
 	public void setDelayValidated(boolean delayValidated) {
 		this.delayValidated = delayValidated;
 		this.delayValidationKnown = true;
+		this.legacyQueueClassification = false;
 	}
 
 	/** Restores the legacy state for cache rows created before delay decisions were persisted. */
 	public void clearDelayValidation() {
 		this.delayValidated = false;
 		this.delayValidationKnown = false;
+		this.legacyQueueClassification = true;
+	}
+
+	/** Whether this row can explicitly classify delivery as queued or unvalidated. */
+	public boolean isQueueClassificationKnown() {
+		return !legacyQueueClassification;
 	}
 
 	/**

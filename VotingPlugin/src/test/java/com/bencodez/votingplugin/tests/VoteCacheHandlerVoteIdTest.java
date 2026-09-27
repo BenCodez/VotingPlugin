@@ -442,8 +442,26 @@ public class VoteCacheHandlerVoteIdTest {
 		OfflineBungeeVote restoredOnline = restarted.getOnlineVotes("player-uuid").get(0);
 		assertTrue(restoredServer.isDelayValidationKnown());
 		assertTrue(restoredServer.isDelayValidated());
+		assertTrue(restoredServer.isQueueClassificationKnown());
 		assertTrue(restoredOnline.isDelayValidationKnown());
 		assertFalse(restoredOnline.isDelayValidated());
+		assertTrue(restoredOnline.isQueueClassificationKnown());
+	}
+
+	@Test
+	public void legacyJsonCacheRetainsTimestampCompatibilityClassification() throws Exception {
+		VotingPluginBungee plugin = mock(VotingPluginBungee.class);
+		when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+		Files.writeString(tempDir.resolve("votecache.json"), """
+				{"VoteCache":{"server":{"0":{"Name":"Player","Service":"Service","UUID":"player-uuid","Time":100}}}}
+				""");
+
+		VoteCacheHandler restarted = newHandler(new BungeeJsonVoteCache(plugin));
+		restarted.load();
+
+		OfflineBungeeVote restored = restarted.getVotes("server").get(0);
+		assertFalse(restored.isQueueClassificationKnown());
+		assertFalse(restored.isDelayValidationKnown());
 	}
 
 	@Test

@@ -202,6 +202,22 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
+	void controlReloadRefreshesMultiProxySecurityWithoutReplacingItsListeners() throws Exception {
+		Mockito.when(votingPluginProxy.getConfig().getMultiProxySupport()).thenReturn(true);
+		Mockito.when(votingPluginProxy.getConfig().getMultiProxyMethod()).thenReturn("REDIS");
+		Mockito.when(votingPluginProxy.getConfig().getBungeeMethod()).thenReturn("PLUGINMESSAGING");
+		Mockito.when(votingPluginProxy.getConfig().getSharedTransportAuthentication()).thenReturn("REQUIRED");
+
+		votingPluginProxy.reloadFromControl();
+
+		assertSame(multiProxyHandler, votingPluginProxy.getMultiProxyHandler());
+		verify(multiProxyHandler).refreshTransportSecurity(
+				(com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator) getProxyField(
+						votingPluginProxy, "sharedTransportAuthenticator"));
+		verify(multiProxyHandler, never()).close();
+	}
+
+	@Test
 	void encryptedPluginEnrollmentUsesConnectionSourceValidation() throws Exception {
 		votingPluginProxy.setMethod(BungeeMethod.PLUGINMESSAGING);
 		votingPluginProxy.setValidateControlEnrollmentRequest(true);
@@ -1437,6 +1453,40 @@ public class VotingPluginProxyTest {
 		verify(multiProxyHandler).sendMultiProxyEnvelopeAccepted(forwarded.capture(), Mockito.any());
 		assertFalse(forwarded.getValue().getFields().containsKey(VotingPluginWire.K_DELAY_VALIDATED));
 		assertFalse(queued.isDelayValidationKnown());
+	}
+
+	@Test
+	void cachedVoteWithoutPersistedDelayDecisionIsNotMarkedAsPreviouslyValidated() throws Exception {
+		OfflineBungeeVote cached = new OfflineBungeeVote(java.util.UUID.randomUUID(), "Player",
+				"00000000-0000-0000-0000-000000000001", "Service", 100L, true, "");
+		Mockito.when(votingPluginProxy.getConfig().getBungeeManageTotals()).thenReturn(true);
+		java.lang.reflect.Method envelopeMethod = VotingPluginProxy.class.getDeclaredMethod("cachedVoteEnvelope",
+				OfflineBungeeVote.class, boolean.class, boolean.class, int.class, int.class);
+		envelopeMethod.setAccessible(true);
+
+		JsonEnvelope envelope = (JsonEnvelope) envelopeMethod.invoke(votingPluginProxy, cached, true, false, 1, 1);
+		VotingPluginWire.Vote vote = VotingPluginWire.readVote(envelope);
+
+		assertTrue(vote.queuedDeliveryKnown);
+		assertFalse(vote.queuedDelivery);
+		assertFalse(vote.delayValidationKnown);
+	}
+
+	@Test
+	void legacyCachedVoteRetainsTimestampCompatibilityFallback() throws Exception {
+		OfflineBungeeVote cached = new OfflineBungeeVote(java.util.UUID.randomUUID(), "Player",
+				"00000000-0000-0000-0000-000000000001", "Service", 100L, true, "");
+		cached.clearDelayValidation();
+		Mockito.when(votingPluginProxy.getConfig().getBungeeManageTotals()).thenReturn(true);
+		java.lang.reflect.Method envelopeMethod = VotingPluginProxy.class.getDeclaredMethod("cachedVoteEnvelope",
+				OfflineBungeeVote.class, boolean.class, boolean.class, int.class, int.class);
+		envelopeMethod.setAccessible(true);
+
+		VotingPluginWire.Vote vote = VotingPluginWire.readVote((JsonEnvelope) envelopeMethod.invoke(
+				votingPluginProxy, cached, true, false, 1, 1));
+
+		assertFalse(vote.queuedDeliveryKnown);
+		assertFalse(vote.delayValidationKnown);
 	}
 
 	@Test
