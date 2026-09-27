@@ -48,6 +48,20 @@ public class VotingPluginWireTest {
 	}
 
 	@Test
+	public void queuedDeliveryMarkerIsIndependentFromDelayValidation() {
+		JsonEnvelope live = VotingPluginWire.voteOnline("Player", UUID.randomUUID().toString(), "Service",
+				100L, true, true, "totals", UUID.randomUUID(), true, false, 1, 1, true);
+		JsonEnvelope queued = VotingPluginWire.queuedDelivery(live);
+
+		Vote liveVote = VotingPluginWire.readVote(live);
+		Vote queuedVote = VotingPluginWire.readVote(queued);
+		assertTrue(liveVote.delayValidated);
+		assertFalse(liveVote.queuedDelivery);
+		assertTrue(queuedVote.delayValidated);
+		assertTrue(queuedVote.queuedDelivery);
+	}
+
+	@Test
 	public void multiProxyVoteCarriesPrimaryDelayValidationAdditively() {
 		JsonEnvelope current = VotingPluginWire.multiProxyVote("Player", UUID.randomUUID().toString(), "Service",
 				100L, false, true, "totals", UUID.randomUUID(), false, false, 1, 1, "Primary", true);
