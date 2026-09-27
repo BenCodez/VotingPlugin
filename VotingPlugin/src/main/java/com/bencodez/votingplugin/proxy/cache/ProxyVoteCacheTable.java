@@ -55,7 +55,8 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 					.append(" VARCHAR(100), ").append(qi("service")).append(" VARCHAR(100), ").append(qi("time"))
 					.append(" BIGINT, ").append(qi("realVote")).append(" BOOLEAN, ").append(qi("wasOnline"))
 					.append(" BOOLEAN NOT NULL DEFAULT FALSE, ").append(qi("wasOnlineKnown"))
-					.append(" BOOLEAN NOT NULL DEFAULT FALSE, ").append(qi("text")).append(" TEXT, ").append(qi("broadcastForwarded")).append(" BOOLEAN NOT NULL DEFAULT FALSE, ")
+					.append(" BOOLEAN NOT NULL DEFAULT FALSE, ").append(qi("delayValidation"))
+					.append(" INTEGER NOT NULL DEFAULT -1, ").append(qi("text")).append(" TEXT, ").append(qi("broadcastForwarded")).append(" BOOLEAN NOT NULL DEFAULT FALSE, ")
 					.append(qi("proxyBroadcastHandled")).append(" BOOLEAN NOT NULL DEFAULT FALSE, ")
 					.append(qi("broadcastTargets")).append(" TEXT, ").append(qi("broadcastForwardedServers"))
 					.append(" TEXT, ").append(qi("rewardDelivered")).append(" BOOLEAN NOT NULL DEFAULT FALSE, ")
@@ -69,7 +70,8 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 					.append(qi("service")).append(" VARCHAR(100),").append(qi("time")).append(" BIGINT,")
 					.append(qi("realVote")).append(" TINYINT(1),").append(qi("wasOnline"))
 					.append(" TINYINT(1) NOT NULL DEFAULT 0,").append(qi("wasOnlineKnown"))
-					.append(" TINYINT(1) NOT NULL DEFAULT 0,").append(qi("text")).append(" TEXT,")
+					.append(" TINYINT(1) NOT NULL DEFAULT 0,").append(qi("delayValidation"))
+					.append(" INT NOT NULL DEFAULT -1,").append(qi("text")).append(" TEXT,")
 					.append(qi("broadcastForwarded")).append(" TINYINT(1) NOT NULL DEFAULT 0,")
 					.append(qi("proxyBroadcastHandled")).append(" TINYINT(1) NOT NULL DEFAULT 0,")
 					.append(qi("broadcastTargets")).append(" TEXT,").append(qi("broadcastForwardedServers"))
@@ -299,6 +301,7 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 		ensureColumn("rewardDelivered", booleanType);
 		ensureColumn("wasOnline", booleanType);
 		ensureColumn("wasOnlineKnown", booleanType);
+		ensureColumn("delayValidation", "INT NOT NULL DEFAULT -1");
 		ensureColumn("httpDeliveryIds", "TEXT");
 		ensureColumn("httpBroadcastDeliveryIds", "TEXT");
 	}
@@ -362,7 +365,7 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 			String text, boolean broadcastForwarded, boolean proxyBroadcastHandled, String broadcastTargets,
 			String broadcastForwardedServers, boolean rewardDelivered, String httpDeliveryIds,
 			String httpBroadcastDeliveryIds, String server) {
-		return tryInsertVoteAndGetId(voteId, uuid, playerName, service, time, real, false, false, text, broadcastForwarded,
+		return tryInsertVoteAndGetId(voteId, uuid, playerName, service, time, real, false, false, -1, text, broadcastForwarded,
 				proxyBroadcastHandled, broadcastTargets, broadcastForwardedServers, rewardDelivered, httpDeliveryIds,
 				httpBroadcastDeliveryIds, server) > 0;
 	}
@@ -376,16 +379,25 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 	 */
 	public int tryInsertVoteAndGetId(UUID voteId, String uuid, String playerName, String service, long time,
 			boolean real, boolean wasOnline, boolean wasOnlineKnown, String text, boolean broadcastForwarded,
+			boolean proxyBroadcastHandled, String broadcastTargets, String broadcastForwardedServers,
+			boolean rewardDelivered, String httpDeliveryIds, String httpBroadcastDeliveryIds, String server) {
+		return tryInsertVoteAndGetId(voteId, uuid, playerName, service, time, real, wasOnline, wasOnlineKnown,
+				-1, text, broadcastForwarded, proxyBroadcastHandled, broadcastTargets, broadcastForwardedServers,
+				rewardDelivered, httpDeliveryIds, httpBroadcastDeliveryIds, server);
+	}
+
+	public int tryInsertVoteAndGetId(UUID voteId, String uuid, String playerName, String service, long time,
+			boolean real, boolean wasOnline, boolean wasOnlineKnown, int delayValidation, String text, boolean broadcastForwarded,
 			boolean proxyBroadcastHandled,
 			String broadcastTargets, String broadcastForwardedServers, boolean rewardDelivered,
 			String httpDeliveryIds, String httpBroadcastDeliveryIds, String server) {
 
 		String sql = "INSERT INTO " + qi(getTableName()) + " (" + qi("uuid") + ", " + qi("voteid") + ", "
 				+ qi("playerName") + ", " + qi("service") + ", " + qi("time") + ", " + qi("realVote") + ", "
-				+ qi("wasOnline") + ", " + qi("wasOnlineKnown") + ", " + qi("text") + ", " + qi("broadcastForwarded") + ", " + qi("proxyBroadcastHandled") + ", "
+				+ qi("wasOnline") + ", " + qi("wasOnlineKnown") + ", " + qi("delayValidation") + ", " + qi("text") + ", " + qi("broadcastForwarded") + ", " + qi("proxyBroadcastHandled") + ", "
 				+ qi("broadcastTargets") + ", " + qi("broadcastForwardedServers") + ", " + qi("rewardDelivered")
 				+ ", " + qi("httpDeliveryIds") + ", " + qi("httpBroadcastDeliveryIds") + ", " + qi("server")
-				+ ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+				+ ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
 
 		try (Connection conn = mysql.getConnectionManager().getConnection();
 				PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
@@ -411,21 +423,22 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 				ps.setInt(8, wasOnlineKnown ? 1 : 0);
 			}
 
-			ps.setString(9, text);
+			ps.setInt(9, delayValidation);
+			ps.setString(10, text);
 			if (getDbType() == DbType.POSTGRESQL) {
-				ps.setBoolean(10, broadcastForwarded);
-				ps.setBoolean(11, proxyBroadcastHandled);
-				ps.setBoolean(14, rewardDelivered);
+				ps.setBoolean(11, broadcastForwarded);
+				ps.setBoolean(12, proxyBroadcastHandled);
+				ps.setBoolean(15, rewardDelivered);
 			} else {
-				ps.setInt(10, broadcastForwarded ? 1 : 0);
-				ps.setInt(11, proxyBroadcastHandled ? 1 : 0);
-				ps.setInt(14, rewardDelivered ? 1 : 0);
+				ps.setInt(11, broadcastForwarded ? 1 : 0);
+				ps.setInt(12, proxyBroadcastHandled ? 1 : 0);
+				ps.setInt(15, rewardDelivered ? 1 : 0);
 			}
-			ps.setString(12, broadcastTargets);
-			ps.setString(13, broadcastForwardedServers);
-			ps.setString(15, httpDeliveryIds);
-			ps.setString(16, httpBroadcastDeliveryIds);
-			ps.setString(17, server);
+			ps.setString(13, broadcastTargets);
+			ps.setString(14, broadcastForwardedServers);
+			ps.setString(16, httpDeliveryIds);
+			ps.setString(17, httpBroadcastDeliveryIds);
+			ps.setString(18, server);
 
 			if (ps.executeUpdate() != 1) return -1;
 			try (ResultSet keys = ps.getGeneratedKeys()) {
@@ -647,7 +660,7 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 					VoteRow v = new VoteRow(rs.getInt("id"), rs.getString("voteid"), rs.getString("uuid"),
 							rs.getString("playerName"), rs.getString("service"), rs.getLong("time"),
 							(getDbType() == DbType.POSTGRESQL ? rs.getBoolean("realVote") : rs.getInt("realVote") == 1),
-							rs.getBoolean("wasOnline"), rs.getBoolean("wasOnlineKnown"), rs.getString("text"), rs.getBoolean("broadcastForwarded"),
+							rs.getBoolean("wasOnline"), rs.getBoolean("wasOnlineKnown"), rs.getInt("delayValidation"), rs.getString("text"), rs.getBoolean("broadcastForwarded"),
 							rs.getBoolean("proxyBroadcastHandled"), rs.getString("broadcastTargets"),
 							rs.getString("broadcastForwardedServers"), rs.getBoolean("rewardDelivered"),
 							rs.getString("httpDeliveryIds"),
@@ -675,6 +688,7 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 		private final boolean realVote;
 		private final boolean wasOnline;
 		private final boolean wasOnlineKnown;
+		private final int delayValidation;
 		private final String text;
 		private final boolean broadcastForwarded;
 		private final boolean proxyBroadcastHandled;
@@ -703,7 +717,7 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 		 * @param server the server name
 		 */
 		public VoteRow(int id, String voteId, String uuid, String playerName, String service, long time,
-				boolean realVote, boolean wasOnline, boolean wasOnlineKnown, String text, boolean broadcastForwarded, boolean proxyBroadcastHandled,
+				boolean realVote, boolean wasOnline, boolean wasOnlineKnown, int delayValidation, String text, boolean broadcastForwarded, boolean proxyBroadcastHandled,
 				String broadcastTargets, String broadcastForwardedServers, boolean rewardDelivered, String httpDeliveryIds,
 				String httpBroadcastDeliveryIds, String server) {
 			this.id = id;
@@ -715,6 +729,7 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 			this.realVote = realVote;
 			this.wasOnline = wasOnline;
 			this.wasOnlineKnown = wasOnlineKnown;
+			this.delayValidation = delayValidation;
 			this.text = text;
 			this.broadcastForwarded = broadcastForwarded;
 			this.proxyBroadcastHandled = proxyBroadcastHandled;
@@ -724,6 +739,16 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 			this.httpDeliveryIds = httpDeliveryIds;
 			this.httpBroadcastDeliveryIds = httpBroadcastDeliveryIds;
 			this.server = server;
+		}
+
+		/** Backward-compatible constructor for integrations compiled before delay validation was persisted. */
+		public VoteRow(int id, String voteId, String uuid, String playerName, String service, long time,
+				boolean realVote, boolean wasOnline, boolean wasOnlineKnown, String text, boolean broadcastForwarded,
+				boolean proxyBroadcastHandled, String broadcastTargets, String broadcastForwardedServers,
+				boolean rewardDelivered, String httpDeliveryIds, String httpBroadcastDeliveryIds, String server) {
+			this(id, voteId, uuid, playerName, service, time, realVote, wasOnline, wasOnlineKnown, -1, text,
+					broadcastForwarded, proxyBroadcastHandled, broadcastTargets, broadcastForwardedServers,
+					rewardDelivered, httpDeliveryIds, httpBroadcastDeliveryIds, server);
 		}
 
 		/**
@@ -789,6 +814,8 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 		public boolean isWasOnlineKnown() {
 			return wasOnlineKnown;
 		}
+
+		public int getDelayValidation() { return delayValidation; }
 
 		/**
 		 * Gets the vote text.

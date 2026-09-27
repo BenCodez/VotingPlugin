@@ -53,6 +53,23 @@ import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
  * Regression tests for proxy vote identity across caches and delayed processing.
  */
 public class VoteCacheHandlerVoteIdTest {
+	@Test
+	public void legacySqlRowConstructorsPreserveUnknownDelayValidation() {
+		ProxyVoteCacheTable.VoteRow server = new ProxyVoteCacheTable.VoteRow(1, "vote", "uuid", "Player",
+				"Service", 100L, true, false, false, "totals", false, false, "", "", false, "", "",
+				"server");
+		ProxyOnlineVoteCacheTable.VoteRow online = new ProxyOnlineVoteCacheTable.VoteRow(2, "vote", "uuid",
+				"Player", "Service", 100L, true, false, false, "totals", false, false, "", "", false, "",
+				"");
+		ProxyTimedVoteCacheTable.TimedVoteRow timed = new ProxyTimedVoteCacheTable.TimedVoteRow(3, "Player",
+				"Service", 100L, UUID.randomUUID(), "uuid", false, "", "", "totals", false, false, false,
+				false, true, "", false, "", "", "", "", false, false);
+
+		assertEquals(-1, server.getDelayValidation());
+		assertEquals(-1, online.getDelayValidation());
+		assertEquals(-1, timed.getDelayValidation());
+	}
+
 	@TempDir
 	Path tempDir;
 
@@ -403,6 +420,30 @@ public class VoteCacheHandlerVoteIdTest {
 		handler.load();
 
 		assertEquals(voteId, handler.getVotes("server").get(0).getVoteId());
+	}
+
+	@Test
+	public void jsonCachePreservesProxyDelayValidationAcrossRestart() {
+		VotingPluginBungee plugin = mock(VotingPluginBungee.class);
+		when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+		BungeeJsonVoteCache durableStorage = new BungeeJsonVoteCache(plugin);
+		VoteCacheHandler writer = newHandler(durableStorage);
+		OfflineBungeeVote serverVote = vote(UUID.randomUUID(), 100L);
+		serverVote.setDelayValidated(true);
+		OfflineBungeeVote onlineVote = vote(UUID.randomUUID(), 101L);
+		onlineVote.setDelayValidated(false);
+
+		assertTrue(writer.addServerVoteDurably("server", serverVote));
+		assertTrue(writer.addOnlineVoteDurably("player-uuid", onlineVote));
+
+		VoteCacheHandler restarted = newHandler(new BungeeJsonVoteCache(plugin));
+		restarted.load();
+		OfflineBungeeVote restoredServer = restarted.getVotes("server").get(0);
+		OfflineBungeeVote restoredOnline = restarted.getOnlineVotes("player-uuid").get(0);
+		assertTrue(restoredServer.isDelayValidationKnown());
+		assertTrue(restoredServer.isDelayValidated());
+		assertTrue(restoredOnline.isDelayValidationKnown());
+		assertFalse(restoredOnline.isDelayValidated());
 	}
 
 	@Test
@@ -1104,6 +1145,8 @@ public class VoteCacheHandlerVoteIdTest {
 				.toStorageString();
 		stubString(timedNode, "Totals", totals);
 		stubBoolean(timedNode, "Processed", true);
+		stubBoolean(timedNode, "DelayValidated", true);
+		stubBoolean(timedNode, "DelayValidationKnown", true);
 
 		handler = newHandler(stored);
 		handler.load();
@@ -1115,6 +1158,8 @@ public class VoteCacheHandlerVoteIdTest {
 		assertEquals(Set.of("Server1"), loaded.getBroadcastForwardedServers());
 		assertEquals(totals, loaded.getTotals());
 		assertTrue(loaded.isProcessed());
+		assertTrue(loaded.isDelayValidationKnown());
+		assertTrue(loaded.isDelayValidated());
 	}
 
 	@Test

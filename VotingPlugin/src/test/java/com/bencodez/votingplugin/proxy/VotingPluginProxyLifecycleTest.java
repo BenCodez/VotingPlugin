@@ -252,7 +252,7 @@ class VotingPluginProxyLifecycleTest {
 	}
 
 	@Test
-	void preservesReceiptReleaseAfterLegacyDowngradeDelivery(@TempDir Path directory) throws Exception {
+	void retiresAcceptedLegacyDeliveryWithoutWaitingForUnsupportedRelease(@TempDir Path directory) throws Exception {
 		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
 		proxy.setMethod(BungeeMethod.PLUGINMESSAGING);
 		GlobalMessageProxyHandler messages = mock(GlobalMessageProxyHandler.class);
@@ -285,8 +285,7 @@ class VotingPluginProxyLifecycleTest {
 		proxy.setPluginMessageDeliveryResult(true);
 		retry.invoke(proxy, "survival");
 
-		assertEquals(1, outbox.size());
-		org.junit.jupiter.api.Assertions.assertTrue(outbox.snapshot().get(0).awaitingReceiptRelease());
+		assertEquals(0, outbox.size());
 	}
 
 	@Test
@@ -323,7 +322,7 @@ class VotingPluginProxyLifecycleTest {
 		retry.invoke(restartedProxy, "survival");
 
 		assertEquals(1, restartedProxy.getVoteEnvelopeDeliveryAttempts());
-		org.junit.jupiter.api.Assertions.assertTrue(restartedOutbox.snapshot().get(0).awaitingReceiptRelease());
+		assertEquals(0, restartedOutbox.size());
 	}
 
 	@Test
@@ -348,6 +347,7 @@ class VotingPluginProxyLifecycleTest {
 				fencedJournal.set(Files.readAllBytes(file));
 				Files.delete(file);
 				Files.createDirectory(file);
+				Files.writeString(file.resolve("blocker"), "keep retirement pending");
 			} catch (java.io.IOException failure) {
 				throw new AssertionError(failure);
 			}
@@ -358,6 +358,7 @@ class VotingPluginProxyLifecycleTest {
 
 		assertEquals(1, proxy.getVoteEnvelopeDeliveryAttempts());
 		org.junit.jupiter.api.Assertions.assertFalse(outbox.snapshot().get(0).awaitingReceiptRelease());
+		Files.delete(file.resolve("blocker"));
 		Files.delete(file);
 		Files.write(file, fencedJournal.get());
 
@@ -370,7 +371,7 @@ class VotingPluginProxyLifecycleTest {
 		restartedLegacy.add("survival");
 		retry.invoke(restartedProxy, "survival");
 		assertEquals(0, restartedProxy.getVoteEnvelopeDeliveryAttempts());
-		org.junit.jupiter.api.Assertions.assertTrue(restartedOutbox.snapshot().get(0).awaitingReceiptRelease());
+		assertEquals(0, restartedOutbox.size());
 	}
 
 	private static void setField(Object target, String name, Object value) throws Exception {
@@ -448,6 +449,51 @@ class VotingPluginProxyLifecycleTest {
 
 		assertEquals(1, outbox.size());
 		org.mockito.Mockito.verifyNoInteractions(messages);
+	}
+
+	@Test
+	void oldReliableBackendReceivesDelayRejectionThroughOneShotLegacyPath(@TempDir Path directory) throws Exception {
+		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
+		proxy.setMethod(BungeeMethod.PLUGINMESSAGING);
+		GlobalMessageProxyHandler messages = mock(GlobalMessageProxyHandler.class);
+		ReliableVoteDeliveryOutbox outbox = new ReliableVoteDeliveryOutbox(directory.resolve("outbox.dat"));
+		setField(proxy, "globalMessageProxyHandler", messages);
+		setField(proxy, "reliableVoteDeliveryOutbox", outbox);
+		@SuppressWarnings("unchecked")
+		Set<String> reliable = (Set<String>) field(proxy, "reliableVoteDeliveryServers");
+		reliable.add("survival");
+		JsonEnvelope rejection = VotingPluginWire.voteDelayRejected("Player", UUID.randomUUID().toString(),
+				"site", true, UUID.randomUUID());
+
+		org.junit.jupiter.api.Assertions.assertTrue(
+				proxy.sendVoteEnvelopeAcceptedForTest("survival", 1, rejection));
+
+		assertEquals(0, outbox.size());
+		verify(messages).sendMessage(org.mockito.ArgumentMatchers.eq("survival"),
+				org.mockito.ArgumentMatchers.eq(1), org.mockito.ArgumentMatchers.eq(rejection));
+	}
+
+	@Test
+	void delayRejectionUsesOutboxOnlyAfterSpecificCapabilityNegotiation(@TempDir Path directory) throws Exception {
+		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
+		proxy.setMethod(BungeeMethod.HTTP);
+		proxy.setVoteEnvelopeDeliveryResult(true);
+		ReliableVoteDeliveryOutbox outbox = new ReliableVoteDeliveryOutbox(directory.resolve("outbox.dat"));
+		setField(proxy, "reliableVoteDeliveryOutbox", outbox);
+		@SuppressWarnings("unchecked")
+		Set<String> reliable = (Set<String>) field(proxy, "reliableVoteDeliveryServers");
+		reliable.add("survival");
+		@SuppressWarnings("unchecked")
+		Set<String> delayReliable = (Set<String>) field(proxy, "reliableVoteDelayRejectionServers");
+		delayReliable.add("survival");
+		JsonEnvelope rejection = VotingPluginWire.voteDelayRejected("Player", UUID.randomUUID().toString(),
+				"site", true, UUID.randomUUID());
+
+		org.junit.jupiter.api.Assertions.assertTrue(
+				proxy.sendVoteEnvelopeAcceptedForTest("survival", 1, rejection));
+
+		assertEquals(1, outbox.size());
+		assertTrue(VotingPluginWire.requestsVoteDeliveryAcknowledgement(proxy.getLastVoteEnvelope()));
 	}
 
 	@Test

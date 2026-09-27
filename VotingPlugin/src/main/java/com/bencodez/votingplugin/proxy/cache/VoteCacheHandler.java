@@ -31,6 +31,9 @@ import lombok.Getter;
  * Handles caching of votes for proxy servers.
  */
 public abstract class VoteCacheHandler {
+	private static int delayValidation(OfflineBungeeVote vote) {
+		return vote.isDelayValidationKnown() ? vote.isDelayValidated() ? 1 : 0 : -1;
+	}
 	private static final int MAX_PENDING_PERSISTENCE_VOTES = 1024;
 
 	/**
@@ -133,7 +136,7 @@ public abstract class VoteCacheHandler {
 		boolean stored;
 		if (useMySQL) {
 			int rowId = voteCacheTable.tryInsertVoteAndGetId(vote.getVoteId(), vote.getUuid(), vote.getPlayerName(), vote.getService(),
-					vote.getTime(), vote.isRealVote(), vote.isWasOnline(), vote.isWasOnlineKnown(), vote.getText(), vote.isBroadcastForwarded(),
+					vote.getTime(), vote.isRealVote(), vote.isWasOnline(), vote.isWasOnlineKnown(), delayValidation(vote), vote.getText(), vote.isBroadcastForwarded(),
 					vote.isProxyBroadcastHandled(), vote.encodeBroadcastTargets(),
 					vote.encodeBroadcastForwardedServers(), vote.isRewardDelivered(), vote.encodeHttpDeliveryIds(),
 					vote.encodeHttpBroadcastDeliveryIds(), server);
@@ -301,7 +304,7 @@ public abstract class VoteCacheHandler {
 		boolean stored;
 		if (useMySQL) {
 			int rowId = onlineVoteCacheTable.tryInsertVoteAndGetId(vote.getVoteId(), vote.getUuid(), vote.getPlayerName(), vote.getService(),
-					vote.getTime(), vote.isRealVote(), vote.isWasOnline(), vote.isWasOnlineKnown(), vote.getText(), vote.isBroadcastForwarded(),
+					vote.getTime(), vote.isRealVote(), vote.isWasOnline(), vote.isWasOnlineKnown(), delayValidation(vote), vote.getText(), vote.isBroadcastForwarded(),
 					vote.isProxyBroadcastHandled(), vote.encodeBroadcastTargets(),
 					vote.encodeBroadcastForwardedServers(), vote.isRewardDelivered(), vote.encodeHttpDeliveryIds(),
 					vote.encodeHttpBroadcastDeliveryIds());
@@ -1268,6 +1271,7 @@ public abstract class VoteCacheHandler {
 						voteRow.isRewardDelivered(), OfflineBungeeVote.decodeHttpDeliveryIds(voteRow.getHttpDeliveryIds()),
 						OfflineBungeeVote.decodeHttpBroadcastDeliveryIds(voteRow.getHttpBroadcastDeliveryIds()));
 				if (voteRow.isWasOnlineKnown()) vote.setWasOnline(voteRow.isWasOnline());
+				if (voteRow.getDelayValidation() >= 0) vote.setDelayValidated(voteRow.getDelayValidation() == 1);
 				vote.setServerVoteCacheRowId(voteRow.getId());
 				String server = voteRow.getServer();
 				cachedVotes.putIfAbsent(server, new ArrayList<>());
@@ -1284,6 +1288,7 @@ public abstract class VoteCacheHandler {
 						voteRow.isRewardDelivered(), OfflineBungeeVote.decodeHttpDeliveryIds(voteRow.getHttpDeliveryIds()),
 						OfflineBungeeVote.decodeHttpBroadcastDeliveryIds(voteRow.getHttpBroadcastDeliveryIds()));
 				if (voteRow.isWasOnlineKnown()) vote.setWasOnline(voteRow.isWasOnline());
+				if (voteRow.getDelayValidation() >= 0) vote.setDelayValidated(voteRow.getDelayValidation() == 1);
 				vote.setOnlineVoteCacheRowId(voteRow.getId());
 				String player = vote.getUuid();
 				cachedOnlineVotes.putIfAbsent(player, new ArrayList<>());
@@ -1305,6 +1310,9 @@ public abstract class VoteCacheHandler {
 						timedVoteRow.isMultiProxyCapabilityDiscoveryPending());
 				voteTimeQueue.setRealVote(timedVoteRow.isRealVote());
 				if (timedVoteRow.isWasOnlineKnown()) voteTimeQueue.setWasOnline(timedVoteRow.isWasOnline());
+				if (timedVoteRow.getDelayValidation() >= 0) {
+					voteTimeQueue.setDelayValidated(timedVoteRow.getDelayValidation() == 1);
+				}
 				voteTimeQueue.setMultiProxyOrigin(timedVoteRow.getMultiProxyOrigin() == null ? ""
 						: timedVoteRow.getMultiProxyOrigin());
 				voteTimeQueue.setMultiProxyCompletionPending(timedVoteRow.isMultiProxyCompletionPending());
@@ -1375,6 +1383,8 @@ public abstract class VoteCacheHandler {
 								rewardDelivered, OfflineBungeeVote.decodeHttpDeliveryIds(httpDeliveryIds),
 								OfflineBungeeVote.decodeHttpBroadcastDeliveryIds(httpBroadcastDeliveryIds));
 							if (wasOnlineKnown) vote.setWasOnline(data.get("WasOnline").asBoolean());
+							if (data.has("DelayValidationKnown") && data.get("DelayValidationKnown").asBoolean())
+								vote.setDelayValidated(data.has("DelayValidated") && data.get("DelayValidated").asBoolean());
 							vote.setServerVoteCacheJsonKey(num);
 							votes.add(vote);
 						}
@@ -1426,6 +1436,8 @@ public abstract class VoteCacheHandler {
 								rewardDelivered, OfflineBungeeVote.decodeHttpDeliveryIds(httpDeliveryIds),
 								OfflineBungeeVote.decodeHttpBroadcastDeliveryIds(httpBroadcastDeliveryIds));
 							if (wasOnlineKnown) vote.setWasOnline(data.get("WasOnline").asBoolean());
+							if (data.has("DelayValidationKnown") && data.get("DelayValidationKnown").asBoolean())
+								vote.setDelayValidated(data.has("DelayValidated") && data.get("DelayValidated").asBoolean());
 							vote.setOnlineVoteCacheJsonKey(num);
 							votes.add(vote);
 						}
@@ -1576,6 +1588,9 @@ public abstract class VoteCacheHandler {
 		if (data.has("WasOnlineKnown") && data.get("WasOnlineKnown").asBoolean()) {
 			queuedVote.setWasOnline(data.get("WasOnline").asBoolean());
 		}
+		if (data.has("DelayValidationKnown") && data.get("DelayValidationKnown").asBoolean()) {
+			queuedVote.setDelayValidated(data.has("DelayValidated") && data.get("DelayValidated").asBoolean());
+		}
 		queuedVote.setMultiProxyOrigin(data.has("MultiProxyOrigin")
 				? data.get("MultiProxyOrigin").asString() : "");
 		queuedVote.setMultiProxyCompletionPending(data.has("MultiProxyCompletionPending")
@@ -1620,6 +1635,8 @@ public abstract class VoteCacheHandler {
 				OfflineBungeeVote.decodeHttpDeliveryIds(httpDeliveryIds),
 				OfflineBungeeVote.decodeHttpBroadcastDeliveryIds(httpBroadcastDeliveryIds));
 		if (wasOnlineKnown) vote.setWasOnline(data.get("WasOnline").asBoolean());
+		if (data.has("DelayValidationKnown") && data.get("DelayValidationKnown").asBoolean())
+			vote.setDelayValidated(data.has("DelayValidated") && data.get("DelayValidated").asBoolean());
 		return vote;
 	}
 

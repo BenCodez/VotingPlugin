@@ -450,7 +450,8 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 	private static String reliableDeliveryId(PendingEnvelope failed) {
 		JsonEnvelope envelope = failed.envelope;
 		if ((!VotingPluginWire.SUB_VOTE.equals(envelope.getSubChannel())
-				&& !VotingPluginWire.SUB_VOTE_ONLINE.equals(envelope.getSubChannel()))
+				&& !VotingPluginWire.SUB_VOTE_ONLINE.equals(envelope.getSubChannel())
+				&& !VotingPluginWire.SUB_VOTE_DELAY_REJECTED.equals(envelope.getSubChannel()))
 				|| !VotingPluginWire.requestsVoteDeliveryAcknowledgement(envelope)) return null;
 		try {
 			return UUID.fromString(envelope.getFields().get(VotingPluginWire.K_VOTE_ID)).toString();
@@ -463,6 +464,7 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 		String subChannel = envelope.getSubChannel();
 		return VotingPluginWire.SUB_VOTE.equals(subChannel)
 				|| VotingPluginWire.SUB_VOTE_ONLINE.equals(subChannel)
+				|| VotingPluginWire.SUB_VOTE_DELAY_REJECTED.equals(subChannel)
 				|| VotingPluginWire.SUB_VOTE_UPDATE.equals(subChannel)
 				|| VotingPluginWire.SUB_VOTE_DELIVERY_RECEIPT_RELEASE.equals(subChannel);
 	}

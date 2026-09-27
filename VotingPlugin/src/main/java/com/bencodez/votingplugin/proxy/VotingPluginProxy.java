@@ -137,6 +137,7 @@ public abstract class VotingPluginProxy {
 	private final Map<UUID, MultiProxyVoteRetry> multiProxyVoteRetries = new LinkedHashMap<>();
 	private final LinkedHashMap<UUID, Boolean> completedMultiProxyVotes = new LinkedHashMap<>();
 	private final Set<String> reliableVoteDeliveryServers = ConcurrentHashMap.newKeySet();
+	private final Set<String> reliableVoteDelayRejectionServers = ConcurrentHashMap.newKeySet();
 	private final Set<String> legacyVoteDeliveryServers = ConcurrentHashMap.newKeySet();
 	private final Set<String> rejectedLegacyVoteDeliveries = ConcurrentHashMap.newKeySet();
 	private ReliableVoteDeliveryOutbox reliableVoteDeliveryOutbox;
@@ -166,6 +167,8 @@ public abstract class VotingPluginProxy {
 		private long time;
 		private boolean realVote;
 		private boolean playerOnline;
+		private boolean delayValidated;
+		private boolean delayValidationKnown;
 
 	}
 
@@ -185,12 +188,15 @@ public abstract class VotingPluginProxy {
 		private final String uuid;
 		private final UUID voteId;
 		private final String origin;
+		private final boolean delayValidated;
+		private final boolean delayValidationKnown;
 		private int attempts;
 		private boolean scheduled;
 		private Phase phase = Phase.EXECUTE;
 
 		private MultiProxyVoteRetry(String player, String service, boolean realVote, boolean timeQueue, long queueTime,
-				VoteTotalsSnapshot totals, String uuid, UUID voteId, String origin) {
+				VoteTotalsSnapshot totals, String uuid, UUID voteId, String origin, boolean delayValidated,
+				boolean delayValidationKnown) {
 			this.player = player;
 			this.service = service;
 			this.realVote = realVote;
@@ -200,6 +206,8 @@ public abstract class VotingPluginProxy {
 			this.uuid = uuid;
 			this.voteId = voteId;
 			this.origin = origin == null ? "" : origin;
+			this.delayValidated = delayValidated;
+			this.delayValidationKnown = delayValidationKnown;
 		}
 
 		@Override
@@ -881,8 +889,8 @@ public abstract class VotingPluginProxy {
 
 	protected boolean sendVoteEnvelopeAccepted(String server, int delay, JsonEnvelope envelope,
 			OfflineBungeeVote cachedVote) {
-		boolean reliable = supportsReliableVoteDelivery(server);
-		boolean legacy = isLegacyVoteDelivery(server);
+		boolean reliable = supportsReliableVoteDelivery(server, envelope.getSubChannel());
+		boolean legacy = isLegacyVoteDelivery(server, envelope.getSubChannel());
 		if (reliable || !legacy) {
 			ReliableVoteDeliveryOutbox outbox = reliableVoteDeliveryOutbox;
 			if (outbox == null || !outbox.offer(server, envelope)) {
@@ -917,8 +925,21 @@ public abstract class VotingPluginProxy {
 		return server != null && reliableVoteDeliveryServers.contains(server.trim().toLowerCase(Locale.ROOT));
 	}
 
+	private boolean supportsReliableVoteDelivery(String server, String subChannel) {
+		if (!supportsReliableVoteDelivery(server)) return false;
+		return !VotingPluginWire.SUB_VOTE_DELAY_REJECTED.equals(subChannel)
+				|| reliableVoteDelayRejectionServers.contains(server.trim().toLowerCase(Locale.ROOT));
+	}
+
 	private boolean isLegacyVoteDelivery(String server) {
 		return server != null && legacyVoteDeliveryServers.contains(server.trim().toLowerCase(Locale.ROOT));
+	}
+
+	private boolean isLegacyVoteDelivery(String server, String subChannel) {
+		return isLegacyVoteDelivery(server)
+				|| (VotingPluginWire.SUB_VOTE_DELAY_REJECTED.equals(subChannel)
+						&& supportsReliableVoteDelivery(server)
+						&& !supportsReliableVoteDelivery(server, subChannel));
 	}
 
 	private void updateReliableVoteDeliveryCapability(String server, JsonEnvelope message) {
@@ -927,12 +948,16 @@ public abstract class VotingPluginProxy {
 		if (VotingPluginWire.advertisesVoteDeliveryAcknowledgement(message)) {
 			legacyVoteDeliveryServers.remove(key);
 			reliableVoteDeliveryServers.add(key);
-			retryReliableVoteDeliveries(server);
 		} else {
 			reliableVoteDeliveryServers.remove(key);
 			legacyVoteDeliveryServers.add(key);
-			retryReliableVoteDeliveries(server);
 		}
+		if (VotingPluginWire.advertisesVoteDelayRejectionAcknowledgement(message)) {
+			reliableVoteDelayRejectionServers.add(key);
+		} else {
+			reliableVoteDelayRejectionServers.remove(key);
+		}
+		retryReliableVoteDeliveries(server);
 	}
 
 	private void retryReliableVoteDeliveries() {
@@ -951,11 +976,16 @@ public abstract class VotingPluginProxy {
 				String deliveryKey = legacyDeliveryKey(entry.server(), parsedVoteId,
 						entry.envelope().getSubChannel());
 				if (entry.awaitingReceiptRelease()) {
-					if (supportsReliableVoteDelivery(entry.server())) {
+					if (supportsReliableVoteDelivery(entry.server(), entry.envelope().getSubChannel())) {
 						JsonEnvelope release = VotingPluginWire.voteDeliveryReceiptRelease(
 								entry.server(), parsedVoteId, entry.envelope().getSubChannel());
 						if (sendReliableVoteDelivery(entry.server(), delay, "release", parsedVoteId,
 								entry.envelope().getSubChannel(), release)) delay++;
+					} else if (isLegacyVoteDelivery(entry.server(), entry.envelope().getSubChannel())
+							&& !outbox.retireLegacyDelivery(entry.server(), parsedVoteId,
+									entry.envelope().getSubChannel())) {
+						debug("Completed legacy vote remains queued until its local retirement is durable for "
+								+ entry.server());
 					}
 					continue;
 				}
@@ -967,18 +997,18 @@ public abstract class VotingPluginProxy {
 						}
 						continue;
 					}
-					if (!outbox.acknowledgeCompletion(entry.server(), parsedVoteId,
+					if (!outbox.retireLegacyDelivery(entry.server(), parsedVoteId,
 							entry.envelope().getSubChannel())) {
-						debug("Accepted legacy vote remains fenced until its completion state is durable for "
+						debug("Accepted legacy vote remains fenced until its local retirement is durable for "
 								+ entry.server());
 					}
 					continue;
 				}
-				if (supportsReliableVoteDelivery(entry.server())) {
+				if (supportsReliableVoteDelivery(entry.server(), entry.envelope().getSubChannel())) {
 					JsonEnvelope requested = VotingPluginWire.requestVoteDeliveryAcknowledgement(entry.envelope());
 					if (sendReliableVoteDelivery(entry.server(), delay, "vote", parsedVoteId,
 							entry.envelope().getSubChannel(), requested)) delay++;
-				} else if (legacyVoteDeliveryServers.contains(entry.server().trim().toLowerCase(Locale.ROOT))) {
+				} else if (isLegacyVoteDelivery(entry.server(), entry.envelope().getSubChannel())) {
 					if (!outbox.beginLegacyDelivery(entry.server(), parsedVoteId,
 							entry.envelope().getSubChannel())) {
 						debug("Legacy vote delivery remains queued until its attempt fence is durable for "
@@ -997,9 +1027,9 @@ public abstract class VotingPluginProxy {
 						continue;
 					}
 					delay++;
-					if (!outbox.acknowledgeCompletion(entry.server(), parsedVoteId,
+					if (!outbox.retireLegacyDelivery(entry.server(), parsedVoteId,
 							entry.envelope().getSubChannel())) {
-						debug("Legacy vote delivery was accepted but remains queued until its release state is durable for "
+						debug("Legacy vote delivery was accepted but remains fenced until its local retirement is durable for "
 								+ entry.server());
 					}
 				} else {
@@ -1140,10 +1170,7 @@ public abstract class VotingPluginProxy {
 								}
 
 								if (!sendVoteEnvelopeAccepted(server, delay,
-										VotingPluginWire.vote(cache.getPlayerName(), cache.getUuid(),
-												cache.getService(), cache.getTime(), resolveCachedWasOnline(cache), cache.isRealVote(),
-												cache.getText(), cache.getVoteId(), getConfig().getBungeeManageTotals(),
-												broadcastHere, num, numberOfVotes), cache)) {
+										cachedVoteEnvelope(cache, false, broadcastHere, num, numberOfVotes), cache)) {
 									debug("Retaining cached vote because the transport rejected delivery for " + server);
 									persistServerVoteDelivery(server, cache);
 									continue;
@@ -1226,9 +1253,7 @@ public abstract class VotingPluginProxy {
 
 						if (!cache.isRewardDelivered()) {
 							if (!sendVoteEnvelopeAccepted(server, delay,
-									VotingPluginWire.voteOnline(cache.getPlayerName(), cache.getUuid(), cache.getService(),
-											cache.getTime(), resolveCachedWasOnline(cache), cache.isRealVote(), cache.getText(), cache.getVoteId(),
-											getConfig().getBungeeManageTotals(), broadcastHere, num, numberOfVotes), cache)) {
+									cachedVoteEnvelope(cache, true, broadcastHere, num, numberOfVotes), cache)) {
 								debug("Retaining online vote because the transport rejected delivery for " + server);
 								persistOnlineVoteDelivery(uuid, cache);
 								continue;
@@ -2104,6 +2129,7 @@ public abstract class VotingPluginProxy {
 							presenceTimestamp, System.currentTimeMillis())) {
 						discardPendingPresenceHandoffs(server);
 						reliableVoteDeliveryServers.remove(server.trim().toLowerCase(Locale.ROOT));
+						reliableVoteDelayRejectionServers.remove(server.trim().toLowerCase(Locale.ROOT));
 						legacyVoteDeliveryServers.remove(server.trim().toLowerCase(Locale.ROOT));
 						pendingBackendRecoverySnapshots.remove(presenceServerKey(server));
 					}
@@ -2689,6 +2715,14 @@ public abstract class VotingPluginProxy {
 			}
 
 			@Override
+			public void triggerVote(String player, String service, boolean realVote, boolean timeQueue, long queueTime,
+					VoteTotalsSnapshot text, String uuid, UUID voteId, String origin, boolean delayValidated,
+					boolean delayValidationKnown) {
+				receiveMultiProxyVote(player, service, realVote, timeQueue, queueTime, text, uuid, voteId, origin,
+						delayValidated, delayValidationKnown);
+			}
+
+			@Override
 			public void onMultiProxyVoteAcknowledged(UUID voteId, String recipient) {
 				handleMultiProxyVoteAcknowledgement(voteId, recipient);
 			}
@@ -2709,12 +2743,21 @@ public abstract class VotingPluginProxy {
 	/** Receives and locally retries a forwarded vote under its wire-stable identity. */
 	protected synchronized void receiveMultiProxyVote(String player, String service, boolean realVote,
 			boolean timeQueue, long queueTime, VoteTotalsSnapshot totals, String uuid, UUID wireVoteId) {
-		receiveMultiProxyVote(player, service, realVote, timeQueue, queueTime, totals, uuid, wireVoteId, "");
+		receiveMultiProxyVote(player, service, realVote, timeQueue, queueTime, totals, uuid, wireVoteId, "", false,
+				false);
 	}
 
 	/** Receives a reliable envelope and retains its sender only for a later ACK. */
 	protected synchronized void receiveMultiProxyVote(String player, String service, boolean realVote,
 			boolean timeQueue, long queueTime, VoteTotalsSnapshot totals, String uuid, UUID wireVoteId, String origin) {
+		receiveMultiProxyVote(player, service, realVote, timeQueue, queueTime, totals, uuid, wireVoteId, origin, false,
+				false);
+	}
+
+	/** Receives a reliable envelope together with its primary delay decision. */
+	protected synchronized void receiveMultiProxyVote(String player, String service, boolean realVote,
+			boolean timeQueue, long queueTime, VoteTotalsSnapshot totals, String uuid, UUID wireVoteId, String origin,
+			boolean delayValidated, boolean delayValidationKnown) {
 		UUID voteId = wireVoteId == null ? UUID.randomUUID() : wireVoteId;
 		if (completedMultiProxyVotes.containsKey(voteId)) {
 			acknowledgeCompletedMultiProxyVote(voteId, origin);
@@ -2732,14 +2775,16 @@ public abstract class VotingPluginProxy {
 				// The ordinary timed-vote cache is bounded by durable storage rather than
 				// this process heap and is loaded again after a restart. It also lets the
 				// normal queue processor drain the spill as retry slots become available.
-				if (retainForwardedVoteOverflow(player, service, realVote, totals, uuid, voteId, queueTime, origin)) {
+				if (retainForwardedVoteOverflow(player, service, realVote, totals, uuid, voteId, queueTime, origin,
+						delayValidated, delayValidationKnown)) {
 					scheduleTimeVoteRetry();
 					return;
 				}
 				logSevere("Unable to durably retain forwarded multi-proxy vote while the bounded retry queue is full");
 				return;
 			}
-			retry = new MultiProxyVoteRetry(player, service, realVote, timeQueue, queueTime, totals, uuid, voteId, origin);
+			retry = new MultiProxyVoteRetry(player, service, realVote, timeQueue, queueTime, totals, uuid, voteId, origin,
+					delayValidated, delayValidationKnown);
 			multiProxyVoteRetries.put(voteId, retry);
 		}
 		if (!retry.scheduled) attemptMultiProxyVote(retry);
@@ -2747,7 +2792,8 @@ public abstract class VotingPluginProxy {
 
 	/** Durably spills an over-capacity forwarded vote into the normal replay queue. */
 	private boolean retainForwardedVoteOverflow(String player, String service, boolean realVote,
-			VoteTotalsSnapshot totals, String uuid, UUID voteId, long queueTime, String origin) {
+			VoteTotalsSnapshot totals, String uuid, UUID voteId, long queueTime, String origin, boolean delayValidated,
+			boolean delayValidationKnown) {
 		if (voteId == null || player == null || service == null || uuid == null) return false;
 		for (VoteTimeQueue queued : getVoteCacheHandler().getTimeChangeQueue()) {
 			if (voteId.equals(queued.getVoteId())) return true;
@@ -2757,6 +2803,7 @@ public abstract class VotingPluginProxy {
 				Collections.emptySet(), Collections.emptySet(), totals == null ? "" : totals.toString(), false, uuid);
 		queued.setRealVote(realVote);
 		queued.setMultiProxyOrigin(origin == null ? "" : origin);
+		if (delayValidationKnown) queued.setDelayValidated(delayValidated);
 		return getVoteCacheHandler().addTimeVoteToCache(queued);
 	}
 
@@ -2805,8 +2852,9 @@ public abstract class VotingPluginProxy {
 			return;
 		}
 		try {
-			vote(retry.player, retry.service, retry.realVote, retry.timeQueue, retry.queueTime, retry.totals,
-					retry.uuid, retry.voteId);
+			QueuedVoteResult result = vote(retry.player, retry.service, retry.realVote, retry.timeQueue, retry.queueTime,
+					retry.totals, retry.uuid, null, retry.voteId, retry.delayValidated, retry.delayValidationKnown);
+			if (result == QueuedVoteResult.RETRY) throw new VoteRetryException();
 			if (retry.timeQueue && findUnprocessedQueuedVote(retry.voteId) != null) {
 				retry.phase = MultiProxyVoteRetry.Phase.PERSIST_DEFERRED_RECEIPT;
 				retry.attempts = 0;
@@ -2832,6 +2880,7 @@ public abstract class VotingPluginProxy {
 		if (queued == null) return false;
 		queued.setMultiProxyOrigin(retry.origin);
 		queued.setRealVote(retry.realVote);
+		if (retry.delayValidationKnown) queued.setDelayValidated(retry.delayValidated);
 		queued.setDeliveryStateDirty(true);
 		return persistTimeVoteDelivery(queued);
 	}
@@ -3370,6 +3419,7 @@ public abstract class VotingPluginProxy {
 			queued.setProcessed(true);
 			queued.setRealVote(retry.realVote);
 			queued.setMultiProxyOrigin(retry.origin);
+			if (retry.delayValidationKnown) queued.setDelayValidated(retry.delayValidated);
 			queued.setMultiProxyCompletionPending(true);
 			queued.setDeliveryStateDirty(true);
 			return cache.updateTimeVote(queued);
@@ -3380,6 +3430,7 @@ public abstract class VotingPluginProxy {
 				retry.uuid);
 		quarantine.setRealVote(retry.realVote);
 		quarantine.setMultiProxyOrigin(retry.origin);
+		if (retry.delayValidationKnown) quarantine.setDelayValidated(retry.delayValidated);
 		quarantine.setMultiProxyCompletionPending(true);
 		return cache.addTimeVoteToCache(quarantine);
 	}
@@ -5410,14 +5461,28 @@ public abstract class VotingPluginProxy {
 			return true;
 		}
 
-		JsonEnvelope envelope = VotingPluginWire.voteDelayRejected(player, uuid, service, true);
-		if (method == BungeeMethod.HTTP) {
-			String key = voteId + "\u0000vote-delay-rejected\u0000" + playerServer.toLowerCase(Locale.ROOT);
-			String deliveryId = UUID.nameUUIDFromBytes(key.getBytes(StandardCharsets.UTF_8)).toString();
-			return sendStableHttpEnvelope(playerServer, deliveryId, envelope);
+		JsonEnvelope envelope = VotingPluginWire.voteDelayRejected(player, uuid, service, true, voteId);
+		return sendVoteEnvelopeAccepted(playerServer, 1, envelope);
+	}
+
+	private JsonEnvelope cachedVoteEnvelope(OfflineBungeeVote vote, boolean online, boolean broadcast,
+			int num, int numberOfVotes) {
+		if (vote.isDelayValidationKnown()) {
+			return online
+					? VotingPluginWire.voteOnline(vote.getPlayerName(), vote.getUuid(), vote.getService(), vote.getTime(),
+							resolveCachedWasOnline(vote), vote.isRealVote(), vote.getText(), vote.getVoteId(),
+							getConfig().getBungeeManageTotals(), broadcast, num, numberOfVotes, vote.isDelayValidated())
+					: VotingPluginWire.vote(vote.getPlayerName(), vote.getUuid(), vote.getService(), vote.getTime(),
+							resolveCachedWasOnline(vote), vote.isRealVote(), vote.getText(), vote.getVoteId(),
+							getConfig().getBungeeManageTotals(), broadcast, num, numberOfVotes, vote.isDelayValidated());
 		}
-		globalMessageProxyHandler.sendMessage(playerServer, 1, envelope);
-		return true;
+		return online
+				? VotingPluginWire.voteOnline(vote.getPlayerName(), vote.getUuid(), vote.getService(), vote.getTime(),
+						resolveCachedWasOnline(vote), vote.isRealVote(), vote.getText(), vote.getVoteId(),
+						getConfig().getBungeeManageTotals(), broadcast, num, numberOfVotes)
+				: VotingPluginWire.vote(vote.getPlayerName(), vote.getUuid(), vote.getService(), vote.getTime(),
+						resolveCachedWasOnline(vote), vote.isRealVote(), vote.getText(), vote.getVoteId(),
+						getConfig().getBungeeManageTotals(), broadcast, num, numberOfVotes);
 	}
 
 	public String getWaitUntilDelaySiteFromService(String service) {
@@ -5579,6 +5644,13 @@ public abstract class VotingPluginProxy {
 
 	private synchronized QueuedVoteResult vote(String player, String service, boolean realVote, boolean timeQueue,
 			long queueTime, VoteTotalsSnapshot text, String uuid, VoteTimeQueue queuedVote, UUID requestedVoteId) {
+		return vote(player, service, realVote, timeQueue, queueTime, text, uuid, queuedVote, requestedVoteId, false,
+				false);
+	}
+
+	private synchronized QueuedVoteResult vote(String player, String service, boolean realVote, boolean timeQueue,
+			long queueTime, VoteTotalsSnapshot text, String uuid, VoteTimeQueue queuedVote, UUID requestedVoteId,
+			boolean upstreamDelayValidated, boolean upstreamDelayValidationKnown) {
 		try {
 			String requestPlayer = player;
 			if (!ServiceSiteValidator.isValid(service)) {
@@ -5698,6 +5770,16 @@ public abstract class VotingPluginProxy {
 			boolean proxyBroadcastHandled = queuedVote != null && queuedVote.isProxyBroadcastHandled();
 			boolean processesTotals = getConfig().getPrimaryServer() || !getConfig().getMultiProxySupport();
 			boolean managesTotals = processesTotals && getConfig().getBungeeManageTotals();
+			boolean carriedDelayValidationKnown = retryState != null ? retryState.delayValidationKnown
+					: (queuedVote != null && queuedVote.isDelayValidationKnown()) || upstreamDelayValidationKnown;
+			boolean carriedDelayValidated = retryState != null ? retryState.delayValidated
+					: queuedVote != null && queuedVote.isDelayValidationKnown()
+							? queuedVote.isDelayValidated() : upstreamDelayValidated;
+			boolean localDelayValidationKnown = managesTotals
+					&& !getWaitUntilDelaySiteFromService(service).isEmpty();
+			boolean authoritativeDelayValidated = localDelayValidationKnown
+					|| carriedDelayValidationKnown && carriedDelayValidated;
+			boolean authoritativeDelayValidationKnown = localDelayValidationKnown || carriedDelayValidationKnown;
 			boolean canValidateStandaloneBroadcast = canForwardStandaloneBroadcast(managesTotals);
 			ArrayList<Column> data = retryState == null ? null : retryState.totalsInput;
 			boolean queueForTimeChange = false;
@@ -5728,8 +5810,9 @@ public abstract class VotingPluginProxy {
 				data = getProxyMySQL().getExactQuery(new Column("uuid", new DataValueString(uuid)));
 				if (!checkVoteDelay(uuid, player, service, data, queuedVote == null)) {
 					log("Vote delay is not met for " + player + "/" + service + ", skipping vote");
-					if (!sendVoteDelayRejected(voteId, player, uuid, service, playerOnline, playerServer)
-							&& queuedVote != null) return QueuedVoteResult.RETRY;
+					if (!sendVoteDelayRejected(voteId, player, uuid, service, playerOnline, playerServer)) {
+						return QueuedVoteResult.RETRY;
+					}
 					return QueuedVoteResult.TERMINAL;
 				}
 			}
@@ -5748,6 +5831,9 @@ public abstract class VotingPluginProxy {
 						projectedTotals == null ? "" : projectedTotals.toString(), false, uuid);
 				delayedVote.setRealVote(realVote);
 				delayedVote.setWasOnline(playerOnline);
+				if (authoritativeDelayValidationKnown) {
+					delayedVote.setDelayValidated(authoritativeDelayValidated);
+				}
 				if (!getVoteCacheHandler().addTimeVoteToCache(delayedVote)) {
 					logSevere("Unable to persist queued rollover vote for " + player + "/" + service
 							+ "; skipping proxy broadcast");
@@ -5780,6 +5866,8 @@ public abstract class VotingPluginProxy {
 				retryState.time = time;
 				retryState.realVote = realVote;
 				retryState.playerOnline = playerOnline;
+				retryState.delayValidated = authoritativeDelayValidated;
+				retryState.delayValidationKnown = authoritativeDelayValidationKnown;
 				liveVoteRetries.put(voteId, retryState);
 			}
 			if (queuedVote != null) {
@@ -5885,6 +5973,9 @@ public abstract class VotingPluginProxy {
 							broadcastForwardedServers, !getConfig().getSendVotesToAllServers(), Collections.emptyMap(), queuedVote == null
 								? Collections.emptyMap() : queuedVote.getHttpBroadcastDeliveryIds());
 					standaloneBroadcastState.setWasOnline(playerOnline);
+					if (retryState.delayValidationKnown) {
+						standaloneBroadcastState.setDelayValidated(authoritativeDelayValidated);
+					}
 					if (getConfig().getSendVotesToAllServers()) markRewardJournalTargets(standaloneBroadcastState, rewardServers);
 					retryState.standaloneBroadcastState = standaloneBroadcastState;
 					retryState.rewardJournalOwner = standaloneBroadcastState;
@@ -5924,6 +6015,7 @@ public abstract class VotingPluginProxy {
 				if (rewardJournalOwner == null) {
 					rewardJournalOwner = createCachedRewardVote(voteId, player, uuid, service, time, realVote,
 							text.toString(), false, playerOnline);
+					if (retryState.delayValidationKnown) rewardJournalOwner.setDelayValidated(authoritativeDelayValidated);
 					markRewardJournalTargets(rewardJournalOwner, rewardServers);
 					retryState.rewardJournalOwner = rewardJournalOwner;
 					if (!getVoteCacheHandler().addOnlineVoteDurably(uuid, rewardJournalOwner)) {
@@ -5939,6 +6031,7 @@ public abstract class VotingPluginProxy {
 					if (rewardState == null) {
 						rewardState = createCachedRewardVote(voteId, player, uuid, service, time,
 								realVote, text.toString(), standaloneProxyBroadcast, playerOnline);
+						if (retryState.delayValidationKnown) rewardState.setDelayValidated(authoritativeDelayValidated);
 						retryState.rewardStates.put(server.toLowerCase(Locale.ROOT), rewardState);
 					}
 					// Every target begins as pending so a crash before its send cannot lose
@@ -5989,9 +6082,13 @@ public abstract class VotingPluginProxy {
 						}
 
 						OfflineBungeeVote pendingVote = retryState.rewardStates.get(s.toLowerCase(Locale.ROOT));
-						boolean rewardAccepted = sendVoteEnvelopeAccepted(s, 2,
-								VotingPluginWire.vote(player, uuid, service, time, playerOnline, realVote, text.toString(),
-										voteId, getConfig().getBungeeManageTotals(), broadcastHere, 1, 1), pendingVote);
+						JsonEnvelope rewardEnvelope = retryState.delayValidationKnown
+								? VotingPluginWire.vote(player, uuid, service, time, playerOnline, realVote, text.toString(),
+										voteId, getConfig().getBungeeManageTotals(), broadcastHere, 1, 1,
+										authoritativeDelayValidated)
+								: VotingPluginWire.vote(player, uuid, service, time, playerOnline, realVote, text.toString(),
+										voteId, getConfig().getBungeeManageTotals(), broadcastHere, 1, 1);
+						boolean rewardAccepted = sendVoteEnvelopeAccepted(s, 2, rewardEnvelope, pendingVote);
 						if (!rewardAccepted) {
 							pendingVote.setRewardDelivered(false);
 							pendingVote.setDeliveryStateDirty(true);
@@ -6034,11 +6131,16 @@ public abstract class VotingPluginProxy {
 						retryState.rewardStates.put(server.toLowerCase(Locale.ROOT), pendingVote);
 					}
 					pendingVote.setWasOnline(playerOnline);
+					if (retryState.delayValidationKnown) pendingVote.setDelayValidated(authoritativeDelayValidated);
 					boolean rewardAccepted = retryState.deliveredRewardServers.contains(server);
 					if (!rewardAccepted) {
-						rewardAccepted = sendVoteEnvelopeAccepted(server, 1,
-								VotingPluginWire.voteOnline(player, uuid, service, time, playerOnline, realVote, text.toString(),
-										voteId, getConfig().getBungeeManageTotals(), broadcastHere, 1, 1), pendingVote);
+						JsonEnvelope rewardEnvelope = retryState.delayValidationKnown
+								? VotingPluginWire.voteOnline(player, uuid, service, time, playerOnline, realVote,
+										text.toString(), voteId, getConfig().getBungeeManageTotals(), broadcastHere, 1, 1,
+										authoritativeDelayValidated)
+								: VotingPluginWire.voteOnline(player, uuid, service, time, playerOnline, realVote,
+										text.toString(), voteId, getConfig().getBungeeManageTotals(), broadcastHere, 1, 1);
+						rewardAccepted = sendVoteEnvelopeAccepted(server, 1, rewardEnvelope, pendingVote);
 						if (rewardAccepted) retryState.deliveredRewardServers.add(server);
 					}
 					if (!rewardAccepted) {
@@ -6118,6 +6220,7 @@ public abstract class VotingPluginProxy {
 									standaloneBroadcastState.getHttpBroadcastDeliveryIds())
 							: createCachedRewardVote(voteId, player, uuid, service, time, realVote, text.toString(), false, playerOnline);
 					cachedReward.setWasOnline(playerOnline);
+					if (retryState.delayValidationKnown) cachedReward.setDelayValidated(authoritativeDelayValidated);
 					retryState.pendingOnlineRewardState = cachedReward;
 					boolean cachedDurably = getVoteCacheHandler().addOnlineVoteDurably(uuid, cachedReward);
 					if (!cachedDurably) {
@@ -6164,7 +6267,8 @@ public abstract class VotingPluginProxy {
 				if (!getConfig().getMultiProxyOneGlobalReward()) {
 					debug("Sending global proxy vote envelope");
 					if (!beginMultiProxyForwarding(retryState,
-							queuedVote == null ? retryState.queuedVote : queuedVote, player, uuid, service, time, realVote, text)) {
+							queuedVote == null ? retryState.queuedVote : queuedVote, player, uuid, service, time, realVote,
+							text, authoritativeDelayValidated, authoritativeDelayValidationKnown)) {
 						return QueuedVoteResult.RETRY;
 					}
 				} else {
@@ -6180,7 +6284,8 @@ public abstract class VotingPluginProxy {
 					if (shouldSend) {
 						debug("Sending global proxy voteonline envelope");
 						if (!beginMultiProxyForwarding(retryState,
-								queuedVote == null ? retryState.queuedVote : queuedVote, player, uuid, service, time, realVote, text)) {
+								queuedVote == null ? retryState.queuedVote : queuedVote, player, uuid, service, time, realVote,
+								text, authoritativeDelayValidated, authoritativeDelayValidationKnown)) {
 							return QueuedVoteResult.RETRY;
 						}
 					} else {
@@ -6242,13 +6347,28 @@ public abstract class VotingPluginProxy {
 	}
 
 	/**
+	 * Preserves the established internal signature for characterization tests that
+	 * exercise the forwarding boundary. New production callers pass the primary
+	 * proxy's delay decision explicitly.
+	 */
+	@SuppressWarnings("unused")
+	private boolean beginMultiProxyForwarding(LiveVoteRetryState retryState, VoteTimeQueue queuedVote, String player,
+			String uuid, String service, long time, boolean realVote, VoteTotalsSnapshot totals) {
+		boolean delayValidationKnown = getConfig().getBungeeManageTotals()
+				&& !getWaitUntilDelaySiteFromService(service).isEmpty();
+		return beginMultiProxyForwarding(retryState, queuedVote, player, uuid, service, time, realVote, totals,
+				delayValidationKnown, delayValidationKnown);
+	}
+
+	/**
 	 * Creates/persists the sender outbox before the first publish. Redis and socket
 	 * publish APIs are fire-and-forget, so their return value is never a delivery
 	 * acknowledgement. The record stays until every configured peer confirms its
 	 * own durable completion by stable vote ID.
 	 */
 	private boolean beginMultiProxyForwarding(LiveVoteRetryState retryState, VoteTimeQueue queuedVote, String player,
-			String uuid, String service, long time, boolean realVote, VoteTotalsSnapshot totals) {
+			String uuid, String service, long time, boolean realVote, VoteTotalsSnapshot totals,
+			boolean delayValidated, boolean delayValidationKnown) {
 		if (multiProxyHandler == null) return false;
 		// A corrupt or unpersistable peer-classification file cannot safely identify
 		// which targets are legacy.  Stop before creating an ACK outbox that a legacy
@@ -6282,7 +6402,8 @@ public abstract class VotingPluginProxy {
 			// now would make the later legacy fallback hard to fence without a second,
 			// duplicate-prone outbox. The durable peer deadline bounds this retry even
 			// across a proxy restart.
-			if (admitMultiProxyDiscoveryOutbox(retryState, queuedVote, player, uuid, service, time, realVote, totals)
+			if (admitMultiProxyDiscoveryOutbox(retryState, queuedVote, player, uuid, service, time, realVote, totals,
+					delayValidated, delayValidationKnown)
 					!= null) scheduleTimeVoteRetry();
 			return false;
 		}
@@ -6310,6 +6431,7 @@ public abstract class VotingPluginProxy {
 			outbox.requireMultiProxyAcknowledgements(getConfig().getProxyServerName(), durableRecipients);
 			outbox.setMultiProxyLegacyPendingRecipients(legacyRecipients);
 			outbox.setRealVote(realVote);
+			if (delayValidationKnown) outbox.setDelayValidated(delayValidated);
 			outbox.setDeliveryStateDirty(true);
 			retryState.queuedVote = outbox;
 			if (outbox.getVoteId() == null || !getVoteCacheHandler().addTimeVoteToCache(outbox)) return false;
@@ -6336,6 +6458,7 @@ public abstract class VotingPluginProxy {
 			outbox.requireMultiProxyAcknowledgements(getConfig().getProxyServerName(), durableRecipients);
 			outbox.setMultiProxyLegacyPendingRecipients(legacyRecipients);
 			outbox.setRealVote(realVote);
+			if (delayValidationKnown) outbox.setDelayValidated(delayValidated);
 			outbox.setProcessed(true);
 			outbox.setDeliveryStateDirty(true);
 			if (!persistTimeVoteDelivery(outbox)) return false;
@@ -6384,7 +6507,8 @@ public abstract class VotingPluginProxy {
 	 * only record that the vote still needs forwarding.
 	 */
 	private VoteTimeQueue admitMultiProxyDiscoveryOutbox(LiveVoteRetryState retryState, VoteTimeQueue queuedVote,
-			String player, String uuid, String service, long time, boolean realVote, VoteTotalsSnapshot totals) {
+			String player, String uuid, String service, long time, boolean realVote, VoteTotalsSnapshot totals,
+			boolean delayValidated, boolean delayValidationKnown) {
 		VoteTimeQueue outbox = queuedVote;
 		if (outbox == null) {
 			outbox = new VoteTimeQueue(null, player, service, time, false, Collections.emptySet(),
@@ -6397,6 +6521,7 @@ public abstract class VotingPluginProxy {
 		outbox.setMultiProxyCapabilityDiscoveryPending(true);
 		outbox.setMultiProxyLegacyPendingRecipients(Collections.emptySet());
 		outbox.setRealVote(realVote);
+		if (delayValidationKnown) outbox.setDelayValidated(delayValidated);
 		outbox.setProcessed(true);
 		outbox.setDeliveryStateDirty(true);
 		boolean alreadyQueued = false;
@@ -6507,10 +6632,19 @@ public abstract class VotingPluginProxy {
 			scheduleTimeVoteRetry();
 			return false;
 		}
-		return multiProxyHandler.sendMultiProxyEnvelopeAccepted(VotingPluginWire.multiProxyVote(outbox.getName(),
-				outbox.getUuid(), outbox.getService(), outbox.getTime(), false, outbox.isRealVote(), outbox.getTotals(),
-				outbox.getVoteId(), false, false, 1, 1, outbox.getMultiProxyOrigin()),
-				pending);
+		return multiProxyHandler.sendMultiProxyEnvelopeAccepted(multiProxyVoteEnvelope(outbox), pending);
+	}
+
+	/** Keeps legacy durable rows field-compatible while new rows carry validation. */
+	private JsonEnvelope multiProxyVoteEnvelope(VoteTimeQueue outbox) {
+		if (outbox.isDelayValidationKnown()) {
+			return VotingPluginWire.multiProxyVote(outbox.getName(), outbox.getUuid(), outbox.getService(),
+					outbox.getTime(), false, outbox.isRealVote(), outbox.getTotals(), outbox.getVoteId(), false, false,
+					1, 1, outbox.getMultiProxyOrigin(), outbox.isDelayValidated());
+		}
+		return VotingPluginWire.multiProxyVote(outbox.getName(), outbox.getUuid(), outbox.getService(),
+				outbox.getTime(), false, outbox.isRealVote(), outbox.getTotals(), outbox.getVoteId(), false, false,
+				1, 1, outbox.getMultiProxyOrigin());
 	}
 
 	/** Handles an ACK only after confirming it belongs to a configured recipient. */
@@ -6661,6 +6795,8 @@ public abstract class VotingPluginProxy {
 			OfflineBungeeVote reward = createCachedRewardVote(owner.getVoteId(), owner.getPlayerName(), owner.getUuid(),
 					owner.getService(), owner.getTime(), owner.isRealVote(), owner.getText(),
 					owner.isProxyBroadcastHandled(), owner.isWasOnline(), owner.isWasOnlineKnown());
+			if (owner.isDelayValidationKnown()) reward.setDelayValidated(owner.isDelayValidated());
+			else reward.clearDelayValidation();
 			reward.setHttpDeliveryId(server, deliveryId);
 			if (!getVoteCacheHandler().addServerVoteDurably(server, reward)) return false;
 		}
@@ -6683,6 +6819,8 @@ public abstract class VotingPluginProxy {
 				false, OfflineBungeeVote.decodeHttpDeliveryIds(deliveryState.encodeHttpDeliveryIds()),
 				Collections.emptyMap());
 		if (deliveryState.isWasOnlineKnown()) vote.setWasOnline(deliveryState.isWasOnline());
+		if (deliveryState.isDelayValidationKnown()) vote.setDelayValidated(deliveryState.isDelayValidated());
+		else vote.clearDelayValidation();
 		return vote;
 	}
 

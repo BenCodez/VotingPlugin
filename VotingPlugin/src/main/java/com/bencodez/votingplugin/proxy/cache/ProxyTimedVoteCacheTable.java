@@ -52,7 +52,8 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 					+ qi("httpBroadcastDeliveryIds") + " TEXT, "
 					+ qi("multiProxyLegacyPendingRecipients") + " TEXT, "
 					+ qi("wasOnline") + " BOOLEAN NOT NULL DEFAULT FALSE, "
-					+ qi("wasOnlineKnown") + " BOOLEAN NOT NULL DEFAULT FALSE"
+					+ qi("wasOnlineKnown") + " BOOLEAN NOT NULL DEFAULT FALSE, "
+					+ qi("delayValidation") + " SMALLINT NOT NULL DEFAULT -1"
 					+ ");";
 		}
 
@@ -80,6 +81,7 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 				+ qi("multiProxyLegacyPendingRecipients") + " TEXT,"
 				+ qi("wasOnline") + " TINYINT(1) NOT NULL DEFAULT 0,"
 				+ qi("wasOnlineKnown") + " TINYINT(1) NOT NULL DEFAULT 0,"
+				+ qi("delayValidation") + " TINYINT NOT NULL DEFAULT -1,"
 				+ "INDEX idx_time (" + qi("time") + ")"
 				+ ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
 	}
@@ -159,6 +161,8 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 				? "BOOLEAN NOT NULL DEFAULT FALSE" : "TINYINT(1) NOT NULL DEFAULT 0");
 		ensureColumn("wasOnlineKnown", getDbType() == DbType.POSTGRESQL
 				? "BOOLEAN NOT NULL DEFAULT FALSE" : "TINYINT(1) NOT NULL DEFAULT 0");
+		ensureColumn("delayValidation", getDbType() == DbType.POSTGRESQL
+				? "SMALLINT NOT NULL DEFAULT -1" : "TINYINT NOT NULL DEFAULT -1");
 	}
 
 	private void ensureColumn(String column, String type) {
@@ -210,7 +214,7 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 			boolean multiProxyCapabilityDiscoveryPending,
 			boolean realVote, String multiProxyOrigin, boolean multiProxyCompletionPending, String multiProxyRecipients,
 			String multiProxyAcknowledgedServers, String httpBroadcastDeliveryIds,
-			String multiProxyLegacyPendingRecipients, boolean wasOnline, boolean wasOnlineKnown) {
+			String multiProxyLegacyPendingRecipients, boolean wasOnline, boolean wasOnlineKnown, int delayValidation) {
 		String sql = "INSERT INTO " + qi(getTableName()) + " (" + qi("playerName") + ", " + qi("service") + ", "
 				+ qi("time") + ", " + qi("voteId") + ", " + qi("uuid") + ", " + qi("proxyBroadcastHandled") + ", "
 				+ qi("broadcastTargets") + ", " + qi("broadcastForwardedServers") + ", " + qi("totals") + ", "
@@ -220,7 +224,8 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 				+ ", " + qi("multiProxyCompletionPending") + ", " + qi("multiProxyRecipients") + ", "
 				+ qi("multiProxyAcknowledgedServers") + ", " + qi("httpBroadcastDeliveryIds") + ", "
 				+ qi("multiProxyLegacyPendingRecipients") + ", " + qi("wasOnline") + ", " + qi("wasOnlineKnown")
-				+ ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+				+ ", " + qi("delayValidation")
+				+ ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
 		try (Connection conn = mysql.getConnectionManager().getConnection();
 				PreparedStatement ps = conn.prepareStatement(sql)) {
 			ps.setString(1, playerName);
@@ -266,6 +271,7 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 				ps.setInt(21, wasOnline ? 1 : 0);
 				ps.setInt(22, wasOnlineKnown ? 1 : 0);
 			}
+			ps.setInt(23, delayValidation);
 			ps.executeUpdate();
 			return true;
 		} catch (SQLException e) {
@@ -285,7 +291,11 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 				vote.isMultiProxyCompletionPending(),
 				vote.encodeMultiProxyRecipients(), vote.encodeMultiProxyAcknowledgedServers(),
 				vote.encodeHttpBroadcastDeliveryIds(), vote.encodeMultiProxyLegacyPendingRecipients(),
-				vote.isWasOnline(), vote.isWasOnlineKnown());
+				vote.isWasOnline(), vote.isWasOnlineKnown(), delayValidation(vote));
+	}
+
+	private static int delayValidation(VoteTimeQueue vote) {
+		return vote.isDelayValidationKnown() ? vote.isDelayValidated() ? 1 : 0 : -1;
 	}
 
 	/** Backward-compatible insert overload. */
@@ -294,7 +304,7 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 			boolean processed, boolean multiProxyForwardingHandled, String httpBroadcastDeliveryIds) {
 		return insertTimedVote(voteId, uuid, playerName, service, time, proxyBroadcastHandled, broadcastTargets,
 				broadcastForwardedServers, totals, processed, multiProxyForwardingHandled, false, false, true, "", false, "", "",
-				httpBroadcastDeliveryIds, "", false, false);
+				httpBroadcastDeliveryIds, "", false, false, -1);
 	}
 
 	/** Backward-compatible insert overload without HTTP delivery state. */
@@ -330,7 +340,8 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 				+ qi("multiProxyCompletionPending") + " = ?, "
 				+ qi("multiProxyRecipients") + " = ?, "
 				+ qi("multiProxyAcknowledgedServers") + " = ?, " + qi("uuid") + " = ?, "
-				+ qi("httpBroadcastDeliveryIds") + " = ?, " + qi("multiProxyLegacyPendingRecipients") + " = ? WHERE "
+				+ qi("httpBroadcastDeliveryIds") + " = ?, " + qi("multiProxyLegacyPendingRecipients") + " = ?, "
+				+ qi("delayValidation") + " = ? WHERE "
 				+ (hasRowId ? qi("id") + " = ?;" : hasVoteId ? qi("voteId") + " = ?;"
 						: qi("playerName") + " = ? AND " + qi("service") + " = ? AND " + qi("time") + " = ?;");
 		try (Connection conn = mysql.getConnectionManager().getConnection();
@@ -367,14 +378,15 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 			ps.setString(14, vote.getUuid());
 			ps.setString(15, vote.encodeHttpBroadcastDeliveryIds());
 			ps.setString(16, vote.encodeMultiProxyLegacyPendingRecipients());
+			ps.setInt(17, delayValidation(vote));
 			if (hasRowId) {
-				ps.setInt(17, vote.getTimedVoteCacheRowId());
+				ps.setInt(18, vote.getTimedVoteCacheRowId());
 			} else if (hasVoteId) {
-				ps.setString(17, vote.getVoteId().toString());
+				ps.setString(18, vote.getVoteId().toString());
 			} else {
-				ps.setString(17, vote.getName());
-				ps.setString(18, vote.getService());
-				ps.setLong(19, vote.getTime());
+				ps.setString(18, vote.getName());
+				ps.setString(19, vote.getService());
+				ps.setLong(20, vote.getTime());
 			}
 			ps.executeUpdate();
 			return true;
@@ -542,7 +554,8 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 							rs.getString("multiProxyAcknowledgedServers"),
 							rs.getString("httpBroadcastDeliveryIds"),
 							rs.getString("multiProxyLegacyPendingRecipients"),
-							rs.getBoolean("wasOnline"), rs.getBoolean("wasOnlineKnown")
+							rs.getBoolean("wasOnline"), rs.getBoolean("wasOnlineKnown"),
+							rs.getInt("delayValidation")
 					));
 				}
 			}
@@ -590,6 +603,7 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 		private final String multiProxyLegacyPendingRecipients;
 		private final boolean wasOnline;
 		private final boolean wasOnlineKnown;
+		private final int delayValidation;
 
 		/**
 		 * Constructor for TimedVoteRow.
@@ -610,7 +624,8 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 				boolean multiProxyCapabilityDiscoveryPending, boolean realVote, String multiProxyOrigin,
 				boolean multiProxyCompletionPending, String multiProxyRecipients,
 				String multiProxyAcknowledgedServers, String httpBroadcastDeliveryIds,
-				String multiProxyLegacyPendingRecipients, boolean wasOnline, boolean wasOnlineKnown) {
+				String multiProxyLegacyPendingRecipients, boolean wasOnline, boolean wasOnlineKnown,
+				int delayValidation) {
 			this.id = id;
 			this.playerName = playerName;
 			this.service = service;
@@ -634,6 +649,22 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 			this.multiProxyLegacyPendingRecipients = multiProxyLegacyPendingRecipients;
 			this.wasOnline = wasOnline;
 			this.wasOnlineKnown = wasOnlineKnown;
+			this.delayValidation = delayValidation;
+		}
+
+		/** Backward-compatible full constructor without persisted delay validation. */
+		public TimedVoteRow(int id, String playerName, String service, long time, UUID voteId, String uuid,
+				boolean proxyBroadcastHandled, String broadcastTargets, String broadcastForwardedServers, String totals,
+				boolean processed, boolean multiProxyForwardingHandled, boolean multiProxyForwardingRequired,
+				boolean multiProxyCapabilityDiscoveryPending, boolean realVote, String multiProxyOrigin,
+				boolean multiProxyCompletionPending, String multiProxyRecipients,
+				String multiProxyAcknowledgedServers, String httpBroadcastDeliveryIds,
+				String multiProxyLegacyPendingRecipients, boolean wasOnline, boolean wasOnlineKnown) {
+			this(id, playerName, service, time, voteId, uuid, proxyBroadcastHandled, broadcastTargets,
+					broadcastForwardedServers, totals, processed, multiProxyForwardingHandled,
+					multiProxyForwardingRequired, multiProxyCapabilityDiscoveryPending, realVote, multiProxyOrigin,
+					multiProxyCompletionPending, multiProxyRecipients, multiProxyAcknowledgedServers,
+					httpBroadcastDeliveryIds, multiProxyLegacyPendingRecipients, wasOnline, wasOnlineKnown, -1);
 		}
 
 		/** Backward-compatible row constructor without HTTP delivery state. */
@@ -642,7 +673,7 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 				boolean processed) {
 			this(id, playerName, service, time, voteId, uuid, proxyBroadcastHandled, broadcastTargets,
 					broadcastForwardedServers, totals, processed, false, false, false, true, "", false, "", "", null, null,
-					false, false);
+					false, false, -1);
 		}
 
 		/** Backward-compatible row constructor without the durable multi-proxy forwarding fence. */
@@ -651,7 +682,7 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 				boolean processed, String httpBroadcastDeliveryIds) {
 			this(id, playerName, service, time, voteId, uuid, proxyBroadcastHandled, broadcastTargets,
 					broadcastForwardedServers, totals, processed, false, false, false, true, "", false, "", "",
-					httpBroadcastDeliveryIds, null, false, false);
+					httpBroadcastDeliveryIds, null, false, false, -1);
 		}
 
 		/**
@@ -747,5 +778,6 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 
 		public boolean isWasOnline() { return wasOnline; }
 		public boolean isWasOnlineKnown() { return wasOnlineKnown; }
+		public int getDelayValidation() { return delayValidation; }
 	}
 }

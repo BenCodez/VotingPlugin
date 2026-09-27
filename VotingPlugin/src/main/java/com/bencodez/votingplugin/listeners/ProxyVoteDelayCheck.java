@@ -3,23 +3,21 @@ package com.bencodez.votingplugin.listeners;
 import com.bencodez.votingplugin.core.vote.SharedVoteProcessor;
 
 /**
- * Handles the WaitUntilVoteDelay exception for votes queued by a proxy.
+ * Legacy proxy vote-delay helper retained for integrations compiled against the
+ * previous public entry point.
+ *
+ * @deprecated production processing uses stable vote IDs
  */
+@Deprecated
 public final class ProxyVoteDelayCheck {
 
 	private ProxyVoteDelayCheck() {
 	}
 
 	/**
-	 * A proxy stores the real vote timestamp before its queued message reaches the
-	 * backend. The backend must accept that one delivery when the stored timestamp
-	 * is the same timestamp carried by the message.
-	 *
-	 * @param proxyVote true when the vote was forwarded by VotingPlugin's proxy
-	 * @param messageVoteTime real vote time included in the proxy message
-	 * @param storedVoteTime current backend last-vote time for the site
-	 * @return true when the delay check should allow the queued delivery
+	 * @deprecated timestamps are not stable occurrence identities
 	 */
+	@Deprecated
 	public static boolean isQueuedVoteAlreadyRecorded(boolean proxyVote, long messageVoteTime, long storedVoteTime) {
 		return SharedVoteProcessor.isQueuedVoteAlreadyRecorded(proxyVote, messageVoteTime, storedVoteTime);
 	}
