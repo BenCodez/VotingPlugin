@@ -83,6 +83,7 @@ public class VoteTimeQueue {
 	/** Whether delay validation was carried by the originating proxy. */
 	@Getter
 	private boolean delayValidationKnown;
+	private boolean legacyQueueClassification;
 	/** Sender identity used to route acknowledgement envelopes. */
 	@Getter
 	@Setter
@@ -263,6 +264,18 @@ public class VoteTimeQueue {
 	public void setDelayValidated(boolean delayValidated) {
 		this.delayValidated = delayValidated;
 		this.delayValidationKnown = true;
+		this.legacyQueueClassification = false;
+	}
+
+	/** Restores a row written before queue classification was persisted. */
+	public void clearDelayValidation() {
+		this.delayValidated = false;
+		this.delayValidationKnown = false;
+		this.legacyQueueClassification = true;
+	}
+
+	public boolean isQueueClassificationKnown() {
+		return !legacyQueueClassification;
 	}
 
 	/** Configures the durable acknowledgement fence before the first send. */

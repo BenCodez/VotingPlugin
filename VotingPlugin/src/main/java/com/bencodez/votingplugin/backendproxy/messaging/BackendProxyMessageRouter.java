@@ -480,8 +480,10 @@ public class BackendProxyMessageRouter {
 		votePartySync.replace(totals.getVotePartyCurrent(), totals.getVotePartyRequired());
 		user.cache();
 		boolean wasOnline = vote.wasOnlineKnown ? vote.wasOnline : user.isOnline();
+		boolean queuedDelivery = vote.queuedDeliveryKnown ? vote.queuedDelivery : vote.delayValidated;
 		user.bungeeVotePluginMessaging(vote.service, vote.time, totals, !vote.manageTotals,
-				wasOnline, vote.broadcast, vote.num, vote.delayValidated, vote.delayValidationKnown, voteId,
+				wasOnline, vote.broadcast, vote.num, queuedDelivery, vote.delayValidationKnown,
+				vote.queuedDeliveryKnown, voteId,
 				VotingPluginWire.SUB_VOTE_ONLINE.equals(msg.getSubChannel()));
 		if (plugin.getBungeeSettings().isPerServerPoints()) {
 			user.addPoints(plugin.getConfigFile().getPointsOnVote());

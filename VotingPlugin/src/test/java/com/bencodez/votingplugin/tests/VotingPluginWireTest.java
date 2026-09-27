@@ -35,6 +35,8 @@ public class VotingPluginWireTest {
 		assertTrue(vote.wasOnlineKnown);
 		assertFalse(vote.delayValidated);
 		assertFalse(vote.delayValidationKnown);
+		assertFalse(vote.queuedDelivery);
+		assertTrue(vote.queuedDeliveryKnown);
 	}
 
 	@Test
@@ -45,6 +47,35 @@ public class VotingPluginWireTest {
 		Vote vote = VotingPluginWire.readVote(envelope);
 		assertTrue(vote.delayValidated);
 		assertTrue(vote.delayValidationKnown);
+	}
+
+	@Test
+	public void queuedDeliveryMarkerIsIndependentFromDelayValidation() {
+		JsonEnvelope live = VotingPluginWire.voteOnline("Player", UUID.randomUUID().toString(), "Service",
+				100L, true, true, "totals", UUID.randomUUID(), true, false, 1, 1, true);
+		JsonEnvelope queued = VotingPluginWire.queuedDelivery(live);
+
+		Vote liveVote = VotingPluginWire.readVote(live);
+		Vote queuedVote = VotingPluginWire.readVote(queued);
+		assertTrue(liveVote.delayValidated);
+		assertFalse(liveVote.queuedDelivery);
+		assertTrue(liveVote.queuedDeliveryKnown);
+		assertTrue(queuedVote.delayValidated);
+		assertTrue(queuedVote.queuedDelivery);
+		assertTrue(queuedVote.queuedDeliveryKnown);
+	}
+
+	@Test
+	public void legacyUnclassifiedDeliveryRemovesOnlyQueueClassification() {
+		UUID voteId = UUID.randomUUID();
+		JsonEnvelope current = VotingPluginWire.vote("Player", UUID.randomUUID().toString(), "Service", 100L,
+				true, true, "totals", voteId, true, false, 1, 1);
+
+		Vote legacy = VotingPluginWire.readVote(VotingPluginWire.legacyUnclassifiedDelivery(current));
+
+		assertEquals(voteId, legacy.voteId);
+		assertFalse(legacy.queuedDeliveryKnown);
+		assertFalse(legacy.delayValidationKnown);
 	}
 
 	@Test
@@ -75,6 +106,7 @@ public class VotingPluginWireTest {
 
 		assertTrue(vote.wasOnline);
 		assertFalse(vote.wasOnlineKnown);
+		assertFalse(vote.queuedDeliveryKnown);
 	}
 
 	@Test

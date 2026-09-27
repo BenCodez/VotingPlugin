@@ -74,6 +74,7 @@ public final class SharedVoteProcessor {
         boolean hasProxyTextTotals();
         UUID proxyVoteId();
         default boolean identifiedQueuedProxyVote() { return false; }
+        default boolean proxyQueueClassificationKnown() { return false; }
         default boolean proxyDelayValidationKnown() { return false; }
         void cache(U user);
         void updateName(U user);
@@ -158,8 +159,14 @@ public final class SharedVoteProcessor {
         U user = ops.resolveUser(playerName);
         boolean recordedProxyVote = isIdentifiedQueuedProxyVote(
                 ops.proxyVote(), ops.identifiedQueuedProxyVote(), ops.proxyVoteId());
-        boolean legacyRecordedProxyVote = !recordedProxyVote && ops.proxyVote() && !ops.proxyDelayValidationKnown()
-                && ops.incomingTime() > 0L && ops.incomingTime() == ops.lastVoteTime(user, site);
+        // Only older proxy messages without an explicit queue-classification marker
+        // may use the rolling-upgrade timestamp fallback. Current live and queued
+        // deliveries always carry that marker, so stable-ID authorization no longer
+        // depends on cache delivery order.
+        boolean legacyRecordedProxyVote = !recordedProxyVote && ops.proxyVote()
+                && !ops.proxyQueueClassificationKnown() && !ops.proxyDelayValidationKnown()
+                && ops.incomingTime() > 0L
+                && ops.incomingTime() == ops.lastVoteTime(user, site);
         recordedProxyVote |= legacyRecordedProxyVote;
         if (ops.waitUntilVoteDelay(site) && !recordedProxyVote && !ops.canVoteSite(user, site)) {
             if (!ops.realVote()) {
