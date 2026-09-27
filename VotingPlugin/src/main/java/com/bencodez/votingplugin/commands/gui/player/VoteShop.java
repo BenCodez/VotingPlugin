@@ -124,6 +124,10 @@ public class VoteShop extends GUIHandler {
 
 			@Override
 			public void onClick(ClickEvent event) {
+				if (!canPurchaseFromCategory(event.getPlayer(), category)) {
+					event.getPlayer().sendMessage(MessageAPI.colorize(plugin.getConfigFile().getFormatNoPerms()));
+					return;
+				}
 				VotingPluginUser clickedUser = getUser(event.getPlayer());
 				plugin.getVoteShopManager().getPurchaseService().refreshUserForPurchaseValidation(clickedUser,
 						item, plugin.getConfigFile().isExtraVoteShopCheck());
@@ -228,6 +232,10 @@ public class VoteShop extends GUIHandler {
 	 */
 	protected void handlePurchase(Player player, VotingPluginUser currentUser, VoteShopItem item,
 			VoteShopCategory category) {
+		if (!canPurchaseFromCategory(player, category)) {
+			player.sendMessage(MessageAPI.colorize(plugin.getConfigFile().getFormatNoPerms()));
+			return;
+		}
 		plugin.getVoteShopManager().purchase(player, currentUser, item, result -> {
 			if (result != VoteShopPurchaseResult.SUCCESS) {
 				plugin.getVoteShopManager().getPurchaseService().sendFailureMessage(player, currentUser, item, result);
@@ -243,6 +251,11 @@ public class VoteShop extends GUIHandler {
 				}
 			}
 		});
+	}
+
+	private boolean canPurchaseFromCategory(Player player, VoteShopCategory category) {
+		return VoteShopCategoryAuthorization.canPurchase(plugin.getVoteShopManager().getDefinition(), category,
+				permission -> plugin.getVoteShopManager().getPurchaseService().hasPermission(player, permission));
 	}
 
 	/**

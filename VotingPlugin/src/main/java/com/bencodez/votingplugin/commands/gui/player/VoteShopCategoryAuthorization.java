@@ -30,6 +30,11 @@ final class VoteShopCategoryAuthorization {
 				permissionCheck, new HashSet<>());
 	}
 
+	static boolean canPurchase(VoteShopDefinition definition, VoteShopCategory category,
+			Predicate<String> permissionCheck) {
+		return category == null || canOpen(definition, category.getId(), permissionCheck);
+	}
+
 	private static boolean reaches(VoteShopDefinition definition, Iterable<VoteShopEntry> entries,
 			String targetCategory, Predicate<String> permissionCheck, Set<String> visited) {
 		for (VoteShopEntry entry : entries) {

@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.junit.jupiter.api.Test;
 
@@ -50,6 +51,21 @@ class VoteShopCategoryAuthorizationTest {
 				Set.of("shop.parent")::contains));
 		assertTrue(VoteShopCategoryAuthorization.canOpen(definition, "child",
 				Set.of("shop.parent", "shop.child")::contains));
+	}
+
+	@Test
+	void purchaseRechecksCurrentCategoryPermission() {
+		VoteShopCategoryButton button = button("restricted", "shop.category", false);
+		VoteShopDefinition definition = definition(button);
+		VoteShopCategory category = definition.getCategory("restricted");
+		AtomicBoolean permitted = new AtomicBoolean(true);
+
+		assertTrue(VoteShopCategoryAuthorization.canPurchase(definition, category,
+				permission -> permitted.get()));
+		permitted.set(false);
+		assertFalse(VoteShopCategoryAuthorization.canPurchase(definition, category,
+				permission -> permitted.get()));
+		assertTrue(VoteShopCategoryAuthorization.canPurchase(definition, null, permission -> false));
 	}
 
 	private static VoteShopDefinition definition(VoteShopCategoryButton button) {
