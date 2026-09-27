@@ -7,7 +7,7 @@ The `HTTP` bungee method gives every backend an outbound encrypted connection to
 1. On the proxy, set the following in `bungeeconfig.yml`:
 
    ```yaml
-   BungeeMethod: HTTP
+   ProxyCommunicationMethod: HTTP
    HTTP:
      Host: '0.0.0.0'
      Port: 1297
@@ -21,7 +21,7 @@ The `HTTP` bungee method gives every backend an outbound encrypted connection to
    ```yaml
    UseBungeecord: true
    Server: lobby-1
-   BungeeMethod: HTTP
+   ProxyCommunicationMethod: HTTP
    HTTP:
      ConnectionCode: 'paste-code-here'
    ```
