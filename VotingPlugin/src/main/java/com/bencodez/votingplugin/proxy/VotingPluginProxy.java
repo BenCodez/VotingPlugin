@@ -6735,13 +6735,7 @@ public abstract class VotingPluginProxy {
 				standaloneProxyBroadcast, false, Collections.emptySet(), Collections.emptySet(), false,
 				Collections.emptyMap(), Collections.emptyMap());
 		if (wasOnlineKnown) vote.setWasOnline(wasOnline);
-		if (proxyValidatesVoteDelayForCurrentConfiguration()) vote.setDelayValidated(true);
 		return vote;
-	}
-
-	private boolean proxyValidatesVoteDelayForCurrentConfiguration() {
-		return getConfig().getBungeeManageTotals()
-				&& (getConfig().getPrimaryServer() || !getConfig().getMultiProxySupport());
 	}
 
 	private void markRewardJournalTargets(OfflineBungeeVote owner, Set<String> targets) {

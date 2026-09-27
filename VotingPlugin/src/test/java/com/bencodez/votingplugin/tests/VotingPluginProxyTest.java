@@ -1950,6 +1950,20 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
+	void cachedRewardKeepsDelayValidationUnknownUntilThisVoteChecksAMatchingRule() {
+		Mockito.when(votingPluginProxy.getConfig().getBungeeManageTotals()).thenReturn(true);
+		Mockito.when(votingPluginProxy.getConfig().getPrimaryServer()).thenReturn(true);
+		Mockito.when(votingPluginProxy.getConfig().getWaitUntilVoteDelaySites())
+				.thenReturn(java.util.Collections.emptyList());
+
+		OfflineBungeeVote row = votingPluginProxy.createCachedRewardVoteForTest(
+				java.util.UUID.randomUUID(), "Player", "player-uuid", "UnconfiguredService", 100L, true,
+				"totals", false);
+
+		assertFalse(row.isDelayValidationKnown());
+	}
+
+	@Test
 	void queuedRolloverReplayReusesStableStandaloneBroadcastDeliveryId() {
 		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
 		java.util.Queue<VoteTimeQueue> queue = new java.util.concurrent.ConcurrentLinkedQueue<>();
