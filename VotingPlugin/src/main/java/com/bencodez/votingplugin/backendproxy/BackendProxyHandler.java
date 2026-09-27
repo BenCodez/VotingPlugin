@@ -114,8 +114,8 @@ public class BackendProxyHandler implements Listener {
 
 	private void load(boolean activatePresenceReporting) {
 		plugin.debug("Loading backend proxy handler");
-		method = BungeeMethod.getByName(plugin.getBungeeSettings().getBungeeMethod());
-		plugin.getLogger().info("Using BungeeMethod: " + method.toString());
+		method = BungeeMethod.getByName(plugin.getBungeeSettings().getProxyCommunicationMethod());
+		plugin.getLogger().info("Using ProxyCommunicationMethod: " + method.toString());
 		try {
 			communicationEncryption = TransportEnvelopeEncryption.load(
 					plugin.getDataFolder().toPath().resolve("secretkey.key"), Domain.PROXY_BACKEND,
