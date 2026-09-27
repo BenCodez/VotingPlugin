@@ -156,9 +156,22 @@ class SharedVoteProcessorTest {
     }
 
     @Test
-    void proxyVoteDoesNotUseProxyWideOnlineStateWhenPlayerIsOfflineOnBackend() {
+    void allServerProxyVotePreservesHistoricalOnlineStateAfterPlayerLeavesBackend() {
         var ops = accepted();
         when(ops.proxyVote()).thenReturn(true);
+        when(ops.targetedProxyVote()).thenReturn(false);
+        when(ops.wasOnline()).thenReturn(true);
+        when(ops.userOnline(user)).thenReturn(false);
+
+        SharedVoteProcessor.process(ops);
+
+        verify(ops).voteParty(user, true, false, true);
+    }
+
+    @Test
+    void normalNonProxyVoteStillUsesCurrentBackendPresence() {
+        var ops = accepted();
+        when(ops.proxyVote()).thenReturn(false);
         when(ops.wasOnline()).thenReturn(true);
         when(ops.userOnline(user)).thenReturn(false);
 
