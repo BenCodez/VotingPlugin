@@ -1,5 +1,7 @@
 package com.bencodez.votingplugin.webhook;
 
+import java.net.URI;
+
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -10,6 +12,11 @@ import java.util.Map;
  * <p>These are loaded from Config.yml under Webhooks.Definitions.*</p>
  */
 public final class WebhookDefinition {
+
+	/** Maximum number of HTTP attempts allowed for one webhook request. */
+	public static final int MAX_RETRY_ATTEMPTS = 10;
+	/** Maximum delay accepted from webhook retry configuration or Discord. */
+	public static final long MAX_RETRY_DELAY_MS = 60_000L;
 
 	private final String id;
 	private final boolean enabled;
@@ -68,9 +75,10 @@ public final class WebhookDefinition {
 		this.signature = signature;
 
 		this.retryEnabled = retryEnabled;
-		this.retryMaxAttempts = retryMaxAttempts <= 0 ? 1 : retryMaxAttempts;
-		this.retryBackoffMs = Math.max(0, retryBackoffMs);
-		this.retryMaxBackoffMs = Math.max(this.retryBackoffMs, retryMaxBackoffMs);
+		this.retryMaxAttempts = Math.min(MAX_RETRY_ATTEMPTS, Math.max(1, retryMaxAttempts));
+		this.retryBackoffMs = Math.min(MAX_RETRY_DELAY_MS, Math.max(0, retryBackoffMs));
+		this.retryMaxBackoffMs = Math.min(MAX_RETRY_DELAY_MS,
+				Math.max(this.retryBackoffMs, retryMaxBackoffMs));
 	}
 
 	/** @return definition id */
@@ -147,13 +155,29 @@ public final class WebhookDefinition {
 		if (url == null) {
 			return "null";
 		}
-		// Discord webhooks: https://discord.com/api/webhooks/{id}/{token}
-		int idx = url.indexOf("/api/webhooks/");
-		if (idx == -1) {
-			return url;
+		String safeUrl = url;
+		try {
+			URI parsed = URI.create(url);
+			String userInfo = parsed.getRawUserInfo();
+			String authority = parsed.getRawAuthority();
+			if (userInfo != null) {
+				int authorityStart = authority == null ? -1 : safeUrl.indexOf(authority);
+				int userInfoEnd = authorityStart < 0 ? -1 : authorityStart + userInfo.length();
+				if (userInfoEnd < authorityStart || userInfoEnd >= safeUrl.length()
+						|| safeUrl.charAt(userInfoEnd) != '@') return "[REDACTED URL]";
+				safeUrl = safeUrl.substring(0, authorityStart) + "REDACTED"
+						+ safeUrl.substring(userInfoEnd);
+			}
+		} catch (IllegalArgumentException invalidUrl) {
+			return "[REDACTED URL]";
 		}
-		String prefix = url.substring(0, idx);
-		String rest = url.substring(idx);
+		// Discord webhooks: https://discord.com/api/webhooks/{id}/{token}
+		int idx = safeUrl.indexOf("/api/webhooks/");
+		if (idx == -1) {
+			return safeUrl;
+		}
+		String prefix = safeUrl.substring(0, idx);
+		String rest = safeUrl.substring(idx);
 		String[] parts = rest.split("/");
 		if (parts.length >= 5) {
 			return prefix + "/api/webhooks/" + parts[3] + "/REDACTED";

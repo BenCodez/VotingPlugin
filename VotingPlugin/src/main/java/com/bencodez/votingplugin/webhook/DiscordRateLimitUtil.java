@@ -19,7 +19,8 @@ public final class DiscordRateLimitUtil {
 	 * If parsing fails, returns 0.</p>
 	 *
 	 * @param body response body
-	 * @return retry_after in milliseconds, or 0 if not found/parseable
+	 * @return retry_after in milliseconds, clamped to the webhook retry delay limit,
+	 *         or 0 if not found/parseable
 	 */
 	public static long extractRetryAfterMs(String body) {
 		if (body == null || body.isEmpty()) {
@@ -64,7 +65,11 @@ public final class DiscordRateLimitUtil {
 				return 0;
 			}
 			// cushion so we don't immediately collide again
-			return (long) Math.ceil(seconds * 1000.0) + 250L;
+			double retryAfterMs = Math.ceil(seconds * 1000.0) + 250.0;
+			if (retryAfterMs >= WebhookDefinition.MAX_RETRY_DELAY_MS) {
+				return WebhookDefinition.MAX_RETRY_DELAY_MS;
+			}
+			return (long) retryAfterMs;
 		} catch (NumberFormatException ignored) {
 			return 0;
 		}

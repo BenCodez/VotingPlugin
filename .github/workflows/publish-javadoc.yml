@@ -3,22 +3,87 @@ name: Deploy Javadoc
 on:
   release:
     types: [published]
-    branches:
-      - master
-      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
 
 jobs:
-  publish:
+  release-eligibility:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      eligible: ${{ steps.eligibility.outputs.eligible }}
+      commit: ${{ steps.eligibility.outputs.commit }}
     steps:
-      - name: Deploy JavaDoc 🚀
-        uses: MathieuSoysal/Javadoc-publisher.yml@main
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          javadoc-branch: gh-pages
-          java-version: 21
-          target-folder: ''
-          project: maven # or gradle
-          # subdirectories: moduleA moduleB #for subdirectories support, needs to be run with custom command
-          custom-command: mvn -f VotingPlugin/pom.xml deploy -P javadoc javadoc:aggregate
-          javadoc-source-folder: 'VotingPlugin/target/reports/apidocs'
+          ref: master
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify release tag is reachable from master
+        id: eligibility
+        env:
+          PRERELEASE: ${{ github.event.release.prerelease }}
+          TAG_NAME: ${{ github.event.release.tag_name }}
+        run: |
+          if [ "$PRERELEASE" = "true" ]; then
+            echo "eligible=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git fetch --no-tags origin "refs/tags/${TAG_NAME}:refs/tags/release"
+          tag_commit="$(git rev-parse 'refs/tags/release^{commit}')"
+          if git merge-base --is-ancestor "$tag_commit" origin/master; then
+            echo "eligible=true" >> "$GITHUB_OUTPUT"
+            echo "commit=$tag_commit" >> "$GITHUB_OUTPUT"
+          else
+            echo "eligible=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    needs: release-eligibility
+    if: needs.release-eligibility.outputs.eligible == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ needs.release-eligibility.outputs.commit }}
+          persist-credentials: false
+      - name: Set up JDK 21
+        uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: maven
+      - name: Build project
+        run: mvn -B -f VotingPlugin/pom.xml clean package
+      - name: Build Javadoc
+        run: mvn -B -f VotingPlugin/pom.xml org.apache.maven.plugins:maven-javadoc-plugin:3.12.0:javadoc -Ddoclint=none
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
+        with:
+          path: VotingPlugin/target/reports/apidocs
+
+  deploy:
+    needs: [release-eligibility, build]
+    if: >-
+      needs.release-eligibility.outputs.eligible == 'true' &&
+      needs.build.result == 'success'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
