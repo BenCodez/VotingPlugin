@@ -186,9 +186,10 @@ public final class SharedVoteProcessor {
         String userId = ops.userId(user);
         ops.cache(user);
         ops.updateName(user);
-        boolean onlineAtVoteTime = ops.proxyVote()
-                ? ops.wasOnline() && (ops.targetedProxyVote() || ops.userOnline(user))
-                : ops.userOnline(user);
+        // Proxy votes already carry the player's historical online state sampled
+        // when the vote was accepted. Delayed or all-server delivery must not rewrite
+        // that history based on whether the player is still present on this backend.
+        boolean onlineAtVoteTime = ops.proxyVote() ? ops.wasOnline() : ops.userOnline(user);
         ops.voteParty(user, ops.realVote(), ops.forceProxyRouting(), onlineAtVoteTime);
         if (ops.broadcastEnabled() && ops.hasBroadcastHandler()) {
             boolean currentOnline = ops.userOnline(user);
