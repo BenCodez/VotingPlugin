@@ -99,7 +99,7 @@ class SharedVoteProcessorTest {
 
         SharedVoteProcessor.process(ops);
 
-        verify(ops, never()).lastVoteTime(user, site);
+        verify(ops).lastVoteTime(user, site);
         verify(ops, never()).canVoteSite(user, site);
         verify(ops).broadcast(any(UUID.class), eq("Ben"), any(), eq(true));
         verify(ops).playerVote(user, site, true, false);
