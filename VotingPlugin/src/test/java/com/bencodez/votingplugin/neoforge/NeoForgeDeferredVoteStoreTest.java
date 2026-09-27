@@ -650,6 +650,53 @@ class NeoForgeDeferredVoteStoreTest {
     }
 
     @Test
+    void fullReleaseReceiptCapacityPreservesLiveTombstonesAndActiveCompletion() throws IOException {
+        writeConfiguration();
+        UUID playerId = UUID.randomUUID();
+        UUID firstVote = UUID.randomUUID();
+        UUID secondVote = UUID.randomUUID();
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            runtime.rewardReplay().ifPresent(NeoForgeRewardReplayService::stopAdmission);
+            runtime.players().joined(new SharedVoteIdentity(playerId, "Alex", true));
+            NeoForgeDeferredVoteStore bounded = new NeoForgeDeferredVoteStore(
+                    runtime.storage(), 2, 2, 2, 2, 1);
+            NeoForgeVoteProcessor processor = new NeoForgeVoteProcessor(runtime.voteConfiguration(),
+                    runtime.accounting(), bounded, runtime.players(), Clock.systemUTC());
+
+            assertEquals(NeoForgeVoteResult.Status.DEFERRED,
+                    processor.process(complete(firstVote, playerId, 100L)).status());
+            assertEquals(NeoForgeVoteResult.Status.DEFERRED,
+                    processor.process(complete(secondVote, playerId, 200L)).status());
+            try (NeoForgeDeferredVoteStore.Claim claim = bounded.claim(playerId, firstVote).orElseThrow()) {
+                assertEquals(NeoForgeDeferredVoteStore.CompletionResult.COMPLETED, claim.complete());
+            }
+            try (NeoForgeDeferredVoteStore.Claim claim = bounded.claim(playerId, secondVote).orElseThrow()) {
+                assertEquals(NeoForgeDeferredVoteStore.CompletionResult.COMPLETED, claim.complete());
+            }
+
+            assertEquals(NeoForgeDeferredVoteStore.ReleaseResult.RELEASED,
+                    bounded.release(playerId, firstVote));
+            assertEquals(NeoForgeDeferredVoteStore.ReleaseResult.RELEASE_CAPACITY_REACHED,
+                    bounded.release(playerId, secondVote));
+            assertEquals(NeoForgeDeferredVoteStore.ReleaseResult.ALREADY_RELEASED,
+                    bounded.release(playerId, firstVote));
+            assertEquals(NeoForgeDeferredVoteStore.OccurrenceState.COMPLETED,
+                    bounded.state(playerId, secondVote));
+        }
+
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            NeoForgeDeferredVoteStore bounded = new NeoForgeDeferredVoteStore(
+                    runtime.storage(), 2, 2, 2, 2, 1);
+            assertEquals(NeoForgeDeferredVoteStore.ReleaseResult.ALREADY_RELEASED,
+                    bounded.release(playerId, firstVote));
+            assertEquals(NeoForgeDeferredVoteStore.ReleaseResult.RELEASE_CAPACITY_REACHED,
+                    bounded.release(playerId, secondVote));
+            assertEquals(NeoForgeDeferredVoteStore.OccurrenceState.COMPLETED,
+                    bounded.state(playerId, secondVote));
+        }
+    }
+
+    @Test
     void malformedCompletionReceiptsDoNotConsumePendingCapacity() throws IOException {
         writeConfiguration();
         UUID corruptPlayer = UUID.randomUUID();

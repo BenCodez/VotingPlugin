@@ -252,7 +252,8 @@ public final class NeoForgeProxySocketService implements AutoCloseable {
             return;
         }
         NeoForgeDeferredVoteStore.ReleaseResult result = processor.deferredVotes().release(playerId, voteId);
-        if (result == NeoForgeDeferredVoteStore.ReleaseResult.NOT_COMPLETED) return;
+        if (result != NeoForgeDeferredVoteStore.ReleaseResult.RELEASED
+                && result != NeoForgeDeferredVoteStore.ReleaseResult.ALREADY_RELEASED) return;
         send(VotingPluginWire.voteDeliveryReceiptReleaseAcknowledgement(
                 configuration.server(), voteId, voteSubchannel));
     }

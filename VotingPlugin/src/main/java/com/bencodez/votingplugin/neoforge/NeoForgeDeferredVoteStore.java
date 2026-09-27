@@ -58,6 +58,7 @@ public final class NeoForgeDeferredVoteStore {
     private final int totalLimit;
     private final int completedPerUserLimit;
     private final int completedTotalLimit;
+    private final int releasedPerUserLimit;
     private final Set<OccurrenceKey> activeClaims = new HashSet<>();
     private final Set<UUID> replayCandidates = new LinkedHashSet<>();
     private final Map<UUID, Integer> receiptReservationsByUser = new HashMap<>();
@@ -79,15 +80,23 @@ public final class NeoForgeDeferredVoteStore {
 
     NeoForgeDeferredVoteStore(SqlUserBackend backend, int perUserLimit, int totalLimit,
             int completedPerUserLimit, int completedTotalLimit) {
+        this(backend, perUserLimit, totalLimit, completedPerUserLimit, completedTotalLimit,
+                MAX_RELEASED_PER_USER);
+    }
+
+    NeoForgeDeferredVoteStore(SqlUserBackend backend, int perUserLimit, int totalLimit,
+            int completedPerUserLimit, int completedTotalLimit, int releasedPerUserLimit) {
         this.backend = Objects.requireNonNull(backend, "backend");
         if (perUserLimit <= 0 || totalLimit <= 0
-                || completedPerUserLimit <= 0 || completedTotalLimit <= 0) {
+                || completedPerUserLimit <= 0 || completedTotalLimit <= 0
+                || releasedPerUserLimit <= 0) {
             throw new IllegalArgumentException("limits must be positive");
         }
         this.perUserLimit = perUserLimit;
         this.totalLimit = totalLimit;
         this.completedPerUserLimit = completedPerUserLimit;
         this.completedTotalLimit = completedTotalLimit;
+        this.releasedPerUserLimit = releasedPerUserLimit;
     }
 
     static List<UserDataKey> storageKeys() {
@@ -304,6 +313,11 @@ public final class NeoForgeDeferredVoteStore {
                         if (receipt.released()) {
                             return new Mutation<>(ReleaseResult.ALREADY_RELEASED, 0, 0);
                         }
+                        completed.removeIf(candidate -> candidate.released() && candidate.expired());
+                        if (releasedReceiptCount(completed) >= releasedPerUserLimit) {
+                            return new Mutation<>(ReleaseResult.RELEASE_CAPACITY_REACHED, 0, 0);
+                        }
+                        index = completed.indexOf(receipt);
                         completed.set(index, new CompletionReceipt(voteId, System.currentTimeMillis()));
                         scope.writeValues(Map.of(COMPLETED_DEFERRED_VOTES,
                                 new DataValueString(serializeCompleted(completed))));
@@ -524,20 +538,11 @@ public final class NeoForgeDeferredVoteStore {
         return votes;
     }
 
-    private static String serializeCompleted(List<CompletionReceipt> receipts) {
+    private String serializeCompleted(List<CompletionReceipt> receipts) {
         ArrayList<CompletionReceipt> bounded = new ArrayList<>(receipts);
         bounded.removeIf(receipt -> receipt.released() && receipt.expired());
-        while (releasedReceiptCount(bounded) > MAX_RELEASED_PER_USER) {
-            int oldest = -1;
-            long timestamp = Long.MAX_VALUE;
-            for (int index = 0; index < bounded.size(); index++) {
-                CompletionReceipt receipt = bounded.get(index);
-                if (receipt.released() && receipt.releasedAt() < timestamp) {
-                    oldest = index;
-                    timestamp = receipt.releasedAt();
-                }
-            }
-            bounded.remove(oldest);
+        if (releasedReceiptCount(bounded) > releasedPerUserLimit) {
+            throw new IllegalStateException("Released NeoForge vote receipt capacity exceeded");
         }
         ArrayList<String> lines = new ArrayList<>(bounded.size());
         for (CompletionReceipt receipt : bounded) {
@@ -618,7 +623,7 @@ public final class NeoForgeDeferredVoteStore {
     enum QuarantineResult { QUARANTINED, ALREADY_QUARANTINED, ALREADY_COMPLETED, NOT_PENDING }
     enum Status { RETAINED, ALREADY_RETAINED, ALREADY_COMPLETED, CAPACITY_REACHED }
     public enum CompletionResult { COMPLETED, ALREADY_COMPLETED, NOT_PENDING, RECEIPT_CAPACITY_REACHED }
-    enum ReleaseResult { RELEASED, ALREADY_RELEASED, NOT_COMPLETED }
+    enum ReleaseResult { RELEASED, ALREADY_RELEASED, NOT_COMPLETED, RELEASE_CAPACITY_REACHED }
     public record CompletionOutcome(CompletionResult result, NeoForgeVoteAccount account) { }
     record DeferralResult(Status status, List<NeoForgeDeferredVote> pending) { }
     private record CompletionReceipt(UUID voteId, long releasedAt) {

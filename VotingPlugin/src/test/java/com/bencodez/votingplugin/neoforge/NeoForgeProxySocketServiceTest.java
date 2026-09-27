@@ -230,6 +230,46 @@ class NeoForgeProxySocketServiceTest {
     }
 
     @Test
+    void fullReleaseReceiptCapacityWithholdsAcknowledgement() throws IOException {
+        UUID playerId = UUID.randomUUID();
+        UUID firstVote = UUID.randomUUID();
+        UUID secondVote = UUID.randomUUID();
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            runtime.rewardReplay().ifPresent(NeoForgeRewardReplayService::stopAdmission);
+            runtime.players().joined(new com.bencodez.votingplugin.core.vote.SharedVoteIdentity(
+                    playerId, "Alex", true));
+            NeoForgeDeferredVoteStore bounded = new NeoForgeDeferredVoteStore(
+                    runtime.storage(), 2, 2, 2, 2, 1);
+            NeoForgeVoteProcessor processor = new NeoForgeVoteProcessor(runtime.voteConfiguration(),
+                    runtime.accounting(), bounded, runtime.players(), java.time.Clock.systemUTC());
+            CopyOnWriteArrayList<JsonEnvelope> sent = new CopyOnWriteArrayList<>();
+            try (NeoForgeProxySocketService service = new NeoForgeProxySocketService(
+                    new NeoForgeProxySocketConfiguration(true, "neoforge", "proxy1", "127.0.0.1", 1297,
+                            "127.0.0.1", 1298, "socket-auth.key", false, false),
+                    processor, runtime.players(), sent::add, proxyAuthenticator)) {
+                service.receive(fromProxy(vote(firstVote, playerId, false)));
+                service.receive(fromProxy(vote(secondVote, playerId, false)));
+                try (NeoForgeDeferredVoteStore.Claim claim = bounded.claim(playerId, firstVote).orElseThrow()) {
+                    assertEquals(NeoForgeDeferredVoteStore.CompletionResult.COMPLETED, claim.complete());
+                }
+                try (NeoForgeDeferredVoteStore.Claim claim = bounded.claim(playerId, secondVote).orElseThrow()) {
+                    assertEquals(NeoForgeDeferredVoteStore.CompletionResult.COMPLETED, claim.complete());
+                }
+                service.receive(fromProxy(VotingPluginWire.voteDeliveryReceiptRelease(
+                        "neoforge", firstVote, VotingPluginWire.SUB_VOTE, playerId.toString())));
+                sent.clear();
+
+                service.receive(fromProxy(VotingPluginWire.voteDeliveryReceiptRelease(
+                        "neoforge", secondVote, VotingPluginWire.SUB_VOTE, playerId.toString())));
+
+                assertTrue(sent.isEmpty());
+                assertEquals(NeoForgeDeferredVoteStore.OccurrenceState.COMPLETED,
+                        bounded.state(playerId, secondVote));
+            }
+        }
+    }
+
+    @Test
     void socketCleanupContinuesAfterListenerCloseFailure() {
         SocketHandler listener = mock(SocketHandler.class);
         ClientHandler client = mock(ClientHandler.class);
