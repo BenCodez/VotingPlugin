@@ -1,5 +1,7 @@
 package com.bencodez.votingplugin.webhook;
 
+import java.net.URI;
+
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -153,13 +155,29 @@ public final class WebhookDefinition {
 		if (url == null) {
 			return "null";
 		}
-		// Discord webhooks: https://discord.com/api/webhooks/{id}/{token}
-		int idx = url.indexOf("/api/webhooks/");
-		if (idx == -1) {
-			return url;
+		String safeUrl = url;
+		try {
+			URI parsed = URI.create(url);
+			String userInfo = parsed.getRawUserInfo();
+			String authority = parsed.getRawAuthority();
+			if (userInfo != null) {
+				int authorityStart = authority == null ? -1 : safeUrl.indexOf(authority);
+				int userInfoEnd = authorityStart < 0 ? -1 : authorityStart + userInfo.length();
+				if (userInfoEnd < authorityStart || userInfoEnd >= safeUrl.length()
+						|| safeUrl.charAt(userInfoEnd) != '@') return "[REDACTED URL]";
+				safeUrl = safeUrl.substring(0, authorityStart) + "REDACTED"
+						+ safeUrl.substring(userInfoEnd);
+			}
+		} catch (IllegalArgumentException invalidUrl) {
+			return "[REDACTED URL]";
 		}
-		String prefix = url.substring(0, idx);
-		String rest = url.substring(idx);
+		// Discord webhooks: https://discord.com/api/webhooks/{id}/{token}
+		int idx = safeUrl.indexOf("/api/webhooks/");
+		if (idx == -1) {
+			return safeUrl;
+		}
+		String prefix = safeUrl.substring(0, idx);
+		String rest = safeUrl.substring(idx);
 		String[] parts = rest.split("/");
 		if (parts.length >= 5) {
 			return prefix + "/api/webhooks/" + parts[3] + "/REDACTED";

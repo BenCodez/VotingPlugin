@@ -21,6 +21,14 @@ import com.sun.net.httpserver.HttpServer;
 class WebhookBoundsTest {
 
 	@Test
+	void logUrlRedactsCredentialsAndDiscordTokens() {
+		WebhookDefinition credentials = definition("https://user:secret@example.com/hook");
+		assertEquals("https://REDACTED@example.com/hook", credentials.safeUrlForLog());
+		WebhookDefinition discord = definition("https://user:secret@discord.com/api/webhooks/123/token");
+		assertEquals("https://REDACTED@discord.com/api/webhooks/123/REDACTED", discord.safeUrlForLog());
+	}
+
+	@Test
 	void rejectsAdmissionWhenTheBoundedQueueIsFull() throws Exception {
 		CountDownLatch firstRequestStarted = new CountDownLatch(1);
 		CountDownLatch releaseFirstRequest = new CountDownLatch(1);
@@ -135,6 +143,10 @@ class WebhookBoundsTest {
 
 	private static WebhookRequest request() {
 		return new WebhookRequest("hook", "{}", Collections.emptyMap(), null);
+	}
+
+	private static WebhookDefinition definition(String url) {
+		return definition(url, 1, 0, 0);
 	}
 
 	private static WebhookDefinition definition(String url, int maxAttempts, long backoffMs, long maxBackoffMs) {
