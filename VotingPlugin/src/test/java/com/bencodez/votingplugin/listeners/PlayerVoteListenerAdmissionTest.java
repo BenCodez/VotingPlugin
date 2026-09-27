@@ -29,6 +29,28 @@ import com.bencodez.votingplugin.user.VotingPluginUser;
 
 class PlayerVoteListenerAdmissionTest {
 	@Test
+	void cancelledEventCompletesProducerSignalWithoutProcessing() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		ScheduledExecutorService voteExecutor = mock(ScheduledExecutorService.class);
+		PlayerVoteEvent event = new PlayerVoteEvent(null, "player", "site", false);
+		event.setCancelled(true);
+		when(plugin.getVoteTimer()).thenReturn(voteExecutor);
+
+		try (MockedStatic<Bukkit> bukkit = org.mockito.Mockito.mockStatic(Bukkit.class);
+				MockedStatic<SharedVoteProcessor> processor = org.mockito.Mockito.mockStatic(SharedVoteProcessor.class)) {
+			bukkit.when(Bukkit::isPrimaryThread).thenReturn(true);
+			new PlayerVoteListener(plugin).onplayerVote(event);
+
+			processor.verifyNoInteractions();
+		}
+
+		assertTrue(event.isCancelled());
+		assertFalse(event.isProcessingPending());
+		assertTrue(event.getProcessingCompletion().toCompletableFuture().isDone());
+		verify(voteExecutor, never()).submit(any(Runnable.class));
+	}
+
+	@Test
 	void primaryThreadEventDefersAccountingToTheVoteExecutor() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);
 		ScheduledExecutorService voteExecutor = mock(ScheduledExecutorService.class);

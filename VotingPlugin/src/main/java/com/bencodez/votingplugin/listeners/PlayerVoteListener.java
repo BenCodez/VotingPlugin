@@ -34,8 +34,12 @@ public class PlayerVoteListener implements Listener {
         this.plugin = plugin;
     }
 
-	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
 	public void onplayerVote(PlayerVoteEvent event) {
+		if (event.isCancelled()) {
+			event.completeProcessing();
+			return;
+		}
 		if (!VoteTaskAdmission.isVoteTask() && Bukkit.isPrimaryThread()) {
 			if (event.isDeferredDeliveryCompletion()) {
 				failAdmission(event, new SharedVoteAdmissionException(
