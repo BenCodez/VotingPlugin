@@ -126,10 +126,12 @@ public final class NeoForgeRewardReplayService implements AutoCloseable {
     }
 
     private CompletableFuture<ReplayResult> replay(NeoForgeDeferredVote vote) {
+        NeoForgeDeferredVote effectiveVote = players.online(vote.playerId())
+                .map(identity -> vote.withPlayerName(identity.playerName())).orElse(vote);
         NeoForgeVoteSite site = configuration.configuredSite(vote.siteKey()).orElse(null);
         if (site == null) return CompletableFuture.completedFuture(
                 delayed(vote, Status.BLOCKED_UNSUPPORTED, "Configured vote site no longer exists", 60));
-        NeoForgeRewardPlan plan = rewards.plan(vote, site, players.online(vote.playerId()).isPresent());
+        NeoForgeRewardPlan plan = rewards.plan(effectiveVote, site, players.online(vote.playerId()).isPresent());
         if (plan.status() == NeoForgeRewardPlan.Status.BLOCKED_UNSUPPORTED) {
             return CompletableFuture.completedFuture(delayed(vote, Status.BLOCKED_UNSUPPORTED, plan.detail(), 60));
         }
@@ -141,8 +143,8 @@ public final class NeoForgeRewardReplayService implements AutoCloseable {
                 result(vote, Status.NOT_CLAIMED, "Vote is already claimed or completion capacity is unavailable"));
         CompletableFuture<ReplayResult> completion = new CompletableFuture<>();
         CompletionStage<Void> action = plan.actions().isEmpty()
-                ? CompletableFuture.completedFuture(null) : actions.execute(vote, plan);
-        action.whenComplete((ignored, failure) -> dispatchCompletion(claim, vote, site, failure, completion));
+                ? CompletableFuture.completedFuture(null) : actions.execute(effectiveVote, plan);
+        action.whenComplete((ignored, failure) -> dispatchCompletion(claim, effectiveVote, site, failure, completion));
         return completion;
     }
 
@@ -162,7 +164,7 @@ public final class NeoForgeRewardReplayService implements AutoCloseable {
             try (claim) {
                 NeoForgeDeferredVoteStore.CompletionOutcome outcome =
                         claim.completeWithAccounting(accounting, site,
-                                players.online(vote.playerId()).isPresent());
+                                players.online(vote.playerId()).isPresent(), vote.playerName());
                 Status status = outcome.result() == NeoForgeDeferredVoteStore.CompletionResult.COMPLETED
                         || outcome.result() == NeoForgeDeferredVoteStore.CompletionResult.ALREADY_COMPLETED
                                 ? Status.COMPLETED : Status.NOT_CLAIMED;

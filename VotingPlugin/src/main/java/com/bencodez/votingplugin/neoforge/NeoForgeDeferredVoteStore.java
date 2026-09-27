@@ -197,7 +197,7 @@ public final class NeoForgeDeferredVoteStore {
     }
 
     private synchronized CompletionOutcome complete(Claim claim, NeoForgeVoteAccountingStore accounting,
-            NeoForgeVoteSite site, boolean currentlyOnline) {
+            NeoForgeVoteSite site, boolean currentlyOnline, String currentPlayerName) {
         Objects.requireNonNull(claim, "claim");
         if (claim.owner != this || claim.closed || !activeClaims.contains(claim.key)) {
             throw new IllegalStateException("Deferred vote claim is no longer active");
@@ -231,7 +231,8 @@ public final class NeoForgeDeferredVoteStore {
                         return new Mutation<>(new CompletionOutcome(CompletionResult.RECEIPT_CAPACITY_REACHED, null), 0, 0);
                     }
                     NeoForgeVoteAccountingStore.PreparedAccounting prepared = accounting == null ? null
-                            : accounting.prepareDeferred(claim.vote, site, lockedRow, currentlyOnline);
+                            : accounting.prepareDeferred(claim.vote, site, lockedRow, currentlyOnline,
+                                    currentPlayerName);
                     completed.add(new CompletionReceipt(claim.key.voteId()));
                     int removed = removePending(pending, claim.key.voteId());
                     HashMap<String, DataValue> updates = new HashMap<>();
@@ -440,11 +441,18 @@ public final class NeoForgeDeferredVoteStore {
         }
 
         public NeoForgeDeferredVote vote() { return vote; }
-        public CompletionResult complete() { return owner.complete(this, null, null, vote.wasOnline()).result(); }
+        public CompletionResult complete() {
+            return owner.complete(this, null, null, vote.wasOnline(), vote.playerName()).result();
+        }
         public CompletionOutcome completeWithAccounting(NeoForgeVoteAccountingStore accounting,
                 NeoForgeVoteSite site, boolean currentlyOnline) {
+            return completeWithAccounting(accounting, site, currentlyOnline, vote.playerName());
+        }
+        public CompletionOutcome completeWithAccounting(NeoForgeVoteAccountingStore accounting,
+                NeoForgeVoteSite site, boolean currentlyOnline, String currentPlayerName) {
             return owner.complete(this, Objects.requireNonNull(accounting, "accounting"),
-                    Objects.requireNonNull(site, "site"), currentlyOnline);
+                    Objects.requireNonNull(site, "site"), currentlyOnline,
+                    Objects.requireNonNull(currentPlayerName, "currentPlayerName"));
         }
 
         @Override public void close() {

@@ -32,7 +32,7 @@ final class NeoForgeRewardConfiguration {
             return blocked("WaitUntilVoteDelay completion is not supported by NeoForge replay yet");
         }
         if (!node(config, ignoreCase, "ProcessRewards").getBoolean(true)) {
-            return new NeoForgeRewardPlan(NeoForgeRewardPlan.Status.READY, List.of(), false, "Rewards disabled");
+            return blocked("ProcessRewards is disabled; retained vote remains pending");
         }
 
         ArrayList<NeoForgeRewardPlan.Action> actions = new ArrayList<>();
@@ -119,24 +119,28 @@ final class NeoForgeRewardConfiguration {
         if (reward.childrenMap().isEmpty()) return path + " has an unsupported value";
         for (Map.Entry<Object, ? extends ConfigurationNode> entry : reward.childrenMap().entrySet()) {
             String key = String.valueOf(entry.getKey());
-            if (!key.equalsIgnoreCase("Commands") && !key.equalsIgnoreCase("Messages"))
+            if (!matchesKey(key, "Commands") && !matchesKey(key, "Messages"))
                 return path + "." + key + " is unsupported";
         }
-        ConfigurationNode messageNode = node(reward, true, "Messages");
+        ConfigurationNode messageNode = node(reward, ignoreCase, "Messages");
         if (!messageNode.empty()) {
             if (messageNode.childrenMap().isEmpty()) return path + ".Messages has an unsupported value";
             for (Map.Entry<Object, ? extends ConfigurationNode> message : messageNode.childrenMap().entrySet()) {
-                if (!String.valueOf(message.getKey()).equalsIgnoreCase("Player"))
+                if (!matchesKey(String.valueOf(message.getKey()), "Player"))
                     return path + ".Messages." + message.getKey() + " is unsupported";
                 if (!appendActions(message.getValue(), actions, NeoForgeRewardPlan.ActionType.PLAYER_MESSAGE))
                     return path + ".Messages.Player has an unsupported value";
             }
         }
-        ConfigurationNode commands = node(reward, true, "Commands");
+        ConfigurationNode commands = node(reward, ignoreCase, "Commands");
         if (!commands.empty()
                 && !appendActions(commands, actions, NeoForgeRewardPlan.ActionType.CONSOLE_COMMAND))
             return path + ".Commands has an unsupported value";
         return null;
+    }
+
+    private boolean matchesKey(String actual, String expected) {
+        return ignoreCase ? actual.equalsIgnoreCase(expected) : actual.equals(expected);
     }
 
     private static boolean appendActions(ConfigurationNode node, List<NeoForgeRewardPlan.Action> output,

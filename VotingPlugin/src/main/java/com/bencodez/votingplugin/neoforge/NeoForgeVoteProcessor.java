@@ -6,6 +6,7 @@ import java.util.Optional;
 
 import com.bencodez.votingplugin.core.vote.SharedVoteIdentity;
 import com.bencodez.votingplugin.core.vote.SharedVoteInput;
+import com.bencodez.votingplugin.util.MinecraftUsernameValidator;
 
 /**
  * Internal accepted-vote boundary for the subset NeoForge can currently finish:
@@ -59,6 +60,9 @@ public final class NeoForgeVoteProcessor {
         }
         String name = online.map(SharedVoteIdentity::playerName)
                 .orElseGet(() -> stored.map(NeoForgeVoteAccount::playerName).orElse(request.playerName()));
+        if (!MinecraftUsernameValidator.isValid(name, configuration.bedrockPlayerPrefix())) {
+            return result(NeoForgeVoteResult.Status.UNKNOWN_PLAYER, "Player identity has an invalid name");
+        }
         SharedVoteIdentity identity = new SharedVoteIdentity(request.playerId(), name,
                 online.isPresent());
         Optional<NeoForgeVoteSite> resolved = configuration.resolveEnabledSite(request.serviceSite());

@@ -26,6 +26,82 @@ class NeoForgeRewardReplayServiceTest {
     @TempDir Path directory;
 
     @Test
+    void disabledRewardProcessingKeepsRetainedVotePending() throws Exception {
+        writeConfiguration(false);
+        Files.writeString(directory.resolve("Config.yml"), Files.readString(directory.resolve("Config.yml"))
+                .replace("ProcessRewards: true", "ProcessRewards: false"));
+        UUID playerId = UUID.randomUUID();
+        RecordingActions actions = new RecordingActions();
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory);
+                NeoForgeRewardReplayService replay = service(runtime, actions)) {
+            runtime.players().joined(new SharedVoteIdentity(playerId, "Alex", true));
+            retain(runtime, UUID.randomUUID(), playerId, "Service");
+            List<NeoForgeRewardReplayService.ReplayResult> result = replay.replayOnce().get(5, TimeUnit.SECONDS);
+            assertEquals(NeoForgeRewardReplayService.Status.BLOCKED_UNSUPPORTED, result.get(0).status());
+            assertEquals(0, actions.calls.get());
+            assertEquals(1, runtime.deferredVotes().pending(playerId).size());
+            assertEquals(0, runtime.accounting().load(playerId).orElseThrow().allTimeTotal());
+        }
+    }
+
+    @Test
+    void replayUsesCurrentUuidIdentityNameForActionsAndAccounting() throws Exception {
+        writeConfiguration(false);
+        UUID playerId = UUID.randomUUID();
+        RecordingActions actions = new RecordingActions();
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory);
+                NeoForgeRewardReplayService replay = service(runtime, actions)) {
+            runtime.players().joined(new SharedVoteIdentity(playerId, "OldName", true));
+            retain(runtime, UUID.randomUUID(), playerId, "Service");
+            runtime.players().joined(new SharedVoteIdentity(playerId, "NewName", true));
+            assertEquals(NeoForgeRewardReplayService.Status.COMPLETED,
+                    runOne(runtime, replay, actions).status());
+            assertEquals(List.of("say NewName"), actions.rendered);
+            assertEquals("NewName", runtime.accounting().load(playerId).orElseThrow().playerName());
+        }
+    }
+
+    @Test
+    void rewardKeysHonorConfiguredYamlCaseSensitivity() throws Exception {
+        writeConfiguration(false);
+        Files.writeString(directory.resolve("VoteSites.yml"), Files.readString(directory.resolve("VoteSites.yml"))
+                .replace("Commands:", "commands:"));
+        UUID playerId = UUID.randomUUID();
+        UUID voteId = UUID.randomUUID();
+        RecordingActions strictActions = new RecordingActions();
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory);
+                NeoForgeRewardReplayService replay = service(runtime, strictActions)) {
+            runtime.players().joined(new SharedVoteIdentity(playerId, "Alex", true));
+            retain(runtime, voteId, playerId, "Service");
+            assertEquals(NeoForgeRewardReplayService.Status.BLOCKED_UNSUPPORTED,
+                    replay.replayOnce().get(5, TimeUnit.SECONDS).get(0).status());
+            assertEquals(0, strictActions.calls.get());
+        }
+        Files.writeString(directory.resolve("Config.yml"), Files.readString(directory.resolve("Config.yml"))
+                + "CaseInsensitiveYMLFiles: true\n");
+        RecordingActions insensitiveActions = new RecordingActions();
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory);
+                NeoForgeRewardReplayService replay = service(runtime, insensitiveActions)) {
+            runtime.players().joined(new SharedVoteIdentity(playerId, "Alex", true));
+            assertEquals(NeoForgeRewardReplayService.Status.COMPLETED,
+                    runOne(runtime, replay, insensitiveActions).status());
+        }
+    }
+
+    @Test
+    void unjoinedCommandPlaceholderNameMustUseMinecraftSyntax() throws Exception {
+        writeConfiguration(false);
+        UUID playerId = UUID.randomUUID();
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            NeoForgeVoteResult result = runtime.voteProcessor().process(new NeoForgeVoteRequest(
+                    UUID.randomUUID(), playerId, "Alex;op", "Service", 100L, true, true, false,
+                    NeoForgeVoteRequest.Scope.COMPLETE));
+            assertEquals(NeoForgeVoteResult.Status.UNKNOWN_PLAYER, result.status());
+            assertTrue(runtime.deferredVotes().pending(playerId).isEmpty());
+        }
+    }
+
+    @Test
     void supportedRewardCompletesAccountingAndTombstoneOnceAcrossRestart() throws Exception {
         writeConfiguration(false);
         UUID playerId = UUID.randomUUID();

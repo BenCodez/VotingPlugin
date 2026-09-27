@@ -131,8 +131,8 @@ public final class NeoForgeVoteAccountingStore {
     }
 
     PreparedAccounting prepareDeferred(NeoForgeDeferredVote vote, NeoForgeVoteSite site, List<Column> columns,
-            boolean currentlyOnline) {
-        SharedVoteIdentity identity = new SharedVoteIdentity(vote.playerId(), vote.playerName(), currentlyOnline);
+            boolean currentlyOnline, String currentPlayerName) {
+        SharedVoteIdentity identity = new SharedVoteIdentity(vote.playerId(), currentPlayerName, currentlyOnline);
         SharedVoteInput input = new SharedVoteInput(vote.voteId(), vote.playerName(), vote.serviceSite(),
                 vote.voteTime(), vote.realVote(), vote.addTotals(), false, false, vote.wasOnline());
         SharedVotePolicy policy = configuration.policyFor(site);

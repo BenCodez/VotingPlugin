@@ -14,4 +14,10 @@ public record NeoForgeDeferredVote(UUID voteId, UUID playerId, String playerName
         Objects.requireNonNull(serviceSite, "serviceSite");
         Objects.requireNonNull(siteKey, "siteKey");
     }
+
+    NeoForgeDeferredVote withPlayerName(String currentName) {
+        return playerName.equals(currentName) ? this : new NeoForgeDeferredVote(voteId, playerId,
+                Objects.requireNonNull(currentName, "currentName"), serviceSite, siteKey,
+                voteTime, realVote, addTotals, wasOnline);
+    }
 }
