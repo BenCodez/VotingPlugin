@@ -63,7 +63,7 @@ public class BungeeJsonVoteCache extends BungeeJsonFile implements IVoteCache {
 		setBoolean(path + ".WasOnline", voteTimedQueue.isWasOnline());
 		setBoolean(path + ".WasOnlineKnown", voteTimedQueue.isWasOnlineKnown());
 		setBoolean(path + ".DelayValidated", voteTimedQueue.isDelayValidated());
-		setBoolean(path + ".DelayValidationKnown", voteTimedQueue.isDelayValidationKnown());
+		setBoolean(path + ".DelayValidationKnown", voteTimedQueue.isQueueClassificationKnown());
 		setString(path + ".MultiProxyOrigin", voteTimedQueue.getMultiProxyOrigin());
 		setBoolean(path + ".MultiProxyCompletionPending", voteTimedQueue.isMultiProxyCompletionPending());
 		setString(path + ".MultiProxyRecipients", voteTimedQueue.encodeMultiProxyRecipients());
@@ -106,7 +106,7 @@ public class BungeeJsonVoteCache extends BungeeJsonFile implements IVoteCache {
 		setBoolean(path + ".WasOnline", voteData.isWasOnline());
 		setBoolean(path + ".WasOnlineKnown", voteData.isWasOnlineKnown());
 		setBoolean(path + ".DelayValidated", voteData.isDelayValidated());
-		setBoolean(path + ".DelayValidationKnown", voteData.isDelayValidationKnown());
+		setBoolean(path + ".DelayValidationKnown", voteData.isQueueClassificationKnown());
 		setString(path + ".Text", voteData.getText());
 		setString(path + ".VoteId", voteData.getVoteId() != null ? voteData.getVoteId().toString() : null);
 		setBoolean(path + ".BroadcastForwarded", voteData.isBroadcastForwarded());
@@ -128,7 +128,7 @@ public class BungeeJsonVoteCache extends BungeeJsonFile implements IVoteCache {
 		setBoolean(path + ".WasOnline", voteData.isWasOnline());
 		setBoolean(path + ".WasOnlineKnown", voteData.isWasOnlineKnown());
 		setBoolean(path + ".DelayValidated", voteData.isDelayValidated());
-		setBoolean(path + ".DelayValidationKnown", voteData.isDelayValidationKnown());
+		setBoolean(path + ".DelayValidationKnown", voteData.isQueueClassificationKnown());
 		setString(path + ".Text", voteData.getText());
 		setString(path + ".VoteId", voteData.getVoteId() != null ? voteData.getVoteId().toString() : null);
 		setBoolean(path + ".BroadcastForwarded", voteData.isBroadcastForwarded());

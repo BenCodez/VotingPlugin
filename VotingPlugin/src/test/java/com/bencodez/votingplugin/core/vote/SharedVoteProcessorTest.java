@@ -132,6 +132,7 @@ class SharedVoteProcessorTest {
         UUID proxyId = UUID.randomUUID();
         when(ops.proxyVote()).thenReturn(true);
         when(ops.proxyVoteId()).thenReturn(proxyId);
+        when(ops.proxyQueueClassificationKnown()).thenReturn(true);
         when(ops.incomingTime()).thenReturn(321L);
         when(ops.lastVoteTime(user, site)).thenReturn(321L);
         when(ops.waitUntilVoteDelay(site)).thenReturn(true);
@@ -150,6 +151,7 @@ class SharedVoteProcessorTest {
         UUID proxyId = UUID.randomUUID();
         when(ops.proxyVote()).thenReturn(true);
         when(ops.proxyVoteId()).thenReturn(proxyId);
+        when(ops.proxyQueueClassificationKnown()).thenReturn(true);
         when(ops.proxyDelayValidationKnown()).thenReturn(true);
         when(ops.incomingTime()).thenReturn(321L);
         when(ops.waitUntilVoteDelay(site)).thenReturn(true);
@@ -188,6 +190,7 @@ class SharedVoteProcessorTest {
     void explicitUnvalidatedProxyVoteCannotUseLegacyTimestampFallback() {
         var ops = accepted();
         when(ops.proxyVote()).thenReturn(true);
+        when(ops.proxyQueueClassificationKnown()).thenReturn(true);
         when(ops.proxyDelayValidationKnown()).thenReturn(true);
         when(ops.incomingTime()).thenReturn(321L);
         when(ops.lastVoteTime(user, site)).thenReturn(321L);
@@ -199,6 +202,23 @@ class SharedVoteProcessorTest {
 
         verify(ops).giveWaitRewards(eq(site), eq(user), anyBoolean(), eq(true));
         verify(ops, never()).playerVote(any(), any(), anyBoolean(), anyBoolean());
+    }
+
+    @Test
+    void preMarkerProxyBacklogRetainsLegacyTimestampFallbackWithStableId() {
+        var ops = accepted();
+        when(ops.proxyVote()).thenReturn(true);
+        when(ops.proxyVoteId()).thenReturn(UUID.randomUUID());
+        when(ops.proxyDelayValidationKnown()).thenReturn(false);
+        when(ops.incomingTime()).thenReturn(321L);
+        when(ops.lastVoteTime(user, site)).thenReturn(321L);
+        when(ops.waitUntilVoteDelay(site)).thenReturn(true);
+        when(ops.canVoteSite(user, site)).thenReturn(false);
+
+        SharedVoteProcessor.process(ops);
+
+        verify(ops, never()).canVoteSite(user, site);
+        verify(ops).playerVote(user, site, false, false);
     }
 
     @Test

@@ -178,7 +178,8 @@ public final class VotingPluginWire {
 				.put(K_TIME, time).put(K_WAS_ONLINE, wasOnline).put(K_WAS_ONLINE_KNOWN, true)
 				.put(K_REAL_VOTE, realVote).put(K_TOTALS, safe(totals))
 				.put(K_VOTE_ID, voteId == null ? "" : voteId.toString()).put(K_SET_TOTALS, true)
-				.put(K_MANAGE_TOTALS, manageTotals).put(K_BUNGEE_BROADCAST, bungeeBroadcast).put(K_NUM, num)
+				.put(K_MANAGE_TOTALS, manageTotals).put(K_QUEUED_DELIVERY, false)
+				.put(K_BUNGEE_BROADCAST, bungeeBroadcast).put(K_NUM, num)
 				.put(K_NUMBER_OF_VOTES, numberOfVotes);
 	}
 
@@ -208,7 +209,8 @@ public final class VotingPluginWire {
 		return base(subChannel).put(K_PLAYER, safe(player)).put(K_UUID, safe(uuid)).put(K_SERVICE, safe(service))
 				.put(K_TIME, time).put(K_WAS_ONLINE, wasOnline).put(K_WAS_ONLINE_KNOWN, true).put(K_REAL_VOTE, realVote).put(K_TOTALS, safe(totals))
 				.put(K_VOTE_ID, voteId == null ? "" : voteId.toString()).put(K_SET_TOTALS, true)
-				.put(K_MANAGE_TOTALS, manageTotals).put(K_BUNGEE_BROADCAST, bungeeBroadcast).put(K_NUM, num)
+				.put(K_MANAGE_TOTALS, manageTotals).put(K_QUEUED_DELIVERY, false)
+				.put(K_BUNGEE_BROADCAST, bungeeBroadcast).put(K_NUM, num)
 				.put(K_NUMBER_OF_VOTES, numberOfVotes).put(K_MULTI_PROXY_ORIGIN, safe(origin));
 	}
 
@@ -240,6 +242,15 @@ public final class VotingPluginWire {
 			builder.put(field.getKey(), field.getValue());
 		}
 		return builder.put(K_QUEUED_DELIVERY, true).build();
+	}
+
+	/** Removes the additive queue marker for cache rows created by pre-marker proxies. */
+	public static JsonEnvelope legacyUnclassifiedDelivery(JsonEnvelope envelope) {
+		JsonEnvelope.Builder builder = JsonEnvelope.builder(envelope.getSubChannel()).schema(envelope.getSchema());
+		for (Map.Entry<String, String> field : envelope.getFields().entrySet()) {
+			if (!K_QUEUED_DELIVERY.equals(field.getKey())) builder.put(field.getKey(), field.getValue());
+		}
+		return builder.build();
 	}
 
 	public static JsonEnvelope voteDelayRejected(String player, String uuid, String service, boolean wasOnline) {
@@ -604,6 +615,7 @@ public final class VotingPluginWire {
 		public final boolean delayValidated;
 		public final boolean delayValidationKnown;
 		public final boolean queuedDelivery;
+		public final boolean queuedDeliveryKnown;
 		public final boolean broadcast; // historically bungeeBroadcast
 		public final int num;
 		public final int numberOfVotes;
@@ -611,6 +623,7 @@ public final class VotingPluginWire {
 		private Vote(String subChannel, String player, String uuid, String service, long time, boolean wasOnline,
 				boolean wasOnlineKnown, boolean realVote, String totals, UUID voteId, boolean setTotals,
 				boolean manageTotals, boolean delayValidated, boolean delayValidationKnown, boolean queuedDelivery,
+				boolean queuedDeliveryKnown,
 				boolean broadcast, int num, int numberOfVotes) {
 			this.subChannel = subChannel;
 			this.player = player;
@@ -627,6 +640,7 @@ public final class VotingPluginWire {
 			this.delayValidated = delayValidated;
 			this.delayValidationKnown = delayValidationKnown;
 			this.queuedDelivery = queuedDelivery;
+			this.queuedDeliveryKnown = queuedDeliveryKnown;
 			this.broadcast = broadcast;
 			this.num = num;
 			this.numberOfVotes = numberOfVotes;
@@ -653,6 +667,7 @@ public final class VotingPluginWire {
 		final boolean delayValidated = readBool(f, K_DELAY_VALIDATED, false);
 		final boolean delayValidationKnown = f.containsKey(K_DELAY_VALIDATED);
 		final boolean queuedDelivery = readBool(f, K_QUEUED_DELIVERY, false);
+		final boolean queuedDeliveryKnown = f.containsKey(K_QUEUED_DELIVERY);
 
 		final boolean broadcast = readBool(f, K_BUNGEE_BROADCAST, false);
 
@@ -660,7 +675,8 @@ public final class VotingPluginWire {
 		final int numberOfVotes = readInt(f, K_NUMBER_OF_VOTES, 1);
 
 		return new Vote(sub, player, uuid, service, time, wasOnline, wasOnlineKnown, realVote, totals, voteId,
-				setTotals, manageTotals, delayValidated, delayValidationKnown, queuedDelivery, broadcast, num, numberOfVotes);
+				setTotals, manageTotals, delayValidated, delayValidationKnown, queuedDelivery, queuedDeliveryKnown,
+				broadcast, num, numberOfVotes);
 	}
 
 	public static final class VoteDelayRejected {

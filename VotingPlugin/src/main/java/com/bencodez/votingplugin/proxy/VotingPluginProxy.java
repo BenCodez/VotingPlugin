@@ -5485,7 +5485,12 @@ public abstract class VotingPluginProxy {
 							resolveCachedWasOnline(vote), vote.isRealVote(), vote.getText(), vote.getVoteId(),
 							getConfig().getBungeeManageTotals(), broadcast, num, numberOfVotes);
 		}
-		return VotingPluginWire.queuedDelivery(envelope);
+		// A cache entry is only known to have passed the proxy's delay gate when
+		// that decision was persisted with it. Unknown legacy entries must still
+		// be checked by the receiving backend.
+		if (!vote.isQueueClassificationKnown()) return VotingPluginWire.legacyUnclassifiedDelivery(envelope);
+		return vote.isDelayValidationKnown() && vote.isDelayValidated()
+				? VotingPluginWire.queuedDelivery(envelope) : envelope;
 	}
 
 	public String getWaitUntilDelaySiteFromService(String service) {

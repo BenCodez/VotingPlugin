@@ -295,7 +295,8 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 	}
 
 	private static int delayValidation(VoteTimeQueue vote) {
-		return vote.isDelayValidationKnown() ? vote.isDelayValidated() ? 1 : 0 : -1;
+		if (!vote.isQueueClassificationKnown()) return -1;
+		return vote.isDelayValidationKnown() && vote.isDelayValidated() ? 1 : 0;
 	}
 
 	/** Backward-compatible insert overload. */

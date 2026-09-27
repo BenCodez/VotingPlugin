@@ -1440,6 +1440,40 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
+	void cachedVoteWithoutPersistedDelayDecisionIsNotMarkedAsPreviouslyValidated() throws Exception {
+		OfflineBungeeVote cached = new OfflineBungeeVote(java.util.UUID.randomUUID(), "Player",
+				"00000000-0000-0000-0000-000000000001", "Service", 100L, true, "");
+		Mockito.when(votingPluginProxy.getConfig().getBungeeManageTotals()).thenReturn(true);
+		java.lang.reflect.Method envelopeMethod = VotingPluginProxy.class.getDeclaredMethod("cachedVoteEnvelope",
+				OfflineBungeeVote.class, boolean.class, boolean.class, int.class, int.class);
+		envelopeMethod.setAccessible(true);
+
+		JsonEnvelope envelope = (JsonEnvelope) envelopeMethod.invoke(votingPluginProxy, cached, true, false, 1, 1);
+		VotingPluginWire.Vote vote = VotingPluginWire.readVote(envelope);
+
+		assertTrue(vote.queuedDeliveryKnown);
+		assertFalse(vote.queuedDelivery);
+		assertFalse(vote.delayValidationKnown);
+	}
+
+	@Test
+	void legacyCachedVoteRetainsTimestampCompatibilityFallback() throws Exception {
+		OfflineBungeeVote cached = new OfflineBungeeVote(java.util.UUID.randomUUID(), "Player",
+				"00000000-0000-0000-0000-000000000001", "Service", 100L, true, "");
+		cached.clearDelayValidation();
+		Mockito.when(votingPluginProxy.getConfig().getBungeeManageTotals()).thenReturn(true);
+		java.lang.reflect.Method envelopeMethod = VotingPluginProxy.class.getDeclaredMethod("cachedVoteEnvelope",
+				OfflineBungeeVote.class, boolean.class, boolean.class, int.class, int.class);
+		envelopeMethod.setAccessible(true);
+
+		VotingPluginWire.Vote vote = VotingPluginWire.readVote((JsonEnvelope) envelopeMethod.invoke(
+				votingPluginProxy, cached, true, false, 1, 1));
+
+		assertFalse(vote.queuedDeliveryKnown);
+		assertFalse(vote.delayValidationKnown);
+	}
+
+	@Test
 	void receivedMultiProxyValidationReachesBackendEnvelopeOnNonPrimaryProxy() throws Exception {
 		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
 		Mockito.when(voteCache.markMultiProxyVoteCompletedDurably(Mockito.any())).thenReturn(true);
