@@ -17,8 +17,12 @@ import com.bencodez.simpleapi.servercomm.global.GlobalMessageHandler;
 import com.bencodez.simpleapi.servercomm.http.HttpBackendTransportConnector;
 import com.bencodez.simpleapi.servercomm.http.HttpClientCredentialStore;
 import com.bencodez.simpleapi.servercomm.http.HttpConnectionCode;
+import com.bencodez.simpleapi.servercomm.http.HttpEnvelopeWireCodec;
 import com.bencodez.simpleapi.servercomm.http.HttpTlsIdentity;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.proxy.security.TransportEnvelopeEncryption;
+import com.bencodez.votingplugin.proxy.security.TransportEnvelopeEncryption.Domain;
+import com.bencodez.votingplugin.proxy.security.TransportEnvelopeHttpCodec;
 import com.bencodez.votingplugin.util.DurableFiles;
 
 /** Backend adapter for the secure outbound-only HTTP proxy transport. */
@@ -33,6 +37,8 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 	private static final long SHUTDOWN_FLUSH_SECONDS = 5L;
 	private static final ConcurrentHashMap<Path, Semaphore> DIRECTORY_OWNERS = new ConcurrentHashMap<>();
 	private final VotingPluginMain plugin;
+	private HttpEnvelopeWireCodec wireCodec;
+	private final java.util.concurrent.atomic.AtomicBoolean encryptionFailureLogged = new java.util.concurrent.atomic.AtomicBoolean();
 	private final Object lifecycle = new Object();
 	private final CountDownLatch startupComplete = new CountDownLatch(1);
 	private final CountDownLatch credentialRestoreComplete = new CountDownLatch(1);
@@ -66,6 +72,29 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 
 	public HttpBackendProxyTransport(VotingPluginMain plugin) {
 		this.plugin = plugin;
+	}
+
+	HttpBackendProxyTransport(VotingPluginMain plugin, TransportEnvelopeEncryption encryption) {
+		this.plugin = plugin;
+		if (encryption != null) wireCodec = createWireCodec(encryption);
+	}
+
+	private HttpEnvelopeWireCodec loadWireCodec() {
+		try {
+			TransportEnvelopeEncryption encryption = TransportEnvelopeEncryption.load(
+					plugin.getDataFolder().toPath().resolve("secretkey.key"), Domain.PROXY_BACKEND,
+					plugin.getBungeeSettings().isCommunicationEncryption());
+			return createWireCodec(encryption);
+		} catch (java.io.IOException failure) {
+			throw new IllegalStateException("HTTP communication encryption initialization failed", failure);
+		}
+	}
+
+	private HttpEnvelopeWireCodec createWireCodec(TransportEnvelopeEncryption encryption) {
+		return new TransportEnvelopeHttpCodec(encryption, reason -> {
+				if (encryptionFailureLogged.compareAndSet(false, true)) plugin.getLogger().warning(
+						"HTTP proxy message rejected by communication encryption policy (" + reason + ")");
+			});
 	}
 
 	@Override
@@ -109,6 +138,7 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 		this.restoreUnenrolledState = restoreUnenrolledState;
 		this.inboundActive = inboundActive;
 		this.published = inboundActive;
+		if (wireCodec == null) wireCodec = loadWireCodec();
 		started = true;
 		worker = new Thread(() -> initialize(directory, serverId, connectionCode, messageHandler, retryInitialization,
 				restoreUnenrolledState),
@@ -119,6 +149,7 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 
 	HttpBackendProxyTransport recreatePrepared() {
 		HttpBackendProxyTransport restored = new HttpBackendProxyTransport(plugin);
+		restored.wireCodec = wireCodec;
 		synchronized (lifecycle) {
 			// Startup and handoff queues are one FIFO from the caller's perspective.
 			// The handoff queue can still contain messages accepted by the previous
@@ -308,7 +339,7 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 				throw new IllegalStateException("Persisted HTTP identity belongs to a different backend Server name");
 			replacement = new HttpBackendTransportConnector(directory, envelope -> {
 				dispatchAfterPublication(messageHandler, envelope);
-			});
+			}, wireCodec);
 			invokeConnectorLifecycle(replacement, "startPaused");
 			boolean discard = false;
 			synchronized (lifecycle) {

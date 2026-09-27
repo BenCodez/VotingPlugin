@@ -59,6 +59,7 @@ import com.bencodez.simpleapi.servercomm.codec.JsonEnvelopeCodec;
 import com.bencodez.simpleapi.servercomm.global.GlobalMessageListener;
 import com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler;
 import com.bencodez.simpleapi.servercomm.http.HttpEnrollmentAuthority;
+import com.bencodez.simpleapi.servercomm.http.HttpEnvelopeWireCodec;
 import com.bencodez.simpleapi.servercomm.http.HttpProxyTransportServer;
 import com.bencodez.simpleapi.servercomm.http.HttpTlsIdentity;
 import com.bencodez.simpleapi.servercomm.mqtt.MqttHandler;
@@ -96,6 +97,7 @@ import com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthentic
 import com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.Domain;
 import com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.Mode;
 import com.bencodez.votingplugin.proxy.security.TransportEnvelopeEncryption;
+import com.bencodez.votingplugin.proxy.security.TransportEnvelopeHttpCodec;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.util.DurableFiles;
@@ -4165,7 +4167,7 @@ public abstract class VotingPluginProxy {
 
 	protected synchronized boolean sendHttpEnvelope(String server, JsonEnvelope envelope) {
 		HttpProxyTransportServer transport = httpTransportServer;
-		return transport != null && transport.send(server, encryptCommunicationEnvelope(envelope));
+		return transport != null && transport.send(server, envelope);
 	}
 
 	/**
@@ -4271,7 +4273,7 @@ public abstract class VotingPluginProxy {
 
 	protected synchronized boolean sendHttpEnvelope(String server, String deliveryId, JsonEnvelope envelope) {
 		HttpProxyTransportServer transport = httpTransportServer;
-		return transport != null && transport.send(server, deliveryId, encryptCommunicationEnvelope(envelope));
+		return transport != null && transport.send(server, deliveryId, envelope);
 	}
 
 	private void startHttpTransport() {
@@ -4301,7 +4303,7 @@ public abstract class VotingPluginProxy {
 				httpTransportServer = new HttpProxyTransportServer(
 						new InetSocketAddress(startup.host, startup.port), identity,
 						httpEnrollmentAuthority, directory.toPath().resolve("outgoing-v1"),
-						this::handleHttpTransportEnvelope, this::acknowledgeHttpDelivery);
+						this::handleHttpTransportEnvelope, this::acknowledgeHttpDelivery, httpWireCodec());
 				httpTransportServer.start();
 			}
 			persistRetainedHttpListenerSettings(startup);
@@ -4320,8 +4322,7 @@ public abstract class VotingPluginProxy {
 	/** Keeps the authenticated mTLS backend identity attached to security-sensitive proxy routing. */
 	protected void handleHttpTransportEnvelope(HttpProxyTransportServer.ReceivedEnvelope received) {
 		if (received == null) return;
-		JsonEnvelope decrypted = decryptCommunicationEnvelope(received.envelope());
-		if (decrypted == null) return;
+		JsonEnvelope decrypted = received.envelope();
 		HttpProxyTransportServer.ReceivedEnvelope authenticated = new HttpProxyTransportServer.ReceivedEnvelope(
 				received.serverId(), received.messageId(), decrypted);
 		if (!isAuthenticatedHttpEnvelopeAllowed(authenticated)) {
@@ -4413,7 +4414,16 @@ public abstract class VotingPluginProxy {
 			File directory = new File(getDataFolderPlugin(), "http");
 			HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory.toPath(), endpoint.getHost());
 			HttpEnrollmentAuthority authority = new HttpEnrollmentAuthority(identity, directory.toPath());
+			TransportEnvelopeEncryption candidateEncryption = TransportEnvelopeEncryption.load(
+					getDataFolderPlugin().toPath().resolve("secretkey.key"),
+					TransportEnvelopeEncryption.Domain.PROXY_BACKEND, candidate.getCommunicationEncryption());
 			AtomicReference<VotingPluginProxy> owner = new AtomicReference<>();
+			HttpEnvelopeWireCodec wireCodec = new TransportEnvelopeHttpCodec(candidateEncryption, reason -> {
+				VotingPluginProxy active = owner.get();
+				if (active != null && active.communicationEncryptionFailureLogged.compareAndSet(false, true)) {
+					active.logSevere("Proxy communication message rejected by encryption policy (" + reason + ")");
+				}
+			});
 			server = new HttpProxyTransportServer(
 					new InetSocketAddress(candidate.getHttpHost(), candidate.getHttpPort()), identity, authority,
 					directory.toPath().resolve("outgoing-v1"), received -> {
@@ -4424,13 +4434,26 @@ public abstract class VotingPluginProxy {
 						VotingPluginProxy active = owner.get();
 						if (active == null) throw new IOException("HTTP runtime replacement is not active");
 						active.acknowledgeHttpDelivery(backend, deliveryId);
-					});
+					}, wireCodec);
 			server.start();
 			return new PreparedHttpTransport(server, authority, owner, candidate.getHttpHost(), candidate.getHttpPort(),
 					candidate.getHttpPublicEndpoint());
 		} catch (Exception failure) {
 			if (server != null) server.close();
 			throw new IllegalStateException("HTTP transport could not be prepared securely", failure);
+		}
+	}
+
+	private HttpEnvelopeWireCodec httpWireCodec() {
+		synchronized (transportSecurityLock) {
+			if (communicationEncryption == null) {
+				throw new IllegalStateException("HTTP communication encryption policy is unavailable");
+			}
+			return new TransportEnvelopeHttpCodec(communicationEncryption, reason -> {
+				if (communicationEncryptionFailureLogged.compareAndSet(false, true)) {
+					logSevere("Proxy communication message rejected by encryption policy (" + reason + ")");
+				}
+			});
 		}
 	}
 

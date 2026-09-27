@@ -123,6 +123,7 @@ public class BackendProxyHandler implements Listener {
 		} catch (java.io.IOException failure) {
 			throw new IllegalStateException("Proxy communication encryption initialization failed", failure);
 		}
+		transportManager.setHttpEncryption(communicationEncryption);
 
 		globalDataSync.load();
 		globalMessageHandler = new EncryptedGlobalMessageHandler();
@@ -150,7 +151,7 @@ public class BackendProxyHandler implements Listener {
 	private final class EncryptedGlobalMessageHandler extends GlobalMessageHandler {
 		@Override
 		public void onMessage(JsonEnvelope envelope) {
-			if (usesSharedBrokerSecurity()) {
+			if (transportHandlesEncryption()) {
 				acceptDecrypted(envelope);
 				return;
 			}
@@ -169,8 +170,12 @@ public class BackendProxyHandler implements Listener {
 
 		@Override
 		public void sendMessage(JsonEnvelope envelope) {
-			transportManager.send(usesSharedBrokerSecurity() ? envelope : communicationEncryption.encrypt(envelope));
+			transportManager.send(transportHandlesEncryption() ? envelope : communicationEncryption.encrypt(envelope));
 		}
+	}
+
+	private boolean transportHandlesEncryption() {
+		return usesSharedBrokerSecurity() || method == BungeeMethod.HTTP;
 	}
 
 	private boolean usesSharedBrokerSecurity() {

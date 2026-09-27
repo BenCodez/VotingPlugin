@@ -23,6 +23,7 @@ public class BackendProxyTransportManager {
 
 	private final VotingPluginMain plugin;
 	private final ProcessedVoteCache processedVoteCache;
+	private com.bencodez.votingplugin.proxy.security.TransportEnvelopeEncryption httpEncryption;
 	private BackendProxyTransport transport;
 	private BackendProxyTransport preparedTransport;
 	private BackendProxyTransport retiredTransport;
@@ -52,6 +53,11 @@ public class BackendProxyTransportManager {
 		this.processedVoteCache = processedVoteCache;
 	}
 
+	public void setHttpEncryption(
+			com.bencodez.votingplugin.proxy.security.TransportEnvelopeEncryption httpEncryption) {
+		this.httpEncryption = httpEncryption;
+	}
+
 	public void start(BungeeMethod method, GlobalMessageHandler messageHandler) {
 		start(method, messageHandler, true);
 	}
@@ -69,7 +75,7 @@ public class BackendProxyTransportManager {
 			transport = new SocketBackendProxyTransport(plugin);
 			break;
 		case HTTP:
-			transport = new HttpBackendProxyTransport(plugin);
+			transport = new HttpBackendProxyTransport(plugin, httpEncryption);
 			break;
 		case REDIS:
 			transport = new RedisBackendProxyTransport(plugin, processedVoteCache);

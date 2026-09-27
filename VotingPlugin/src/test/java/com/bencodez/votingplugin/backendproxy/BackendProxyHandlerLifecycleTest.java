@@ -82,7 +82,7 @@ import com.bencodez.votingplugin.proxy.BungeeMethod;
 
 class BackendProxyHandlerLifecycleTest {
 	@Test
-	void httpAppliesCommunicationEncryptionAtBothWireBoundaries(@TempDir Path dataDirectory) throws Exception {
+	void httpLeavesCommunicationEncryptionToItsWireCodec(@TempDir Path dataDirectory) throws Exception {
 		Path keyFile = dataDirectory.resolve("secretkey.key");
 		Files.writeString(keyFile, Base64.getEncoder().encodeToString(
 				"0123456789abcdef0123456789abcdef".getBytes(StandardCharsets.US_ASCII)));
@@ -111,13 +111,14 @@ class BackendProxyHandlerLifecycleTest {
 
 		org.mockito.ArgumentCaptor<JsonEnvelope> outbound = org.mockito.ArgumentCaptor.forClass(JsonEnvelope.class);
 		verify(transport).send(outbound.capture());
-		assertTrue(encryption.decrypt(outbound.getValue()).accepted());
+		assertEquals(semantic.getSubChannel(), outbound.getValue().getSubChannel());
+		assertEquals(semantic.getFields(), outbound.getValue().getFields());
 		AtomicReference<JsonEnvelope> received = new AtomicReference<>();
 		messages.addListener(new com.bencodez.simpleapi.servercomm.global.GlobalMessageListener("test") {
 			@Override public void onReceive(JsonEnvelope envelope) { received.set(envelope); }
 		});
 		handler.activateInboundMessages();
-		messages.onMessage(encryption.encrypt(semantic));
+		messages.onMessage(semantic);
 		assertNotNull(received.get());
 		assertEquals(semantic.getSubChannel(), received.get().getSubChannel());
 		assertEquals(semantic.getFields(), received.get().getFields());
