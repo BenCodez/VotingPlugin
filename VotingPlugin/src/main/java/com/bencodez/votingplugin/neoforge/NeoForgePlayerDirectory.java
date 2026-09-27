@@ -1,8 +1,8 @@
 package com.bencodez.votingplugin.neoforge;
 
 import java.lang.reflect.InvocationTargetException;
-import java.util.Map;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -13,15 +13,18 @@ import com.bencodez.votingplugin.core.vote.SharedVoteIdentity;
 /** Tracks identity and online state from NeoForge player lifecycle events. */
 public final class NeoForgePlayerDirectory {
     private final Map<UUID, OnlinePlayer> online = new ConcurrentHashMap<>();
+    private final Map<UUID, String> latestNames = new ConcurrentHashMap<>();
 
     public SharedVoteIdentity joined(Object player) {
         SharedVoteIdentity identity = identity(player);
+        latestNames.put(identity.uuid(), identity.playerName());
         online.put(identity.uuid(), new OnlinePlayer(identity, player));
         return identity;
     }
 
     void joined(SharedVoteIdentity identity) {
         Objects.requireNonNull(identity, "identity");
+        latestNames.put(identity.uuid(), identity.playerName());
         online.put(identity.uuid(), new OnlinePlayer(identity, null));
     }
 
@@ -38,12 +41,18 @@ public final class NeoForgePlayerDirectory {
         return online.values().stream().map(OnlinePlayer::identity).toList();
     }
 
+    /** Latest UUID-bound name observed during this runtime, including after logout. */
+    Optional<String> latestName(UUID uuid) {
+        return Optional.ofNullable(latestNames.get(uuid));
+    }
+
     Optional<Object> nativePlayer(UUID uuid) {
         return Optional.ofNullable(online.get(uuid)).map(OnlinePlayer::player);
     }
 
     public void clear() {
         online.clear();
+        latestNames.clear();
     }
 
     /** NeoForge's universal API omits Minecraft classes on Maven's compile path. */
