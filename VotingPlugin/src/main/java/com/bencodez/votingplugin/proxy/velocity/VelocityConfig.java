@@ -106,8 +106,8 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 			backupStage = Files.createTempFile(target.getParent(), target.getFileName().toString(), ".control-backup-stage");
 			byte[] sourceSnapshot = Files.readAllBytes(target);
 			ConfigurationNode latest = sourceLoader.load();
-			ProxyMethodConfiguration current = new ProxyMethodConfiguration(BungeeMethod.getByName(
-					latest.node("BungeeMethod").getString("PLUGINMESSAGING")));
+			ProxyMethodConfiguration current = new ProxyMethodConfiguration(BungeeMethod.getByName(latest.node("ProxyCommunicationMethod")
+					.getString(latest.node("BungeeMethod").getString("PLUGINMESSAGING"))));
 			if (!java.util.Arrays.equals(sourceSnapshot, Files.readAllBytes(target))
 					|| !current.revision().equals(expectedRevision)) throw new StaleControlRevisionException();
 			VelocityConfig fresh = new VelocityConfig(target.toFile());
@@ -116,7 +116,8 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 			if (!java.util.Arrays.equals(sourceSnapshot, Files.readAllBytes(target))) {
 				throw new StaleControlRevisionException();
 			}
-			latest.node("BungeeMethod").set(method);
+			latest.node("ProxyCommunicationMethod").set(method);
+			if (!latest.node("BungeeMethod").virtual()) latest.node("BungeeMethod").set(method);
 			YamlConfigurationLoader.builder().path(stage).build().save(latest);
 			byte[] installedSnapshot = Files.readAllBytes(stage);
 			if (!java.util.Arrays.equals(sourceSnapshot, Files.readAllBytes(target))) throw new StaleControlRevisionException();
@@ -358,8 +359,16 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 	}
 
 	@Override
-	public String getBungeeMethod() {
+	public String getProxyCommunicationMethod() {
+		ConfigurationNode current = getNode("ProxyCommunicationMethod");
+		if (!current.virtual()) return getString(current, "PLUGINMESSAGING");
 		return getString(getNode("BungeeMethod"), "PLUGINMESSAGING");
+	}
+
+	@Override
+	@Deprecated
+	public String getBungeeMethod() {
+		return getProxyCommunicationMethod();
 	}
 
 	@Override
