@@ -34,6 +34,7 @@ public class VotingPluginWireTest {
 		assertEquals("Service", vote.service);
 		assertTrue(vote.wasOnlineKnown);
 		assertFalse(vote.delayValidated);
+		assertFalse(vote.delayValidationKnown);
 	}
 
 	@Test
@@ -41,7 +42,9 @@ public class VotingPluginWireTest {
 		JsonEnvelope envelope = VotingPluginWire.vote("Player", UUID.randomUUID().toString(), "Service", 100L,
 				true, true, "totals", UUID.randomUUID(), true, false, 1, 1, true);
 
-		assertTrue(VotingPluginWire.readVote(envelope).delayValidated);
+		Vote vote = VotingPluginWire.readVote(envelope);
+		assertTrue(vote.delayValidated);
+		assertTrue(vote.delayValidationKnown);
 	}
 
 	@Test

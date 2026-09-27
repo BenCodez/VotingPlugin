@@ -60,6 +60,7 @@ public final class SharedVoteProcessor {
         boolean hasProxyTextTotals();
         UUID proxyVoteId();
         default boolean identifiedQueuedProxyVote() { return false; }
+        default boolean proxyDelayValidationKnown() { return false; }
         void cache(U user);
         void updateName(U user);
         void voteParty(U user, boolean realVote, boolean forceProxyRouting, boolean onlineAtVoteTime);
@@ -143,6 +144,9 @@ public final class SharedVoteProcessor {
         U user = ops.resolveUser(playerName);
         boolean recordedProxyVote = isIdentifiedQueuedProxyVote(
                 ops.proxyVote(), ops.identifiedQueuedProxyVote(), ops.proxyVoteId());
+        boolean legacyRecordedProxyVote = !recordedProxyVote && ops.proxyVote() && !ops.proxyDelayValidationKnown()
+                && ops.incomingTime() > 0L && ops.incomingTime() == ops.lastVoteTime(user, site);
+        recordedProxyVote |= legacyRecordedProxyVote;
         if (ops.waitUntilVoteDelay(site) && !recordedProxyVote && !ops.canVoteSite(user, site)) {
             if (!ops.realVote()) {
                 ops.info(ops.userName(user) + " did a not real vote, bypassing WaitUntilVoteDelay");
@@ -158,7 +162,8 @@ public final class SharedVoteProcessor {
         }
         if (recordedProxyVote) {
             ops.debug("Allowing queued proxy vote for " + ops.userName(user) + " on " + ops.siteKey(site)
-                    + "; stable vote ID identifies this queued delivery: " + ops.proxyVoteId());
+                    + (legacyRecordedProxyVote ? "; legacy timestamp matches LastVotes: " + ops.incomingTime()
+                            : "; stable vote ID identifies this queued delivery: " + ops.proxyVoteId()));
         }
         UUID voteId = UUID.randomUUID();
         if (ops.proxyVote() && ops.proxyVoteId() != null) {

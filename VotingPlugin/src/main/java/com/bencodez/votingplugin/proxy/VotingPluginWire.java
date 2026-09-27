@@ -143,39 +143,42 @@ public final class VotingPluginWire {
 	public static JsonEnvelope vote(String player, String uuid, String service, long time, boolean wasOnline,
 			boolean realVote, String totals, UUID voteId, boolean manageTotals, boolean bungeeBroadcast, int num,
 			int numberOfVotes) {
-		return vote(player, uuid, service, time, wasOnline, realVote, totals, voteId, manageTotals,
-				bungeeBroadcast, num, numberOfVotes, false);
+		return voteBuilder(SUB_VOTE, player, uuid, service, time, wasOnline, realVote, totals, voteId,
+				manageTotals, bungeeBroadcast, num, numberOfVotes).build();
 	}
 
 	public static JsonEnvelope vote(String player, String uuid, String service, long time, boolean wasOnline,
 			boolean realVote, String totals, UUID voteId, boolean manageTotals, boolean bungeeBroadcast, int num,
 			int numberOfVotes, boolean delayValidated) {
 
-		return base(SUB_VOTE).put(K_PLAYER, safe(player)).put(K_UUID, safe(uuid)).put(K_SERVICE, safe(service))
-				.put(K_TIME, time).put(K_WAS_ONLINE, wasOnline).put(K_WAS_ONLINE_KNOWN, true).put(K_REAL_VOTE, realVote).put(K_TOTALS, safe(totals))
-				.put(K_VOTE_ID, voteId == null ? "" : voteId.toString())
-				.put(K_SET_TOTALS, true) // backend historically defaulted to true
-				.put(K_MANAGE_TOTALS, manageTotals).put(K_BUNGEE_BROADCAST, bungeeBroadcast).put(K_NUM, num)
-				.put(K_NUMBER_OF_VOTES, numberOfVotes).put(K_DELAY_VALIDATED, delayValidated).build();
+		return voteBuilder(SUB_VOTE, player, uuid, service, time, wasOnline, realVote, totals, voteId,
+				manageTotals, bungeeBroadcast, num, numberOfVotes).put(K_DELAY_VALIDATED, delayValidated).build();
 	}
 
 	public static JsonEnvelope voteOnline(String player, String uuid, String service, long time, boolean wasOnline,
 			boolean realVote, String totals, UUID voteId, boolean manageTotals, boolean bungeeBroadcast, int num,
 			int numberOfVotes) {
-		return voteOnline(player, uuid, service, time, wasOnline, realVote, totals, voteId, manageTotals,
-				bungeeBroadcast, num, numberOfVotes, false);
+		return voteBuilder(SUB_VOTE_ONLINE, player, uuid, service, time, wasOnline, realVote, totals, voteId,
+				manageTotals, bungeeBroadcast, num, numberOfVotes).build();
 	}
 
 	public static JsonEnvelope voteOnline(String player, String uuid, String service, long time, boolean wasOnline,
 			boolean realVote, String totals, UUID voteId, boolean manageTotals, boolean bungeeBroadcast, int num,
 			int numberOfVotes, boolean delayValidated) {
 
-		return base(SUB_VOTE_ONLINE).put(K_PLAYER, safe(player)).put(K_UUID, safe(uuid)).put(K_SERVICE, safe(service))
-				.put(K_TIME, time).put(K_WAS_ONLINE, wasOnline).put(K_WAS_ONLINE_KNOWN, true).put(K_REAL_VOTE, realVote).put(K_TOTALS, safe(totals))
-				.put(K_VOTE_ID, voteId == null ? "" : voteId.toString())
-				.put(K_SET_TOTALS, true).put(K_MANAGE_TOTALS, manageTotals).put(K_BUNGEE_BROADCAST, bungeeBroadcast)
-				.put(K_NUM, num).put(K_NUMBER_OF_VOTES, numberOfVotes)
-				.put(K_DELAY_VALIDATED, delayValidated).build();
+		return voteBuilder(SUB_VOTE_ONLINE, player, uuid, service, time, wasOnline, realVote, totals, voteId,
+				manageTotals, bungeeBroadcast, num, numberOfVotes).put(K_DELAY_VALIDATED, delayValidated).build();
+	}
+
+	private static JsonEnvelope.Builder voteBuilder(String subChannel, String player, String uuid, String service,
+			long time, boolean wasOnline, boolean realVote, String totals, UUID voteId, boolean manageTotals,
+			boolean bungeeBroadcast, int num, int numberOfVotes) {
+		return base(subChannel).put(K_PLAYER, safe(player)).put(K_UUID, safe(uuid)).put(K_SERVICE, safe(service))
+				.put(K_TIME, time).put(K_WAS_ONLINE, wasOnline).put(K_WAS_ONLINE_KNOWN, true)
+				.put(K_REAL_VOTE, realVote).put(K_TOTALS, safe(totals))
+				.put(K_VOTE_ID, voteId == null ? "" : voteId.toString()).put(K_SET_TOTALS, true)
+				.put(K_MANAGE_TOTALS, manageTotals).put(K_BUNGEE_BROADCAST, bungeeBroadcast).put(K_NUM, num)
+				.put(K_NUMBER_OF_VOTES, numberOfVotes);
 	}
 
 	/**
@@ -563,13 +566,14 @@ public final class VotingPluginWire {
 		public final boolean setTotals;
 		public final boolean manageTotals;
 		public final boolean delayValidated;
+		public final boolean delayValidationKnown;
 		public final boolean broadcast; // historically bungeeBroadcast
 		public final int num;
 		public final int numberOfVotes;
 
 		private Vote(String subChannel, String player, String uuid, String service, long time, boolean wasOnline,
 				boolean wasOnlineKnown, boolean realVote, String totals, UUID voteId, boolean setTotals,
-				boolean manageTotals, boolean delayValidated, boolean broadcast, int num, int numberOfVotes) {
+				boolean manageTotals, boolean delayValidated, boolean delayValidationKnown, boolean broadcast, int num, int numberOfVotes) {
 			this.subChannel = subChannel;
 			this.player = player;
 			this.uuid = uuid;
@@ -583,6 +587,7 @@ public final class VotingPluginWire {
 			this.setTotals = setTotals;
 			this.manageTotals = manageTotals;
 			this.delayValidated = delayValidated;
+			this.delayValidationKnown = delayValidationKnown;
 			this.broadcast = broadcast;
 			this.num = num;
 			this.numberOfVotes = numberOfVotes;
@@ -607,6 +612,7 @@ public final class VotingPluginWire {
 		final boolean setTotals = readBool(f, K_SET_TOTALS, true);
 		final boolean manageTotals = readBool(f, K_MANAGE_TOTALS, false);
 		final boolean delayValidated = readBool(f, K_DELAY_VALIDATED, false);
+		final boolean delayValidationKnown = f.containsKey(K_DELAY_VALIDATED);
 
 		final boolean broadcast = readBool(f, K_BUNGEE_BROADCAST, false);
 
@@ -614,7 +620,7 @@ public final class VotingPluginWire {
 		final int numberOfVotes = readInt(f, K_NUMBER_OF_VOTES, 1);
 
 		return new Vote(sub, player, uuid, service, time, wasOnline, wasOnlineKnown, realVote, totals, voteId,
-				setTotals, manageTotals, delayValidated, broadcast, num, numberOfVotes);
+				setTotals, manageTotals, delayValidated, delayValidationKnown, broadcast, num, numberOfVotes);
 	}
 
 	public static final class VoteDelayRejected {

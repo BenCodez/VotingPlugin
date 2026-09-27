@@ -2,6 +2,7 @@ package com.bencodez.votingplugin.core.vote;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -107,6 +108,39 @@ class SharedVoteProcessorTest {
         ArgumentCaptor<UUID> id = ArgumentCaptor.forClass(UUID.class);
         verify(ops).postVote(eq(site), eq(user), eq("Ben"), eq(321L), id.capture(), eq(false));
         assertEquals(proxyId, id.getValue());
+    }
+
+    @Test
+    void legacyProxyVoteRetainsTimestampFallbackDuringRollingUpgrade() {
+        var ops = accepted();
+        when(ops.proxyVote()).thenReturn(true);
+        when(ops.incomingTime()).thenReturn(321L);
+        when(ops.lastVoteTime(user, site)).thenReturn(321L);
+        when(ops.waitUntilVoteDelay(site)).thenReturn(true);
+        when(ops.canVoteSite(user, site)).thenReturn(false);
+        when(ops.processRewards()).thenReturn(true);
+
+        SharedVoteProcessor.process(ops);
+
+        verify(ops).playerVote(user, site, false, false);
+        verify(ops, never()).giveWaitRewards(eq(site), eq(user), anyBoolean(), eq(true));
+    }
+
+    @Test
+    void explicitUnvalidatedProxyVoteCannotUseLegacyTimestampFallback() {
+        var ops = accepted();
+        when(ops.proxyVote()).thenReturn(true);
+        when(ops.proxyDelayValidationKnown()).thenReturn(true);
+        when(ops.incomingTime()).thenReturn(321L);
+        when(ops.lastVoteTime(user, site)).thenReturn(321L);
+        when(ops.waitUntilVoteDelay(site)).thenReturn(true);
+        when(ops.canVoteSite(user, site)).thenReturn(false);
+        when(ops.processRewards()).thenReturn(true);
+
+        SharedVoteProcessor.process(ops);
+
+        verify(ops).giveWaitRewards(eq(site), eq(user), anyBoolean(), eq(true));
+        verify(ops, never()).playerVote(any(), any(), anyBoolean(), anyBoolean());
     }
 
     @Test

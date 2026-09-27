@@ -100,6 +100,8 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 		setPath(voteData.isRealVote(), "VoteCache", server, String.valueOf(num), "Real");
 		setPath(voteData.isWasOnline(), "VoteCache", server, String.valueOf(num), "WasOnline");
 		setPath(voteData.isWasOnlineKnown(), "VoteCache", server, String.valueOf(num), "WasOnlineKnown");
+		setPath(voteData.isDelayValidated(), "VoteCache", server, String.valueOf(num), "DelayValidated");
+		setPath(voteData.isDelayValidationKnown(), "VoteCache", server, String.valueOf(num), "DelayValidationKnown");
 		setPath(voteData.getText(), "VoteCache", server, String.valueOf(num), "Text");
 		setPath(voteData.getVoteId() != null ? voteData.getVoteId().toString() : null, "VoteCache", server, String.valueOf(num), "VoteId");
 		setPath(voteData.isBroadcastForwarded(), "VoteCache", server, String.valueOf(num), "BroadcastForwarded");
@@ -122,6 +124,8 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 		setPath(voteData.isRealVote(), "OnlineCache", player, String.valueOf(num), "Real");
 		setPath(voteData.isWasOnline(), "OnlineCache", player, String.valueOf(num), "WasOnline");
 		setPath(voteData.isWasOnlineKnown(), "OnlineCache", player, String.valueOf(num), "WasOnlineKnown");
+		setPath(voteData.isDelayValidated(), "OnlineCache", player, String.valueOf(num), "DelayValidated");
+		setPath(voteData.isDelayValidationKnown(), "OnlineCache", player, String.valueOf(num), "DelayValidationKnown");
 		setPath(voteData.getText(), "OnlineCache", player, String.valueOf(num), "Text");
 		setPath(voteData.getVoteId() != null ? voteData.getVoteId().toString() : null, "OnlineCache", player, String.valueOf(num), "VoteId");
 		setPath(voteData.isBroadcastForwarded(), "OnlineCache", player, String.valueOf(num), "BroadcastForwarded");

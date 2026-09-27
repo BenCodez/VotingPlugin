@@ -84,6 +84,11 @@ public class PlayerVoteEvent extends Event {
 	@Setter
 	private boolean queuedProxyVote;
 
+	/** Whether the proxy explicitly supplied its delay-validation decision. */
+	@Getter
+	@Setter
+	private boolean proxyDelayValidationKnown;
+
 	@Getter
 	@Setter
 	private boolean broadcast = true;

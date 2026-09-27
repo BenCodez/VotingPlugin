@@ -189,7 +189,7 @@ class BackendProxyMessageRouterTest {
 		when(plugin.getVotingPluginUserManager().getVotingPluginUser(PLAYER_UUID, "Player"))
 				.thenReturn(user);
 		doThrow(new IllegalStateException("partial reward")).when(user).bungeeVotePluginMessaging(
-				any(), anyLong(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyInt(), anyBoolean(), any());
+				any(), anyLong(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyInt(), anyBoolean(), anyBoolean(), any());
 		BackendProxyMessageRouter voteRouter = new BackendProxyMessageRouter(plugin,
 				mock(BackendPresenceManager.class), mock(BackendGlobalDataSync.class),
 				mock(BackendVotePartySync.class), cache);
@@ -235,7 +235,7 @@ class BackendProxyMessageRouterTest {
 		assertEquals(OrderedVoteOutcome.COMPLETE, outcome.get());
 		verify(cache, times(2)).complete(voteId);
 		verify(user, times(1)).bungeeVotePluginMessaging(any(), anyLong(), any(), anyBoolean(), anyBoolean(),
-				anyBoolean(), anyInt(), eq(true), eq(voteId));
+				anyBoolean(), anyInt(), eq(true), eq(true), eq(voteId));
 	}
 
 	@Test
@@ -256,7 +256,7 @@ class BackendProxyMessageRouterTest {
 				LAST_VOTE_TIME, true, true, "", voteId, false, false, 1, 1), ignored -> { });
 
 		verify(user).bungeeVotePluginMessaging(any(), anyLong(), any(), anyBoolean(), anyBoolean(),
-				anyBoolean(), anyInt(), eq(false), eq(voteId));
+				anyBoolean(), anyInt(), eq(false), eq(false), eq(voteId));
 	}
 
 	@Test
@@ -278,7 +278,7 @@ class BackendProxyMessageRouterTest {
 		assertEquals(OrderedVoteOutcome.QUARANTINE, outcome.get());
 		verify(cache, never()).complete(voteId);
 		verify(user, never()).bungeeVotePluginMessaging(any(), anyLong(), any(), anyBoolean(), anyBoolean(),
-				anyBoolean(), anyInt(), anyBoolean(), any());
+				anyBoolean(), anyInt(), anyBoolean(), anyBoolean(), any());
 	}
 
 	@Test

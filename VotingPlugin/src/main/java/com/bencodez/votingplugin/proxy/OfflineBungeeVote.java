@@ -30,6 +30,10 @@ public class OfflineBungeeVote {
 	@Getter
 	private boolean wasOnlineKnown;
 	@Getter
+	private boolean delayValidated;
+	@Getter
+	private boolean delayValidationKnown;
+	@Getter
 	private String service;
 	@Getter
 	@Setter
@@ -282,6 +286,18 @@ public class OfflineBungeeVote {
 			return !broadcastForwarded;
 		}
 		return server != null && broadcastTargets.contains(server) && !broadcastForwardedServers.contains(server);
+	}
+
+	/** Stores the proxy delay decision made when this vote was admitted. */
+	public void setDelayValidated(boolean delayValidated) {
+		this.delayValidated = delayValidated;
+		this.delayValidationKnown = true;
+	}
+
+	/** Restores the legacy state for cache rows created before delay decisions were persisted. */
+	public void clearDelayValidation() {
+		this.delayValidated = false;
+		this.delayValidationKnown = false;
 	}
 
 	/**

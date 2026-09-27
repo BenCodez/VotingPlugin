@@ -406,6 +406,30 @@ public class VoteCacheHandlerVoteIdTest {
 	}
 
 	@Test
+	public void jsonCachePreservesProxyDelayValidationAcrossRestart() {
+		VotingPluginBungee plugin = mock(VotingPluginBungee.class);
+		when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+		BungeeJsonVoteCache durableStorage = new BungeeJsonVoteCache(plugin);
+		VoteCacheHandler writer = newHandler(durableStorage);
+		OfflineBungeeVote serverVote = vote(UUID.randomUUID(), 100L);
+		serverVote.setDelayValidated(true);
+		OfflineBungeeVote onlineVote = vote(UUID.randomUUID(), 101L);
+		onlineVote.setDelayValidated(false);
+
+		assertTrue(writer.addServerVoteDurably("server", serverVote));
+		assertTrue(writer.addOnlineVoteDurably("player-uuid", onlineVote));
+
+		VoteCacheHandler restarted = newHandler(new BungeeJsonVoteCache(plugin));
+		restarted.load();
+		OfflineBungeeVote restoredServer = restarted.getVotes("server").get(0);
+		OfflineBungeeVote restoredOnline = restarted.getOnlineVotes("player-uuid").get(0);
+		assertTrue(restoredServer.isDelayValidationKnown());
+		assertTrue(restoredServer.isDelayValidated());
+		assertTrue(restoredOnline.isDelayValidationKnown());
+		assertFalse(restoredOnline.isDelayValidated());
+	}
+
+	@Test
 	public void legacyMySqlEmergencyRowsAreIgnoredWithoutJournalMarker() throws Exception {
 		VotingPluginBungee plugin = mock(VotingPluginBungee.class);
 		when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
