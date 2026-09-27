@@ -70,7 +70,8 @@ class WebhookBoundsTest {
 		server.start();
 
 		List<Long> delays = new CopyOnWriteArrayList<>();
-		WebhookService service = new WebhookService(message -> { }, 1, delays::add);
+		List<String> warnings = new CopyOnWriteArrayList<>();
+		WebhookService service = new WebhookService(warnings::add, 1, delays::add);
 		try {
 			service.setDefinitions(Collections.singletonMap("hook", definition(url(server), 3, 0, 0)));
 			service.start();
@@ -78,6 +79,30 @@ class WebhookBoundsTest {
 			assertTrue(thirdAttempt.await(2, TimeUnit.SECONDS));
 			assertEquals(3, attempts.get());
 			assertEquals(List.of(251L, 251L), delays);
+			awaitWarning(warnings, "Discord rate limit exhausted");
+		} finally {
+			service.stop();
+			server.stop(0);
+		}
+	}
+
+	@Test
+	void logsNonSuccessResponseWhenRetriesAreDisabled() throws Exception {
+		HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+		server.createContext("/", exchange -> {
+			exchange.sendResponseHeaders(500, -1);
+			exchange.close();
+		});
+		server.start();
+
+		List<String> warnings = new CopyOnWriteArrayList<>();
+		WebhookService service = new WebhookService(warnings::add, 1, delayMs -> { });
+		try {
+			service.setDefinitions(Collections.singletonMap("hook", definition(url(server), false, 5, 0, 0)));
+			service.start();
+			service.submit(request());
+			awaitWarning(warnings, "Non-success HTTP 500");
+			assertEquals(1, warnings.stream().filter(message -> message.contains("Non-success HTTP 500")).count());
 		} finally {
 			service.stop();
 			server.stop(0);
@@ -113,8 +138,13 @@ class WebhookBoundsTest {
 	}
 
 	private static WebhookDefinition definition(String url, int maxAttempts, long backoffMs, long maxBackoffMs) {
+		return definition(url, true, maxAttempts, backoffMs, maxBackoffMs);
+	}
+
+	private static WebhookDefinition definition(String url, boolean retryEnabled, int maxAttempts, long backoffMs,
+			long maxBackoffMs) {
 		return new WebhookDefinition("hook", true, url, WebhookHttpMethod.POST, "application/json", 2_000, true,
-				Collections.emptyMap(), null, true, maxAttempts, backoffMs, maxBackoffMs);
+				Collections.emptyMap(), null, retryEnabled, maxAttempts, backoffMs, maxBackoffMs);
 	}
 
 	private static String url(HttpServer server) {
@@ -130,5 +160,13 @@ class WebhookBoundsTest {
 			Thread.currentThread().interrupt();
 			throw new IOException("test server was interrupted", e);
 		}
+	}
+
+	private static void awaitWarning(List<String> warnings, String expected) throws InterruptedException {
+		long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+		while (warnings.stream().noneMatch(message -> message.contains(expected)) && System.nanoTime() < deadline) {
+			Thread.sleep(10);
+		}
+		assertTrue(warnings.stream().anyMatch(message -> message.contains(expected)));
 	}
 }

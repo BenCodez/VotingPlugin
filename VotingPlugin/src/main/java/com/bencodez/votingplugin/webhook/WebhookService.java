@@ -165,9 +165,7 @@ public final class WebhookService {
 
 				// Discord 429 handling
 				if (attempts >= def.getRetryMaxAttempts()) {
-					if (code != 429) {
-						logger.warn("[Webhooks] Non-success HTTP " + code + " for " + def.safeUrlForLog());
-					}
+					logTerminalHttpFailure(def, code);
 					return;
 				}
 
@@ -180,6 +178,7 @@ public final class WebhookService {
 				}
 
 				if (!def.isRetryEnabled()) {
+					logTerminalHttpFailure(def, code);
 					return;
 				}
 
@@ -197,6 +196,14 @@ public final class WebhookService {
 			} else {
 				return;
 			}
+		}
+	}
+
+	private void logTerminalHttpFailure(WebhookDefinition def, int code) {
+		if (code == 429) {
+			logger.warn("[Webhooks] Discord rate limit exhausted for " + def.safeUrlForLog());
+		} else {
+			logger.warn("[Webhooks] Non-success HTTP " + code + " for " + def.safeUrlForLog());
 		}
 	}
 
