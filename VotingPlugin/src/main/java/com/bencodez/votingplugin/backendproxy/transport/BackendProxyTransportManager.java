@@ -112,9 +112,10 @@ public class BackendProxyTransportManager {
 		}
 	}
 
-	public synchronized void updateSharedTransportAuthenticator(SharedTransportEnvelopeAuthenticator authenticator) {
-		if (transport instanceof RedisBackendProxyTransport redis) redis.updateAuthenticator(authenticator);
-		else if (transport instanceof MqttBackendProxyTransport mqtt) mqtt.updateAuthenticator(authenticator);
+	public synchronized void updateSharedTransportSecurity(SharedTransportEnvelopeAuthenticator authenticator,
+			com.bencodez.votingplugin.proxy.security.TransportEnvelopeEncryption encryption) {
+		if (transport instanceof RedisBackendProxyTransport redis) redis.updateSecurity(authenticator, encryption);
+		else if (transport instanceof MqttBackendProxyTransport mqtt) mqtt.updateSecurity(authenticator, encryption);
 		else throw new IllegalStateException("No active shared backend transport to update");
 	}
 

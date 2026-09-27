@@ -19,10 +19,32 @@ import com.bencodez.votingplugin.proxy.VotingPluginWire;
 import com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator;
 import com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.Domain;
 import com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.Mode;
+import com.bencodez.votingplugin.proxy.security.TransportEnvelopeEncryption;
 
 class MqttBackendProxyTransportTest {
 	@TempDir
 	Path temporaryDirectory;
+
+	@Test
+	void onePolicySnapshotAuthenticatesAndDecryptsTheSameMqttEnvelope() throws Exception {
+		SharedTransportEnvelopeAuthenticator authenticator = authenticator();
+		TransportEnvelopeEncryption encryption = TransportEnvelopeEncryption.load(
+				temporaryDirectory.resolve("secretkey.key"), TransportEnvelopeEncryption.Domain.PROXY_BACKEND, true);
+		MqttBackendProxyTransport transport = new MqttBackendProxyTransport(null);
+		GlobalMessageHandler messages = mock(GlobalMessageHandler.class);
+		setField(transport, "messageHandler", messages);
+		setField(transport, "authenticator", authenticator);
+		transport.updateSecurity(authenticator, encryption);
+		JsonEnvelope vote = JsonEnvelope.builder(VotingPluginWire.SUB_VOTE).put("player", "Alex").build();
+		JsonEnvelope signed = authenticator.sign(encryption.encrypt(vote), Domain.MQTT_PROXY_BACKEND, "proxy-a",
+				"votingplugin/servers/backend-a");
+
+		transport.acceptAuthenticatedEnvelope(signed, "votingplugin/servers/backend-a");
+
+		verify(messages).onMessage(org.mockito.ArgumentMatchers.argThat(received ->
+				VotingPluginWire.SUB_VOTE.equals(received.getSubChannel())
+						&& "Alex".equals(received.getFields().get("player"))));
+	}
 
 	@Test
 	void authenticatedVoteIsAcceptedAndUnsignedVoteIsRejected() throws Exception {

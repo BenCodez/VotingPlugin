@@ -12,6 +12,8 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator;
 import com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.Domain;
 import com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.Mode;
+import com.bencodez.votingplugin.proxy.security.TransportEnvelopeEncryption;
+import com.bencodez.votingplugin.proxy.security.TransportEnvelopeEncryption.Decryption;
 
 import lombok.Getter;
 
@@ -28,9 +30,14 @@ public class MqttBackendProxyTransport implements BackendProxyTransport {
 	private String username;
 	private String password;
 	private volatile SharedTransportEnvelopeAuthenticator authenticator;
+	private volatile SharedTransportSecurityPolicy securityPolicy;
 
-	void updateAuthenticator(SharedTransportEnvelopeAuthenticator replacement) {
-		authenticator = java.util.Objects.requireNonNull(replacement);
+	void updateSecurity(SharedTransportEnvelopeAuthenticator replacementAuthenticator,
+			TransportEnvelopeEncryption replacementEncryption) {
+		SharedTransportSecurityPolicy current = securityPolicy();
+		SharedTransportSecurityPolicy replacement = current.replace(replacementAuthenticator, replacementEncryption);
+		authenticator = replacement.authenticator();
+		securityPolicy = replacement;
 	}
 
 	private final AtomicBoolean authenticationFailureLogged = new AtomicBoolean();
@@ -40,7 +47,8 @@ public class MqttBackendProxyTransport implements BackendProxyTransport {
 	}
 
 	SharedInboundPolicy sharedInboundPolicySnapshot() {
-		return new SharedInboundPolicy(getClass(), subscriptionTopic, authenticator);
+		SharedTransportSecurityPolicy policy = securityPolicy();
+		return new SharedInboundPolicy(getClass(), subscriptionTopic, policy.authenticator(), policy.encryption());
 	}
 
 	@Override
@@ -50,6 +58,10 @@ public class MqttBackendProxyTransport implements BackendProxyTransport {
 			authenticator = SharedTransportEnvelopeAuthenticator.load(
 					plugin.getDataFolder().toPath().resolve("secretkey.key"),
 					Mode.parse(plugin.getBungeeSettings().getSharedTransportAuthentication()));
+			securityPolicy = new SharedTransportSecurityPolicy(authenticator, TransportEnvelopeEncryption.load(
+					plugin.getDataFolder().toPath().resolve("secretkey.key"),
+					TransportEnvelopeEncryption.Domain.PROXY_BACKEND,
+					plugin.getBungeeSettings().isCommunicationEncryption()));
 			if (authenticator.mode() == Mode.COMPATIBILITY) plugin.getLogger().warning(
 					"SharedTransportAuthentication is COMPATIBILITY; unsigned MQTT messages are accepted during this rolling upgrade");
 			publishTopic = plugin.getBungeeSettings().getMqttPrefix() + "votingplugin/servers/proxy";
@@ -95,7 +107,8 @@ public class MqttBackendProxyTransport implements BackendProxyTransport {
 	}
 
 	void acceptAuthenticatedEnvelope(JsonEnvelope envelope, String topic) {
-		SharedTransportEnvelopeAuthenticator.Verification verification = authenticator.verify(envelope,
+		SharedTransportSecurityPolicy policy = securityPolicy();
+		SharedTransportEnvelopeAuthenticator.Verification verification = policy.authenticator().verify(envelope,
 				Domain.MQTT_PROXY_BACKEND, topic);
 		if (!verification.accepted()) {
 			if (plugin != null && authenticationFailureLogged.compareAndSet(false, true)) plugin.getLogger()
@@ -103,7 +116,20 @@ public class MqttBackendProxyTransport implements BackendProxyTransport {
 							+ verification.rejection() + ")");
 			return;
 		}
-		messageHandler.onMessage(verification.envelope());
+		Decryption decrypted = policy.encryption().decrypt(verification.envelope());
+		if (!decrypted.accepted()) {
+			if (plugin != null && authenticationFailureLogged.compareAndSet(false, true)) plugin.getLogger()
+					.warning("MQTT shared transport message rejected by encryption policy");
+			return;
+		}
+		messageHandler.onMessage(decrypted.envelope());
+	}
+
+	private SharedTransportSecurityPolicy securityPolicy() {
+		SharedTransportSecurityPolicy current = securityPolicy;
+		if (current != null) return current;
+		return new SharedTransportSecurityPolicy(java.util.Objects.requireNonNull(authenticator),
+				TransportEnvelopeEncryption.disabled(TransportEnvelopeEncryption.Domain.PROXY_BACKEND));
 	}
 
 	@Override
@@ -122,7 +148,9 @@ public class MqttBackendProxyTransport implements BackendProxyTransport {
 			return false;
 		}
 		try {
-			mqttHandler.publishEnvelope(publishTopic, authenticator.sign(envelope, Domain.MQTT_PROXY_BACKEND,
+			SharedTransportSecurityPolicy policy = securityPolicy();
+			JsonEnvelope encrypted = policy.encryption().encrypt(envelope);
+			mqttHandler.publishEnvelope(publishTopic, policy.authenticator().sign(encrypted, Domain.MQTT_PROXY_BACKEND,
 					plugin.getBungeeSettings().getServer(), publishTopic));
 			return true;
 		} catch (Exception e) {

@@ -84,6 +84,11 @@ public final class TransportEnvelopeEncryption {
 		}
 	}
 
+	/** Plaintext compatibility policy when no shared key is provisioned. */
+	public static TransportEnvelopeEncryption disabled(Domain domain) {
+		return new TransportEnvelopeEncryption(null, domain, false, new SecureRandom());
+	}
+
 	static TransportEnvelopeEncryption forTesting(byte[] key, Domain domain, boolean enabled) {
 		return new TransportEnvelopeEncryption(key, domain, enabled, new SecureRandom());
 	}

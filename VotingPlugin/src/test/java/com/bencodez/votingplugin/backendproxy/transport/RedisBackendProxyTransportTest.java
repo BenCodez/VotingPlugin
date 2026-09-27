@@ -37,12 +37,35 @@ import com.bencodez.votingplugin.proxy.VotingPluginWire;
 import com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator;
 import com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.Domain;
 import com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.Mode;
+import com.bencodez.votingplugin.proxy.security.TransportEnvelopeEncryption;
 
 import redis.clients.jedis.DefaultJedisClientConfig;
 
 class RedisBackendProxyTransportTest {
 	@TempDir
 	Path temporaryDirectory;
+
+	@Test
+	void onePolicySnapshotAuthenticatesAndDecryptsTheSameRedisEnvelope() throws Exception {
+		SharedTransportEnvelopeAuthenticator authenticator = authenticator();
+		TransportEnvelopeEncryption encryption = TransportEnvelopeEncryption.load(
+				temporaryDirectory.resolve("secretkey.key"), TransportEnvelopeEncryption.Domain.PROXY_BACKEND, true);
+		RedisBackendProxyTransport transport = new RedisBackendProxyTransport(null, new ProcessedVoteCache());
+		GlobalMessageHandler messages = mock(GlobalMessageHandler.class);
+		setField(transport, "messageHandler", messages);
+		setField(transport, "authenticator", authenticator);
+		transport.updateSecurity(authenticator, encryption);
+		JsonEnvelope vote = JsonEnvelope.builder(VotingPluginWire.SUB_VOTE).put("player", "Alex").build();
+		JsonEnvelope encrypted = VotingPluginWire.withRedisDeliveryId(encryption.encrypt(vote));
+		JsonEnvelope signed = authenticator.sign(encrypted, Domain.REDIS_PROXY_BACKEND, "proxy-a",
+				"VotingPlugin_backend-a");
+
+		transport.acceptAuthenticatedEnvelope(signed, "VotingPlugin_backend-a");
+
+		verify(messages).onMessage(org.mockito.ArgumentMatchers.argThat(received ->
+				VotingPluginWire.SUB_VOTE.equals(received.getSubChannel())
+						&& "Alex".equals(received.getFields().get("player"))));
+	}
 
 	@Test
 	void authenticatedVoteIsAcceptedAndUnsignedPresenceIsRejectedBeforeDispatch() throws Exception {

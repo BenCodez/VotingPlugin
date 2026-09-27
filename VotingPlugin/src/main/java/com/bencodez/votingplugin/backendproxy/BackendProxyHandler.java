@@ -150,6 +150,10 @@ public class BackendProxyHandler implements Listener {
 	private final class EncryptedGlobalMessageHandler extends GlobalMessageHandler {
 		@Override
 		public void onMessage(JsonEnvelope envelope) {
+			if (usesSharedBrokerSecurity()) {
+				acceptDecrypted(envelope);
+				return;
+			}
 			Decryption decrypted = communicationEncryption.decrypt(envelope);
 			if (!decrypted.accepted()) {
 				if (encryptionFailureLogged.compareAndSet(false, true)) plugin.getLogger().warning(
@@ -165,8 +169,12 @@ public class BackendProxyHandler implements Listener {
 
 		@Override
 		public void sendMessage(JsonEnvelope envelope) {
-			transportManager.send(communicationEncryption.encrypt(envelope));
+			transportManager.send(usesSharedBrokerSecurity() ? envelope : communicationEncryption.encrypt(envelope));
 		}
+	}
+
+	private boolean usesSharedBrokerSecurity() {
+		return method == BungeeMethod.REDIS || method == BungeeMethod.MQTT;
 	}
 
 	private void acceptAlreadyDecrypted(JsonEnvelope envelope) {
@@ -924,11 +932,9 @@ public class BackendProxyHandler implements Listener {
 					: TransportEnvelopeEncryption.load(keyFile, Domain.PROXY_BACKEND, requestedEncryption);
 			SharedTransportEnvelopeAuthenticator authenticator = requestedMode == sharedTransportMode ? null
 					: SharedTransportEnvelopeAuthenticator.load(keyFile, requestedMode);
-			if (authenticator != null) transportManager.updateSharedTransportAuthenticator(authenticator);
-			if (encryption != null) {
-				communicationEncryption = encryption;
-				encryptionFailureLogged.set(false);
-			}
+			transportManager.updateSharedTransportSecurity(authenticator, encryption);
+			if (encryption != null) communicationEncryption = encryption;
+			encryptionFailureLogged.set(false);
 			sharedTransportMode = requestedMode;
 			communicationEncryptionEnabled = requestedEncryption;
 		} catch (java.io.IOException failure) {
