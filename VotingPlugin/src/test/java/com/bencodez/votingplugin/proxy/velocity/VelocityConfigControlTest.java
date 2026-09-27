@@ -60,17 +60,37 @@ class VelocityConfigControlTest {
 	@Test
 	void controlPersistsOnlyTheRevisionedProxyMethod() throws Exception {
 		Path file = directory.resolve("velocity.yml");
-		Files.writeString(file, "BungeeMethod: PLUGINMESSAGING\nRedis:\n  Host: localhost\n  Port: 6379\n");
+		Files.writeString(file, "ProxyCommunicationMethod: PLUGINMESSAGING\nRedis:\n  Host: localhost\n  Port: 6379\n");
 		VelocityConfig config = new VelocityConfig(file.toFile());
 		config.loadControlConfiguration();
 		ProxyMethodConfiguration current = new ProxyMethodConfiguration(
-				ProxyMethodConfigurationService.canonical(config.getBungeeMethod()));
+				ProxyMethodConfigurationService.canonical(config.getProxyCommunicationMethod()));
 
 		config.persistControlProxyMethod("REDIS", current.revision());
 		config.loadControlConfiguration();
 
-		assertEquals("REDIS", config.getBungeeMethod());
+		assertEquals("REDIS", config.getProxyCommunicationMethod());
+		assertTrue(Files.readString(file).contains("ProxyCommunicationMethod: REDIS"));
 		assertTrue(Files.readString(file).contains("Host: localhost"));
+	}
+
+	@Test
+	void legacyBungeeMethodStillLoadsAndStaysInSyncWhenControlWrites() throws Exception {
+		Path file = directory.resolve("velocity.yml");
+		Files.writeString(file, "BungeeMethod: PLUGINMESSAGING\nRedis:\n  Host: localhost\n  Port: 6379\n");
+		VelocityConfig config = new VelocityConfig(file.toFile());
+		config.loadControlConfiguration();
+		assertEquals("PLUGINMESSAGING", config.getProxyCommunicationMethod());
+		ProxyMethodConfiguration current = new ProxyMethodConfiguration(
+				ProxyMethodConfigurationService.canonical(config.getProxyCommunicationMethod()));
+
+		config.persistControlProxyMethod("REDIS", current.revision());
+		config.loadControlConfiguration();
+
+		String written = Files.readString(file);
+		assertEquals("REDIS", config.getProxyCommunicationMethod());
+		assertTrue(written.contains("ProxyCommunicationMethod: REDIS"));
+		assertTrue(written.contains("BungeeMethod: REDIS"));
 	}
 
 	@Test
@@ -80,12 +100,12 @@ class VelocityConfigControlTest {
 		VelocityConfig config = new VelocityConfig(file.toFile());
 		config.loadControlConfiguration();
 		ProxyMethodConfiguration current = new ProxyMethodConfiguration(
-				com.bencodez.votingplugin.proxy.BungeeMethod.getByName(config.getBungeeMethod()));
+				com.bencodez.votingplugin.proxy.BungeeMethod.getByName(config.getProxyCommunicationMethod()));
 
 		config.persistControlProxyMethod("REDIS", current.revision());
 		config.loadControlConfiguration();
 
-		assertEquals("REDIS", config.getBungeeMethod());
+		assertEquals("REDIS", config.getProxyCommunicationMethod());
 	}
 
 	@Test
@@ -95,7 +115,7 @@ class VelocityConfigControlTest {
 		VelocityConfig config = new VelocityConfig(file.toFile());
 		config.loadControlConfiguration();
 		ProxyMethodConfiguration current = new ProxyMethodConfiguration(
-				com.bencodez.votingplugin.proxy.BungeeMethod.getByName(config.getBungeeMethod()));
+				com.bencodez.votingplugin.proxy.BungeeMethod.getByName(config.getProxyCommunicationMethod()));
 		Files.writeString(file, "BungeeMethod: PLUGINMESSAGING\nRedis:\n  Host: ''\n  Port: 6379\n");
 
 		assertThrows(IllegalArgumentException.class, () -> config.persistControlProxyMethod("REDIS",
