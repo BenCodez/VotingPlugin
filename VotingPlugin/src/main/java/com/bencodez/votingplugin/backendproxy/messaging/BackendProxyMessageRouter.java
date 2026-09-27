@@ -14,6 +14,7 @@ import com.bencodez.simpleapi.servercomm.global.GlobalMessageHandler;
 import com.bencodez.simpleapi.servercomm.global.GlobalMessageListener;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.backendproxy.cache.ProcessedVoteCache;
+import com.bencodez.votingplugin.backendproxy.cache.ProcessedVoteCache.Reservation;
 import com.bencodez.votingplugin.backendproxy.global.BackendGlobalDataSync;
 import com.bencodez.votingplugin.backendproxy.presence.BackendPresenceManager;
 import com.bencodez.votingplugin.backendproxy.voteparty.BackendVotePartySync;
@@ -35,6 +36,7 @@ public class BackendProxyMessageRouter {
 	private final BackendGlobalDataSync globalDataSync;
 	private final BackendVotePartySync votePartySync;
 	private final ProcessedVoteCache processedVoteCache;
+	private final AtomicBoolean voteReplayCacheSaturationLogged = new AtomicBoolean();
 	private GlobalMessageHandler messages;
 
 	public BackendProxyMessageRouter(VotingPluginMain plugin, BackendPresenceManager presenceManager,
@@ -137,6 +139,10 @@ public class BackendProxyMessageRouter {
 		if (VotingPluginWire.SUB_VOTE.equals(subChannel) || VotingPluginWire.SUB_VOTE_ONLINE.equals(subChannel)) {
 			try {
 				WireVoteResult result = handleWireVote(msg);
+				if (result != null && result.retryable()) {
+					completion.accept(OrderedVoteOutcome.RETRY);
+					return;
+				}
 				if (VotingPluginWire.requestsVoteDeliveryAcknowledgement(msg)
 						&& (result == null || !result.effectsComplete())) {
 					completion.accept(OrderedVoteOutcome.QUARANTINE);
@@ -397,20 +403,29 @@ public class BackendProxyMessageRouter {
 		VoteTotalsSnapshot totals = VoteTotalsSnapshot.parseStorage(vote.totals == null ? "" : vote.totals);
 		@SuppressWarnings("deprecation")
 		UUID voteId = vote.voteId != null ? vote.voteId : totals.getVoteUUID();
-		if (!processedVoteCache.reserve(voteId)) {
+		Reservation reservation = processedVoteCache.reserveWithOutcome(voteId);
+		if (reservation == Reservation.SATURATED) {
+			if (voteReplayCacheSaturationLogged.compareAndSet(false, true)) {
+				plugin.getLogger().warning("Backend vote replay cache is full; retaining votes for retry");
+			}
+			return new WireVoteResult(voteId, false, true);
+		}
+		if (reservation == Reservation.DUPLICATE) {
 			plugin.debug("Ignoring duplicate wire vote " + voteId + " for "
 					+ ServiceSiteValidator.sanitizeForLog(vote.player) + " on "
 					+ ServiceSiteValidator.sanitizeForLog(vote.service));
-			return new WireVoteResult(voteId, processedVoteCache.hasCompletedEffects(voteId));
+			return new WireVoteResult(voteId, processedVoteCache.hasCompletedEffects(voteId), false);
 		}
+		voteReplayCacheSaturationLogged.set(false);
 
 		UUID javaUuid;
 		try {
 			javaUuid = UUID.fromString(vote.uuid);
 		} catch (IllegalArgumentException e) {
+			processedVoteCache.cancelReservation(voteId);
 			plugin.getLogger().warning("Invalid UUID in proxy vote: "
 					+ ServiceSiteValidator.sanitizeForLog(vote.uuid));
-			return new WireVoteResult(voteId, false);
+			return new WireVoteResult(voteId, false, false);
 		}
 		VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(javaUuid, vote.player);
 		votePartySync.replace(totals.getVotePartyCurrent(), totals.getVotePartyRequired());
@@ -424,10 +439,10 @@ public class BackendProxyMessageRouter {
 		if (vote.service != null && !vote.service.isEmpty()) {
 			plugin.getServerData().addServiceSite(vote.service);
 		}
-		return new WireVoteResult(voteId, true);
+		return new WireVoteResult(voteId, true, false);
 	}
 
-	private record WireVoteResult(UUID voteId, boolean effectsComplete) {
+	private record WireVoteResult(UUID voteId, boolean effectsComplete, boolean retryable) {
 	}
 
 	private boolean validSchema(JsonEnvelope msg) {
