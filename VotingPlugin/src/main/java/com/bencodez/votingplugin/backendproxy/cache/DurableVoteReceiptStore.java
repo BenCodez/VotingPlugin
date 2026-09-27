@@ -142,7 +142,7 @@ final class DurableVoteReceiptStore {
 			}
 			journalRecords++;
 			if (activeReceipts > maxActiveReceipts + completionHeadroom
-					|| releaseTombstones > maxReleaseTombstones || receipts.size() > maxTotalReceipts) {
+					|| releaseTombstones > maxReleaseTombstones) {
 				throw new IOException("Vote receipt journal exceeds entry limit");
 			}
 		}

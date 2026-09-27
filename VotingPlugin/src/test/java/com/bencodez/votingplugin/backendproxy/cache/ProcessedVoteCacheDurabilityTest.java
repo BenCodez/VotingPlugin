@@ -207,6 +207,29 @@ class ProcessedVoteCacheDurabilityTest {
 	}
 
 	@Test
+	void upgradeLoadsMixedJournalThatExceedsTheNewAdmissionCount() throws Exception {
+		Path receipts = directory.resolve("upgrade-mixed-receipts.dat");
+		UUID firstActive = UUID.randomUUID();
+		UUID secondActive = UUID.randomUUID();
+		UUID firstReleased = UUID.randomUUID();
+		UUID secondReleased = UUID.randomUUID();
+		long expiresAt = System.currentTimeMillis() + TimeUnit.HOURS.toMillis(1);
+		Files.writeString(receipts, "VP-VOTE-RECEIPTS-1\n"
+				+ firstActive + "\t" + Long.MAX_VALUE + "\n"
+				+ secondActive + "\t" + Long.MAX_VALUE + "\n"
+				+ "R\t" + firstReleased + "\t" + expiresAt + "\n"
+				+ "R\t" + secondReleased + "\t" + expiresAt + "\n");
+
+		DurableVoteReceiptStore store = new DurableVoteReceiptStore(receipts, 2, 0, 2, 2);
+
+		assertTrue(store.contains(firstActive));
+		assertTrue(store.contains(secondActive));
+		assertTrue(store.contains(firstReleased));
+		assertTrue(store.contains(secondReleased));
+		assertFalse(store.complete(UUID.randomUUID()) > 0L);
+	}
+
+	@Test
 	void cancelledValidationReservationFreesCapacity() {
 		ProcessedVoteCache cache = new ProcessedVoteCache(TimeUnit.MINUTES.toMillis(30), 1);
 		UUID invalid = UUID.randomUUID();
