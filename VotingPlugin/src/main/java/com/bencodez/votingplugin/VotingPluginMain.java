@@ -1453,7 +1453,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 					&& (previous.requiresPreparationForReplacement() || previous.requiresRedisRetirement());
 			return new BackendProxyRestart(previous, null, true, previousRequiresPreparation);
 		}
-		BungeeMethod replacementMethod = BungeeMethod.getByName(bungeeSettings.getBungeeMethod());
+		BungeeMethod replacementMethod = BungeeMethod.getByName(bungeeSettings.getProxyCommunicationMethod());
 		boolean sameSocketReplacement = previous != null && previous.getMethod() == BungeeMethod.SOCKETS
 				&& replacementMethod == BungeeMethod.SOCKETS;
 		boolean sameMqttReplacement = previous != null && previous.getMethod() == BungeeMethod.MQTT
