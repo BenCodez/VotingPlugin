@@ -150,7 +150,7 @@ public class BackendProxyHandler implements Listener {
 	private final class EncryptedGlobalMessageHandler extends GlobalMessageHandler {
 		@Override
 		public void onMessage(JsonEnvelope envelope) {
-			if (usesSharedBrokerSecurity()) {
+			if (usesSharedBrokerSecurity() || method == BungeeMethod.HTTP) {
 				acceptDecrypted(envelope);
 				return;
 			}
@@ -169,7 +169,8 @@ public class BackendProxyHandler implements Listener {
 
 		@Override
 		public void sendMessage(JsonEnvelope envelope) {
-			transportManager.send(usesSharedBrokerSecurity() ? envelope : communicationEncryption.encrypt(envelope));
+			transportManager.send(usesSharedBrokerSecurity() || method == BungeeMethod.HTTP
+					? envelope : communicationEncryption.encrypt(envelope));
 		}
 	}
 
@@ -925,15 +926,19 @@ public class BackendProxyHandler implements Listener {
 		if (method != BungeeMethod.REDIS && method != BungeeMethod.MQTT) return;
 		Mode requestedMode = Mode.parse(plugin.getBungeeSettings().getSharedTransportAuthentication());
 		boolean requestedEncryption = plugin.getBungeeSettings().isCommunicationEncryption();
-		if (requestedMode == sharedTransportMode && requestedEncryption == communicationEncryptionEnabled) return;
 		try {
 			java.nio.file.Path keyFile = plugin.getDataFolder().toPath().resolve("secretkey.key");
-			TransportEnvelopeEncryption encryption = requestedEncryption == communicationEncryptionEnabled ? null
-					: TransportEnvelopeEncryption.load(keyFile, Domain.PROXY_BACKEND, requestedEncryption);
-			SharedTransportEnvelopeAuthenticator authenticator = requestedMode == sharedTransportMode ? null
-					: SharedTransportEnvelopeAuthenticator.load(keyFile, requestedMode);
-			transportManager.updateSharedTransportSecurity(authenticator, encryption);
-			if (encryption != null) communicationEncryption = encryption;
+			TransportEnvelopeEncryption candidateEncryption = TransportEnvelopeEncryption.load(
+					keyFile, Domain.PROXY_BACKEND, requestedEncryption);
+			SharedTransportEnvelopeAuthenticator candidateAuthenticator =
+					SharedTransportEnvelopeAuthenticator.load(keyFile, requestedMode);
+			boolean authenticatorChanged = !transportManager.hasEquivalentSharedTransportAuthenticator(
+					candidateAuthenticator);
+			boolean encryptionChanged = !transportManager.hasEquivalentSharedTransportEncryption(candidateEncryption);
+			if (!authenticatorChanged && !encryptionChanged) return;
+			transportManager.updateSharedTransportSecurity(authenticatorChanged ? candidateAuthenticator : null,
+					encryptionChanged ? candidateEncryption : null);
+			if (encryptionChanged) communicationEncryption = candidateEncryption;
 			encryptionFailureLogged.set(false);
 			sharedTransportMode = requestedMode;
 			communicationEncryptionEnabled = requestedEncryption;

@@ -152,6 +152,49 @@ class BackendProxyHandlerLifecycleTest {
 	}
 
 	@Test
+	void sharedTransportReloadReadsRotatedKeyWhenFlagsStayEnabled(@TempDir Path dataDirectory) throws Exception {
+		Path keyFile = dataDirectory.resolve("secretkey.key");
+		for (BungeeMethod method : new BungeeMethod[] { BungeeMethod.REDIS, BungeeMethod.MQTT }) {
+			Files.writeString(keyFile, Base64.getEncoder().encodeToString(
+					"0123456789abcdef0123456789abcdef".getBytes(StandardCharsets.US_ASCII)));
+			com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+			BungeeSettings settings = mock(BungeeSettings.class);
+			when(plugin.getDataFolder()).thenReturn(dataDirectory.toFile());
+			when(plugin.getBungeeSettings()).thenReturn(settings);
+			when(settings.getSharedTransportAuthentication()).thenReturn("REQUIRED");
+			when(settings.isCommunicationEncryption()).thenReturn(true);
+			BackendProxyHandler handler = new BackendProxyHandler(plugin);
+			setField(handler, "method", method);
+			setField(handler, "sharedTransportMode", Mode.REQUIRED);
+			setField(handler, "communicationEncryptionEnabled", true);
+			TransportEnvelopeEncryption originalEncryption = TransportEnvelopeEncryption.load(
+					keyFile, TransportEnvelopeEncryption.Domain.PROXY_BACKEND, true);
+			setField(handler, "communicationEncryption", originalEncryption);
+			BackendProxyTransportManager manager = (BackendProxyTransportManager) getField(handler, "transportManager");
+			BackendProxyTransport transport = method == BungeeMethod.REDIS
+					? new RedisBackendProxyTransport(plugin, new ProcessedVoteCache())
+					: new MqttBackendProxyTransport(plugin);
+			SharedTransportEnvelopeAuthenticator originalAuthenticator =
+					SharedTransportEnvelopeAuthenticator.load(keyFile, Mode.REQUIRED);
+			setField(transport, "authenticator", originalAuthenticator);
+			setField(manager, "transport", transport);
+			handler.reloadSharedTransportSecurity();
+			originalAuthenticator = (SharedTransportEnvelopeAuthenticator) getField(transport, "authenticator");
+			originalEncryption = (TransportEnvelopeEncryption) getField(handler, "communicationEncryption");
+
+			Files.writeString(keyFile, Base64.getEncoder().encodeToString(
+					"abcdef0123456789abcdef0123456789".getBytes(StandardCharsets.US_ASCII)));
+			handler.reloadSharedTransportSecurity();
+
+			SharedTransportEnvelopeAuthenticator replacement =
+					(SharedTransportEnvelopeAuthenticator) getField(transport, "authenticator");
+			assertFalse(originalAuthenticator.hasEquivalentInboundPolicy(replacement));
+			assertFalse(originalEncryption.hasEquivalentInboundPolicy(
+					(TransportEnvelopeEncryption) getField(handler, "communicationEncryption")));
+		}
+	}
+
+	@Test
 	void globalDataWakeupMovesOffTheCallingAndPrimaryThreads() {
 		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
 		BukkitScheduler scheduler = mock(BukkitScheduler.class);

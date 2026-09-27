@@ -119,6 +119,20 @@ public class BackendProxyTransportManager {
 		else throw new IllegalStateException("No active shared backend transport to update");
 	}
 
+	public synchronized boolean hasEquivalentSharedTransportAuthenticator(
+			SharedTransportEnvelopeAuthenticator authenticator) {
+		SharedInboundPolicy policy = sharedInboundPolicySnapshot();
+		return policy != null && policy.authenticator() != null
+				&& policy.authenticator().hasEquivalentInboundPolicy(authenticator);
+	}
+
+	public synchronized boolean hasEquivalentSharedTransportEncryption(
+			com.bencodez.votingplugin.proxy.security.TransportEnvelopeEncryption encryption) {
+		SharedInboundPolicy policy = sharedInboundPolicySnapshot();
+		return policy != null && policy.encryption() != null
+				&& policy.encryption().hasEquivalentInboundPolicy(encryption);
+	}
+
 	private synchronized SharedInboundPolicy sharedInboundPolicySnapshot() {
 		if (transport instanceof RedisBackendProxyTransport redis) return redis.sharedInboundPolicySnapshot();
 		if (transport instanceof MqttBackendProxyTransport mqtt) return mqtt.sharedInboundPolicySnapshot();

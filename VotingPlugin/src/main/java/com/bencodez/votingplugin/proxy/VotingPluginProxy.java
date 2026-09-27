@@ -4159,7 +4159,9 @@ public abstract class VotingPluginProxy {
 
 	protected synchronized boolean sendHttpEnvelope(String server, JsonEnvelope envelope) {
 		HttpProxyTransportServer transport = httpTransportServer;
-		return transport != null && transport.send(server, encryptCommunicationEnvelope(envelope));
+		// HTTP already provides authenticated TLS. Keep its durable queue semantic so
+		// pending deliveries survive CommunicationEncryption changes and key rotation.
+		return transport != null && transport.send(server, envelope);
 	}
 
 	/**
@@ -4265,7 +4267,7 @@ public abstract class VotingPluginProxy {
 
 	protected synchronized boolean sendHttpEnvelope(String server, String deliveryId, JsonEnvelope envelope) {
 		HttpProxyTransportServer transport = httpTransportServer;
-		return transport != null && transport.send(server, deliveryId, encryptCommunicationEnvelope(envelope));
+		return transport != null && transport.send(server, deliveryId, envelope);
 	}
 
 	private void startHttpTransport() {
@@ -4314,8 +4316,7 @@ public abstract class VotingPluginProxy {
 	/** Keeps the authenticated mTLS backend identity attached to security-sensitive proxy routing. */
 	protected void handleHttpTransportEnvelope(HttpProxyTransportServer.ReceivedEnvelope received) {
 		if (received == null) return;
-		JsonEnvelope decrypted = decryptCommunicationEnvelope(received.envelope());
-		if (decrypted == null) return;
+		JsonEnvelope decrypted = received.envelope();
 		HttpProxyTransportServer.ReceivedEnvelope authenticated = new HttpProxyTransportServer.ReceivedEnvelope(
 				received.serverId(), received.messageId(), decrypted);
 		if (!isAuthenticatedHttpEnvelopeAllowed(authenticated)) {
