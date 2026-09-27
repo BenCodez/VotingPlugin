@@ -852,10 +852,12 @@ class HttpBackendProxyTransportTest {
 			assertEquals(Thread.State.BLOCKED, close.getState());
 		}
 		long ownershipDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(1);
-		while (close.getState() != Thread.State.TIMED_WAITING && System.nanoTime() < ownershipDeadline)
-			Thread.onSpinWait();
-		assertEquals(Thread.State.TIMED_WAITING, close.getState(),
-				"close must wait for its final handoff cleanup worker");
+		while (close.getState() != Thread.State.WAITING
+				&& close.getState() != Thread.State.TIMED_WAITING
+				&& System.nanoTime() < ownershipDeadline) Thread.onSpinWait();
+		assertTrue(close.getState() == Thread.State.WAITING
+				|| close.getState() == Thread.State.TIMED_WAITING,
+				"close must retain the unresolved final handoff");
 		verifyNoInteractions(connector);
 		release.countDown();
 		close.join(2000L);

@@ -20,6 +20,7 @@ public class BackendProxyTransportManager {
 	private static final int MAX_PREPARED_SENDS = 1024;
 	private static final int MAX_ASYNC_HANDOFF_SENDS = 6144;
 	private static final int PLUGIN_MESSAGE_HANDOFF_BATCH_SIZE = 32;
+	private static final int HTTP_SHUTDOWN_ADAPT_BATCH_SIZE = 32;
 	private static final long HTTP_HANDOFF_CLOSE_GRACE_MILLIS = 11_000L;
 
 	private final VotingPluginMain plugin;
@@ -216,15 +217,15 @@ public class BackendProxyTransportManager {
 		if (asyncHandoffWorker != null) asyncHandoffWorker.interrupt();
 		asyncHandoffWorker = null;
 		pluginMessageHandoffScheduled = false;
-		java.util.List<PendingHandoffEnvelope> httpShutdownHandoff = java.util.List.of();
+		java.util.ArrayDeque<PendingHandoffEnvelope> httpShutdownHandoff = new java.util.ArrayDeque<>();
 		if (transport instanceof HttpBackendProxyTransport && !asyncHandoffSends.isEmpty()) {
-			httpShutdownHandoff = new java.util.ArrayList<>(asyncHandoffSends);
+			httpShutdownHandoff.addAll(asyncHandoffSends);
 		}
 		asyncHandoffSends.clear();
 		notifyAll();
 		Thread httpCleanup = null;
 		if (transport != null) {
-			if (transport instanceof HttpBackendProxyTransport http && !httpShutdownHandoff.isEmpty()) {
+			if (transport instanceof HttpBackendProxyTransport http) {
 				httpCleanup = startHttpCloseWithPendingHandoff(http, httpShutdownHandoff);
 			} else {
 				transport.close();
@@ -262,22 +263,27 @@ public class BackendProxyTransportManager {
 
 	/** Resolves wire-policy adapters off the server thread before HTTP performs its bounded final flush. */
 	private Thread startHttpCloseWithPendingHandoff(HttpBackendProxyTransport http,
-			java.util.List<PendingHandoffEnvelope> pending) {
+			java.util.ArrayDeque<PendingHandoffEnvelope> pending) {
 		Thread cleanup = new Thread(() -> {
 			try {
-				java.util.ArrayList<JsonEnvelope> resolved = new java.util.ArrayList<>(pending.size());
-				for (PendingHandoffEnvelope envelope : pending) {
-					try {
-						resolved.add(envelope.resolve());
-					} catch (RuntimeException failure) {
-						if (plugin != null && plugin.getLogger() != null) {
-							plugin.getLogger().severe(
-									"Unable to adapt one HTTP handoff message for the final shutdown flush");
-							plugin.debug(failure);
+				while (!pending.isEmpty()) {
+					java.util.ArrayList<JsonEnvelope> resolved =
+							new java.util.ArrayList<>(HTTP_SHUTDOWN_ADAPT_BATCH_SIZE);
+					for (int index = 0; index < HTTP_SHUTDOWN_ADAPT_BATCH_SIZE; index++) {
+						PendingHandoffEnvelope envelope = pending.pollFirst();
+						if (envelope == null) break;
+						try {
+							resolved.add(envelope.resolve());
+						} catch (RuntimeException failure) {
+							if (plugin != null && plugin.getLogger() != null) {
+								plugin.getLogger().severe(
+										"Unable to adapt one HTTP handoff message for the final shutdown flush");
+								plugin.debug(failure);
+							}
 						}
 					}
+					if (!resolved.isEmpty()) http.appendShutdownHandoffMessages(resolved);
 				}
-				if (!resolved.isEmpty()) http.appendShutdownHandoffMessages(resolved);
 			} catch (RuntimeException failure) {
 				if (plugin != null && plugin.getLogger() != null) {
 					plugin.getLogger().severe("Unable to prepare HTTP handoff messages for the final shutdown flush");
