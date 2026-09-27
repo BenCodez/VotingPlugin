@@ -9,6 +9,7 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -44,10 +45,12 @@ public final class NeoForgeDeferredVoteStore {
     private final int completedPerUserLimit;
     private final int completedTotalLimit;
     private final Set<OccurrenceKey> activeClaims = new HashSet<>();
+    private final Set<UUID> replayCandidates = new LinkedHashSet<>();
     private final Map<UUID, Integer> receiptReservationsByUser = new HashMap<>();
     private int receiptReservationsTotal;
     private int retainedCount = -1;
     private int completedCount = -1;
+    private boolean replayCandidatesInitialized;
 
     NeoForgeDeferredVoteStore(SqlUserBackend backend) {
         this(backend, MAX_DEFERRED_PER_USER, MAX_DEFERRED_TOTAL,
@@ -119,6 +122,10 @@ public final class NeoForgeDeferredVoteStore {
             return new Mutation<>(new DeferralResult(Status.RETAINED, List.copyOf(pending)), 1, 0);
         });
         applyCounts(mutation);
+        if (mutation.value().status() == Status.RETAINED
+                || mutation.value().status() == Status.ALREADY_RETAINED) {
+            replayCandidates.add(identity.uuid());
+        }
         if (mutation.value().status() == Status.ALREADY_COMPLETED) {
             reconcileCompleted(identity.uuid(), vote.voteId());
         }
@@ -128,12 +135,22 @@ public final class NeoForgeDeferredVoteStore {
     /** Returns the retained votes in admission order for one player. */
     public synchronized List<NeoForgeDeferredVote> pending(UUID playerId) {
         Objects.requireNonNull(playerId, "playerId");
-        return List.copyOf(readState(backend.user(playerId), playerId).pending());
+        List<NeoForgeDeferredVote> pending = readState(backend.user(playerId), playerId).pending();
+        if (pending.isEmpty()) replayCandidates.remove(playerId);
+        else replayCandidates.add(playerId);
+        return List.copyOf(pending);
     }
 
-    /** Returns user rows that a replay service can inspect without parsing every queue here. */
+    /**
+     * Returns the cached replay candidates. The first call discovers existing rows
+     * after a restart; later calls do not repeatedly enumerate the user table.
+     */
     public synchronized List<UUID> users() {
-        return List.copyOf(backend.enumerateUsers());
+        if (!replayCandidatesInitialized) {
+            replayCandidates.addAll(backend.enumerateUsers());
+            replayCandidatesInitialized = true;
+        }
+        return List.copyOf(replayCandidates);
     }
 
     public synchronized OccurrenceState state(UUID playerId, UUID voteId) {
@@ -179,46 +196,54 @@ public final class NeoForgeDeferredVoteStore {
         return Optional.of(new Claim(key, vote.get()));
     }
 
-    private synchronized CompletionResult complete(Claim claim) {
+    private synchronized CompletionOutcome complete(Claim claim, NeoForgeVoteAccountingStore accounting,
+            NeoForgeVoteSite site, boolean currentlyOnline) {
         Objects.requireNonNull(claim, "claim");
         if (claim.owner != this || claim.closed || !activeClaims.contains(claim.key)) {
             throw new IllegalStateException("Deferred vote claim is no longer active");
         }
         ensureCounts();
-        Mutation<CompletionResult> mutation = backend.user(claim.key.playerId()).transaction(
+        Mutation<CompletionOutcome> mutation = backend.user(claim.key.playerId()).transaction(
                 backend.storageType(), Map.of(), scope -> {
-                    Map<String, DataValue> row = row(scope.readRow());
+                    List<Column> lockedRow = scope.readRow();
+                    Map<String, DataValue> row = row(lockedRow);
                     List<CompletionReceipt> completed = parseCompleted(value(row, COMPLETED_DEFERRED_VOTES));
                     if (containsReceipt(completed, claim.key.voteId())) {
                         List<NeoForgeDeferredVote> pending;
                         try {
                             pending = parsePending(value(row, DEFERRED_VOTES), claim.key.playerId());
                         } catch (MalformedDeferredVoteData malformedPending) {
-                            return new Mutation<>(CompletionResult.ALREADY_COMPLETED, 0, 0);
+                            return new Mutation<>(new CompletionOutcome(CompletionResult.ALREADY_COMPLETED, null), 0, 0);
                         }
                         int removed = removePending(pending, claim.key.voteId());
                         if (removed > 0) {
                             scope.writeValues(Map.of(DEFERRED_VOTES, new DataValueString(serializePending(pending))));
                         }
-                        return new Mutation<>(CompletionResult.ALREADY_COMPLETED, -removed, 0);
+                        return new Mutation<>(new CompletionOutcome(CompletionResult.ALREADY_COMPLETED, null), -removed, 0);
                     }
                     List<NeoForgeDeferredVote> pending = parsePending(value(row, DEFERRED_VOTES), claim.key.playerId());
                     boolean isPending = pending.stream().anyMatch(vote -> vote.voteId().equals(claim.key.voteId()));
                     if (!isPending) {
-                        return new Mutation<>(CompletionResult.NOT_PENDING, 0, 0);
+                        return new Mutation<>(new CompletionOutcome(CompletionResult.NOT_PENDING, null), 0, 0);
                     }
                     if (completed.size() >= completedPerUserLimit
                             || completedCount >= completedTotalLimit) {
-                        return new Mutation<>(CompletionResult.RECEIPT_CAPACITY_REACHED, 0, 0);
+                        return new Mutation<>(new CompletionOutcome(CompletionResult.RECEIPT_CAPACITY_REACHED, null), 0, 0);
                     }
+                    NeoForgeVoteAccountingStore.PreparedAccounting prepared = accounting == null ? null
+                            : accounting.prepareDeferred(claim.vote, site, lockedRow, currentlyOnline);
                     completed.add(new CompletionReceipt(claim.key.voteId()));
                     int removed = removePending(pending, claim.key.voteId());
-                    scope.writeValues(Map.of(DEFERRED_VOTES, new DataValueString(serializePending(pending)),
-                            COMPLETED_DEFERRED_VOTES, new DataValueString(serializeCompleted(completed))));
-                    return new Mutation<>(CompletionResult.COMPLETED, -removed, 1);
+                    HashMap<String, DataValue> updates = new HashMap<>();
+                    if (prepared != null) updates.putAll(prepared.updates());
+                    updates.put(DEFERRED_VOTES, new DataValueString(serializePending(pending)));
+                    updates.put(COMPLETED_DEFERRED_VOTES, new DataValueString(serializeCompleted(completed)));
+                    scope.writeValues(updates);
+                    return new Mutation<>(new CompletionOutcome(CompletionResult.COMPLETED,
+                            prepared == null ? null : prepared.account()), -removed, 1);
                 });
         applyCounts(mutation);
-        if (mutation.value() != CompletionResult.RECEIPT_CAPACITY_REACHED) {
+        if (mutation.value().result() != CompletionResult.RECEIPT_CAPACITY_REACHED) {
             releaseReservation(claim);
         }
         return mutation.value();
@@ -395,6 +420,7 @@ public final class NeoForgeDeferredVoteStore {
     public enum OccurrenceState { UNKNOWN, PENDING, COMPLETED }
     enum Status { RETAINED, ALREADY_RETAINED, ALREADY_COMPLETED, CAPACITY_REACHED }
     public enum CompletionResult { COMPLETED, ALREADY_COMPLETED, NOT_PENDING, RECEIPT_CAPACITY_REACHED }
+    public record CompletionOutcome(CompletionResult result, NeoForgeVoteAccount account) { }
     record DeferralResult(Status status, List<NeoForgeDeferredVote> pending) { }
     private record CompletionReceipt(UUID voteId) { }
     private record StoredState(List<NeoForgeDeferredVote> pending, List<CompletionReceipt> completed) { }
@@ -414,7 +440,12 @@ public final class NeoForgeDeferredVoteStore {
         }
 
         public NeoForgeDeferredVote vote() { return vote; }
-        public CompletionResult complete() { return owner.complete(this); }
+        public CompletionResult complete() { return owner.complete(this, null, null, vote.wasOnline()).result(); }
+        public CompletionOutcome completeWithAccounting(NeoForgeVoteAccountingStore accounting,
+                NeoForgeVoteSite site, boolean currentlyOnline) {
+            return owner.complete(this, Objects.requireNonNull(accounting, "accounting"),
+                    Objects.requireNonNull(site, "site"), currentlyOnline);
+        }
 
         @Override public void close() {
             synchronized (owner) {
@@ -426,7 +457,7 @@ public final class NeoForgeDeferredVoteStore {
         }
     }
 
-    private static final class MalformedDeferredVoteData extends IllegalStateException {
+    static final class MalformedDeferredVoteData extends IllegalStateException {
         private static final long serialVersionUID = 1L;
         private MalformedDeferredVoteData(String message) { super(message); }
         private MalformedDeferredVoteData(String message, Throwable cause) { super(message, cause); }

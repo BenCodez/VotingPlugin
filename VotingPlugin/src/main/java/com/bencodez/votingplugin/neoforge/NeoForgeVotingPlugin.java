@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin.neoforge;
 
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -12,7 +13,7 @@ import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
-/** Native NeoForge entry point. Vote listeners and rewards are intentionally not registered yet. */
+/** Native NeoForge entry point. Native vote ingress is intentionally not registered yet. */
 @Mod("votingplugin")
 public final class NeoForgeVotingPlugin {
     private static final Logger LOGGER = Logger.getLogger(NeoForgeVotingPlugin.class.getName());
@@ -28,8 +29,8 @@ public final class NeoForgeVotingPlugin {
 
     private void started(ServerStartedEvent ignored) {
         try {
-            runtime = NeoForgeRuntime.start(FMLPaths.CONFIGDIR.get().resolve("votingplugin"));
-            LOGGER.info("VotingPlugin NeoForge bootstrap started; vote processing is not enabled");
+            runtime = NeoForgeRuntime.start(FMLPaths.CONFIGDIR.get().resolve("votingplugin"), serverFromEvent(ignored));
+            LOGGER.info("VotingPlugin NeoForge bootstrap started; retained supported rewards are replaying");
         } catch (IOException failure) {
             throw new IllegalStateException("VotingPlugin NeoForge bootstrap failed", failure);
         }
@@ -58,5 +59,14 @@ public final class NeoForgeVotingPlugin {
 
     private void left(PlayerEvent.PlayerLoggedOutEvent event) {
         if (runtime != null) runtime.players().left(NeoForgePlayerDirectory.playerFromEvent(event));
+    }
+
+    private static Object serverFromEvent(Object event) {
+        try {
+            return event.getClass().getMethod("getServer").invoke(event);
+        } catch (ReflectiveOperationException failure) {
+            Throwable cause = failure instanceof InvocationTargetException ? failure.getCause() : failure;
+            throw new IllegalStateException("NeoForge server bridge cannot access the server", cause);
+        }
     }
 }

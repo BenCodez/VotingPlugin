@@ -130,10 +130,52 @@ public final class NeoForgeVoteAccountingStore {
                 row.integer(WEEKLY_TOTAL), row.integer(POINTS), parseLastVotes(row.string(LAST_VOTES))));
     }
 
+    PreparedAccounting prepareDeferred(NeoForgeDeferredVote vote, NeoForgeVoteSite site, List<Column> columns,
+            boolean currentlyOnline) {
+        SharedVoteIdentity identity = new SharedVoteIdentity(vote.playerId(), vote.playerName(), currentlyOnline);
+        SharedVoteInput input = new SharedVoteInput(vote.voteId(), vote.playerName(), vote.serviceSite(),
+                vote.voteTime(), vote.realVote(), vote.addTotals(), false, false, vote.wasOnline());
+        SharedVotePolicy policy = configuration.policyFor(site);
+        AccountingDelta delta = new AccountingDelta();
+        SharedVoteAccounting.apply(input, policy, identity::online,
+                delta::addTotal, delta::addDaily, delta::addWeekly,
+                () -> delta.addPoints(configuration.pointsOnVote()));
+
+        Row current = Row.from(columns);
+        LinkedHashMap<String, Long> lastVotes = parseLastVotes(current.string(LAST_VOTES));
+        replaceLastVoteIfNewer(lastVotes, site.key(), vote.voteTime());
+        int allTimeTotal = current.integer(ALL_TIME_TOTAL) + delta.total;
+        int monthTotal = current.integer(MONTH_TOTAL) + delta.total;
+        int dailyTotal = current.integer(DAILY_TOTAL) + delta.daily;
+        int weeklyTotal = current.integer(WEEKLY_TOTAL) + delta.weekly;
+        int points = current.integer(POINTS) + delta.points;
+        if (delta.pointsApplied && configuration.limitVotePoints() > 0
+                && points > configuration.limitVotePoints()) {
+            points = configuration.limitVotePoints();
+        }
+        HashMap<String, DataValue> updates = new HashMap<>();
+        updates.put(PLAYER_NAME, new DataValueString(identity.playerName()));
+        updates.put(ALL_TIME_TOTAL, new DataValueInt(allTimeTotal));
+        updates.put(MONTH_TOTAL, new DataValueInt(monthTotal));
+        updates.put(DAILY_TOTAL, new DataValueInt(dailyTotal));
+        updates.put(WEEKLY_TOTAL, new DataValueInt(weeklyTotal));
+        updates.put(POINTS, new DataValueInt(points));
+        updates.put(LAST_VOTES, new DataValueString(serializeLastVotes(lastVotes)));
+        return new PreparedAccounting(new NeoForgeVoteAccount(identity.uuid(), identity.playerName(),
+                allTimeTotal, monthTotal, dailyTotal, weeklyTotal, points, lastVotes), updates);
+    }
+
     private static void replaceLastVote(LinkedHashMap<String, Long> votes, String siteKey, long voteTime) {
         String oldKey = votes.keySet().stream().filter(key -> key.equalsIgnoreCase(siteKey)).findFirst().orElse(null);
         if (oldKey != null) votes.remove(oldKey);
         votes.put(siteKey, voteTime);
+    }
+
+    private static void replaceLastVoteIfNewer(LinkedHashMap<String, Long> votes, String siteKey, long voteTime) {
+        String oldKey = votes.keySet().stream().filter(key -> key.equalsIgnoreCase(siteKey)).findFirst().orElse(null);
+        long newest = oldKey == null ? voteTime : Math.max(votes.get(oldKey), voteTime);
+        if (oldKey != null) votes.remove(oldKey);
+        votes.put(siteKey, newest);
     }
 
     private LinkedHashMap<String, Long> parseLastVotes(String stored) {
@@ -186,6 +228,8 @@ public final class NeoForgeVoteAccountingStore {
             return value == null ? "" : value.getString();
         }
     }
+
+    record PreparedAccounting(NeoForgeVoteAccount account, Map<String, DataValue> updates) { }
 
     record AccountingResult(boolean accepted, NeoForgeVoteAccount account) {
         static AccountingResult accepted(NeoForgeVoteAccount account) {

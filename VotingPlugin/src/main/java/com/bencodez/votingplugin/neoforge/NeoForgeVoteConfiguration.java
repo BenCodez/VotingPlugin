@@ -123,6 +123,12 @@ public final class NeoForgeVoteConfiguration {
                 .anyMatch(site -> site.key().equalsIgnoreCase(key));
     }
 
+    Optional<NeoForgeVoteSite> configuredSite(String key) {
+        if (key == null) return Optional.empty();
+        return voteSites.stream().filter(NeoForgeVoteSite::canResolveIncomingVote)
+                .filter(site -> site.key().equalsIgnoreCase(key)).findFirst();
+    }
+
     public SharedVotePolicy policyFor(NeoForgeVoteSite site) {
         Objects.requireNonNull(site, "site");
         return new SharedVotePolicy(countFakeVotes, addTotals, addTotalsOffline,

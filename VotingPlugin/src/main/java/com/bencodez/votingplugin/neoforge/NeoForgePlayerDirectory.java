@@ -11,15 +11,16 @@ import com.bencodez.votingplugin.core.vote.SharedVoteIdentity;
 
 /** Tracks identity and online state from NeoForge player lifecycle events. */
 public final class NeoForgePlayerDirectory {
-    private final Map<UUID, SharedVoteIdentity> online = new ConcurrentHashMap<>();
+    private final Map<UUID, OnlinePlayer> online = new ConcurrentHashMap<>();
 
     public void joined(Object player) {
-        joined(identity(player));
+        SharedVoteIdentity identity = identity(player);
+        online.put(identity.uuid(), new OnlinePlayer(identity, player));
     }
 
     void joined(SharedVoteIdentity identity) {
         Objects.requireNonNull(identity, "identity");
-        online.put(identity.uuid(), identity);
+        online.put(identity.uuid(), new OnlinePlayer(identity, null));
     }
 
     public void left(Object player) {
@@ -27,7 +28,11 @@ public final class NeoForgePlayerDirectory {
     }
 
     public Optional<SharedVoteIdentity> online(UUID uuid) {
-        return Optional.ofNullable(online.get(uuid));
+        return Optional.ofNullable(online.get(uuid)).map(OnlinePlayer::identity);
+    }
+
+    Optional<Object> nativePlayer(UUID uuid) {
+        return Optional.ofNullable(online.get(uuid)).map(OnlinePlayer::player);
     }
 
     public void clear() {
@@ -53,4 +58,6 @@ public final class NeoForgePlayerDirectory {
             throw new IllegalStateException("NeoForge player bridge cannot call " + method, cause);
         }
     }
+
+    private record OnlinePlayer(SharedVoteIdentity identity, Object player) { }
 }
