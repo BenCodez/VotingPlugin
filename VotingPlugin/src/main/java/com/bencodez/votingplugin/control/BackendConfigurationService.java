@@ -663,8 +663,11 @@ public final class BackendConfigurationService {
 		YamlConfiguration proposedYaml = parse(proposedContent);
 		YamlConfiguration resolvedYaml = restoreRedactedSecrets
 				? resolveSecrets(proposedYaml, currentYaml) : proposedYaml;
-		if ("BungeeSettings.yml".equals(fileName) && resolvedYaml.contains("BungeeMethod")) {
-			resolvedYaml.set("BungeeMethod", canonicalBungeeMethod(resolvedYaml.getString("BungeeMethod")));
+		if ("BungeeSettings.yml".equals(fileName)
+				&& (resolvedYaml.contains("ProxyCommunicationMethod") || resolvedYaml.contains("BungeeMethod"))) {
+			String method = canonicalProxyCommunicationMethod(proxyCommunicationMethod(resolvedYaml));
+			resolvedYaml.set("ProxyCommunicationMethod", method);
+			if (resolvedYaml.contains("BungeeMethod")) resolvedYaml.set("BungeeMethod", method);
 		}
 		String resolved = resolvedYaml.saveToString();
 		ensureBounded(resolved);
@@ -701,7 +704,7 @@ public final class BackendConfigurationService {
 		if ("standalone".equals(preset) || "proxy-backend".equals(preset)) {
 			values.put("useBungeecord", String.valueOf(yaml.getBoolean("UseBungeecord", false)));
 			values.put("server", yaml.getString("Server", ""));
-			values.put("method", canonicalBungeeMethod(yaml.getString("BungeeMethod", "PLUGINMESSAGING")));
+			values.put("method", canonicalProxyCommunicationMethod(proxyCommunicationMethod(yaml)));
 		} else if ("vote-site".equals(preset)) {
 			String name = option(options, "name", "[A-Za-z0-9_-]{1,64}");
 			String root = "VoteSites." + name;
@@ -874,15 +877,15 @@ public final class BackendConfigurationService {
 			if (proxy) {
 				String server = option(options, "server", "[A-Za-z0-9][A-Za-z0-9._-]{0,63}");
 				yaml.set("Server", server);
-				yaml.set("BungeeMethod", bungeeMethodOption(options));
+				setProxyCommunicationMethod(yaml, proxyCommunicationMethodOption(options));
 			}
 			return new QuickProposal(fileName, yaml.saveToString());
 		}
 		if ("proxy-method".equals(preset)) {
-			BungeeMethod method = BungeeMethod.valueOf(bungeeMethodOption(options));
+			BungeeMethod method = BungeeMethod.valueOf(proxyCommunicationMethodOption(options));
 			validateProxyMethod(method, yaml);
 			yaml.set("UseBungeecord", true);
-			yaml.set("BungeeMethod", method.name());
+			setProxyCommunicationMethod(yaml, method.name());
 			return new QuickProposal(fileName, yaml.saveToString());
 		}
 		if ("vote-site".equals(preset)) {
@@ -1085,7 +1088,7 @@ public final class BackendConfigurationService {
 			}
 			break;
 		default:
-			throw new IllegalArgumentException("BungeeMethod is unsupported");
+			throw new IllegalArgumentException("ProxyCommunicationMethod is unsupported");
 		}
 	}
 
@@ -1550,16 +1553,28 @@ public final class BackendConfigurationService {
 		DurableFiles.forceMoveDirectories(source, target);
 	}
 
-	private static String bungeeMethodOption(Map<String, String> options) {
+	private static String proxyCommunicationMethodOption(Map<String, String> options) {
 		String value = options == null ? "PLUGINMESSAGING" : options.getOrDefault("method", "PLUGINMESSAGING");
-		return canonicalBungeeMethod(value);
+		return canonicalProxyCommunicationMethod(value);
 	}
 
-	private static String canonicalBungeeMethod(String value) {
+	private static String proxyCommunicationMethod(YamlConfiguration yaml) {
+		if (yaml.contains("ProxyCommunicationMethod")) {
+			return yaml.getString("ProxyCommunicationMethod", "PLUGINMESSAGING");
+		}
+		return yaml.getString("BungeeMethod", "PLUGINMESSAGING");
+	}
+
+	private static void setProxyCommunicationMethod(YamlConfiguration yaml, String method) {
+		yaml.set("ProxyCommunicationMethod", method);
+		if (yaml.contains("BungeeMethod")) yaml.set("BungeeMethod", method);
+	}
+
+	private static String canonicalProxyCommunicationMethod(String value) {
 		for (BungeeMethod method : BungeeMethod.values()) {
 			if (method.name().equalsIgnoreCase(value)) return method.name();
 		}
-		throw new IllegalArgumentException("BungeeMethod is invalid");
+		throw new IllegalArgumentException("ProxyCommunicationMethod is invalid");
 	}
 
 	private static String option(Map<String, String> options, String name, String pattern) {
