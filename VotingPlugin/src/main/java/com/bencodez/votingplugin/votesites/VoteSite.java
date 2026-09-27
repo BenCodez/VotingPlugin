@@ -146,11 +146,12 @@ public class VoteSite {
 	}
 
 	private RewardBuilder createRewardBuilder(String path, boolean online, boolean bungee) {
-		// Reward placeholders also feed commands and other exact-value actions. The
-		// service identifier is already validated at ingress, so preserve it here;
-		// display-only callers use getServiceSiteForFormatting() instead.
+		// Service-site values can originate at the Votifier trust boundary. Preserve
+		// ordinary identifiers exactly, but break placeholder/color token syntax before
+		// reward actions (including console commands) consume externally supplied text.
 		return new RewardBuilder(plugin.getConfigVoteSites().getData(), path).setOnline(online)
-				.withPlaceHolder("ServiceSite", getServiceSite()).withPlaceHolder("SiteName", getDisplayName())
+				.withPlaceHolder("ServiceSite", getServiceSiteForActions())
+				.withPlaceHolder("SiteName", getDisplayNameForActions())
 				.withDisplayPlaceHolder("ServiceSite", getServiceSiteForFormatting())
 				.withDisplayPlaceHolder("SiteName", getDisplayNameForFormatting())
 				.withPlaceHolder("VoteDelay", "" + getVoteDelay()).withPlaceHolder("VoteURL", getVoteURL())
@@ -162,9 +163,19 @@ public class VoteSite {
 				plugin.getConfigVoteSites().getRewardsPath(key));
 	}
 
+	/** Returns the configured service identifier guarded for reward actions. */
+	public String getServiceSiteForActions() {
+		return ServiceSiteValidator.inertForActions(getServiceSite());
+	}
+
 	/** Returns the configured service identifier guarded for trusted templates. */
 	public String getServiceSiteForFormatting() {
 		return ServiceSiteValidator.inertForFormatting(getServiceSite());
+	}
+
+	/** Keeps administrator display names exact, while guarding external fallback names in reward actions. */
+	public String getDisplayNameForActions() {
+		return displayNameFallback ? ServiceSiteValidator.inertForActions(getDisplayName()) : getDisplayName();
 	}
 
 	/** Sets an administrator-controlled display name. */
