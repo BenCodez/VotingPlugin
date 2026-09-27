@@ -137,16 +137,18 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
-	void httpEnvelopeKeepsAuthenticatedTlsSourceForRouting() throws Exception {
+	void encryptedHttpEnvelopeKeepsAuthenticatedTlsSourceForRouting() throws Exception {
 		votingPluginProxy.setMethod(BungeeMethod.HTTP);
 		var handler = Mockito.mock(com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler.class);
 		votingPluginProxy.setGlobalMessageProxyHandlerForTest(handler);
+		var encryption = communicationEncryption();
 		JsonEnvelope status = VotingPluginWire.status("Server1");
+		JsonEnvelope encrypted = encryption.encrypt(status);
 
 		votingPluginProxy.handleHttpTransportEnvelopeForTest(new HttpProxyTransportServer.ReceivedEnvelope(
-				"Server1", "message-1", status));
+				"Server1", "message-1", encrypted));
 		votingPluginProxy.handleHttpTransportEnvelopeForTest(new HttpProxyTransportServer.ReceivedEnvelope(
-				"Server2", "message-2", status));
+				"Server2", "message-2", encrypted));
 
 		org.mockito.ArgumentCaptor<JsonEnvelope> delivered = org.mockito.ArgumentCaptor.forClass(JsonEnvelope.class);
 		verify(handler).onMessage(delivered.capture());
@@ -154,15 +156,15 @@ public class VotingPluginProxyTest {
 		assertEquals(status.getFields(), delivered.getValue().getFields());
 		Mockito.verifyNoMoreInteractions(handler);
 
-		JsonEnvelope enrollment = VotingPluginWire.controlEnrollmentRequest("Server1", "",
-				"http://control.example.test:2150", java.util.UUID.randomUUID());
+		JsonEnvelope enrollment = encryption.encrypt(VotingPluginWire.controlEnrollmentRequest("Server1", "",
+				"http://control.example.test:2150", java.util.UUID.randomUUID()));
 		votingPluginProxy.handleHttpTransportEnvelopeForTest(new HttpProxyTransportServer.ReceivedEnvelope(
 				"Server1", "message-3", enrollment));
 		assertEquals("Server1", votingPluginProxy.getControlEnrollmentSource());
 	}
 
 	@Test
-	void durableHttpQueueReceivesSemanticEnvelopeAcrossEncryptionPolicyChanges() throws Exception {
+	void durableHttpQueueReceivesEncryptedEnvelopeAtTheWireBoundary() throws Exception {
 		HttpProxyTransportServer transport = Mockito.mock(HttpProxyTransportServer.class);
 		setProxyField(votingPluginProxy, "httpTransportServer", transport);
 		setProxyField(votingPluginProxy, "communicationEncryption", communicationEncryption());
@@ -175,8 +177,10 @@ public class VotingPluginProxyTest {
 
 		org.mockito.ArgumentCaptor<JsonEnvelope> persisted = org.mockito.ArgumentCaptor.forClass(JsonEnvelope.class);
 		verify(transport).send(Mockito.eq("Server1"), Mockito.eq("delivery-1"), persisted.capture());
-		assertEquals(semantic.getSubChannel(), persisted.getValue().getSubChannel());
-		assertEquals(semantic.getFields(), persisted.getValue().getFields());
+		var decrypted = communicationEncryption().decrypt(persisted.getValue());
+		assertTrue(decrypted.accepted());
+		assertEquals(semantic.getSubChannel(), decrypted.envelope().getSubChannel());
+		assertEquals(semantic.getFields(), decrypted.envelope().getFields());
 	}
 
 	@Test

@@ -150,7 +150,7 @@ public class BackendProxyHandler implements Listener {
 	private final class EncryptedGlobalMessageHandler extends GlobalMessageHandler {
 		@Override
 		public void onMessage(JsonEnvelope envelope) {
-			if (usesSharedBrokerSecurity() || method == BungeeMethod.HTTP) {
+			if (usesSharedBrokerSecurity()) {
 				acceptDecrypted(envelope);
 				return;
 			}
@@ -169,8 +169,7 @@ public class BackendProxyHandler implements Listener {
 
 		@Override
 		public void sendMessage(JsonEnvelope envelope) {
-			transportManager.send(usesSharedBrokerSecurity() || method == BungeeMethod.HTTP
-					? envelope : communicationEncryption.encrypt(envelope));
+			transportManager.send(usesSharedBrokerSecurity() ? envelope : communicationEncryption.encrypt(envelope));
 		}
 	}
 

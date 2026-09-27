@@ -82,6 +82,48 @@ import com.bencodez.votingplugin.proxy.BungeeMethod;
 
 class BackendProxyHandlerLifecycleTest {
 	@Test
+	void httpAppliesCommunicationEncryptionAtBothWireBoundaries(@TempDir Path dataDirectory) throws Exception {
+		Path keyFile = dataDirectory.resolve("secretkey.key");
+		Files.writeString(keyFile, Base64.getEncoder().encodeToString(
+				"0123456789abcdef0123456789abcdef".getBytes(StandardCharsets.US_ASCII)));
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		doAnswer(invocation -> {
+			((Runnable) invocation.getArgument(1)).run();
+			return null;
+		}).when(scheduler).executeOrScheduleSync(eq(plugin), any(Runnable.class));
+		BackendProxyHandler handler = new BackendProxyHandler(plugin);
+		TransportEnvelopeEncryption encryption = TransportEnvelopeEncryption.load(
+				keyFile, TransportEnvelopeEncryption.Domain.PROXY_BACKEND, true);
+		setField(handler, "method", BungeeMethod.HTTP);
+		setField(handler, "communicationEncryption", encryption);
+		BackendProxyTransportManager manager = (BackendProxyTransportManager) getField(handler, "transportManager");
+		BackendProxyTransport transport = mock(BackendProxyTransport.class);
+		setField(manager, "transport", transport);
+		Class<?> type = Class.forName(BackendProxyHandler.class.getName() + "$EncryptedGlobalMessageHandler");
+		var constructor = type.getDeclaredConstructor(BackendProxyHandler.class);
+		constructor.setAccessible(true);
+		GlobalMessageHandler messages = (GlobalMessageHandler) constructor.newInstance(handler);
+		JsonEnvelope semantic = JsonEnvelope.builder("test").put("value", "payload").build();
+
+		messages.sendMessage(semantic);
+
+		org.mockito.ArgumentCaptor<JsonEnvelope> outbound = org.mockito.ArgumentCaptor.forClass(JsonEnvelope.class);
+		verify(transport).send(outbound.capture());
+		assertTrue(encryption.decrypt(outbound.getValue()).accepted());
+		AtomicReference<JsonEnvelope> received = new AtomicReference<>();
+		messages.addListener(new com.bencodez.simpleapi.servercomm.global.GlobalMessageListener("test") {
+			@Override public void onReceive(JsonEnvelope envelope) { received.set(envelope); }
+		});
+		handler.activateInboundMessages();
+		messages.onMessage(encryption.encrypt(semantic));
+		assertNotNull(received.get());
+		assertEquals(semantic.getSubChannel(), received.get().getSubChannel());
+		assertEquals(semantic.getFields(), received.get().getFields());
+	}
+
+	@Test
 	void redisAndMqttSecurityReloadAppliesChangedPolicyWithoutResettingUnchangedReplayState(
 			@TempDir Path dataDirectory) throws Exception {
 		Path keyFile = dataDirectory.resolve("secretkey.key");
