@@ -817,7 +817,7 @@ class RedisBackendProxyTransportTest {
 				System.nanoTime() + TimeUnit.SECONDS.toNanos(1)));
 		JsonEnvelope duringCutover = JsonEnvelope.builder("during-cutover").build();
 		manager.send(duringCutover);
-		assertEquals(java.util.List.of(duringCutover), new java.util.ArrayList<>(preparedSendQueue(manager)),
+		assertEquals(java.util.List.of(duringCutover), preparedSendQueue(manager),
 				"outbound sends must be fenced until publication can transfer them to the replacement");
 	}
 
@@ -964,12 +964,17 @@ class RedisBackendProxyTransportTest {
 		field.set(target, value);
 	}
 
-	@SuppressWarnings("unchecked")
-	private static java.util.ArrayDeque<JsonEnvelope> preparedSendQueue(BackendProxyTransportManager manager)
+	private static java.util.List<JsonEnvelope> preparedSendQueue(BackendProxyTransportManager manager)
 			throws Exception {
 		Field field = BackendProxyTransportManager.class.getDeclaredField("preparedSends");
 		field.setAccessible(true);
-		return (java.util.ArrayDeque<JsonEnvelope>) field.get(manager);
+		java.util.ArrayList<JsonEnvelope> sources = new java.util.ArrayList<>();
+		for (Object pending : (java.util.ArrayDeque<?>) field.get(manager)) {
+			Field source = pending.getClass().getDeclaredField("source");
+			source.setAccessible(true);
+			sources.add((JsonEnvelope) source.get(pending));
+		}
+		return sources;
 	}
 
 	private static int replayTrackedDeliveries(RedisBackendProxyTransport transport) throws Exception {

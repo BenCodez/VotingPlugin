@@ -46,6 +46,7 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 	private final ArrayDeque<JsonEnvelope> handoffQueue = new ArrayDeque<>();
 	private volatile Thread handoffWorker;
 	private boolean awaitingPreparedHandoff;
+	private boolean managerHandoffActive;
 	/** Capacity reserved for the prepared predecessor before this transport is published. */
 	private int preparedHandoffReservation;
 	private volatile HttpBackendTransportConnector connector;
@@ -554,7 +555,7 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 	public boolean send(JsonEnvelope envelope) {
 		synchronized (lifecycle) {
 			if (closed) return false;
-			if (awaitingPreparedHandoff || !handoffQueue.isEmpty()) {
+			if (awaitingPreparedHandoff || managerHandoffActive || !handoffQueue.isEmpty()) {
 				int capacity = awaitingPreparedHandoff
 						? Math.min(MAX_PREPUBLICATION_QUEUE, MAX_HANDOFF_QUEUE - preparedHandoffReservation)
 						: MAX_HANDOFF_QUEUE;
@@ -593,6 +594,41 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 		}
 	}
 
+	/** Opens the prepared queue for the manager's worker-owned, FIFO handoff drain. */
+	void activatePreparedHandoffDrain() {
+		synchronized (lifecycle) {
+			if (closed) throw new IllegalStateException("HTTP replacement transport is closed");
+			awaitingPreparedHandoff = false;
+			preparedHandoffReservation = 0;
+			managerHandoffActive = true;
+		}
+	}
+
+	void finishPreparedHandoffDrain() {
+		synchronized (lifecycle) {
+			managerHandoffActive = false;
+		}
+		startHandoffDrainIfNeeded();
+	}
+
+	/**
+	 * Checks the fixed HTTP handoff bound while the manager owns the older FIFO.
+	 * The manager calls this while holding its own monitor, which also serializes
+	 * its worker's transfer into {@link #handoffQueue}.
+	 */
+	boolean canAcceptManagerHandoff(int managerPending) {
+		synchronized (lifecycle) {
+			return !managerHandoffActive || managerPending >= 0
+					&& managerPending < MAX_HANDOFF_QUEUE - handoffQueue.size();
+		}
+	}
+
+	boolean isManagerHandoffActive() {
+		synchronized (lifecycle) {
+			return managerHandoffActive;
+		}
+	}
+
 	/**
 	 * Reserves enough of the bounded handoff queue for the predecessor before callers
 	 * can send through this staged replacement. This turns an otherwise late,
@@ -624,6 +660,18 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 			preparedHandoffReservation = 0;
 		}
 		startHandoffDrainIfNeeded();
+	}
+
+	/** Appends a newer manager-owned remainder behind any prefix already admitted by its worker. */
+	void appendShutdownHandoffMessages(java.util.List<JsonEnvelope> messages) {
+		synchronized (lifecycle) {
+			if (closed) throw new IllegalStateException("HTTP replacement transport is closed");
+			if (messages.size() > MAX_HANDOFF_QUEUE - handoffQueue.size())
+				throw new IllegalStateException("HTTP handoff queue exceeded its fixed capacity");
+			handoffQueue.addAll(messages);
+			awaitingPreparedHandoff = false;
+			preparedHandoffReservation = 0;
+		}
 	}
 
 	private void startHandoffDrainIfNeeded() {
@@ -732,14 +780,19 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 
 	@Override
 	public void close() {
-		close(true);
+		close(true, false);
 	}
 
 	private void closeForReplacement() {
-		close(false);
+		close(false, false);
 	}
 
-	private void close(boolean discardQueuedMessages) {
+	/** Performs the bounded connector drain on its caller-owned cleanup worker. */
+	void closeAndAwaitFinalHandoff() {
+		close(true, true);
+	}
+
+	private void close(boolean discardQueuedMessages, boolean awaitCleanup) {
 		Thread setup;
 		Thread pendingHandoff;
 		HttpBackendTransportConnector active;
@@ -776,10 +829,14 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 		if (setup != null) setup.interrupt();
 		if (pendingHandoff != null) pendingHandoff.interrupt();
 		if (setup == null && active == null && owner == null) return;
-		Thread cleanup = new Thread(() -> drain(setup, active, owner, finalHandoff),
-				"VotingPlugin-HTTP-Backend-Cleanup");
-		cleanup.setDaemon(true);
-		cleanup.start();
+		if (awaitCleanup) {
+			drain(setup, active, owner, finalHandoff);
+		} else {
+			Thread cleanup = new Thread(() -> drain(setup, active, owner, finalHandoff),
+					"VotingPlugin-HTTP-Backend-Cleanup");
+			cleanup.setDaemon(true);
+			cleanup.start();
+		}
 	}
 
 	private static void drain(Thread setup, HttpBackendTransportConnector active, Semaphore owner,
