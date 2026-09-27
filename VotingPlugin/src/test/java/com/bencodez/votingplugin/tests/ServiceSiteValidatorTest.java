@@ -14,7 +14,9 @@ class ServiceSiteValidatorTest {
 		for (String serviceSite : new String[] { "PlanetMinecraft.com", "Minecraft Server List", "Crafty.gg",
 				"https://example.com/vote", "https://list.example/vote?id=1&source=proxy#top",
 				"Research & Development", "site_name-2", "Site, Other; Network!",
-				"Serviço de votação", "Site\u00A0Name", "Site\uFE0F", "Cafe\u0301", "Site\u3164Name" }) {
+				"site%20name", "site%2Bname", "site%20%2Bname", "site%20name%2Bnetwork",
+				"Serviço de votação",
+				"Site\u00A0Name", "Site\uFE0F", "Cafe\u0301", "Site\u3164Name" }) {
 			assertTrue(ServiceSiteValidator.isValid(serviceSite), serviceSite);
 		}
 	}
@@ -23,9 +25,10 @@ class ServiceSiteValidatorTest {
 	void rejectsUnsupportedCharacters() {
 		for (String serviceSite : new String[] { "[Javascript=1]", "Site's", "\"Site\"", "Site`Name",
 				"Site\\Name", "Site\nName", "Site\tName", "Site\u0000Name", "Site\u200BName",
-				"%player_name%", "%javascript_vote%", "%be_secret%20", "%20name%2Bnetwork",
-				"%25player_name%25", "{player}", "site%", "site%2", "site%GG", "site%20name",
-				"&kSpoofed", "&aGreen", "&xHex", "\u00A7kSpoofed", "\u00A7aGreen" }) {
+				"%player_name%", "%javascript_vote%", "%be_secret%20",
+				"%25player_name%25", "{player}", "site%", "site%2", "site%GG",
+				"&kSpoofed", "&aGreen", "&xHex", "&#ff0000Spoofed", "&#ABCDEFText",
+				"\u00A7kSpoofed", "\u00A7aGreen" }) {
 			assertFalse(ServiceSiteValidator.isValid(serviceSite), serviceSite);
 		}
 	}

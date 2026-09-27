@@ -24,15 +24,22 @@ public final class ServiceSiteValidator {
 		}
 
 		boolean hasVisibleCharacter = false;
+		int previousPercent = -1;
 		for (int offset = 0; offset < serviceSite.length();) {
 			int codePoint = serviceSite.codePointAt(offset);
 			if (codePoint == '%') {
-				// The surrounding administrator template can supply the other percent
-				// delimiter, so even one encoded URL octet is unsafe here.
-				return false;
+				if (offset + 2 >= serviceSite.length() || !isHex(serviceSite.charAt(offset + 1))
+						|| !isHex(serviceSite.charAt(offset + 2))) return false;
+				// PlaceholderAPI identifiers require an expansion/parameter separator.
+				// Reject that form between otherwise valid URL escapes while keeping
+				// ordinary names with multiple encoded octets usable.
+				if (previousPercent >= 0
+						&& serviceSite.substring(previousPercent + 1, offset).indexOf('_') >= 0) return false;
+				previousPercent = offset;
 			}
 			if (codePoint == '&' && offset + 1 < serviceSite.length()
-					&& isLegacyColorCode(serviceSite.charAt(offset + 1))) {
+					&& (isLegacyColorCode(serviceSite.charAt(offset + 1))
+							|| isHexColor(serviceSite, offset))) {
 				return false;
 			}
 			if (isDisallowed(codePoint)) {
@@ -90,6 +97,19 @@ public final class ServiceSiteValidator {
 		char normalized = Character.toLowerCase(value);
 		return normalized >= '0' && normalized <= '9' || normalized >= 'a' && normalized <= 'f'
 				|| normalized >= 'k' && normalized <= 'o' || normalized == 'r' || normalized == 'x';
+	}
+
+	private static boolean isHexColor(String value, int ampersandOffset) {
+		if (ampersandOffset + 7 >= value.length() || value.charAt(ampersandOffset + 1) != '#') return false;
+		for (int index = ampersandOffset + 2; index < ampersandOffset + 8; index++) {
+			if (!isHex(value.charAt(index))) return false;
+		}
+		return true;
+	}
+
+	private static boolean isHex(char value) {
+		return value >= '0' && value <= '9' || value >= 'a' && value <= 'f'
+				|| value >= 'A' && value <= 'F';
 	}
 
 	private static boolean isVisibleBaseCharacter(int codePoint) {
