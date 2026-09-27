@@ -16,8 +16,7 @@ public final class ServiceSiteValidator {
 	 *
 	 * @param serviceSite service-site name supplied by a vote source
 	 * @return {@code true} for a bounded, visible service-site name that does not
-	 *         contain formatting or placeholder delimiters. One percent-encoded
-	 *         URL octet remains supported where it cannot form a delimiter pair.
+	 *         contain formatting or placeholder delimiters
 	 */
 	public static boolean isValid(String serviceSite) {
 		if (serviceSite == null || serviceSite.length() > MAX_LENGTH) {
@@ -25,22 +24,16 @@ public final class ServiceSiteValidator {
 		}
 
 		boolean hasVisibleCharacter = false;
-		boolean sawPercentEncodedOctet = false;
 		for (int offset = 0; offset < serviceSite.length();) {
 			int codePoint = serviceSite.codePointAt(offset);
 			if (codePoint == '%') {
-				// PlaceholderAPI treats any pair of percent signs as a possible
-				// placeholder boundary. Even individually valid URL octets such as
-				// "%be_secret%20" can therefore select an expansion after this value
-				// is inserted into a configured message. A single encoded octet is
-				// unambiguous; a second one is not safe at this trust boundary.
-				if (sawPercentEncodedOctet || !isPercentEncodedOctet(serviceSite, offset)) {
-					return false;
-				}
-				sawPercentEncodedOctet = true;
-				hasVisibleCharacter = true;
-				offset += 3;
-				continue;
+				// The surrounding administrator template can supply the other percent
+				// delimiter, so even one encoded URL octet is unsafe here.
+				return false;
+			}
+			if (codePoint == '&' && offset + 1 < serviceSite.length()
+					&& isLegacyColorCode(serviceSite.charAt(offset + 1))) {
+				return false;
 			}
 			if (isDisallowed(codePoint)) {
 				return false;
@@ -83,6 +76,7 @@ public final class ServiceSiteValidator {
 
 	private static boolean isDisallowed(int codePoint) {
 		if (codePoint == '[' || codePoint == ']' || codePoint == '\'' || codePoint == '"' || codePoint == '`'
+				|| codePoint == '\u00A7'
 				|| codePoint == '\\' || codePoint == '{' || codePoint == '}') {
 			return true;
 		}
@@ -92,13 +86,10 @@ public final class ServiceSiteValidator {
 				|| type == Character.PARAGRAPH_SEPARATOR || type == Character.SURROGATE;
 	}
 
-	private static boolean isPercentEncodedOctet(String value, int offset) {
-		return offset + 2 < value.length() && isHexDigit(value.charAt(offset + 1))
-				&& isHexDigit(value.charAt(offset + 2));
-	}
-
-	private static boolean isHexDigit(char value) {
-		return value >= '0' && value <= '9' || value >= 'a' && value <= 'f' || value >= 'A' && value <= 'F';
+	private static boolean isLegacyColorCode(char value) {
+		char normalized = Character.toLowerCase(value);
+		return normalized >= '0' && normalized <= '9' || normalized >= 'a' && normalized <= 'f'
+				|| normalized >= 'k' && normalized <= 'o' || normalized == 'r' || normalized == 'x';
 	}
 
 	private static boolean isVisibleBaseCharacter(int codePoint) {
