@@ -105,6 +105,50 @@ class NeoForgeRewardReplayServiceTest {
     }
 
     @Test
+    void replayReadsRewardsFromResolvedCurrentSiteKey() throws Exception {
+        writeConfiguration(false);
+        UUID playerId = UUID.randomUUID();
+        UUID voteId = UUID.randomUUID();
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            runtime.players().joined(new SharedVoteIdentity(playerId, "Alex", true));
+            retain(runtime, voteId, playerId, "Service");
+        }
+        Files.writeString(directory.resolve("VoteSites.yml"), Files.readString(directory.resolve("VoteSites.yml"))
+                .replace("  Supported:", "  supported:"));
+        RecordingActions actions = new RecordingActions();
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory);
+                NeoForgeRewardReplayService replay = service(runtime, actions)) {
+            runtime.players().joined(new SharedVoteIdentity(playerId, "Alex", true));
+
+            assertEquals(NeoForgeRewardReplayService.Status.COMPLETED,
+                    runOne(runtime, replay, actions).status());
+            assertEquals(List.of("say Alex"), actions.rendered);
+        }
+    }
+
+    @Test
+    void emptyPlayerMessageDoesNotWaitForLoginOrRunAnAction() throws Exception {
+        writeConfiguration(false);
+        String original = Files.readString(directory.resolve("VoteSites.yml"));
+        String updated = original.replace("      Commands:\n      - 'say %player%'",
+                "      Messages:\n        Player: ''");
+        assertFalse(original.equals(updated), "test configuration replacement must be applied");
+        Files.writeString(directory.resolve("VoteSites.yml"), updated);
+        UUID playerId = UUID.randomUUID();
+        RecordingActions actions = new RecordingActions();
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory);
+                NeoForgeRewardReplayService replay = service(runtime, actions)) {
+            retain(runtime, UUID.randomUUID(), playerId, "Service");
+
+            List<NeoForgeRewardReplayService.ReplayResult> results =
+                    replay.replayOnce().get(5, TimeUnit.SECONDS);
+            assertEquals(NeoForgeRewardReplayService.Status.COMPLETED, results.get(0).status());
+            assertEquals(0, actions.calls.get());
+            assertEquals(1, runtime.accounting().load(playerId).orElseThrow().allTimeTotal());
+        }
+    }
+
+    @Test
     void rewardKeysHonorConfiguredYamlCaseSensitivity() throws Exception {
         writeConfiguration(false);
         Files.writeString(directory.resolve("VoteSites.yml"), Files.readString(directory.resolve("VoteSites.yml"))
@@ -568,6 +612,53 @@ class NeoForgeRewardReplayServiceTest {
         }
     }
 
+    @Test
+    void thrownNativeCommandDispatchIsReportedAsUncertain() {
+        NeoForgeServerScheduler scheduler = new NeoForgeServerScheduler();
+        ThrowingCommandServer server = new ThrowingCommandServer();
+        try {
+            NeoForgeNativeRewardActions actions = new NeoForgeNativeRewardActions(
+                    server, scheduler, new NeoForgePlayerDirectory());
+            NeoForgeDeferredVote vote = new NeoForgeDeferredVote(UUID.randomUUID(), UUID.randomUUID(),
+                    "Alex", "Service", "Supported", 100L, true, true, true);
+            NeoForgeRewardPlan plan = new NeoForgeRewardPlan(NeoForgeRewardPlan.Status.READY,
+                    List.of(new NeoForgeRewardPlan.Action(
+                            NeoForgeRewardPlan.ActionType.CONSOLE_COMMAND, "say test")), false, "test");
+
+            CompletableFuture<Void> completion = actions.execute(vote, plan);
+            scheduler.onServerTick();
+
+            java.util.concurrent.ExecutionException failure = assertThrows(
+                    java.util.concurrent.ExecutionException.class,
+                    () -> completion.get(5, TimeUnit.SECONDS));
+            assertTrue(failure.getCause() instanceof NeoForgeNativeRewardActions.UncertainRewardOutcomeException);
+            assertEquals(1, server.commands.dispatches.get());
+        } finally {
+            scheduler.close();
+        }
+    }
+
+    @Test
+    void uncertainRewardStopsAutomaticReplay() throws Exception {
+        writeConfiguration(false);
+        UUID playerId = UUID.randomUUID();
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            runtime.players().joined(new SharedVoteIdentity(playerId, "Alex", true));
+            retain(runtime, UUID.randomUUID(), playerId, "Service");
+            NeoForgeRewardActions uncertainActions = (vote, plan) -> CompletableFuture.failedFuture(
+                    new NeoForgeNativeRewardActions.UncertainRewardOutcomeException("uncertain"));
+            try (NeoForgeRewardReplayService replay = new NeoForgeRewardReplayService(runtime.voteConfiguration(),
+                    new NeoForgeRewardConfiguration(runtime.config(), runtime.voteSites(), runtime.specialRewards()),
+                    runtime.accounting(), runtime.deferredVotes(), runtime.players(), uncertainActions)) {
+                CompletableFuture<List<NeoForgeRewardReplayService.ReplayResult>> result = replay.replayOnce();
+                assertEquals(NeoForgeRewardReplayService.Status.REWARD_UNCERTAIN,
+                        result.get(5, TimeUnit.SECONDS).get(0).status());
+                assertTrue(replay.replayOnce().get(5, TimeUnit.SECONDS).isEmpty());
+                assertEquals(1, runtime.deferredVotes().pending(playerId).size());
+            }
+        }
+    }
+
     private NeoForgeRewardReplayService service(NeoForgeRuntime runtime, RecordingActions actions) {
         actions.scheduler = runtime.scheduler();
         return new NeoForgeRewardReplayService(runtime.voteConfiguration(),
@@ -682,5 +773,28 @@ class NeoForgeRewardReplayServiceTest {
 
     public static final class FailingParseResult {
         public java.util.Map<String, String> getExceptions() { return java.util.Map.of("unknown", "command"); }
+    }
+
+    public static final class ThrowingCommandServer {
+        final ThrowingCommands commands = new ThrowingCommands();
+        public ThrowingCommands getCommands() { return commands; }
+        public Object createCommandSourceStack() { return new Object(); }
+    }
+
+    public static final class ThrowingCommands {
+        final AtomicInteger dispatches = new AtomicInteger();
+        public PassingDispatcher getDispatcher() { return new PassingDispatcher(); }
+        public int performPrefixedCommand(Object source, String command) {
+            dispatches.incrementAndGet();
+            throw new IllegalStateException("command handler failed after dispatch");
+        }
+    }
+
+    public static final class PassingDispatcher {
+        public PassingParseResult parse(String command, Object source) { return new PassingParseResult(); }
+    }
+
+    public static final class PassingParseResult {
+        public java.util.Map<String, String> getExceptions() { return java.util.Map.of(); }
     }
 }

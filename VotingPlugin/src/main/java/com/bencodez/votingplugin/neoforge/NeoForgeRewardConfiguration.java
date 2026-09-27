@@ -39,8 +39,8 @@ final class NeoForgeRewardConfiguration {
         String unsupported = appendReward(node(voteSites, ignoreCase, "EverySiteReward"), actions,
                 "EverySiteReward");
         if (unsupported == null) {
-            unsupported = appendReward(node(voteSites, ignoreCase, "VoteSites", vote.siteKey(), "Rewards"),
-                    actions, "VoteSites." + vote.siteKey() + ".Rewards");
+            unsupported = appendReward(node(voteSites, ignoreCase, "VoteSites", site.key(), "Rewards"),
+                    actions, "VoteSites." + site.key() + ".Rewards");
         }
         if (unsupported != null) return blocked(unsupported);
         actions.replaceAll(action -> new NeoForgeRewardPlan.Action(action.type(), action.value()
@@ -149,6 +149,7 @@ final class NeoForgeRewardConfiguration {
             for (ConfigurationNode child : node.childrenList()) {
                 String value = child.getString();
                 if (value == null) return false;
+                if (type == NeoForgeRewardPlan.ActionType.PLAYER_MESSAGE && value.isEmpty()) continue;
                 if (!supportedValue(value, type)) return false;
                 output.add(new NeoForgeRewardPlan.Action(type, value));
             }
@@ -156,6 +157,7 @@ final class NeoForgeRewardConfiguration {
         }
         String value = node.getString();
         if (value == null) return node.empty();
+        if (type == NeoForgeRewardPlan.ActionType.PLAYER_MESSAGE && value.isEmpty()) return true;
         if (!supportedValue(value, type)) return false;
         output.add(new NeoForgeRewardPlan.Action(type, value));
         return true;

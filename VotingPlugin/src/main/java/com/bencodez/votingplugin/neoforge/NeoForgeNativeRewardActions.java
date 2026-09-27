@@ -58,7 +58,8 @@ final class NeoForgeNativeRewardActions implements NeoForgeRewardActions {
             throw new IllegalStateException("NeoForge reward command is invalid");
         }
         Method execute = findMethod(commands.getClass(), "performPrefixedCommand", 2);
-        Object result = invoke(commands, execute, source, command.startsWith("/") ? command.substring(1) : command);
+        Object result = invokeCommand(commands, execute, source,
+                command.startsWith("/") ? command.substring(1) : command);
         if (result instanceof Number number && number.intValue() == 0) {
             throw new UncertainRewardOutcomeException("NeoForge reward command returned an ambiguous zero result");
         }
@@ -123,8 +124,19 @@ final class NeoForgeNativeRewardActions implements NeoForgeRewardActions {
         }
     }
 
+    private static Object invokeCommand(Object receiver, Method method, Object... arguments)
+            throws ReflectiveOperationException {
+        try {
+            return method.invoke(receiver, arguments);
+        } catch (InvocationTargetException failure) {
+            throw new UncertainRewardOutcomeException(
+                    "NeoForge reward command threw after dispatch began", failure.getCause());
+        }
+    }
+
     static final class UncertainRewardOutcomeException extends IllegalStateException {
         private static final long serialVersionUID = 1L;
         UncertainRewardOutcomeException(String message) { super(message); }
+        UncertainRewardOutcomeException(String message, Throwable cause) { super(message, cause); }
     }
 }
