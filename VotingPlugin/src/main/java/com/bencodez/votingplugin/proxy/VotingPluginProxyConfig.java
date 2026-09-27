@@ -232,10 +232,20 @@ public interface VotingPluginProxyConfig {
 	public boolean getBungeeManageTotals();
 
 	/**
-	 * Gets the Bungee method.
+	 * Gets the proxy communication method.
 	 *
-	 * @return the Bungee method
+	 * @return the proxy communication method
 	 */
+	default String getProxyCommunicationMethod() {
+		return getBungeeMethod();
+	}
+
+	/**
+	 * Legacy accessor retained for compatibility with existing proxy integrations.
+	 *
+	 * @return the proxy communication method
+	 */
+	@Deprecated
 	public String getBungeeMethod();
 
 	/**
