@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.DriverManager;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -26,6 +27,21 @@ import com.bencodez.votingplugin.core.vote.SharedVoteIdentity;
 
 class NeoForgeRewardReplayServiceTest {
     @TempDir Path directory;
+
+    @Test
+    void deferredIndexesAreCreatedByReplayWorkerBeforeDiscovery() throws Exception {
+        writeConfiguration(false);
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory);
+                NeoForgeRewardReplayService replay = service(runtime, new RecordingActions())) {
+            assertFalse(indexExists("VotingPlugin_NeoForgeDeferredPending"));
+            assertFalse(indexExists("VotingPlugin_NeoForgeDeferredCompleted"));
+
+            assertTrue(replay.replayOnce().get(5, TimeUnit.SECONDS).isEmpty());
+
+            assertTrue(indexExists("VotingPlugin_NeoForgeDeferredPending"));
+            assertTrue(indexExists("VotingPlugin_NeoForgeDeferredCompleted"));
+        }
+    }
 
     @Test
     void disabledRewardProcessingKeepsRetainedVotePending() throws Exception {
@@ -857,6 +873,18 @@ class NeoForgeRewardReplayServiceTest {
         return new NeoForgeRewardReplayService(runtime.voteConfiguration(),
                 new NeoForgeRewardConfiguration(runtime.config(), runtime.voteSites(), runtime.specialRewards()),
                 runtime.accounting(), runtime.deferredVotes(), runtime.players(), actions);
+    }
+
+    private boolean indexExists(String name) throws Exception {
+        try (var connection = DriverManager.getConnection("jdbc:sqlite:"
+                    + directory.resolve("VotingPlugin.db").toAbsolutePath());
+                var query = connection.prepareStatement(
+                        "SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = ?")) {
+            query.setString(1, name);
+            try (var result = query.executeQuery()) {
+                return result.next();
+            }
+        }
     }
 
     private NeoForgeRewardReplayService.ReplayResult runOne(NeoForgeRuntime runtime,

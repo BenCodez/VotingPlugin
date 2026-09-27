@@ -61,6 +61,7 @@ public final class NeoForgeDeferredVoteStore {
     private int retainedCount = -1;
     private int completedCount = -1;
     private boolean replayCandidatesInitialized;
+    private volatile boolean rowIndexesInitialized;
 
     NeoForgeDeferredVoteStore(SqlUserBackend backend) {
         this(backend, MAX_DEFERRED_PER_USER, MAX_DEFERRED_TOTAL,
@@ -83,7 +84,6 @@ public final class NeoForgeDeferredVoteStore {
         this.totalLimit = totalLimit;
         this.completedPerUserLimit = completedPerUserLimit;
         this.completedTotalLimit = completedTotalLimit;
-        initializeRelevantRowIndexes();
     }
 
     static List<UserDataKey> storageKeys() {
@@ -385,7 +385,8 @@ public final class NeoForgeDeferredVoteStore {
         completedCount = completed;
     }
 
-    private void initializeRelevantRowIndexes() {
+    void initializeRelevantRowIndexes() {
+        if (rowIndexesInitialized) return;
         if (!(backend instanceof SqliteUserBackend sqlite)) {
             throw new IllegalStateException("NeoForge deferred votes require the SQLite user backend");
         }
@@ -401,6 +402,7 @@ public final class NeoForgeDeferredVoteStore {
                 PreparedStatement completed = connection.prepareStatement(completedSql)) {
             pending.executeUpdate();
             completed.executeUpdate();
+            rowIndexesInitialized = true;
         } catch (SQLException failure) {
             throw new IllegalStateException("Failed to index deferred NeoForge vote rows", failure);
         }

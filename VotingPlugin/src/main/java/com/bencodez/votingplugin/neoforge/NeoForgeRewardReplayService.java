@@ -73,6 +73,7 @@ public final class NeoForgeRewardReplayService implements AutoCloseable {
         try {
             worker.execute(() -> {
                 try {
+                    deferred.initializeRelevantRowIndexes();
                     ArrayList<CompletableFuture<ReplayResult>> work = new ArrayList<>();
                     List<UUID> users = deferred.users();
                     int visits = Math.min(MAX_USERS_PER_RUN, users.size());
