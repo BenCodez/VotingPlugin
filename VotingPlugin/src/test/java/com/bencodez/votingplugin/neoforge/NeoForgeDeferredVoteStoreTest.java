@@ -32,6 +32,22 @@ class NeoForgeDeferredVoteStoreTest {
     @TempDir Path directory;
 
     @Test
+    void restartDiscoveryIncludesOnlyRowsWithDeferredPayloads() throws IOException {
+        writeConfiguration();
+        UUID historical = UUID.randomUUID();
+        UUID pending = UUID.randomUUID();
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            runtime.storage().user(historical).write(UserStorage.SQLITE,
+                    NeoForgeVoteAccountingStore.PLAYER_NAME, new DataValueString("Historical"));
+            runtime.players().joined(new SharedVoteIdentity(pending, "Pending", true));
+            runtime.voteProcessor().process(complete(UUID.randomUUID(), pending, 100L));
+        }
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            assertEquals(List.of(pending), runtime.deferredVotes().users());
+        }
+    }
+
+    @Test
     void completionAtomicallyReplacesPendingVoteWithRestartSafeReceipt() throws IOException {
         writeConfiguration();
         UUID playerId = UUID.randomUUID();

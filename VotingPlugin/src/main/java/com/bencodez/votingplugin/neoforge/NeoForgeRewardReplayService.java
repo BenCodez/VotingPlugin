@@ -17,6 +17,8 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
 
+import com.bencodez.votingplugin.util.MinecraftUsernameValidator;
+
 /** Bounded storage-worker replay for retained COMPLETE NeoForge votes. */
 public final class NeoForgeRewardReplayService implements AutoCloseable {
     private static final Logger LOGGER = Logger.getLogger(NeoForgeRewardReplayService.class.getName());
@@ -128,6 +130,10 @@ public final class NeoForgeRewardReplayService implements AutoCloseable {
     private CompletableFuture<ReplayResult> replay(NeoForgeDeferredVote vote) {
         NeoForgeDeferredVote effectiveVote = players.online(vote.playerId())
                 .map(identity -> vote.withPlayerName(identity.playerName())).orElse(vote);
+        if (!MinecraftUsernameValidator.isValid(effectiveVote.playerName(), configuration.bedrockPlayerPrefix())) {
+            return CompletableFuture.completedFuture(delayed(vote, Status.BLOCKED_UNSUPPORTED,
+                    "Retained player name is invalid and cannot be used in rewards", 60));
+        }
         NeoForgeVoteSite site = configuration.configuredSite(vote.siteKey()).orElse(null);
         if (site == null) return CompletableFuture.completedFuture(
                 delayed(vote, Status.BLOCKED_UNSUPPORTED, "Configured vote site no longer exists", 60));
@@ -142,10 +148,24 @@ public final class NeoForgeRewardReplayService implements AutoCloseable {
         if (claim == null) return CompletableFuture.completedFuture(
                 result(vote, Status.NOT_CLAIMED, "Vote is already claimed or completion capacity is unavailable"));
         CompletableFuture<ReplayResult> completion = new CompletableFuture<>();
-        CompletionStage<Void> action = plan.actions().isEmpty()
-                ? CompletableFuture.completedFuture(null) : actions.execute(effectiveVote, plan);
+        CompletionStage<Void> action;
+        try {
+            action = plan.actions().isEmpty()
+                    ? CompletableFuture.completedFuture(null) : actions.execute(effectiveVote, plan);
+        } catch (RuntimeException failure) {
+            claim.close();
+            return CompletableFuture.completedFuture(rewardFailure(vote, failure));
+        }
         action.whenComplete((ignored, failure) -> dispatchCompletion(claim, effectiveVote, site, failure, completion));
         return completion;
+    }
+
+    private ReplayResult rewardFailure(NeoForgeDeferredVote vote, Throwable failure) {
+        if (containsUncertainOutcome(failure)) {
+            retryAfter.put(vote.voteId(), Long.MAX_VALUE);
+            return result(vote, Status.REWARD_UNCERTAIN, safeFailure(failure));
+        }
+        return delayed(vote, Status.REWARD_FAILED, safeFailure(failure), 5);
     }
 
     private void dispatchCompletion(NeoForgeDeferredVoteStore.Claim claim, NeoForgeDeferredVote vote,
@@ -153,12 +173,7 @@ public final class NeoForgeRewardReplayService implements AutoCloseable {
         Runnable finish = () -> {
             if (failure != null) {
                 claim.close();
-                if (containsUncertainOutcome(failure)) {
-                    retryAfter.put(vote.voteId(), Long.MAX_VALUE);
-                    completion.complete(result(vote, Status.REWARD_UNCERTAIN, safeFailure(failure)));
-                    return;
-                }
-                completion.complete(delayed(vote, Status.REWARD_FAILED, safeFailure(failure), 5));
+                completion.complete(rewardFailure(vote, failure));
                 return;
             }
             try (claim) {

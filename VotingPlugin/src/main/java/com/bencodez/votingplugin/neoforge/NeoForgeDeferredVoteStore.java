@@ -147,7 +147,12 @@ public final class NeoForgeDeferredVoteStore {
      */
     public synchronized List<UUID> users() {
         if (!replayCandidatesInitialized) {
-            replayCandidates.addAll(backend.enumerateUsers());
+            for (UUID playerId : backend.enumerateUsers()) {
+                if (replayCandidates.size() >= totalLimit) break;
+                Map<String, DataValue> row = row(backend.user(playerId).readRow(backend.storageType()));
+                String pending = value(row, DEFERRED_VOTES);
+                if (pending != null && !pending.isEmpty()) replayCandidates.add(playerId);
+            }
             replayCandidatesInitialized = true;
         }
         return List.copyOf(replayCandidates);

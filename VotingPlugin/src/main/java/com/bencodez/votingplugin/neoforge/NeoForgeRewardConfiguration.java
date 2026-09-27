@@ -171,15 +171,15 @@ final class NeoForgeRewardConfiguration {
                 || !LEGACY_COLOR.matcher(value).find();
     }
 
-    private static boolean hasEnabledChild(ConfigurationNode parent) {
+    private boolean hasEnabledChild(ConfigurationNode parent) {
         return parent.childrenMap().values().stream()
-                .anyMatch(child -> node(child, true, "Enabled").getBoolean(true));
+                .anyMatch(child -> node(child, ignoreCase, "Enabled").getBoolean(true));
     }
 
-    private static boolean hasEnabledRewardDefinition(ConfigurationNode parent) {
-        if (!node(parent, true, "Rewards").empty()
-                && node(parent, true, "Enabled").getBoolean(true)) return true;
-        return parent.childrenMap().values().stream().anyMatch(NeoForgeRewardConfiguration::hasEnabledRewardDefinition);
+    private boolean hasEnabledRewardDefinition(ConfigurationNode parent) {
+        if (!node(parent, ignoreCase, "Rewards").empty()
+                && node(parent, ignoreCase, "Enabled").getBoolean(true)) return true;
+        return parent.childrenMap().values().stream().anyMatch(this::hasEnabledRewardDefinition);
     }
 
     private static NeoForgeRewardPlan blocked(String detail) {

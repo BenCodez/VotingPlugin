@@ -102,6 +102,71 @@ class NeoForgeRewardReplayServiceTest {
     }
 
     @Test
+    void persistedLegacyNameIsRevalidatedBeforeRewardExecution() throws Exception {
+        writeConfiguration(false);
+        UUID playerId = UUID.randomUUID();
+        UUID voteId = UUID.randomUUID();
+        RecordingActions actions = new RecordingActions();
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            runtime.storage().user(playerId).write(com.bencodez.advancedcore.api.user.UserStorage.SQLITE,
+                    NeoForgeDeferredVoteStore.DEFERRED_VOTES, new com.bencodez.simpleapi.sql.data.DataValueString(
+                            "v1|" + voteId + "|QGE|U2VydmljZQ|U3VwcG9ydGVk|100|true|true|false"));
+        }
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory);
+                NeoForgeRewardReplayService replay = service(runtime, actions)) {
+            List<NeoForgeRewardReplayService.ReplayResult> results = replay.replayOnce().get(5, TimeUnit.SECONDS);
+            assertEquals(NeoForgeRewardReplayService.Status.BLOCKED_UNSUPPORTED, results.get(0).status());
+            assertEquals(0, actions.calls.get());
+            assertEquals(1, runtime.deferredVotes().pending(playerId).size());
+        }
+    }
+
+    @Test
+    void synchronousActionFailureReleasesClaimForLaterReplay() throws Exception {
+        writeConfiguration(false);
+        UUID playerId = UUID.randomUUID();
+        RecordingActions actions = new RecordingActions();
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            runtime.players().joined(new SharedVoteIdentity(playerId, "Alex", true));
+            retain(runtime, UUID.randomUUID(), playerId, "Service");
+            actions.throwSynchronously = true;
+            try (NeoForgeRewardReplayService replay = service(runtime, actions)) {
+                assertEquals(NeoForgeRewardReplayService.Status.REWARD_FAILED,
+                        replay.replayOnce().get(5, TimeUnit.SECONDS).get(0).status());
+            }
+            actions.throwSynchronously = false;
+            try (NeoForgeRewardReplayService replay = service(runtime, actions)) {
+                assertEquals(NeoForgeRewardReplayService.Status.COMPLETED,
+                        runOne(runtime, replay, actions).status());
+            }
+        }
+    }
+
+    @Test
+    void specialRewardGuardsHonorStrictYamlCasing() throws Exception {
+        writeConfiguration(false);
+        Files.writeString(directory.resolve("SpecialRewards.yml"), """
+                VoteParty:
+                  Enabled: false
+                VoteMilestones:
+                  First:
+                    enabled: false
+                    Rewards:
+                      Commands: ['say milestone']
+                """);
+        UUID playerId = UUID.randomUUID();
+        RecordingActions actions = new RecordingActions();
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory);
+                NeoForgeRewardReplayService replay = service(runtime, actions)) {
+            runtime.players().joined(new SharedVoteIdentity(playerId, "Alex", true));
+            retain(runtime, UUID.randomUUID(), playerId, "Service");
+            assertEquals(NeoForgeRewardReplayService.Status.BLOCKED_UNSUPPORTED,
+                    replay.replayOnce().get(5, TimeUnit.SECONDS).get(0).status());
+            assertEquals(0, actions.calls.get());
+        }
+    }
+
+    @Test
     void supportedRewardCompletesAccountingAndTombstoneOnceAcrossRestart() throws Exception {
         writeConfiguration(false);
         UUID playerId = UUID.randomUUID();
@@ -539,9 +604,11 @@ class NeoForgeRewardReplayServiceTest {
         final AtomicReference<Thread> executionThread = new AtomicReference<>();
         NeoForgeServerScheduler scheduler;
         boolean fail;
+        boolean throwSynchronously;
 
         @Override public CompletableFuture<Void> execute(NeoForgeDeferredVote vote, NeoForgeRewardPlan plan) {
             calls.incrementAndGet();
+            if (throwSynchronously) throw new IllegalStateException("expected synchronous failure");
             CompletableFuture<Void> result = scheduler.executeAsync(() -> {
                 executionThread.set(Thread.currentThread());
                 if (fail) throw new IllegalStateException("expected");
