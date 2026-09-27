@@ -16,8 +16,8 @@ public final class ServiceSiteValidator {
 	 *
 	 * @param serviceSite service-site name supplied by a vote source
 	 * @return {@code true} for a bounded, visible service-site name that does not
-	 *         contain formatting or placeholder delimiters. Percent-encoded URL
-	 *         octets remain supported.
+	 *         contain formatting or placeholder delimiters. One percent-encoded
+	 *         URL octet remains supported where it cannot form a delimiter pair.
 	 */
 	public static boolean isValid(String serviceSite) {
 		if (serviceSite == null || serviceSite.length() > MAX_LENGTH) {
@@ -25,12 +25,19 @@ public final class ServiceSiteValidator {
 		}
 
 		boolean hasVisibleCharacter = false;
+		boolean sawPercentEncodedOctet = false;
 		for (int offset = 0; offset < serviceSite.length();) {
 			int codePoint = serviceSite.codePointAt(offset);
 			if (codePoint == '%') {
-				if (!isPercentEncodedOctet(serviceSite, offset)) {
+				// PlaceholderAPI treats any pair of percent signs as a possible
+				// placeholder boundary. Even individually valid URL octets such as
+				// "%be_secret%20" can therefore select an expansion after this value
+				// is inserted into a configured message. A single encoded octet is
+				// unambiguous; a second one is not safe at this trust boundary.
+				if (sawPercentEncodedOctet || !isPercentEncodedOctet(serviceSite, offset)) {
 					return false;
 				}
+				sawPercentEncodedOctet = true;
 				hasVisibleCharacter = true;
 				offset += 3;
 				continue;
