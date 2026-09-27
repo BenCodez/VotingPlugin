@@ -908,7 +908,11 @@ public abstract class MultiProxyHandler {
 		JsonEnvelope decrypted = decryptEnvelope(verification.envelope());
 		if (decrypted == null) return;
 		if (verification.unsignedCompatibility() && suppressUnsignedBridgeCopy(decrypted, channel)) return;
-		handleEnvelope(decrypted);
+		try {
+			handleEnvelope(decrypted);
+		} finally {
+			if (verification.unsignedCompatibility()) extendUnsignedBridgeWindow(decrypted, channel);
+		}
 	}
 
 	private void acceptEncryptedEnvelope(JsonEnvelope envelope) {
@@ -939,32 +943,24 @@ public abstract class MultiProxyHandler {
 		String fingerprint = unsignedBridgeFingerprint(envelope);
 		long now = unsignedBridgeNowNanos();
 		UnsignedBridgeCopies copies = unsignedBridgeCopies.get(fingerprint);
-		// Do not expire an unmatched first copy while its paired callback is waiting
-		// behind this handler's monitor. Slow vote/storage processing can legitimately
-		// exceed the ordinary bridge window.
-		if (copies == null || (copies.paired() && copies.expiresAtNanos <= now)) {
-			if (copies != null) unsignedBridgeCopies.remove(fingerprint);
-			if (unsignedBridgeCopies.size() >= MAX_UNSIGNED_BRIDGE_ENTRIES
-					&& !removePairedUnsignedBridgeEntry()) return true;
-			copies = new UnsignedBridgeCopies();
+		if (copies == null || copies.expiresAtNanos <= now) {
+			if (unsignedBridgeCopies.size() >= MAX_UNSIGNED_BRIDGE_ENTRIES)
+				unsignedBridgeCopies.remove(unsignedBridgeCopies.keySet().iterator().next());
+			copies = new UnsignedBridgeCopies(now + UNSIGNED_BRIDGE_WINDOW_NANOS);
 			unsignedBridgeCopies.put(fingerprint, copies);
 		}
 		// Count copies per channel so two identical legitimate publications on the
 		// same channel still run twice, even when both bridge copies arrive later.
 		boolean suppress = onPrefixed ? ++copies.prefixed <= copies.legacy : ++copies.legacy <= copies.prefixed;
-		if (copies.paired()) copies.expiresAtNanos = now + UNSIGNED_BRIDGE_WINDOW_NANOS;
 		return suppress;
 	}
 
-	private boolean removePairedUnsignedBridgeEntry() {
-		var iterator = unsignedBridgeCopies.entrySet().iterator();
-		while (iterator.hasNext()) {
-			if (iterator.next().getValue().paired()) {
-				iterator.remove();
-				return true;
-			}
-		}
-		return false;
+	private synchronized void extendUnsignedBridgeWindow(JsonEnvelope envelope, String channel) {
+		if (!useLegacyMultiProxyRedisChannel() || channel == null
+				|| hasOriginBoundReliableVoteIdentity(envelope)) return;
+		String fingerprint = unsignedBridgeFingerprint(envelope);
+		UnsignedBridgeCopies copies = unsignedBridgeCopies.get(fingerprint);
+		if (copies != null) copies.expiresAtNanos = unsignedBridgeNowNanos() + UNSIGNED_BRIDGE_WINDOW_NANOS;
 	}
 
 	private static boolean hasOriginBoundReliableVoteIdentity(JsonEnvelope envelope) {
@@ -995,12 +991,12 @@ public abstract class MultiProxyHandler {
 	}
 
 	private static final class UnsignedBridgeCopies {
-		private long expiresAtNanos = Long.MAX_VALUE;
+		private long expiresAtNanos;
 		private int prefixed;
 		private int legacy;
 
-		private boolean paired() {
-			return prefixed == legacy;
+		private UnsignedBridgeCopies(long expiresAtNanos) {
+			this.expiresAtNanos = expiresAtNanos;
 		}
 	}
 
