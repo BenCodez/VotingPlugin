@@ -144,18 +144,62 @@ public final class ServiceSiteValidator {
 
 	/** Breaks only token openers that a trusted template places before the placeholder. */
 	public static String inertTemplateBoundaries(String template, String placeholder) {
+		return inertTemplateBoundaries(template, placeholder, null);
+	}
+
+	/** Breaks token syntax completed on either side of one substituted external value. */
+	public static String inertTemplateBoundaries(String template, String placeholder, String value) {
 		if (template == null || placeholder == null || placeholder.isEmpty()) return template;
 		String token = "%" + placeholder + "%";
 		StringBuilder result = null;
 		int copiedThrough = 0;
 		for (int offset = 0; offset <= template.length() - token.length(); offset++) {
-			if (!template.regionMatches(true, offset, token, 0, token.length())
-					|| !opensActionTokenAt(template, offset)) continue;
+			if (!template.regionMatches(true, offset, token, 0, token.length())) continue;
+			boolean leading = opensActionTokenAt(template, offset);
+			boolean trailing = closesValueTokenAt(template, offset + token.length(), value);
+			if (!leading && !trailing) continue;
 			if (result == null) result = new StringBuilder(template.length() + 4);
-			result.append(template, copiedThrough, offset).append(FORMATTING_BOUNDARY);
-			copiedThrough = offset;
+			result.append(template, copiedThrough, offset);
+			if (leading) result.append(FORMATTING_BOUNDARY);
+			result.append(template, offset, offset + token.length());
+			if (trailing) result.append(FORMATTING_BOUNDARY);
+			copiedThrough = offset + token.length();
+			offset += token.length() - 1;
 		}
 		return result == null ? template : result.append(template, copiedThrough, template.length()).toString();
+	}
+
+	private static boolean closesValueTokenAt(String template, int offset, String value) {
+		if (value == null || value.isEmpty() || offset >= template.length()) return false;
+		if (template.charAt(offset) == '%' && endsWithPlaceholderFragment(value)) return true;
+		int ampersand = value.lastIndexOf('&');
+		if (ampersand < 0) return false;
+		String partial = value.substring(ampersand + 1);
+		if (partial.isEmpty()) {
+			return isLegacyColorCode(template.charAt(offset)) || completesHexColor(template, offset, 6, true);
+		}
+		if (partial.charAt(0) != '#' || partial.length() > 6) return false;
+		for (int index = 1; index < partial.length(); index++) {
+			if (Character.digit(partial.charAt(index), 16) < 0) return false;
+		}
+		return completesHexColor(template, offset, 7 - partial.length(), false);
+	}
+
+	private static boolean completesHexColor(String template, int offset, int hexCharacters, boolean hashRequired) {
+		if (hashRequired) {
+			if (template.charAt(offset) != '#') return false;
+			offset++;
+		}
+		if (hexCharacters <= 0 || offset + hexCharacters > template.length()) return false;
+		for (int index = offset; index < offset + hexCharacters; index++) {
+			if (Character.digit(template.charAt(index), 16) < 0) return false;
+		}
+		return true;
+	}
+
+	private static boolean endsWithPlaceholderFragment(String value) {
+		int opener = value.lastIndexOf('%');
+		return opener >= 0 && isPlaceholderFragment(value, opener + 1, value.length());
 	}
 
 	private static boolean opensActionTokenAt(String template, int offset) {

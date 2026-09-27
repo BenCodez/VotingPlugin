@@ -195,9 +195,9 @@ public class VoteSite {
 
 	private ConfigurationSection rewardDataForActions(ConfigurationSection root, String path) {
 		boolean serviceBoundary = serviceSiteFromAutomaticCreation
-				&& containsLeadingActionBoundary(root == null ? null : root.get(path), "ServiceSite");
+				&& containsActionBoundary(root == null ? null : root.get(path), "ServiceSite", getServiceSite());
 		boolean nameBoundary = displayNameFallback && automaticallyCreatedVoteSite
-				&& containsLeadingActionBoundary(root == null ? null : root.get(path), "SiteName");
+				&& containsActionBoundary(root == null ? null : root.get(path), "SiteName", getDisplayName());
 		if (!serviceBoundary && !nameBoundary) return root;
 		YamlConfiguration isolated = new YamlConfiguration();
 		copyRewardValue(isolated, path, root.get(path), serviceBoundary, nameBoundary);
@@ -218,8 +218,10 @@ public class VoteSite {
 
 	private Object copyRewardObject(Object value, boolean serviceBoundary, boolean nameBoundary) {
 		if (value instanceof String text) {
-			if (serviceBoundary) text = ServiceSiteValidator.inertTemplateBoundaries(text, "ServiceSite");
-			if (nameBoundary) text = ServiceSiteValidator.inertTemplateBoundaries(text, "SiteName");
+			if (serviceBoundary)
+				text = ServiceSiteValidator.inertTemplateBoundaries(text, "ServiceSite", getServiceSite());
+			if (nameBoundary)
+				text = ServiceSiteValidator.inertTemplateBoundaries(text, "SiteName", getDisplayName());
 			return text;
 		}
 		if (value instanceof java.util.List<?> list) {
@@ -237,14 +239,16 @@ public class VoteSite {
 		return value;
 	}
 
-	private boolean containsLeadingActionBoundary(Object value, String placeholder) {
+	private boolean containsActionBoundary(Object value, String placeholder, String replacement) {
 		if (value instanceof String text)
-			return ServiceSiteValidator.requiresLeadingActionBoundary(text, placeholder);
+			return !text.equals(ServiceSiteValidator.inertTemplateBoundaries(text, placeholder, replacement));
 		if (value instanceof ConfigurationSection section) value = section.getValues(false);
 		if (value instanceof java.util.Map<?, ?> map) {
-			for (Object nested : map.values()) if (containsLeadingActionBoundary(nested, placeholder)) return true;
+			for (Object nested : map.values())
+				if (containsActionBoundary(nested, placeholder, replacement)) return true;
 		} else if (value instanceof Iterable<?> values) {
-			for (Object nested : values) if (containsLeadingActionBoundary(nested, placeholder)) return true;
+			for (Object nested : values)
+				if (containsActionBoundary(nested, placeholder, replacement)) return true;
 		}
 		return false;
 	}

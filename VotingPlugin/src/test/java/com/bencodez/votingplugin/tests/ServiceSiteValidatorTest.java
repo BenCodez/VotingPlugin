@@ -100,6 +100,15 @@ class ServiceSiteValidatorTest {
 		assertEquals("literal 50% %ServiceSite% and &source %ServiceSite%",
 				ServiceSiteValidator.inertTemplateBoundaries(
 						"literal 50% %ServiceSite% and &source %ServiceSite%", "ServiceSite"));
+		assertEquals("unsafe %ServiceSite%\u2060% and safe %ServiceSite%",
+				ServiceSiteValidator.inertTemplateBoundaries(
+						"unsafe %ServiceSite%% and safe %ServiceSite%", "ServiceSite", "%player_name"));
+		assertEquals("unsafe %ServiceSite%\u2060a",
+				ServiceSiteValidator.inertTemplateBoundaries(
+						"unsafe %ServiceSite%a", "ServiceSite", "&"));
+		assertEquals("unsafe %ServiceSite%\u2060cdef",
+				ServiceSiteValidator.inertTemplateBoundaries(
+						"unsafe %ServiceSite%cdef", "ServiceSite", "&#ab"));
 	}
 
 	@Test
