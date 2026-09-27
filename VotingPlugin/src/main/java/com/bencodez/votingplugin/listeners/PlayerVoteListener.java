@@ -40,7 +40,7 @@ public class PlayerVoteListener implements Listener {
 			event.completeProcessing();
 			return;
 		}
-		if (!VoteTaskAdmission.isVoteTask() && Bukkit.isPrimaryThread()) {
+		if (!VoteTaskAdmission.isVoteTask() && (Bukkit.isPrimaryThread() || !event.isAsynchronous())) {
 			if (event.isDeferredDeliveryCompletion()) {
 				failAdmission(event, new SharedVoteAdmissionException(
 						"Durable vote producer must retry processing from the vote executor"));

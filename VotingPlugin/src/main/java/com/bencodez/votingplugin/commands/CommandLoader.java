@@ -93,6 +93,7 @@ import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.user.PointTransferResult;
 import com.bencodez.votingplugin.util.BukkitCompletionScheduler;
+import com.bencodez.votingplugin.util.BukkitVoteEventDispatcher;
 import com.bencodez.votingplugin.voteshop.service.VoteShopPurchaseResult;
 import com.bencodez.votingplugin.voteshop.shop.VoteShopEntry;
 import com.bencodez.votingplugin.voteshop.shop.VoteShopItem;
@@ -130,7 +131,7 @@ public class CommandLoader {
 	}
 
 	private void callVoteAndReport(CommandSender sender, PlayerVoteEvent event, Runnable success) {
-		plugin.getServer().getPluginManager().callEvent(event);
+		BukkitVoteEventDispatcher.dispatch(plugin, event);
 		event.getProcessingCompletion().whenComplete((completed, failure) -> runForCommandSender(sender, () -> {
 			if (failure != null || completed.isProcessingIncomplete()) {
 				sender.sendMessage(MessageAPI.colorize(

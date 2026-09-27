@@ -33,6 +33,7 @@ import com.bencodez.votingplugin.commands.gui.admin.AdminVoteVoteParty;
 import com.bencodez.votingplugin.commands.gui.admin.milestones.AdminVoteVoteMilestones;
 import com.bencodez.votingplugin.commands.gui.admin.voteshop.AdminVoteVoteShop;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
+import com.bencodez.votingplugin.util.BukkitVoteEventDispatcher;
 import com.bencodez.votingplugin.votesites.VoteSite;
 
 /**
@@ -324,7 +325,7 @@ public class AdminGUI {
 								if (ob != null) {
 									VoteSite site = (VoteSite) ob;
 									PlayerVoteEvent voteEvent = new PlayerVoteEvent(site, value, site.getServiceSite(), false, false);
-									plugin.getServer().getPluginManager().callEvent(voteEvent);
+									BukkitVoteEventDispatcher.dispatch(plugin, voteEvent);
 									voteEvent.getProcessingCompletion().whenComplete((completed, failure) -> {
 										if (failure == null && !completed.isProcessingIncomplete()) return;
 										plugin.getBukkitScheduler().runTask(plugin,

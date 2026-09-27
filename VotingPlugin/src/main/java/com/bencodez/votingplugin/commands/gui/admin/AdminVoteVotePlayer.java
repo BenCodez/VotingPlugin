@@ -12,6 +12,7 @@ import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.inventory.editgui.EditGUI;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
+import com.bencodez.votingplugin.util.BukkitVoteEventDispatcher;
 import com.bencodez.votingplugin.votesites.VoteSite;
 
 /**
@@ -83,9 +84,7 @@ public class AdminVoteVotePlayer extends GUIHandler {
 	}
 
 	void dispatchVote(Player player, PlayerVoteEvent voteEvent) {
-		// Dispatch from the player-owned thread so PlayerVoteListener can capture
-		// Bukkit state before it hands storage and accounting to the vote worker.
-		plugin.getServer().getPluginManager().callEvent(voteEvent);
+		BukkitVoteEventDispatcher.dispatch(plugin, voteEvent);
 		voteEvent.getProcessingCompletion().whenComplete((completed, failure) -> {
 			if (failure == null && !completed.isProcessingIncomplete()) return;
 			plugin.getBukkitScheduler().runTask(plugin,

@@ -69,6 +69,24 @@ class PlayerVoteListenerAdmissionTest {
 	}
 
 	@Test
+	void synchronousFoliaOwnedEventDefersAccountingWhenNotOnPrimaryThread() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		ScheduledExecutorService voteExecutor = mock(ScheduledExecutorService.class);
+		PlayerVoteEvent event = new PlayerVoteEvent(null, "player", "site", false, false);
+		when(plugin.getVoteTimer()).thenReturn(voteExecutor);
+
+		try (MockedStatic<Bukkit> bukkit = org.mockito.Mockito.mockStatic(Bukkit.class)) {
+			bukkit.when(Bukkit::isPrimaryThread).thenReturn(false);
+			bukkit.when(() -> Bukkit.getPlayerExact("player")).thenReturn(null);
+			new PlayerVoteListener(plugin).onplayerVote(event);
+		}
+
+		verify(voteExecutor).submit(any(Runnable.class));
+		assertTrue(event.isProcessingPending());
+		assertFalse(event.getProcessingCompletion().toCompletableFuture().isDone());
+	}
+
+	@Test
 	void asynchronousFailureCompletesTheProducerSignal() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);
 		ScheduledExecutorService voteExecutor = mock(ScheduledExecutorService.class);
