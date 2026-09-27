@@ -193,6 +193,9 @@ public final class SharedVoteProcessor {
         String userId = ops.userId(user);
         ops.cache(user);
         ops.updateName(user);
+        // Targeted proxy votes preserve the historical state sampled when the vote
+        // was accepted. All-server delivery additionally requires local presence so
+        // one network-wide online vote cannot advance every backend's VoteParty.
         boolean onlineAtVoteTime = ops.proxyVote()
                 ? ops.wasOnline() && (ops.targetedProxyVote() || ops.userOnline(user))
                 : ops.userOnline(user);

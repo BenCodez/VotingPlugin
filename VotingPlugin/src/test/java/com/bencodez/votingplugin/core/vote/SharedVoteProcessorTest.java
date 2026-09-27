@@ -222,9 +222,10 @@ class SharedVoteProcessorTest {
     }
 
     @Test
-    void proxyVoteUsesHistoricalOfflineStateForVotePartyWhenPlayerIsNowOnline() {
+    void targetedProxyVotePreservesHistoricalOfflineStateWhenPlayerIsNowOnline() {
         var ops = accepted();
         when(ops.proxyVote()).thenReturn(true);
+        when(ops.targetedProxyVote()).thenReturn(true);
         when(ops.wasOnline()).thenReturn(false);
         when(ops.userOnline(user)).thenReturn(true);
 
@@ -234,9 +235,22 @@ class SharedVoteProcessorTest {
     }
 
     @Test
-    void proxyVoteDoesNotUseProxyWideOnlineStateWhenPlayerIsOfflineOnBackend() {
+    void allServerProxyVoteRequiresLocalPresenceWhenHistoricallyOnline() {
         var ops = accepted();
         when(ops.proxyVote()).thenReturn(true);
+        when(ops.targetedProxyVote()).thenReturn(false);
+        when(ops.wasOnline()).thenReturn(true);
+        when(ops.userOnline(user)).thenReturn(false);
+
+        SharedVoteProcessor.process(ops);
+
+        verify(ops).voteParty(user, true, false, false);
+    }
+
+    @Test
+    void normalNonProxyVoteStillUsesCurrentBackendPresence() {
+        var ops = accepted();
+        when(ops.proxyVote()).thenReturn(false);
         when(ops.wasOnline()).thenReturn(true);
         when(ops.userOnline(user)).thenReturn(false);
 
@@ -259,15 +273,36 @@ class SharedVoteProcessorTest {
     }
 
     @Test
-    void proxyVoteCountsForVotePartyWhenPlayerWasAndRemainsOnlineOnBackend() {
+    void allServerProxyVoteCountsWhenHistoricallyAndLocallyOnline() {
         var ops = accepted();
         when(ops.proxyVote()).thenReturn(true);
+        when(ops.targetedProxyVote()).thenReturn(false);
         when(ops.wasOnline()).thenReturn(true);
         when(ops.userOnline(user)).thenReturn(true);
 
         SharedVoteProcessor.process(ops);
 
         verify(ops).voteParty(user, true, false, true);
+    }
+
+    @Test
+    void allServerVoteAdvancesOnlyTheBackendWherePlayerIsLocallyOnline() {
+        var onlineBackend = accepted();
+        when(onlineBackend.proxyVote()).thenReturn(true);
+        when(onlineBackend.targetedProxyVote()).thenReturn(false);
+        when(onlineBackend.wasOnline()).thenReturn(true);
+        when(onlineBackend.userOnline(user)).thenReturn(true);
+        var otherBackend = accepted();
+        when(otherBackend.proxyVote()).thenReturn(true);
+        when(otherBackend.targetedProxyVote()).thenReturn(false);
+        when(otherBackend.wasOnline()).thenReturn(true);
+        when(otherBackend.userOnline(user)).thenReturn(false);
+
+        SharedVoteProcessor.process(onlineBackend);
+        SharedVoteProcessor.process(otherBackend);
+
+        verify(onlineBackend).voteParty(user, true, false, true);
+        verify(otherBackend).voteParty(user, true, false, false);
     }
 
     @Test
