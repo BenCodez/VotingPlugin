@@ -3,6 +3,7 @@ package com.bencodez.votingplugin.votesites;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.YamlConfiguration;
 
 import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.messages.PlaceholderUtils;
@@ -151,12 +152,10 @@ public class VoteSite {
 		// Service-site values can originate at the Votifier trust boundary. Preserve
 		// ordinary identifiers exactly, but break placeholder/color token syntax before
 		// reward actions (including console commands) consume externally supplied text.
-		ConfigurationSection rewardData = plugin.getConfigVoteSites().getData();
+		ConfigurationSection rewardData = rewardDataForActions(plugin.getConfigVoteSites().getData(), path);
 		return new RewardBuilder(rewardData, path).setOnline(online)
-				.withPlaceHolder("ServiceSite", getServiceSiteForActions(
-						requiresLeadingActionBoundary(rewardData, path, "ServiceSite")))
-				.withPlaceHolder("SiteName", getDisplayNameForActions(
-						requiresLeadingActionBoundary(rewardData, path, "SiteName")))
+				.withPlaceHolder("ServiceSite", getServiceSiteForActions())
+				.withPlaceHolder("SiteName", getDisplayNameForActions())
 				.withDisplayPlaceHolder("ServiceSite", getServiceSiteForFormatting())
 				.withDisplayPlaceHolder("SiteName", getDisplayNameForFormatting())
 				.withPlaceHolder("VoteDelay", "" + getVoteDelay()).withPlaceHolder("VoteURL", getVoteURL())
@@ -194,8 +193,48 @@ public class VoteSite {
 				? ServiceSiteValidator.inertForActions(getDisplayName(), leadingBoundary) : getDisplayName();
 	}
 
-	private boolean requiresLeadingActionBoundary(ConfigurationSection root, String path, String placeholder) {
-		return root != null && containsLeadingActionBoundary(root.get(path), placeholder);
+	private ConfigurationSection rewardDataForActions(ConfigurationSection root, String path) {
+		boolean serviceBoundary = serviceSiteFromAutomaticCreation
+				&& containsLeadingActionBoundary(root == null ? null : root.get(path), "ServiceSite");
+		boolean nameBoundary = displayNameFallback && automaticallyCreatedVoteSite
+				&& containsLeadingActionBoundary(root == null ? null : root.get(path), "SiteName");
+		if (!serviceBoundary && !nameBoundary) return root;
+		YamlConfiguration isolated = new YamlConfiguration();
+		copyRewardValue(isolated, path, root.get(path), serviceBoundary, nameBoundary);
+		return isolated;
+	}
+
+	private void copyRewardValue(ConfigurationSection target, String path, Object value,
+			boolean serviceBoundary, boolean nameBoundary) {
+		if (value instanceof ConfigurationSection section) {
+			ConfigurationSection copy = target.createSection(path);
+			for (java.util.Map.Entry<String, Object> entry : section.getValues(false).entrySet()) {
+				copyRewardValue(copy, entry.getKey(), entry.getValue(), serviceBoundary, nameBoundary);
+			}
+			return;
+		}
+		target.set(path, copyRewardObject(value, serviceBoundary, nameBoundary));
+	}
+
+	private Object copyRewardObject(Object value, boolean serviceBoundary, boolean nameBoundary) {
+		if (value instanceof String text) {
+			if (serviceBoundary) text = ServiceSiteValidator.inertTemplateBoundaries(text, "ServiceSite");
+			if (nameBoundary) text = ServiceSiteValidator.inertTemplateBoundaries(text, "SiteName");
+			return text;
+		}
+		if (value instanceof java.util.List<?> list) {
+			java.util.ArrayList<Object> copy = new java.util.ArrayList<>(list.size());
+			for (Object entry : list) copy.add(copyRewardObject(entry, serviceBoundary, nameBoundary));
+			return copy;
+		}
+		if (value instanceof java.util.Map<?, ?> map) {
+			java.util.LinkedHashMap<Object, Object> copy = new java.util.LinkedHashMap<>();
+			for (java.util.Map.Entry<?, ?> entry : map.entrySet()) {
+				copy.put(entry.getKey(), copyRewardObject(entry.getValue(), serviceBoundary, nameBoundary));
+			}
+			return copy;
+		}
+		return value;
 	}
 
 	private boolean containsLeadingActionBoundary(Object value, String placeholder) {

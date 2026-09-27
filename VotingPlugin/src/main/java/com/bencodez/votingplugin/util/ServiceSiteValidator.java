@@ -120,6 +120,23 @@ public final class ServiceSiteValidator {
 		return false;
 	}
 
+	/** Breaks only token openers that a trusted template places before the placeholder. */
+	public static String inertTemplateBoundaries(String template, String placeholder) {
+		if (template == null || placeholder == null || placeholder.isEmpty()) return template;
+		String token = "%" + placeholder + "%";
+		StringBuilder result = null;
+		int copiedThrough = 0;
+		for (int offset = 0; offset <= template.length() - token.length(); offset++) {
+			if (!template.regionMatches(true, offset, token, 0, token.length()) || offset == 0) continue;
+			char previous = template.charAt(offset - 1);
+			if (previous != '%' && previous != '&') continue;
+			if (result == null) result = new StringBuilder(template.length() + 4);
+			result.append(template, copiedThrough, offset).append(FORMATTING_BOUNDARY);
+			copiedThrough = offset;
+		}
+		return result == null ? template : result.append(template, copiedThrough, template.length()).toString();
+	}
+
 	private static boolean isDisallowed(int codePoint) {
 		if (codePoint == '[' || codePoint == ']' || codePoint == '\'' || codePoint == '"' || codePoint == '`'
 				|| codePoint == '\u00A7'

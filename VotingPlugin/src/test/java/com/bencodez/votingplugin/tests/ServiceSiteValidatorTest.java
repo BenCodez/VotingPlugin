@@ -65,6 +65,15 @@ class ServiceSiteValidatorTest {
 	}
 
 	@Test
+	void guardsOnlyOffendingTemplateOccurrences() {
+		assertEquals("safe %ServiceSite%",
+				ServiceSiteValidator.inertTemplateBoundaries("safe %ServiceSite%", "ServiceSite"));
+		assertEquals("unsafe %\u2060%ServiceSite% and &\u2060%ServiceSite%",
+				ServiceSiteValidator.inertTemplateBoundaries(
+						"unsafe %%ServiceSite% and &%ServiceSite%", "ServiceSite"));
+	}
+
+	@Test
 	void rejectsMissingAndOversizedNames() {
 		assertFalse(ServiceSiteValidator.isValid(null));
 		assertFalse(ServiceSiteValidator.isValid(""));
