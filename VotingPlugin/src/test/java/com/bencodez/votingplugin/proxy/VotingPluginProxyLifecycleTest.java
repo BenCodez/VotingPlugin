@@ -2,6 +2,7 @@ package com.bencodez.votingplugin.proxy;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -46,6 +47,35 @@ import com.bencodez.votingplugin.proxy.security.TransportEnvelopeEncryption;
 import com.bencodez.votingplugin.tests.VotingPluginProxyTestImpl;
 
 class VotingPluginProxyLifecycleTest {
+	@Test
+	void authenticatedSocketRequiresAuthenticatedReliableDeliveryCapability(@TempDir Path dataDirectory)
+			throws Exception {
+		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
+		proxy.setMethod(BungeeMethod.SOCKETS);
+		Path keyFile = dataDirectory.resolve("secretkey.key");
+		Files.writeString(keyFile, Base64.getEncoder().encodeToString(
+				"0123456789abcdef0123456789abcdef".getBytes(StandardCharsets.US_ASCII)));
+		SharedTransportEnvelopeAuthenticator authenticator = SharedTransportEnvelopeAuthenticator.load(
+				keyFile, Mode.REQUIRED);
+		setField(proxy, "socketAuthenticators", Map.of("backend-a", authenticator));
+		Method update = VotingPluginProxy.class.getDeclaredMethod(
+				"updateReliableVoteDeliveryCapability", String.class, JsonEnvelope.class);
+		update.setAccessible(true);
+
+		update.invoke(proxy, "backend-a", VotingPluginWire.statusOkay("backend-a"));
+		@SuppressWarnings("unchecked")
+		Set<String> reliable = (Set<String>) field(proxy, "reliableVoteDeliveryServers");
+		assertFalse(reliable.contains("backend-a"));
+
+		update.invoke(proxy, "backend-a", VotingPluginWire.authenticatedSocketVoteDeliveryCapability(
+				VotingPluginWire.statusOkay("backend-a")));
+		assertTrue(reliable.contains("backend-a"));
+
+		setField(proxy, "socketAuthenticators", Map.of());
+		update.invoke(proxy, "legacy-backend", VotingPluginWire.statusOkay("legacy-backend"));
+		assertTrue(reliable.contains("legacy-backend"));
+	}
+
 	@Test
 	void standaloneSocketPathUsesCommunicationEnvelopeEncryption(@TempDir Path dataDirectory) throws Exception {
 		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();

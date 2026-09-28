@@ -367,9 +367,15 @@ public final class NeoForgeProxySocketService implements AutoCloseable {
     }
 
     private static JsonEnvelope supportedCapabilities(JsonEnvelope envelope) {
-        if (!envelope.getFields().containsKey(VotingPluginWire.K_VOTE_DELAY_REJECTION_ACK_VERSION)) return envelope;
-        JsonEnvelope.Builder builder = JsonEnvelope.builder(envelope.getSubChannel()).schema(envelope.getSchema());
-        envelope.getFields().forEach((key, value) -> {
+        if (!switch (envelope.getSubChannel()) {
+            case VotingPluginWire.SUB_STATUS_OKAY, VotingPluginWire.SUB_BACKEND_STARTED,
+                    VotingPluginWire.SUB_BACKEND_HEARTBEAT -> true;
+            default -> false;
+        }) return envelope;
+        JsonEnvelope authenticated = VotingPluginWire.authenticatedSocketVoteDeliveryCapability(envelope);
+        JsonEnvelope.Builder builder = JsonEnvelope.builder(authenticated.getSubChannel())
+                .schema(authenticated.getSchema());
+        authenticated.getFields().forEach((key, value) -> {
             if (!VotingPluginWire.K_VOTE_DELAY_REJECTION_ACK_VERSION.equals(key)) builder.put(key, value);
         });
         return builder.build();

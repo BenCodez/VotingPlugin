@@ -946,7 +946,11 @@ public abstract class VotingPluginProxy {
 	private void updateReliableVoteDeliveryCapability(String server, JsonEnvelope message) {
 		if (server == null || server.isBlank() || !isServerValid(server)) return;
 		String key = server.trim().toLowerCase(Locale.ROOT);
-		if (VotingPluginWire.advertisesVoteDeliveryAcknowledgement(message)) {
+		boolean authenticatedSocket = method == BungeeMethod.SOCKETS && socketAuthenticators.containsKey(key);
+		boolean supportsReliableDelivery = authenticatedSocket
+				? VotingPluginWire.advertisesAuthenticatedSocketVoteDelivery(message)
+				: VotingPluginWire.advertisesVoteDeliveryAcknowledgement(message);
+		if (supportsReliableDelivery) {
 			legacyVoteDeliveryServers.remove(key);
 			reliableVoteDeliveryServers.add(key);
 		} else {

@@ -322,6 +322,17 @@ public class VotingPluginWireTest {
 	}
 
 	@Test
+	public void authenticatedSocketCapabilityCannotBeSelectedAsLegacyReliableDelivery() {
+		JsonEnvelope legacy = VotingPluginWire.statusOkay("survival");
+		JsonEnvelope authenticated = VotingPluginWire.authenticatedSocketVoteDeliveryCapability(legacy);
+
+		assertTrue(VotingPluginWire.advertisesVoteDeliveryAcknowledgement(legacy));
+		assertFalse(VotingPluginWire.advertisesAuthenticatedSocketVoteDelivery(legacy));
+		assertFalse(VotingPluginWire.advertisesVoteDeliveryAcknowledgement(authenticated));
+		assertTrue(VotingPluginWire.advertisesAuthenticatedSocketVoteDelivery(authenticated));
+	}
+
+	@Test
 	public void malformedControlEnrollmentIsRejected() {
 		JsonEnvelope malformed = JsonEnvelope.builder(VotingPluginWire.SUB_CONTROL_ENROLLMENT_REQUEST)
 				.schema(VotingPluginWire.SCHEMA_VERSION).put(VotingPluginWire.K_NODE_ID, "../proxy")

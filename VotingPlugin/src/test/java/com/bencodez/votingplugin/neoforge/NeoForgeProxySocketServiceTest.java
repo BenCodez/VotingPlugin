@@ -400,7 +400,8 @@ class NeoForgeProxySocketServiceTest {
                 service.receive(fromProxy(VotingPluginWire.status("neoforge", requestId)));
                 assertEquals(VotingPluginWire.SUB_STATUS_OKAY, only(sent).getSubChannel());
                 assertEquals(requestId.toString(), only(sent).getFields().get(VotingPluginWire.K_REQUEST_ID));
-                assertTrue(VotingPluginWire.advertisesVoteDeliveryAcknowledgement(only(sent)));
+                assertFalse(VotingPluginWire.advertisesVoteDeliveryAcknowledgement(only(sent)));
+                assertTrue(VotingPluginWire.advertisesAuthenticatedSocketVoteDelivery(only(sent)));
                 assertFalse(VotingPluginWire.advertisesVoteDelayRejectionAcknowledgement(only(sent)));
                 sent.clear();
                 var identity = new com.bencodez.votingplugin.core.vote.SharedVoteIdentity(playerId, "Alex", true);
@@ -426,7 +427,9 @@ class NeoForgeProxySocketServiceTest {
                         VotingPluginWire.SUB_BACKEND_STARTED.equals(message.getSubChannel())
                                 || VotingPluginWire.SUB_BACKEND_HEARTBEAT.equals(message.getSubChannel())).toList();
                 assertFalse(capabilities.isEmpty());
-                assertTrue(capabilities.stream().allMatch(VotingPluginWire::advertisesVoteDeliveryAcknowledgement));
+                assertTrue(capabilities.stream().noneMatch(VotingPluginWire::advertisesVoteDeliveryAcknowledgement));
+                assertTrue(capabilities.stream()
+                        .allMatch(VotingPluginWire::advertisesAuthenticatedSocketVoteDelivery));
                 assertTrue(capabilities.stream().noneMatch(
                         VotingPluginWire::advertisesVoteDelayRejectionAcknowledgement));
             }
