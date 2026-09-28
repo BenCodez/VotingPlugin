@@ -8,9 +8,11 @@ import java.util.regex.Pattern;
 
 import org.spongepowered.configurate.ConfigurationNode;
 
+import com.bencodez.votingplugin.util.ServiceSiteValidator;
+
 /** Parses the first NeoForge-safe subset of existing VotingPlugin reward YAML. */
 final class NeoForgeRewardConfiguration {
-    private static final Pattern UNRESOLVED_PLACEHOLDER = Pattern.compile("%[^%]+%");
+    private static final Pattern UNRESOLVED_PLACEHOLDER = Pattern.compile("%[^%\\p{Cf}]+%");
     private static final Pattern LEGACY_COLOR = Pattern.compile("(?i)(?:&[0-9A-FK-ORX]|&#[0-9A-F]{6}|\\u00A7)");
     private final ConfigurationNode config;
     private final ConfigurationNode voteSites;
@@ -43,9 +45,7 @@ final class NeoForgeRewardConfiguration {
                     actions, "VoteSites." + site.key() + ".Rewards");
         }
         if (unsupported != null) return blocked(unsupported);
-        actions.replaceAll(action -> new NeoForgeRewardPlan.Action(action.type(), action.value()
-                .replace("%SiteName%", site.displayName()).replace("%sitename%", site.displayName())
-                .replace("%ServiceSite%", vote.serviceSite()).replace("%servicesite%", vote.serviceSite())));
+        actions.replaceAll(action -> expand(action, vote, site));
         if (actions.stream().anyMatch(action -> !supportedValue(action.value(), action.type()))) {
             return blocked("Expanded reward action contains unsupported formatting or placeholders");
         }
@@ -67,6 +67,15 @@ final class NeoForgeRewardConfiguration {
         return new NeoForgeRewardPlan(NeoForgeRewardPlan.Status.READY, actions,
                 needsPlayer || (!actions.isEmpty() && !site.giveOfflineRewards()),
                 "Supported reward configuration is ready");
+    }
+
+    private static NeoForgeRewardPlan.Action expand(NeoForgeRewardPlan.Action action,
+            NeoForgeDeferredVote vote, NeoForgeVoteSite site) {
+        String serviceSite = action.type() == NeoForgeRewardPlan.ActionType.PLAYER_MESSAGE
+                ? ServiceSiteValidator.inertForFormatting(vote.serviceSite()) : vote.serviceSite();
+        return new NeoForgeRewardPlan.Action(action.type(), action.value()
+                .replace("%SiteName%", site.displayName()).replace("%sitename%", site.displayName())
+                .replace("%ServiceSite%", serviceSite).replace("%servicesite%", serviceSite));
     }
 
     private String unsupportedGlobalBehavior() {
