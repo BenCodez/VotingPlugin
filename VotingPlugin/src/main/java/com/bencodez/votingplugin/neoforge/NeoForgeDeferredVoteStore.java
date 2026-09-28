@@ -309,8 +309,17 @@ public final class NeoForgeDeferredVoteStore {
                             value(row(scope.readRow()), COMPLETED_DEFERRED_VOTES));
                     for (int index = 0; index < completed.size(); index++) {
                         CompletionReceipt receipt = completed.get(index);
-                        if (!receipt.voteId().equals(voteId) || receipt.expired()) continue;
+                        if (!receipt.voteId().equals(voteId)) continue;
                         if (receipt.released()) {
+                            if (receipt.expired()) {
+                                completed.removeIf(candidate -> candidate.released() && candidate.expired());
+                                if (releasedReceiptCount(completed) >= releasedPerUserLimit) {
+                                    return new Mutation<>(ReleaseResult.RELEASE_CAPACITY_REACHED, 0, 0);
+                                }
+                                completed.add(new CompletionReceipt(voteId, System.currentTimeMillis()));
+                                scope.writeValues(Map.of(COMPLETED_DEFERRED_VOTES,
+                                        new DataValueString(serializeCompleted(completed))));
+                            }
                             return new Mutation<>(ReleaseResult.ALREADY_RELEASED, 0, 0);
                         }
                         completed.removeIf(candidate -> candidate.released() && candidate.expired());

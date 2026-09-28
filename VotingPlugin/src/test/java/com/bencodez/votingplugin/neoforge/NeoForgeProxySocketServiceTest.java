@@ -230,6 +230,26 @@ class NeoForgeProxySocketServiceTest {
     }
 
     @Test
+    void expiredReleaseRetryIsRenewedAndAcknowledged() throws IOException {
+        UUID playerId = UUID.randomUUID();
+        UUID voteId = UUID.randomUUID();
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            runtime.storage().user(playerId).write(com.bencodez.advancedcore.api.user.UserStorage.SQLITE,
+                    NeoForgeDeferredVoteStore.COMPLETED_DEFERRED_VOTES,
+                    new com.bencodez.simpleapi.sql.data.DataValueString("v2|" + voteId + "|"
+                            + (System.currentTimeMillis() - TimeUnit.DAYS.toMillis(8))));
+            CopyOnWriteArrayList<JsonEnvelope> sent = new CopyOnWriteArrayList<>();
+            try (NeoForgeProxySocketService service = service(runtime, sent)) {
+                sent.clear();
+                service.receive(fromProxy(VotingPluginWire.voteDeliveryReceiptRelease(
+                        "neoforge", voteId, VotingPluginWire.SUB_VOTE, playerId.toString())));
+                assertEquals(VotingPluginWire.SUB_VOTE_DELIVERY_RECEIPT_RELEASE_ACK,
+                        only(sent).getSubChannel());
+            }
+        }
+    }
+
+    @Test
     void fullReleaseReceiptCapacityWithholdsAcknowledgement() throws IOException {
         UUID playerId = UUID.randomUUID();
         UUID firstVote = UUID.randomUUID();
@@ -468,6 +488,47 @@ class NeoForgeProxySocketServiceTest {
                         UUID.randomUUID(), "Alex", true);
                 assertTimeout(Duration.ofMillis(200), () -> service.playerOnline(identity));
                 assertTimeout(Duration.ofSeconds(2), service::close);
+            } finally {
+                release.countDown();
+                service.close();
+            }
+        }
+    }
+
+    @Test
+    void rejectedPresenceSendTriggersAuthoritativeRecoveryAfterQueueDrains() throws Exception {
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            CountDownLatch entered = new CountDownLatch(1);
+            CountDownLatch release = new CountDownLatch(1);
+            CountDownLatch recovered = new CountDownLatch(1);
+            CopyOnWriteArrayList<JsonEnvelope> sent = new CopyOnWriteArrayList<>();
+            NeoForgeProxySocketService service = new NeoForgeProxySocketService(
+                    new NeoForgeProxySocketConfiguration(true, "neoforge", "proxy1", "127.0.0.1", 1297,
+                            "127.0.0.1", 1298, "socket-auth.key", false, false),
+                    runtime.voteProcessor(), runtime.players(), envelope -> {
+                        sent.add(envelope);
+                        if (VotingPluginWire.SUB_BACKEND_STARTED.equals(envelope.getSubChannel())
+                                && Long.parseLong(envelope.getFields().get(VotingPluginWire.K_PRESENCE_TIMESTAMP))
+                                > Long.parseLong(envelope.getFields().get(VotingPluginWire.K_BACKEND_STARTED_AT))) {
+                            recovered.countDown();
+                        }
+                        entered.countDown();
+                        try {
+                            release.await();
+                        } catch (InterruptedException interrupted) {
+                            Thread.currentThread().interrupt();
+                        }
+                    }, proxyAuthenticator,
+                    TransportEnvelopeEncryption.disabled(TransportEnvelopeEncryption.Domain.PROXY_BACKEND),
+                    () -> { }, true);
+            try {
+                assertTrue(entered.await(1, TimeUnit.SECONDS));
+                for (int index = 0; index < 140; index++) {
+                    service.playerOnline(new com.bencodez.votingplugin.core.vote.SharedVoteIdentity(
+                            UUID.randomUUID(), "Player" + index, true));
+                }
+                release.countDown();
+                assertTrue(recovered.await(5, TimeUnit.SECONDS));
             } finally {
                 release.countDown();
                 service.close();

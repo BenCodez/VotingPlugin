@@ -697,6 +697,32 @@ class NeoForgeDeferredVoteStoreTest {
     }
 
     @Test
+    void repeatedReleaseRenewsExpiredTombstoneAcrossRestart() throws IOException {
+        writeConfiguration();
+        UUID playerId = UUID.randomUUID();
+        UUID voteId = UUID.randomUUID();
+        long expired = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(8);
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            runtime.storage().user(playerId).write(UserStorage.SQLITE,
+                    NeoForgeDeferredVoteStore.COMPLETED_DEFERRED_VOTES,
+                    new DataValueString("v2|" + voteId + "|" + expired));
+
+            assertEquals(NeoForgeDeferredVoteStore.ReleaseResult.ALREADY_RELEASED,
+                    runtime.deferredVotes().release(playerId, voteId));
+            String renewed = runtime.storage().user(playerId).readRow(UserStorage.SQLITE).stream()
+                    .filter(column -> column.getName().equalsIgnoreCase(
+                            NeoForgeDeferredVoteStore.COMPLETED_DEFERRED_VOTES))
+                    .findFirst().orElseThrow().getValue().getString();
+            assertTrue(Long.parseLong(renewed.split("\\|", -1)[2]) > expired);
+        }
+
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            assertEquals(NeoForgeDeferredVoteStore.ReleaseResult.ALREADY_RELEASED,
+                    runtime.deferredVotes().release(playerId, voteId));
+        }
+    }
+
+    @Test
     void malformedCompletionReceiptsDoNotConsumePendingCapacity() throws IOException {
         writeConfiguration();
         UUID corruptPlayer = UUID.randomUUID();

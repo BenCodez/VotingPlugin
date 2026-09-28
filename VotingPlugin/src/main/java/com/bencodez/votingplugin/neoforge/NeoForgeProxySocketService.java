@@ -9,7 +9,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
@@ -50,10 +49,11 @@ public final class NeoForgeProxySocketService implements AutoCloseable {
     private final SharedTransportEnvelopeAuthenticator authenticator;
     private final TransportEnvelopeEncryption encryption;
     private final Runnable transportClose;
-    private final ExecutorService sender;
+    private final ThreadPoolExecutor sender;
     private final ScheduledExecutorService heartbeat;
     private final Map<UUID, BackendPlayerPresenceSession> sessions = new ConcurrentHashMap<>();
     private final AtomicBoolean open = new AtomicBoolean(true);
+    private final AtomicBoolean presenceDirty = new AtomicBoolean();
     private final Object sendLock = new Object();
     private final Object timestampLock = new Object();
     private final UUID incarnationId = UUID.randomUUID();
@@ -325,14 +325,45 @@ public final class NeoForgeProxySocketService implements AutoCloseable {
         envelope = supportedCapabilities(envelope);
         if (sender != null) {
             JsonEnvelope queued = envelope;
+            boolean presence = isPresenceEnvelope(queued);
             try {
-                sender.execute(() -> sendNow(queued));
+                sender.execute(() -> {
+                    try {
+                        sendNow(queued);
+                    } catch (RuntimeException failure) {
+                        if (presence) presenceDirty.set(true);
+                        LOGGER.warning("Socket send failed: " + failure.getClass().getSimpleName());
+                    } finally {
+                        recoverPresenceIfDrained();
+                    }
+                });
             } catch (RejectedExecutionException full) {
+                if (presence) presenceDirty.set(true);
                 LOGGER.warning("Send queue full; delivery rejected");
             }
             return;
         }
         sendNow(envelope);
+    }
+
+    private void recoverPresenceIfDrained() {
+        if (!open.get() || !presenceDirty.get() || !sender.getQueue().isEmpty()
+                || !presenceDirty.compareAndSet(true, false)) return;
+        try {
+            sendNow(supportedCapabilities(VotingPluginWire.backendStarted(configuration.server(), incarnationId,
+                    startedAt, nextTimestamp())));
+        } catch (RuntimeException failure) {
+            presenceDirty.set(true);
+            LOGGER.warning("Presence recovery send failed: " + failure.getClass().getSimpleName());
+        }
+    }
+
+    private static boolean isPresenceEnvelope(JsonEnvelope envelope) {
+        return switch (envelope.getSubChannel()) {
+            case VotingPluginWire.SUB_LOGIN, VotingPluginWire.SUB_LOGOUT,
+                    VotingPluginWire.SUB_BACKEND_STARTED, VotingPluginWire.SUB_PRESENCE_SNAPSHOT -> true;
+            default -> false;
+        };
     }
 
     private static JsonEnvelope supportedCapabilities(JsonEnvelope envelope) {
