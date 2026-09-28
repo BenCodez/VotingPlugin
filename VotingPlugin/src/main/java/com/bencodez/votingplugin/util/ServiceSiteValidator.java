@@ -192,13 +192,21 @@ public final class ServiceSiteValidator {
 		if (ampersand < 0) return false;
 		String partial = value.substring(ampersand + 1);
 		if (partial.isEmpty()) {
-			return isLegacyColorCode(template.charAt(offset)) || completesHexColor(template, offset, 6, true);
+			return startsPlaceholder(template, offset) || isLegacyColorCode(template.charAt(offset))
+					|| completesHexColor(template, offset, 6, true);
 		}
 		if (partial.charAt(0) != '#' || partial.length() > 6) return false;
 		for (int index = 1; index < partial.length(); index++) {
 			if (Character.digit(partial.charAt(index), 16) < 0) return false;
 		}
-		return completesHexColor(template, offset, 7 - partial.length(), false);
+		return startsPlaceholder(template, offset)
+				|| completesHexColor(template, offset, 7 - partial.length(), false);
+	}
+
+	private static boolean startsPlaceholder(String template, int offset) {
+		if (template.charAt(offset) != '%') return false;
+		int closing = template.indexOf('%', offset + 1);
+		return closing > offset + 1 && isPlaceholderFragment(template, offset + 1, closing);
 	}
 
 	private static boolean completesPlaceholder(String template, int offset) {

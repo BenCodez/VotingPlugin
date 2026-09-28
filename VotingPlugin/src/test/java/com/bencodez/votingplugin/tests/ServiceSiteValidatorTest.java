@@ -132,6 +132,12 @@ class ServiceSiteValidatorTest {
 		assertEquals("unsafe %ServiceSite%\u2060cdef",
 				ServiceSiteValidator.inertTemplateBoundaries(
 						"unsafe %ServiceSite%cdef", "ServiceSite", "&#ab"));
+		assertEquals("unsafe %ServiceSite%\u2060%SiteName%",
+				ServiceSiteValidator.inertTemplateBoundaries(
+						"unsafe %ServiceSite%%SiteName%", "ServiceSite", "a&"));
+		assertEquals("unsafe %ServiceSite%\u2060%SiteName%",
+				ServiceSiteValidator.inertTemplateBoundaries(
+						"unsafe %ServiceSite%%SiteName%", "ServiceSite", "&#ab"));
 	}
 
 	@Test
