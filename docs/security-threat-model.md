@@ -11,7 +11,7 @@ VotingPlugin runs in Bukkit/Paper/Folia servers and BungeeCord/Velocity proxies 
 The highest-value properties are:
 
 1. **Vote authenticity:** a lower-trust actor must not forge, replay, multiply, redirect, or transform one legitimate vote into extra rewards, points, totals, vote-party progress, commands, or webhook effects.
-2. **Exactly-once effects over at-least-once delivery:** retries, reconnects, broker duplication, crashes, reloads, and mixed-version handoffs may redeliver an envelope, but one logical reward-bearing vote must not execute privileged effects twice.
+2. **Deduplication within the documented at-least-once contract:** ordinary retries, reconnects, broker duplication, reloads, restarts, and mixed-version handoffs should not repeat a reward-bearing vote once completion is durably known. The documented crash window where reward side effects occur before the completion receipt becomes durable is an acknowledged ambiguous outcome of at-least-once delivery, not an exactly-once guarantee; stronger atomic reward execution would require a different reward/storage design.
 3. **Cross-node identity and membership:** transports with independent per-node credentials must prevent one authenticated node from impersonating another. Shared-key Redis/MQTT/multi-proxy authentication instead proves possession of the network-wide key and message integrity/freshness; it does **not** provide cryptographic isolation between nodes that legitimately possess that shared key.
 4. **Authorization at the final sink:** permissions, ownership, balances, limits, node/session ownership, and deployment leases must be revalidated when delayed work actually executes.
 5. **Trust-boundary preservation:** attacker-derived strings must remain data and must not become PlaceholderAPI expressions, console commands, YAML/file paths, SQL syntax, URL authority, JSON/Discord syntax, or another interpreter's code through a second parsing pass.
@@ -74,7 +74,7 @@ High-value failures include:
 - ACK before effects are durable;
 - reserving attacker-chosen IDs before required fields are validated, allowing poisoning of a future legitimate vote;
 - reservations not released after failed processing;
-- crash windows between reward execution and durable completion;
+- behavior that widens, makes attacker-controllable, or incorrectly classifies the documented ambiguous crash window between reward side effects and durable completion;
 - deleting outbox/journal state before ACK is durable;
 - partial fan-out followed by replay of already-completed destinations;
 - retirement of dedupe fences while retries can still arrive;
@@ -84,7 +84,7 @@ High-value failures include:
 - cached votes removed before confirmed delivery;
 - transport-switch migration losing or duplicating accepted work.
 
-Treat proxy/backend crashes, restarts, reloads, disconnects, and duplicate broker delivery as normal adversarial lifecycle events.
+Treat proxy/backend crashes, restarts, reloads, disconnects, and duplicate broker delivery as normal adversarial lifecycle events. However, do not report the documented at-least-once ambiguity by itself: if a backend process crashes after an external reward side effect but before its completion receipt is durable, a later retry can repeat that effect. A security finding should show a violation outside that documented contract, an attacker-controlled way to force or amplify the ambiguous outcome, premature acknowledgement/retirement, or a dedupe failure after completion was already durably recorded.
 
 ### Presence and routing
 
@@ -238,7 +238,7 @@ Previously heavily reviewed areas include shared-transport authentication, Redis
 2. A valid Redis/MQTT authenticator for one destination/type is redirected elsewhere.
 3. COMPATIBILITY -> REQUIRED migration occurs while old/new runtimes overlap.
 4. Proxy crashes after publish but before ACK.
-5. Backend crashes after reward effects but before durable completion.
+5. Backend crashes after reward effects but before durable completion; verify recovery matches the documented ambiguous at-least-once outcome and that no lower-trust actor can force, amplify, or extend it beyond that contract.
 6. Multi-proxy fan-out partially succeeds and retries after restart.
 7. Player opens an authorized shop/admin GUI, permissions/config reload, then clicks stale state.
 8. Two servers concurrently spend the same shared-MySQL points.
@@ -254,7 +254,7 @@ Previously heavily reviewed areas include shared-transport authentication, Redis
 
 **Critical:** remote unauthenticated or ordinary-player arbitrary server/OS/plugin code execution; unauthorized installation of an attacker-selected JAR; broad Control/admin authentication bypass enabling arbitrary privileged commands/configuration.
 
-**High:** forged/replayed rewards despite the configured hardened boundary; repeatable reward/economy duplication; cross-node impersonation where independent per-node identity is actually promised (for example Control or another per-node credentialed protocol); player authorization bypass to privileged actions; Control cross-node operation/deployment; practical attacker-triggered persistent resource exhaustion; repeatable theft/duplication through shared-storage races. Possession of the network-wide shared transport key by one compromised Redis/MQTT node is not, by itself, a per-node-authentication bypass because that mode authenticates shared network membership rather than isolating key-holding nodes.
+**High:** forged/replayed rewards despite the configured hardened boundary; repeatable reward/economy duplication outside the documented ambiguous at-least-once crash window; cross-node impersonation where independent per-node identity is actually promised (for example Control or another per-node credentialed protocol); player authorization bypass to privileged actions; Control cross-node operation/deployment; practical attacker-triggered persistent resource exhaustion; repeatable theft/duplication through shared-storage races. Possession of the network-wide shared transport key by one compromised Redis/MQTT node is not, by itself, a per-node-authentication bypass because that mode authenticates shared network membership rather than isolating key-holding nodes.
 
 **Medium:** prerequisite-heavy integrity failures; occasional lost/duplicate rewards; sensitive token disclosure to a limited actor; meaningful lower-privilege SSRF; message/placeholder injection with configuration-dependent privileged effect; timing-dependent reload boundary failures.
 
