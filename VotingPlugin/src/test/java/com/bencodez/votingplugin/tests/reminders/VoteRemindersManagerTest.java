@@ -52,6 +52,26 @@ import com.bencodez.votingplugin.votereminding.store.VoteReminderCooldownStore;
 @ExtendWith(MockitoExtension.class)
 public class VoteRemindersManagerTest {
 	@Test
+	void laterPlaceholderReplacesEarlierGuardProvenance() throws Exception {
+		Class<?> pendingType = Class.forName(VoteRemindersManager.class.getName() + "$PendingTriggers");
+		java.lang.reflect.Constructor<?> constructor = pendingType.getDeclaredConstructor();
+		constructor.setAccessible(true);
+		Object pending = constructor.newInstance();
+		Method merge = pendingType.getDeclaredMethod("mergePlaceholders", Map.class, Set.class);
+		merge.setAccessible(true);
+		merge.invoke(pending, Map.of("votesite", "automatic"), Set.of("votesite"));
+		merge.invoke(pending, Map.of("votesite", "manual"), Set.of());
+		Field placeholders = pendingType.getDeclaredField("placeholders");
+		Field guarded = pendingType.getDeclaredField("guardedActionPlaceholders");
+		placeholders.setAccessible(true);
+		guarded.setAccessible(true);
+
+		org.junit.jupiter.api.Assertions.assertEquals("manual",
+				((Map<?, ?>) placeholders.get(pending)).get("votesite"));
+		assertTrue(((Set<?>) guarded.get(pending)).isEmpty());
+	}
+
+	@Test
 	void shutdownDrainsClaimRollbackBeforeLateEntityCallback() throws Exception {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);
 		ServerData serverData = mock(ServerData.class);

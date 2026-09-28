@@ -344,7 +344,10 @@ public final class VoteRemindersManager {
 				return;
 			}
 			placeholders.putAll(ph);
-			if (guarded != null) guardedActionPlaceholders.addAll(guarded);
+			for (String key : ph.keySet()) {
+				if (guarded != null && guarded.contains(key)) guardedActionPlaceholders.add(key);
+				else guardedActionPlaceholders.remove(key);
+			}
 		}
 
 		List<VoteReminderType> snapshotTypes() {
