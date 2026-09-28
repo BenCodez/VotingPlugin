@@ -90,6 +90,13 @@ public class VotingPluginBungee extends Plugin implements Listener {
 	private volatile boolean reloading = false;
 
 	/**
+	 * True only after a full proxy runtime has loaded successfully. Initial startup
+	 * must fail closed when this remains false so the proxy cannot advertise an
+	 * enabled VotingPlugin while no Votifier listener is available.
+	 */
+	private volatile boolean runtimeOperational = false;
+
+	/**
 	 * Plugin messages received during reload are queued and replayed after reload.
 	 */
 	private final Queue<QueuedPluginMessage> queuedPluginMessages = new ConcurrentLinkedQueue<>();
@@ -210,6 +217,10 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		}
 
 		initializeFirstRuntime();
+		if (!runtimeOperational) {
+			getLogger().severe("VotingPlugin proxy runtime failed to initialize; votes are NOT being processed.");
+			throw new IllegalStateException("VotingPlugin proxy runtime failed to initialize");
+		}
 
 		loadVersionFile();
 		getLogger().info("VotingPlugin loaded, using method: " + getVotingPluginProxy().getMethod().toString());
@@ -222,6 +233,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 	public void onDisable() {
 		synchronized (reloadLock) {
 			reloading = true;
+			runtimeOperational = false;
 
 			cancelPlatformTasks();
 
@@ -429,6 +441,8 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				getLogger().severe("Old proxy runtime cleanup was incomplete; replacement will continue");
 				cleanupFailure.printStackTrace();
 			}
+			// From this point onward the previous runtime is no longer a safe fallback.
+			runtimeOperational = false;
 
 			// Recreate the runtime only after the old connector has drained its result.
 			VotingPluginProxy replacementRuntime = createProxyRuntime();
@@ -452,6 +466,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			// VotingPluginProxy.load)
 			if (votingPluginProxy.getProxyMySQL() == null) {
 				getLogger().severe("Reload aborted: Proxy MySQL is not initialized (see logs above).");
+				getLogger().severe("VotingPlugin proxy runtime is NOT processing incoming votes.");
 				reloading = false;
 				return;
 			}
@@ -473,6 +488,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				votingPluginProxy.reload();
 			} catch (Throwable t) {
 				getLogger().severe("Reload aborted while loading proxy state");
+				getLogger().severe("VotingPlugin proxy runtime is NOT processing incoming votes.");
 				t.printStackTrace();
 				reloading = false;
 				return;
@@ -492,6 +508,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		drainQueuedPluginMessages();
 
 		initVotifierListenerIfNeeded();
+		runtimeOperational = true;
 
 		// Send server name message again (safe)
 		try {
@@ -521,6 +538,10 @@ public class VotingPluginBungee extends Plugin implements Listener {
 	void initializeFirstRuntime() {
 		// Full initialization creates the first runtime; there is no old runtime to retire.
 		reloadPlugin(true);
+	}
+
+	boolean isRuntimeOperational() {
+		return runtimeOperational;
 	}
 
 	/** The retention branch returns from inside reloadLock; drain only after that lock is released. */
