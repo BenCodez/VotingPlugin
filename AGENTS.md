@@ -4,6 +4,10 @@ VotingPlugin is the vote-processing data plane for Bukkit/Paper and BungeeCord/V
 integration is a management adapter, never a runtime dependency: vote receipt, routing, storage, rewards, joins, commands,
 reload, and shutdown must keep working when Control is disabled, unreachable, incompatible, or restarting.
 
+## Security threat model
+
+For security reviews, vulnerability triage, and security-sensitive changes, read `docs/security-threat-model.md` before classifying or fixing findings. Treat it as the repository-specific attacker/trust-boundary model; verify every conclusion against current code and tests. Do not promote compatibility, trusted-operator behavior, or generic correctness bugs into security findings unless the documented boundary is actually crossed.
+
 ## Build and verification
 
 Requirements: JDK 21+ and Maven. The Maven project lives in the `VotingPlugin/` subdirectory.
