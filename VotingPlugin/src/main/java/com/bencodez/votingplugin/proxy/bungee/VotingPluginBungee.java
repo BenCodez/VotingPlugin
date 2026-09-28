@@ -543,7 +543,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		reloadPlugin(true);
 	}
 
-	boolean isRuntimeOperational() {
+	public boolean isRuntimeOperational() {
 		return runtimeOperational;
 	}
 
