@@ -30,10 +30,6 @@ public class VoteEventBungee implements net.md_5.bungee.api.plugin.Listener {
 	 */
 	@EventHandler
 	public void onVote(VotifierEvent event) {
-		if (!plugin.isRuntimeOperational()) {
-			plugin.getLogger().severe("Vote received while VotingPlugin proxy runtime is not operational; vote was not processed");
-			return;
-		}
 		Vote vote = event.getVote();
 		String serviceName = vote.getServiceName();
 		String serviceSite = serviceName == null || serviceName.isEmpty() ? "Empty" : serviceName;
@@ -56,6 +52,15 @@ public class VoteEventBungee implements net.md_5.bungee.api.plugin.Listener {
 
 		@Override
 		public void run() {
+			if (!plugin.isRuntimeOperational()) {
+				if (plugin.isReloading()) {
+					plugin.getProxy().getScheduler().schedule(plugin, this, 1, TimeUnit.SECONDS);
+					return;
+				}
+				plugin.getLogger().severe("Vote received while VotingPlugin proxy runtime is not operational; vote was not processed for "
+						+ MinecraftUsernameValidator.sanitizeForLog(player));
+				return;
+			}
 			plugin.getLogger().info("Vote received " + MinecraftUsernameValidator.sanitizeForLog(player)
 					+ " from service site " + MinecraftUsernameValidator.sanitizeForLog(service));
 			try {
