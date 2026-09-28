@@ -1,5 +1,10 @@
 package com.bencodez.votingplugin.util;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+
 /**
  * Validates service-site names received from vote sources.
  */
@@ -185,6 +190,67 @@ public final class ServiceSiteValidator {
 		}
 		return result == null ? template : result.append(template, copiedThrough, template.length()).toString();
 	}
+
+	/**
+	 * Breaks token syntax using the context that will remain after every supplied
+	 * placeholder is substituted.
+	 */
+	public static String inertTemplateBoundaries(String template, Map<String, String> placeholders) {
+		if (template == null || placeholders == null || placeholders.isEmpty()) return template;
+		List<TemplateOccurrence> occurrences = new ArrayList<>();
+		for (Map.Entry<String, String> entry : placeholders.entrySet()) {
+			String placeholder = entry.getKey();
+			if (placeholder == null || placeholder.isEmpty()) continue;
+			String token = "%" + placeholder + "%";
+			for (int offset = 0; offset <= template.length() - token.length(); offset++) {
+				if (template.regionMatches(true, offset, token, 0, token.length())) {
+					occurrences.add(new TemplateOccurrence(offset, token, entry.getValue()));
+					offset += token.length() - 1;
+				}
+			}
+		}
+		if (occurrences.isEmpty()) return template;
+		occurrences.sort(Comparator.comparingInt(TemplateOccurrence::offset));
+		StringBuilder result = new StringBuilder(template.length() + occurrences.size() * 2);
+		int copiedThrough = 0;
+		for (int index = 0; index < occurrences.size(); index++) {
+			TemplateOccurrence occurrence = occurrences.get(index);
+			if (occurrence.offset() < copiedThrough) continue;
+			StringBuilder context = new StringBuilder(template.length());
+			int contextThrough = 0;
+			int contextOffset = -1;
+			for (int otherIndex = 0; otherIndex < occurrences.size(); otherIndex++) {
+				TemplateOccurrence other = occurrences.get(otherIndex);
+				if (other.offset() < contextThrough) continue;
+				context.append(template, contextThrough, other.offset());
+				if (otherIndex == index) {
+					contextOffset = context.length();
+					context.append(other.token());
+				} else {
+					context.append(inertForActions(other.value() == null ? "" : other.value()));
+				}
+				contextThrough = other.offset() + other.token().length();
+			}
+			context.append(template, contextThrough, template.length());
+			if (contextOffset < 0) continue;
+			String contextText = context.toString();
+			boolean leading = opensActionTokenAt(contextText, contextOffset,
+					contextOffset + occurrence.token().length(), occurrence.value());
+			boolean trailing = closesValueTokenAt(contextText,
+					contextOffset + occurrence.token().length(), occurrence.value());
+			result.append(template, copiedThrough, occurrence.offset());
+			if (leading && (result.length() == 0
+					|| result.charAt(result.length() - 1) != FORMATTING_BOUNDARY.charAt(0))) {
+				result.append(FORMATTING_BOUNDARY);
+			}
+			result.append(occurrence.token());
+			if (trailing) result.append(FORMATTING_BOUNDARY);
+			copiedThrough = occurrence.offset() + occurrence.token().length();
+		}
+		return result.append(template, copiedThrough, template.length()).toString();
+	}
+
+	private record TemplateOccurrence(int offset, String token, String value) { }
 
 	private static boolean closesValueTokenAt(String template, int offset, String value) {
 		if (value == null || value.isEmpty() || offset >= template.length()) return false;

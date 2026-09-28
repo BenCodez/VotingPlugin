@@ -336,7 +336,7 @@ public class VoteSiteTest {
 	}
 
 	@Test
-	public void observedLegacyAutomaticFallbackStaysGuardedAfterServiceCorrection() throws Exception {
+	public void persistedObservationDoesNotReclassifyMarkerlessSite() throws Exception {
 		YamlConfiguration data = new YamlConfiguration();
 		data.set("Rewards.Commands.Console", java.util.List.of("say %%SiteName%%"));
 		when(plugin.getConfigVoteSites().getData()).thenReturn(data);
@@ -355,7 +355,7 @@ public class VoteSiteTest {
 		dataField.setAccessible(true);
 		ConfigurationSection isolated = (ConfigurationSection) dataField.get(builder);
 
-		assertEquals(java.util.List.of("say %\u2060%SiteName%%"),
+		assertEquals(java.util.List.of("say %%SiteName%%"),
 				isolated.getStringList("Rewards.Commands.Console"));
 	}
 

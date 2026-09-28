@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Map;
+
 import org.junit.jupiter.api.Test;
 
 import com.bencodez.votingplugin.util.ServiceSiteValidator;
@@ -141,6 +143,14 @@ class ServiceSiteValidatorTest {
 		assertEquals("unsafe %ServiceSite%\u2060%SiteName%",
 				ServiceSiteValidator.inertTemplateBoundaries(
 						"unsafe %ServiceSite%%SiteName%", "ServiceSite", "&#ab"));
+	}
+
+	@Test
+	void evaluatesLaterBoundariesAfterEarlierPlaceholderSubstitution() {
+		assertEquals("%ServiceSite%foo%\u2060%SiteName%%",
+				ServiceSiteValidator.inertTemplateBoundaries(
+						"%ServiceSite%foo%%SiteName%%",
+						Map.of("ServiceSite", "player_name", "SiteName", "player_name")));
 	}
 
 	@Test

@@ -35,11 +35,7 @@ public final class RewardActionTemplateGuard {
 
 	private static Object copyObject(Object value, Map<String, String> placeholders) {
 		if (value instanceof String text) {
-			for (Map.Entry<String, String> placeholder : placeholders.entrySet()) {
-				text = ServiceSiteValidator.inertTemplateBoundaries(
-						text, placeholder.getKey(), placeholder.getValue());
-			}
-			return text;
+			return ServiceSiteValidator.inertTemplateBoundaries(text, placeholders);
 		}
 		if (value instanceof java.util.List<?> list) {
 			ArrayList<Object> copy = new ArrayList<>(list.size());
@@ -58,11 +54,7 @@ public final class RewardActionTemplateGuard {
 
 	private static boolean containsBoundary(Object value, Map<String, String> placeholders) {
 		if (value instanceof String text) {
-			for (Map.Entry<String, String> placeholder : placeholders.entrySet()) {
-				if (!text.equals(ServiceSiteValidator.inertTemplateBoundaries(
-						text, placeholder.getKey(), placeholder.getValue()))) return true;
-			}
-			return false;
+			return !text.equals(ServiceSiteValidator.inertTemplateBoundaries(text, placeholders));
 		}
 		if (value instanceof ConfigurationSection section) value = section.getValues(false);
 		if (value instanceof Map<?, ?> map) {
