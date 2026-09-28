@@ -93,6 +93,22 @@ public final class ServiceSiteValidator {
 		return inertForActions(value, false);
 	}
 
+	/** Returns whether a value needs guarding before reward-action substitution. */
+	public static boolean requiresActionGuard(String value) {
+		if (value == null || value.isEmpty()) return false;
+		if (!value.equals(inertForActions(value))) return true;
+		if (endsWithPlaceholderFragment(value)) return true;
+		int ampersand = value.lastIndexOf('&');
+		if (ampersand < 0) return false;
+		String partial = value.substring(ampersand + 1);
+		if (partial.isEmpty()) return true;
+		if (partial.charAt(0) != '#' || partial.length() > 6) return false;
+		for (int index = 1; index < partial.length(); index++) {
+			if (Character.digit(partial.charAt(index), 16) < 0) return false;
+		}
+		return true;
+	}
+
 	/** Guards an action value, optionally breaking a token opened by its trusted template. */
 	public static String inertForActions(String value, boolean leadingBoundary) {
 		if (value == null || value.isEmpty()) return value == null ? "" : value;

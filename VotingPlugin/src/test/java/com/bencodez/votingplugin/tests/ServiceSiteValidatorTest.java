@@ -67,6 +67,19 @@ class ServiceSiteValidatorTest {
 	}
 
 	@Test
+	void identifiesCompleteAndBoundaryCompletableActionSyntax() {
+		assertTrue(ServiceSiteValidator.requiresActionGuard("%player_name%"));
+		assertTrue(ServiceSiteValidator.requiresActionGuard("player_name%"));
+		assertTrue(ServiceSiteValidator.requiresActionGuard("site%"));
+		assertTrue(ServiceSiteValidator.requiresActionGuard("&aGreen"));
+		assertTrue(ServiceSiteValidator.requiresActionGuard("Site&"));
+		assertTrue(ServiceSiteValidator.requiresActionGuard("Site&#ab"));
+		assertFalse(ServiceSiteValidator.requiresActionGuard("Top 100% Servers"));
+		assertTrue(ServiceSiteValidator.requiresActionGuard("R&D"));
+		assertFalse(ServiceSiteValidator.requiresActionGuard("site%20name"));
+	}
+
+	@Test
 	void detectsOnlyTemplatesThatOpenSyntaxBeforeThePlaceholder() {
 		assertTrue(ServiceSiteValidator.requiresLeadingActionBoundary("say %%ServiceSite%%", "ServiceSite"));
 		assertTrue(ServiceSiteValidator.requiresLeadingActionBoundary("say &%SiteName%", "SiteName"));
