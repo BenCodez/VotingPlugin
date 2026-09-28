@@ -807,6 +807,51 @@ class NeoForgeRewardReplayServiceTest {
     }
 
     @Test
+    void playerMessageKeepsFallbackSiteNamePlaceholderTextInert() throws Exception {
+        writeConfiguration(false);
+        String sites = Files.readString(directory.resolve("VoteSites.yml"));
+        Files.writeString(directory.resolve("VoteSites.yml"), sites
+                .replace("  Supported:\n    Enabled: true\n    Name: Supported Display",
+                        "  '%player%':\n    Enabled: true")
+                .replace("Commands:\n      - 'say %player%'",
+                        "Messages:\n        Player: 'Thanks %player% from %SiteName%'"));
+        UUID playerId = UUID.randomUUID();
+        RecordingActions actions = new RecordingActions();
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory);
+                NeoForgeRewardReplayService replay = service(runtime, actions)) {
+            runtime.players().joined(new SharedVoteIdentity(playerId, "Alex", true));
+            retain(runtime, UUID.randomUUID(), playerId, "Service");
+
+            assertEquals(NeoForgeRewardReplayService.Status.COMPLETED,
+                    runOne(runtime, replay, actions).status());
+            assertEquals(List.of("Thanks Alex from \u2060%\u2060player%\u2060\u2060"), actions.rendered);
+            assertTrue(runtime.deferredVotes().pending(playerId).isEmpty());
+        }
+    }
+
+    @Test
+    void richPlayerMessageRemainsPendingInsteadOfCompletingAsLiteralText() throws Exception {
+        writeConfiguration(false);
+        String sites = Files.readString(directory.resolve("VoteSites.yml"));
+        Files.writeString(directory.resolve("VoteSites.yml"), sites.replace(
+                "Commands:\n      - 'say %player%'",
+                "Messages:\n        Player: '[Text=\"Vote\",url=\"https://example.com\"]'"));
+        UUID playerId = UUID.randomUUID();
+        RecordingActions actions = new RecordingActions();
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory);
+                NeoForgeRewardReplayService replay = service(runtime, actions)) {
+            runtime.players().joined(new SharedVoteIdentity(playerId, "Alex", true));
+            retain(runtime, UUID.randomUUID(), playerId, "Service");
+
+            List<NeoForgeRewardReplayService.ReplayResult> result = replay.replayOnce().get(5, TimeUnit.SECONDS);
+
+            assertEquals(NeoForgeRewardReplayService.Status.BLOCKED_UNSUPPORTED, result.get(0).status());
+            assertEquals(0, actions.calls.get());
+            assertEquals(1, runtime.deferredVotes().pending(playerId).size());
+        }
+    }
+
+    @Test
     void mixedCommandsAndMessagesRemainPendingBeforeAnyEffect() throws Exception {
         writeConfiguration(false);
         String sites = Files.readString(directory.resolve("VoteSites.yml"));

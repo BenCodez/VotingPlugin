@@ -8,13 +8,21 @@ import java.time.ZoneId;
 import java.util.Objects;
 
 /** Configuration needed to identify a vote site and enforce its vote-delay policy. */
-public record NeoForgeVoteSite(String key, String displayName, String serviceSite,
+public record NeoForgeVoteSite(String key, String displayName, boolean displayNameFallback, String serviceSite,
         int priority, long voteDelayMillis, boolean enabled, boolean waitUntilVoteDelay,
         boolean voteDelayDaily, int voteDelayDailyHour, boolean giveOfflineRewards) {
 
     public NeoForgeVoteSite {
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(displayName, "displayName");
+    }
+
+    /** Preserves the original constructor for callers supplying an explicit display name. */
+    public NeoForgeVoteSite(String key, String displayName, String serviceSite,
+            int priority, long voteDelayMillis, boolean enabled, boolean waitUntilVoteDelay,
+            boolean voteDelayDaily, int voteDelayDailyHour, boolean giveOfflineRewards) {
+        this(key, displayName, false, serviceSite, priority, voteDelayMillis, enabled,
+                waitUntilVoteDelay, voteDelayDaily, voteDelayDailyHour, giveOfflineRewards);
     }
 
     boolean canResolveIncomingVote() {
