@@ -292,6 +292,27 @@ public class VoteSiteTest {
 	}
 
 	@Test
+	public void correctedDelimiterFreeLegacyFallbackCannotCompleteTemplatePlaceholder() throws Exception {
+		YamlConfiguration data = new YamlConfiguration();
+		data.set("Rewards.Commands.Console", java.util.List.of("say %%SiteName%%"));
+		when(plugin.getConfigVoteSites().getData()).thenReturn(data);
+		when(plugin.getConfigVoteSites().getServiceSite(anyString())).thenReturn("corrected.example");
+		when(plugin.getConfigVoteSites().getDisplayName(anyString())).thenReturn("");
+		VoteSite voteSite = new VoteSite(plugin, "player_name");
+		java.lang.reflect.Method factory = VoteSite.class.getDeclaredMethod("createRewardBuilder", String.class,
+				boolean.class, boolean.class);
+		factory.setAccessible(true);
+
+		RewardBuilder builder = (RewardBuilder) factory.invoke(voteSite, "Rewards", true, false);
+		java.lang.reflect.Field dataField = RewardBuilder.class.getDeclaredField("data");
+		dataField.setAccessible(true);
+		ConfigurationSection isolated = (ConfigurationSection) dataField.get(builder);
+
+		assertEquals(java.util.List.of("say %\u2060%SiteName%%"),
+				isolated.getStringList("Rewards.Commands.Console"));
+	}
+
+	@Test
 	public void configuredServiceSiteRemainsExactInRewardActions() {
 		when(plugin.getConfigVoteSites().getServiceSite(anyString())).thenReturn("Configured%Service%&Value");
 		VoteSite voteSite = new VoteSite(plugin, "site.test");

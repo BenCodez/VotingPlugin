@@ -196,8 +196,12 @@ public class VoteSite {
 	private ConfigurationSection rewardDataForActions(ConfigurationSection root, String path) {
 		boolean serviceBoundary = serviceSiteFromAutomaticCreation
 				&& containsActionBoundary(root == null ? null : root.get(path), "ServiceSite", getServiceSite());
-		boolean nameBoundary = displayNameFallback && automaticallyCreatedVoteSite
-				&& containsActionBoundary(root == null ? null : root.get(path), "SiteName", getDisplayName());
+		// Markerless legacy keys can be indistinguishable from manual keys after an
+		// administrator corrects ServiceSite. Guard that ambiguous fallback only when
+		// the consuming template would turn it into action syntax.
+		boolean nameBoundary = displayNameFallback
+				&& containsActionBoundary(root == null ? null : root.get(path), "SiteName", getDisplayName())
+				&& (automaticallyCreatedVoteSite || !ServiceSiteValidator.requiresActionGuard(getDisplayName()));
 		if (!serviceBoundary && !nameBoundary) return root;
 		YamlConfiguration isolated = new YamlConfiguration();
 		copyRewardValue(isolated, path, root.get(path), serviceBoundary, nameBoundary);
