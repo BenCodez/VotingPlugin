@@ -4177,10 +4177,11 @@ public abstract class VotingPluginProxy {
 		return false;
 	}
 
-	private static boolean hasPendingHttpDelivery(Collection<OfflineBungeeVote> votes) {
+	private boolean hasPendingHttpDelivery(Collection<OfflineBungeeVote> votes) {
 		if (votes == null) return false;
+		Collection<String> configuredServers = getAllConfiguredServers();
 		for (OfflineBungeeVote vote : votes) {
-			if (vote != null && vote.hasPendingHttpTransportDeliveryIds()) return true;
+			if (vote != null && vote.hasPendingHttpTransportDeliveryIds(configuredServers)) return true;
 		}
 		return false;
 	}
@@ -6753,8 +6754,9 @@ public abstract class VotingPluginProxy {
 
 	private void markRewardJournalTargets(OfflineBungeeVote owner, Set<String> targets) {
 		for (String server : targets) {
-			String key = owner.getVoteId() + ":reward:" + server;
-			owner.setHttpDeliveryId(REWARD_JOURNAL_TARGET_PREFIX + server,
+			String canonicalServer = server.toLowerCase(Locale.ROOT);
+			String key = owner.getVoteId() + ":reward:" + canonicalServer;
+			owner.setHttpDeliveryId(REWARD_JOURNAL_TARGET_PREFIX + canonicalServer,
 					UUID.nameUUIDFromBytes(key.getBytes(StandardCharsets.UTF_8)).toString());
 		}
 	}
