@@ -125,6 +125,11 @@ public class VotingPluginVelocity {
 	private volatile boolean reloading = false;
 
 	/**
+	 * True only after the proxy runtime and required Votifier listener are ready.
+	 */
+	private volatile boolean runtimeOperational = false;
+
+	/**
 	 * Plugin messages received during reload are queued.
 	 */
 	private final Queue<QueuedPluginMessage> queuedPluginMessages = new ConcurrentLinkedQueue<>();
@@ -284,6 +289,7 @@ public class VotingPluginVelocity {
 	public void onProxyDisable(ProxyShutdownEvent event) {
 		synchronized (reloadLock) {
 			reloading = true;
+			runtimeOperational = false;
 
 			cancelTasks();
 
@@ -368,6 +374,10 @@ public class VotingPluginVelocity {
 		}
 
 		initializeFirstRuntime();
+		if (!runtimeOperational) {
+			logger.error("VotingPlugin proxy runtime failed to initialize; votes are NOT being processed.");
+			throw new IllegalStateException("VotingPlugin proxy runtime failed to initialize");
+		}
 
 		// metrics (same as your original, shortened)
 		Metrics metrics = metricsFactory.make(this, 11547);
@@ -408,6 +418,10 @@ public class VotingPluginVelocity {
 	void initializeFirstRuntime() {
 		// Full initialization creates the first runtime; there is no old runtime to retire.
 		reloadAllInternal(true);
+	}
+
+	boolean isRuntimeOperational() {
+		return runtimeOperational;
 	}
 
 	/**
@@ -534,6 +548,8 @@ public class VotingPluginVelocity {
 				} catch (Exception cleanupFailure) {
 					logger.error("Old proxy runtime cleanup was incomplete; replacement will continue", cleanupFailure);
 				}
+				// The predecessor is no longer a safe fallback beyond this point.
+				runtimeOperational = false;
 
 				// Recreate the runtime only after the old connector has drained its result.
 				VotingPluginProxy replacementRuntime = createProxyRuntime();
@@ -555,6 +571,7 @@ public class VotingPluginVelocity {
 				// If MySQL is required (your proxy.load assumes it), abort cleanly
 				if (votingPluginProxy.getProxyMySQL() == null) {
 					logger.error("Reload aborted: Proxy MySQL is not initialized.");
+					logger.error("VotingPlugin proxy runtime is NOT processing incoming votes.");
 					reloading = false;
 					return;
 				}
@@ -571,6 +588,7 @@ public class VotingPluginVelocity {
 					votingPluginProxy.load(voteCacheFile, nonVotedPlayersCache);
 				} catch (Throwable t) {
 					logger.error("Reload aborted while loading proxy state", t);
+					logger.error("VotingPlugin proxy runtime is NOT processing incoming votes.");
 					reloading = false;
 					return;
 				}
@@ -592,7 +610,12 @@ public class VotingPluginVelocity {
 		// Out of lock: flush queued messages (optional)
 		drainQueuedPluginMessages();
 
-		initVotifierListenerIfNeeded();
+		if (!initVotifierListenerIfNeeded()) {
+			runtimeOperational = false;
+			logger.error("VotingPlugin Votifier listener failed to initialize; votes are NOT being processed.");
+			return;
+		}
+		runtimeOperational = true;
 
 		// Optional: re-announce server names
 		try {
@@ -1028,25 +1051,28 @@ public class VotingPluginVelocity {
 	}
 
 	/**
-	 * Register votifier listener once.
+	 * Initializes the Votifier listener when Votifier is present and enabled.
+	 * The listener field is published only after event registration succeeds.
+	 *
+	 * @return true when vote receipt is intentionally unavailable or ready
 	 */
-	private void initVotifierListenerIfNeeded() {
+	private boolean initVotifierListenerIfNeeded() {
 		try {
 			Class.forName("com.vexsoftware.votifier.velocity.event.VotifierEvent");
 		} catch (ClassNotFoundException e) {
 			getVotingPluginProxy().setVotifierEnabled(false);
-			return;
+			return true;
 		}
 
-		if (getVotingPluginProxy().isVotifierEnabled()) {
-			if (voteEventVelocity == null) {
-				try {
-					voteEventVelocity = new VoteEventVelocity(this);
-					server.getEventManager().register(this, voteEventVelocity);
-				} catch (Exception e) {
-					getVotingPluginProxy().setVotifierEnabled(false);
-				}
-			}
+		if (!getVotingPluginProxy().isVotifierEnabled() || voteEventVelocity != null) return true;
+		try {
+			VoteEventVelocity candidate = new VoteEventVelocity(this);
+			server.getEventManager().register(this, candidate);
+			voteEventVelocity = candidate;
+			return true;
+		} catch (Exception e) {
+			logger.error("Unable to register the Votifier listener", e);
+			return false;
 		}
 	}
 
