@@ -612,6 +612,7 @@ public class VotingPluginVelocity {
 
 		if (!initVotifierListenerIfNeeded()) {
 			runtimeOperational = false;
+			cancelTasks();
 			logger.error("VotingPlugin Votifier listener failed to initialize; votes are NOT being processed.");
 			return;
 		}
