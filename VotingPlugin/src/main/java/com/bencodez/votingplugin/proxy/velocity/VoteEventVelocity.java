@@ -28,10 +28,6 @@ public class VoteEventVelocity {
 	 */
 	@Subscribe
 	public void onVotifierEvent(VotifierEvent event) {
-		if (!plugin.isRuntimeOperational()) {
-			plugin.getLogger().error("Vote received while VotingPlugin proxy runtime is not operational; vote was not processed");
-			return;
-		}
 		final String serviceSiteVote = event.getVote().getServiceName();
 		final String name = event.getVote().getUsername();
 		plugin.getTimer().execute(new RetryingVote(name,
@@ -53,6 +49,15 @@ public class VoteEventVelocity {
 
 		@Override
 		public void run() {
+			if (!plugin.isRuntimeOperational()) {
+				if (plugin.isReloading()) {
+					plugin.getTimer().schedule(this, 1, TimeUnit.SECONDS);
+					return;
+				}
+				plugin.getLogger().error("Vote received while VotingPlugin proxy runtime is not operational; vote was not processed for {}",
+						MinecraftUsernameValidator.sanitizeForLog(player));
+				return;
+			}
 			plugin.getLogger().info("Vote received " + MinecraftUsernameValidator.sanitizeForLog(player)
 					+ " from service site " + MinecraftUsernameValidator.sanitizeForLog(service));
 			try {
