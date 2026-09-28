@@ -15,7 +15,7 @@ The highest-value properties are:
 3. **Cross-node identity and membership:** transports with independent per-node credentials must prevent one authenticated node from impersonating another. Shared-key Redis/MQTT/multi-proxy authentication instead proves possession of the network-wide key and message integrity/freshness; it does **not** provide cryptographic isolation between nodes that legitimately possess that shared key.
 4. **Authorization at the final sink:** permissions, ownership, balances, limits, node/session ownership, and deployment leases must be revalidated when delayed work actually executes.
 5. **Trust-boundary preservation:** attacker-derived strings must remain data and must not become PlaceholderAPI expressions, console commands, YAML/file paths, SQL syntax, URL authority, JSON/Discord syntax, or another interpreter's code through a second parsing pass.
-6. **Durability and recovery safety:** accepted reward-bearing work must not be silently lost, duplicated, resurrected, or acknowledged in a state that disagrees with durable side effects.
+6. **Durability and recovery safety on reliable routes:** for acknowledgement-capable routes and entries admitted to the durable vote-delivery outbox, accepted reward-bearing work must not be silently lost, duplicated, resurrected, or acknowledged in a state that disagrees with durable side effects. Legacy/non-negotiated routes retain their documented historical delivery semantics and are not implicitly upgraded by this model.
 7. **Control-plane integrity:** Control may inspect, configure, or deploy only what the authenticated node/session/capability permits. Credentials, revisions, attempts, operation IDs, redacted secrets, journals, and recovery state must remain bound to the correct actor and target.
 8. **Bounded attacker-influenced state:** queues, replay caches, snapshots, journals, placeholders, webhooks, retries, logs, and response bodies must have useful count/byte/time bounds before expensive processing or persistence.
 
@@ -27,7 +27,7 @@ Treat as attacker-controlled or potentially attacker-influenced:
 - normal player commands, GUI/dialog actions, sign interactions, and PlaceholderAPI requests reachable through installed plugins;
 - player names from offline-mode, proxy-forwarded, Bedrock/Geyser, or unusual identity setups unless the exact source already enforces Java username rules;
 - delayed, duplicated, reordered, stale, or replayed legitimate proxy/backend envelopes;
-- a compromised backend or proxy attempting to impersonate another node or manipulate shared state;
+- a compromised backend or proxy attempting actions outside the role that node is trusted to perform, including impersonating another node where independent identity binding exists or originating message types its role should not be allowed to create;
 - Redis/MQTT publishers when broker credentials or publish access are compromised;
 - malformed or hostile external HTTP responses;
 - a Control user/node limited to the exact credential, capability, session, operation, or deployment lease it holds;
@@ -36,6 +36,8 @@ Treat as attacker-controlled or potentially attacker-influenced:
 Do **not** assume "internal transport" means trusted.
 
 A full filesystem/plugin administrator is trusted to edit YAML, configure console reward commands, install plugins, choose broker/database endpoints, and intentionally enable compatibility modes. Those choices are not vulnerabilities by themselves. A lower-privileged in-game admin, Control user, backend, broker publisher, or one authenticated node is not equivalent to unrestricted host access.
+
+For shared-key Redis/MQTT/multi-proxy transports, possession of the network key establishes membership in that trust domain. A member is therefore trusted to originate only the message families and actions appropriate to its configured role. Security review should flag a key-holding member when it can exceed that role (for example a backend originating proxy-only vote ingress, a node performing Control-like administration, or one role invoking another role's privileged subchannel), not merely because it can authenticate a message under its own legitimate shared-key membership.
 
 ## Proxy transport and message security
 
@@ -64,6 +66,8 @@ These transports use a network-wide shared `secretkey.key`. Their MAC binds the 
 
 ### Reliable reward-bearing delivery
 
+Apply this section to acknowledgement-capable routes and to entries already admitted to the durable delivery outbox. Reliable at-least-once delivery is capability-negotiated; older backends and legacy multi-proxy paths retain their documented legacy semantics. Do not classify expected loss/duplication from a route that never negotiated the reliable-delivery contract as a violation of that contract unless code incorrectly treated the route as reliable.
+
 Trace a logical vote end to end:
 
 ingress -> proxy accounting -> routing -> durable/outbox admission -> publish -> backend admission -> duplicate reservation -> semantic validation -> identity lookup -> reward/accounting effects -> durable completion -> acknowledgement -> retirement.
@@ -78,7 +82,7 @@ High-value failures include:
 - deleting outbox/journal state before ACK is durable;
 - partial fan-out followed by replay of already-completed destinations;
 - retirement of dedupe fences while retries can still arrive;
-- older peers bypassing new dedupe/ACK guarantees;
+- a peer or route being treated as ACK-capable when that capability was not negotiated, or older peers bypassing guarantees that the sender incorrectly assumed applied;
 - accepted queue entries that cannot actually be persisted;
 - oversized entries poisoning bounded durable queues;
 - cached votes removed before confirmed delivery;
@@ -254,7 +258,7 @@ Previously heavily reviewed areas include shared-transport authentication, Redis
 
 **Critical:** remote unauthenticated or ordinary-player arbitrary server/OS/plugin code execution; unauthorized installation of an attacker-selected JAR; broad Control/admin authentication bypass enabling arbitrary privileged commands/configuration.
 
-**High:** forged/replayed rewards despite the configured hardened boundary; repeatable reward/economy duplication outside the documented ambiguous at-least-once crash window; cross-node impersonation where independent per-node identity is actually promised (for example Control or another per-node credentialed protocol); player authorization bypass to privileged actions; Control cross-node operation/deployment; practical attacker-triggered persistent resource exhaustion; repeatable theft/duplication through shared-storage races. Possession of the network-wide shared transport key by one compromised Redis/MQTT node is not, by itself, a per-node-authentication bypass because that mode authenticates shared network membership rather than isolating key-holding nodes.
+**High:** forged/replayed rewards despite the configured hardened boundary, including a shared-key member exceeding its authorized message role; repeatable reward/economy duplication outside the documented ambiguous at-least-once crash window and outside routes that never negotiated reliable delivery; cross-node impersonation where independent per-node identity is actually promised (for example Control or another per-node credentialed protocol); player authorization bypass to privileged actions; Control cross-node operation/deployment; practical attacker-triggered persistent resource exhaustion; repeatable theft/duplication through shared-storage races. Possession of the network-wide shared transport key by one compromised Redis/MQTT node is not, by itself, a per-node-authentication bypass because that mode authenticates shared network membership rather than isolating key-holding nodes.
 
 **Medium:** prerequisite-heavy integrity failures; occasional lost/duplicate rewards; sensitive token disclosure to a limited actor; meaningful lower-privilege SSRF; message/placeholder injection with configuration-dependent privileged effect; timing-dependent reload boundary failures.
 
