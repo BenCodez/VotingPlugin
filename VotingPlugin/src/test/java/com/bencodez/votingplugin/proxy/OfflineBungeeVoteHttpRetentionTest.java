@@ -39,6 +39,16 @@ class OfflineBungeeVoteHttpRetentionTest {
 	}
 
 	@Test
+	void legacyMixedCaseRewardJournalIdUsesConfiguredServerNameForRecovery() {
+		UUID voteId = UUID.randomUUID();
+		OfflineBungeeVote vote = vote(voteId);
+		vote.setHttpDeliveryId("Server1", rewardJournalId(voteId, "Server1"));
+
+		assertTrue(vote.hasPendingHttpTransportDeliveryIds());
+		assertFalse(vote.hasPendingHttpTransportDeliveryIds(java.util.List.of("Server1")));
+	}
+
+	@Test
 	void recoveredHttpDeliveryIdStillRetainsHttp() {
 		OfflineBungeeVote vote = vote(UUID.randomUUID());
 		vote.setHttpDeliveryId("Server1", UUID.randomUUID().toString());
