@@ -12,7 +12,7 @@ The highest-value properties are:
 
 1. **Vote authenticity:** a lower-trust actor must not forge, replay, multiply, redirect, or transform one legitimate vote into extra rewards, points, totals, vote-party progress, commands, or webhook effects.
 2. **Exactly-once effects over at-least-once delivery:** retries, reconnects, broker duplication, crashes, reloads, and mixed-version handoffs may redeliver an envelope, but one logical reward-bearing vote must not execute privileged effects twice.
-3. **Cross-node identity:** one backend, proxy, old runtime, broker publisher, or compromised node must not impersonate another when the configured transport mode promises authentication.
+3. **Cross-node identity and membership:** transports with independent per-node credentials must prevent one authenticated node from impersonating another. Shared-key Redis/MQTT/multi-proxy authentication instead proves possession of the network-wide key and message integrity/freshness; it does **not** provide cryptographic isolation between nodes that legitimately possess that shared key.
 4. **Authorization at the final sink:** permissions, ownership, balances, limits, node/session ownership, and deployment leases must be revalidated when delayed work actually executes.
 5. **Trust-boundary preservation:** attacker-derived strings must remain data and must not become PlaceholderAPI expressions, console commands, YAML/file paths, SQL syntax, URL authority, JSON/Discord syntax, or another interpreter's code through a second parsing pass.
 6. **Durability and recovery safety:** accepted reward-bearing work must not be silently lost, duplicated, resurrected, or acknowledged in a state that disagrees with durable side effects.
@@ -45,11 +45,13 @@ Review every communication method according to its actual guarantees.
 
 Redis, MQTT, and multi-proxy Redis have application-layer authentication where implemented. `SharedTransportAuthentication=REQUIRED` is the hardened state. Missing, invalid, stale, replayed, cross-domain, or wrong-recipient envelopes must be rejected before state mutation.
 
+These transports use a network-wide shared `secretkey.key`. Their MAC binds the declared sender and destination against outsiders or broker-only publishers that do not know the key, but any compromised node that legitimately possesses the same key can generate a valid MAC containing another sender identity. Treat this control as **network-membership authentication plus integrity/replay protection**, not independent per-node authentication. Per-node impersonation is a security failure only where a transport or higher-level protocol actually supplies distinct node credentials/identity binding.
+
 `COMPATIBILITY` intentionally supports rolling upgrades and may accept legacy unsigned traffic. Do not report that documented compatibility behavior by itself. Instead look for:
 
 - a subchannel or message family bypassing authentication while REQUIRED is configured;
 - authentication after side effects or expensive attacker-controlled processing;
-- MAC coverage that omits sender, recipient, schema, message type, full payload, timestamp, nonce/message ID, or protocol domain;
+- MAC coverage that omits declared sender, recipient, schema, message type, full payload, timestamp, nonce/message ID, or protocol domain;
 - replay-cache poisoning before semantic validation;
 - replay acceptance across restart beyond the intended freshness model;
 - cross-protocol or cross-network reuse of authenticators;
@@ -252,7 +254,7 @@ Previously heavily reviewed areas include shared-transport authentication, Redis
 
 **Critical:** remote unauthenticated or ordinary-player arbitrary server/OS/plugin code execution; unauthorized installation of an attacker-selected JAR; broad Control/admin authentication bypass enabling arbitrary privileged commands/configuration.
 
-**High:** forged/replayed rewards despite hardened authentication; repeatable reward/economy duplication; cross-node impersonation despite REQUIRED authentication; player authorization bypass to privileged actions; Control cross-node operation/deployment; practical attacker-triggered persistent resource exhaustion; repeatable theft/duplication through shared-storage races.
+**High:** forged/replayed rewards despite the configured hardened boundary; repeatable reward/economy duplication; cross-node impersonation where independent per-node identity is actually promised (for example Control or another per-node credentialed protocol); player authorization bypass to privileged actions; Control cross-node operation/deployment; practical attacker-triggered persistent resource exhaustion; repeatable theft/duplication through shared-storage races. Possession of the network-wide shared transport key by one compromised Redis/MQTT node is not, by itself, a per-node-authentication bypass because that mode authenticates shared network membership rather than isolating key-holding nodes.
 
 **Medium:** prerequisite-heavy integrity failures; occasional lost/duplicate rewards; sensitive token disclosure to a limited actor; meaningful lower-privilege SSRF; message/placeholder injection with configuration-dependent privileged effect; timing-dependent reload boundary failures.
 
