@@ -54,6 +54,7 @@ public final class NeoForgeProxySocketService implements AutoCloseable {
     private final Map<UUID, BackendPlayerPresenceSession> sessions = new ConcurrentHashMap<>();
     private final AtomicBoolean open = new AtomicBoolean(true);
     private final AtomicBoolean presenceDirty = new AtomicBoolean();
+    private final Object presenceLock = new Object();
     private final Object sendLock = new Object();
     private final Object timestampLock = new Object();
     private final UUID incarnationId = UUID.randomUUID();
@@ -151,18 +152,22 @@ public final class NeoForgeProxySocketService implements AutoCloseable {
     }
 
     public void playerOnline(SharedVoteIdentity identity) {
-        if (!open.get()) return;
-        BackendPlayerPresenceSession session = addSession(identity);
-        announceStarted();
-        sendLogin(session);
+        synchronized (presenceLock) {
+            if (!open.get()) return;
+            BackendPlayerPresenceSession session = addSession(identity);
+            announceStarted();
+            sendLogin(session);
+        }
     }
 
     public void playerOffline(SharedVoteIdentity identity) {
-        if (!open.get()) return;
-        BackendPlayerPresenceSession session = sessions.remove(identity.uuid());
-        if (session == null) return;
-        send(VotingPluginWire.logout(session.getPlayerName(), session.getUuid(), configuration.server(),
-                session.getConnectionId(), incarnationId, startedAt, nextTimestamp()));
+        synchronized (presenceLock) {
+            if (!open.get()) return;
+            BackendPlayerPresenceSession session = sessions.remove(identity.uuid());
+            if (session == null) return;
+            send(VotingPluginWire.logout(session.getPlayerName(), session.getUuid(), configuration.server(),
+                    session.getConnectionId(), incarnationId, startedAt, nextTimestamp()));
+        }
     }
 
     void receive(JsonEnvelope envelope) {
@@ -270,17 +275,19 @@ public final class NeoForgeProxySocketService implements AutoCloseable {
         if (request.requestId == null || !configuration.server().equalsIgnoreCase(request.server)
                 || !incarnationId.equals(request.backendIncarnationId)
                 || request.backendStartedAt != startedAt || request.presenceTimestamp <= 0L) return;
-        List<VotingPluginWire.PresencePlayer> snapshot = sessions.values().stream()
-                .map(session -> new VotingPluginWire.PresencePlayer(session.getPlayerName(), session.getUuid(),
-                        session.getConnectionId().toString()))
-                .toList();
-        int chunks = Math.max(1, (snapshot.size() + SNAPSHOT_CHUNK_SIZE - 1) / SNAPSHOT_CHUNK_SIZE);
-        long timestamp = nextTimestamp();
-        for (int index = 0; index < chunks; index++) {
-            int from = index * SNAPSHOT_CHUNK_SIZE;
-            int to = Math.min(snapshot.size(), from + SNAPSHOT_CHUNK_SIZE);
-            send(VotingPluginWire.presenceSnapshot(configuration.server(), request.requestId, index, chunks,
-                    snapshot.subList(from, to), incarnationId, startedAt, timestamp));
+        synchronized (presenceLock) {
+            List<VotingPluginWire.PresencePlayer> snapshot = sessions.values().stream()
+                    .map(session -> new VotingPluginWire.PresencePlayer(session.getPlayerName(), session.getUuid(),
+                            session.getConnectionId().toString()))
+                    .toList();
+            int chunks = Math.max(1, (snapshot.size() + SNAPSHOT_CHUNK_SIZE - 1) / SNAPSHOT_CHUNK_SIZE);
+            long timestamp = nextTimestamp();
+            for (int index = 0; index < chunks; index++) {
+                int from = index * SNAPSHOT_CHUNK_SIZE;
+                int to = Math.min(snapshot.size(), from + SNAPSHOT_CHUNK_SIZE);
+                send(VotingPluginWire.presenceSnapshot(configuration.server(), request.requestId, index, chunks,
+                        snapshot.subList(from, to), incarnationId, startedAt, timestamp));
+            }
         }
     }
 
@@ -293,19 +300,25 @@ public final class NeoForgeProxySocketService implements AutoCloseable {
     }
 
     private void sendLogin(BackendPlayerPresenceSession session) {
-        send(VotingPluginWire.login(session.getPlayerName(), session.getUuid(), configuration.server(),
-                session.getConnectionId(), incarnationId, startedAt, nextTimestamp()));
+        synchronized (presenceLock) {
+            send(VotingPluginWire.login(session.getPlayerName(), session.getUuid(), configuration.server(),
+                    session.getConnectionId(), incarnationId, startedAt, nextTimestamp()));
+        }
     }
 
     private void sendHeartbeat() {
-        if (!open.get()) return;
-        announceStarted();
-        send(VotingPluginWire.backendHeartbeat(configuration.server(), incarnationId,
-                startedAt, nextTimestamp()));
+        synchronized (presenceLock) {
+            if (!open.get()) return;
+            announceStarted();
+            send(VotingPluginWire.backendHeartbeat(configuration.server(), incarnationId,
+                    startedAt, nextTimestamp()));
+        }
     }
 
     private void announceStarted() {
-        send(VotingPluginWire.backendStarted(configuration.server(), incarnationId, startedAt, startedAt));
+        synchronized (presenceLock) {
+            send(VotingPluginWire.backendStarted(configuration.server(), incarnationId, startedAt, startedAt));
+        }
     }
 
     private boolean isTargetedAtThisBackend(JsonEnvelope envelope) {
@@ -350,8 +363,10 @@ public final class NeoForgeProxySocketService implements AutoCloseable {
         if (!open.get() || !presenceDirty.get() || !sender.getQueue().isEmpty()
                 || !presenceDirty.compareAndSet(true, false)) return;
         try {
-            sendNow(supportedCapabilities(VotingPluginWire.backendStarted(configuration.server(), incarnationId,
-                    startedAt, nextTimestamp())));
+            synchronized (presenceLock) {
+                sendNow(supportedCapabilities(VotingPluginWire.backendStarted(configuration.server(), incarnationId,
+                        startedAt, nextTimestamp())));
+            }
         } catch (RuntimeException failure) {
             presenceDirty.set(true);
             LOGGER.warning("Presence recovery send failed: " + failure.getClass().getSimpleName());
@@ -391,8 +406,12 @@ public final class NeoForgeProxySocketService implements AutoCloseable {
     @Override public void close() {
         if (!open.compareAndSet(true, false)) return;
         if (heartbeat != null) heartbeat.shutdownNow();
-        JsonEnvelope stopped = VotingPluginWire.backendStopped(configuration.server(), incarnationId,
-                startedAt, nextTimestamp());
+        JsonEnvelope stopped;
+        synchronized (presenceLock) {
+            stopped = VotingPluginWire.backendStopped(configuration.server(), incarnationId,
+                    startedAt, nextTimestamp());
+            sessions.clear();
+        }
         if (sender != null) {
             try {
                 sender.execute(() -> sendStopped(stopped));
@@ -410,7 +429,6 @@ public final class NeoForgeProxySocketService implements AutoCloseable {
             sendStopped(stopped);
         }
         transportClose.run();
-        sessions.clear();
     }
 
     private void sendStopped(JsonEnvelope stopped) {

@@ -47,6 +47,7 @@ public final class NeoForgeDeferredVoteStore {
     private static final String VERSION = "v1";
     private static final String RELEASED_VERSION = "v2";
     private static final int MAX_RELEASED_PER_USER = 4_096;
+    private static final int MAX_RELEASED_TOTAL = 262_144;
     private static final long RELEASED_RETENTION_MILLIS = TimeUnit.DAYS.toMillis(7);
     private static final String PENDING_VERSION = "v2";
     private static final String QUARANTINED_PENDING_VERSION = "v3";
@@ -61,12 +62,14 @@ public final class NeoForgeDeferredVoteStore {
     private final int completedPerUserLimit;
     private final int completedTotalLimit;
     private final int releasedPerUserLimit;
+    private final int releasedTotalLimit;
     private final Set<OccurrenceKey> activeClaims = new HashSet<>();
     private final Set<UUID> replayCandidates = new LinkedHashSet<>();
     private final Map<UUID, Integer> receiptReservationsByUser = new HashMap<>();
     private int receiptReservationsTotal;
     private int retainedCount = -1;
     private int completedCount = -1;
+    private int releasedCount = -1;
     private boolean replayCandidatesInitialized;
     private volatile boolean rowIndexesInitialized;
 
@@ -88,10 +91,17 @@ public final class NeoForgeDeferredVoteStore {
 
     NeoForgeDeferredVoteStore(SqlUserBackend backend, int perUserLimit, int totalLimit,
             int completedPerUserLimit, int completedTotalLimit, int releasedPerUserLimit) {
+        this(backend, perUserLimit, totalLimit, completedPerUserLimit, completedTotalLimit,
+                releasedPerUserLimit, MAX_RELEASED_TOTAL);
+    }
+
+    NeoForgeDeferredVoteStore(SqlUserBackend backend, int perUserLimit, int totalLimit,
+            int completedPerUserLimit, int completedTotalLimit, int releasedPerUserLimit,
+            int releasedTotalLimit) {
         this.backend = Objects.requireNonNull(backend, "backend");
         if (perUserLimit <= 0 || totalLimit <= 0
                 || completedPerUserLimit <= 0 || completedTotalLimit <= 0
-                || releasedPerUserLimit <= 0) {
+                || releasedPerUserLimit <= 0 || releasedTotalLimit <= 0) {
             throw new IllegalArgumentException("limits must be positive");
         }
         this.perUserLimit = perUserLimit;
@@ -99,6 +109,7 @@ public final class NeoForgeDeferredVoteStore {
         this.completedPerUserLimit = completedPerUserLimit;
         this.completedTotalLimit = completedTotalLimit;
         this.releasedPerUserLimit = releasedPerUserLimit;
+        this.releasedTotalLimit = releasedTotalLimit;
     }
 
     static List<UserDataKey> storageKeys() {
@@ -309,8 +320,12 @@ public final class NeoForgeDeferredVoteStore {
     synchronized ReleaseResult release(UUID playerId, UUID voteId) {
         Objects.requireNonNull(playerId, "playerId");
         Objects.requireNonNull(voteId, "voteId");
+        boolean expiredTarget = parseCompleted(value(row(backend.user(playerId)
+                .readRow(backend.storageType())), COMPLETED_DEFERRED_VOTES)).stream()
+                .anyMatch(receipt -> receipt.voteId().equals(voteId) && receipt.released() && receipt.expired());
         ensureCounts();
-        Mutation<ReleaseResult> mutation = backend.user(playerId).transaction(
+        if (releasedCount >= releasedTotalLimit) refreshReleasedReceiptCountAndPrune();
+        ReleaseMutation mutation = backend.user(playerId).transaction(
                 backend.storageType(), Map.of(), scope -> {
                     List<CompletionReceipt> completed = parseCompleted(
                             value(row(scope.readRow()), COMPLETED_DEFERRED_VOTES));
@@ -320,29 +335,47 @@ public final class NeoForgeDeferredVoteStore {
                         if (receipt.released()) {
                             if (receipt.expired()) {
                                 completed.removeIf(candidate -> candidate.released() && candidate.expired());
-                                if (releasedReceiptCount(completed) >= releasedPerUserLimit) {
-                                    return new Mutation<>(ReleaseResult.RELEASE_CAPACITY_REACHED, 0, 0);
+                                if (releasedReceiptCount(completed) >= releasedPerUserLimit
+                                        || releasedCount >= releasedTotalLimit) {
+                                    scope.writeValues(Map.of(COMPLETED_DEFERRED_VOTES,
+                                            new DataValueString(serializeCompleted(completed))));
+                                    return new ReleaseMutation(ReleaseResult.RELEASE_CAPACITY_REACHED, 0, 0);
                                 }
                                 completed.add(new CompletionReceipt(voteId, System.currentTimeMillis()));
                                 scope.writeValues(Map.of(COMPLETED_DEFERRED_VOTES,
                                         new DataValueString(serializeCompleted(completed))));
+                                return new ReleaseMutation(ReleaseResult.ALREADY_RELEASED, 0, 1);
                             }
-                            return new Mutation<>(ReleaseResult.ALREADY_RELEASED, 0, 0);
+                            return new ReleaseMutation(ReleaseResult.ALREADY_RELEASED, 0, 0);
                         }
                         completed.removeIf(candidate -> candidate.released() && candidate.expired());
-                        if (releasedReceiptCount(completed) >= releasedPerUserLimit) {
-                            return new Mutation<>(ReleaseResult.RELEASE_CAPACITY_REACHED, 0, 0);
+                        if (releasedReceiptCount(completed) >= releasedPerUserLimit
+                                || releasedCount >= releasedTotalLimit) {
+                            scope.writeValues(Map.of(COMPLETED_DEFERRED_VOTES,
+                                    new DataValueString(serializeCompleted(completed))));
+                            return new ReleaseMutation(ReleaseResult.RELEASE_CAPACITY_REACHED, 0, 0);
                         }
                         index = completed.indexOf(receipt);
                         completed.set(index, new CompletionReceipt(voteId, System.currentTimeMillis()));
                         scope.writeValues(Map.of(COMPLETED_DEFERRED_VOTES,
                                 new DataValueString(serializeCompleted(completed))));
-                        return new Mutation<>(ReleaseResult.RELEASED, 0, -1);
+                        return new ReleaseMutation(ReleaseResult.RELEASED, -1, 1);
                     }
-                    return new Mutation<>(ReleaseResult.NOT_COMPLETED, 0, 0);
+                    if (expiredTarget) {
+                        if (releasedReceiptCount(completed) >= releasedPerUserLimit
+                                || releasedCount >= releasedTotalLimit) {
+                            return new ReleaseMutation(ReleaseResult.RELEASE_CAPACITY_REACHED, 0, 0);
+                        }
+                        completed.add(new CompletionReceipt(voteId, System.currentTimeMillis()));
+                        scope.writeValues(Map.of(COMPLETED_DEFERRED_VOTES,
+                                new DataValueString(serializeCompleted(completed))));
+                        return new ReleaseMutation(ReleaseResult.ALREADY_RELEASED, 0, 1);
+                    }
+                    return new ReleaseMutation(ReleaseResult.NOT_COMPLETED, 0, 0);
                 });
-        applyCounts(mutation);
-        return mutation.value();
+        completedCount = Math.max(0, completedCount + mutation.completedDelta());
+        releasedCount = Math.max(0, releasedCount + mutation.releasedDelta());
+        return mutation.result();
     }
 
     private void releaseReservation(Claim claim) {
@@ -388,7 +421,7 @@ public final class NeoForgeDeferredVoteStore {
     }
 
     private void ensureCounts() {
-        if (retainedCount >= 0 && completedCount >= 0) return;
+        if (retainedCount >= 0 && completedCount >= 0 && releasedCount >= 0) return;
         initializeDurableState();
     }
 
@@ -398,7 +431,7 @@ public final class NeoForgeDeferredVoteStore {
      * the loader adapter instead of widening the shared SQL API for one consumer.
      */
     private void initializeDurableState() {
-        if (replayCandidatesInitialized && retainedCount >= 0 && completedCount >= 0) return;
+        if (replayCandidatesInitialized && retainedCount >= 0 && completedCount >= 0 && releasedCount >= 0) return;
         if (!(backend instanceof SqliteUserBackend sqlite)) {
             throw new IllegalStateException("NeoForge deferred votes require the SQLite user backend");
         }
@@ -460,6 +493,55 @@ public final class NeoForgeDeferredVoteStore {
         replayCandidatesInitialized = true;
         retainedCount = pending;
         completedCount = completed;
+        releasedCount = refreshReleasedReceiptCountAndPrune();
+    }
+
+    private int refreshReleasedReceiptCountAndPrune() {
+        if (!(backend instanceof SqliteUserBackend sqlite)) {
+            throw new IllegalStateException("NeoForge deferred votes require the SQLite user backend");
+        }
+        ArrayList<UUID> expiredRows = new ArrayList<>();
+        int released = 0;
+        String table = "`" + NeoForgeRuntime.USER_TABLE_NAME + "`";
+        String sql = "SELECT `UUID`, `" + COMPLETED_DEFERRED_VOTES + "` FROM " + table
+                + " WHERE `" + COMPLETED_DEFERRED_VOTES + "` IS NOT NULL AND `"
+                + COMPLETED_DEFERRED_VOTES + "` <> ''";
+        try (Connection connection = DriverManager.getConnection(
+                "jdbc:sqlite:" + sqlite.databaseFile().toAbsolutePath());
+                PreparedStatement statement = connection.prepareStatement(sql);
+                ResultSet result = statement.executeQuery()) {
+            while (result.next()) {
+                UUID playerId;
+                try {
+                    playerId = parseCanonicalUuid(result.getString(1));
+                    List<CompletionReceipt> receipts = parseCompleted(result.getString(2));
+                    int before = receipts.size();
+                    receipts.removeIf(receipt -> receipt.released() && receipt.expired());
+                    int live = releasedReceiptCount(receipts);
+                    released = cappedAdd(released, Math.min(live, releasedPerUserLimit), releasedTotalLimit);
+                    if (before != receipts.size() && live <= releasedPerUserLimit) expiredRows.add(playerId);
+                } catch (IllegalStateException malformed) {
+                    released = cappedAdd(released, releasedPerUserLimit, releasedTotalLimit);
+                }
+            }
+        } catch (SQLException failure) {
+            throw new IllegalStateException("Failed to discover released NeoForge vote receipts", failure);
+        }
+        for (UUID playerId : expiredRows) {
+            backend.user(playerId).transaction(backend.storageType(), Map.of(), scope -> {
+                List<CompletionReceipt> receipts = parseCompleted(
+                        value(row(scope.readRow()), COMPLETED_DEFERRED_VOTES));
+                int before = receipts.size();
+                receipts.removeIf(receipt -> receipt.released() && receipt.expired());
+                if (before != receipts.size()) {
+                    scope.writeValues(Map.of(COMPLETED_DEFERRED_VOTES,
+                            new DataValueString(serializeCompleted(receipts))));
+                }
+                return null;
+            });
+        }
+        releasedCount = released;
+        return released;
     }
 
     void initializeRelevantRowIndexes() {
@@ -670,6 +752,7 @@ public final class NeoForgeDeferredVoteStore {
     private record StoredState(List<NeoForgeDeferredVote> pending, List<CompletionReceipt> completed) { }
     private record OccurrenceKey(UUID playerId, UUID voteId) { }
     private record Mutation<T>(T value, int pendingDelta, int completedDelta) { }
+    private record ReleaseMutation(ReleaseResult result, int completedDelta, int releasedDelta) { }
 
     public final class Claim implements AutoCloseable {
         private final NeoForgeDeferredVoteStore owner = NeoForgeDeferredVoteStore.this;

@@ -19,6 +19,7 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -535,6 +536,68 @@ class NeoForgeProxySocketServiceTest {
             } finally {
                 release.countDown();
                 service.close();
+            }
+        }
+    }
+
+    @Test
+    void snapshotAndLogoutArePublishedInOnePresenceOrder() throws Exception {
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            CountDownLatch snapshotEntered = new CountDownLatch(1);
+            CountDownLatch releaseSnapshot = new CountDownLatch(1);
+            CountDownLatch logoutFinished = new CountDownLatch(1);
+            AtomicBoolean blockSnapshot = new AtomicBoolean();
+            CopyOnWriteArrayList<JsonEnvelope> sent = new CopyOnWriteArrayList<>();
+            try (NeoForgeProxySocketService service = new NeoForgeProxySocketService(
+                    new NeoForgeProxySocketConfiguration(true, "neoforge", "proxy1", "127.0.0.1", 1297,
+                            "127.0.0.1", 1298, "socket-auth.key", false, false),
+                    runtime.voteProcessor(), runtime.players(), envelope -> {
+                        sent.add(envelope);
+                        if (blockSnapshot.get() && VotingPluginWire.SUB_PRESENCE_SNAPSHOT
+                                .equals(envelope.getSubChannel())) {
+                            snapshotEntered.countDown();
+                            try {
+                                releaseSnapshot.await();
+                            } catch (InterruptedException interrupted) {
+                                Thread.currentThread().interrupt();
+                            }
+                        }
+                    }, proxyAuthenticator)) {
+                JsonEnvelope started = sent.stream().filter(message -> VotingPluginWire.SUB_BACKEND_STARTED
+                        .equals(message.getSubChannel())).findFirst().orElseThrow();
+                UUID incarnation = VotingPluginWire.readBackendIncarnationId(started);
+                long startedAt = VotingPluginWire.readBackendStartedAt(started);
+                var identity = new com.bencodez.votingplugin.core.vote.SharedVoteIdentity(
+                        UUID.randomUUID(), "Alex", true);
+                service.playerOnline(identity);
+                sent.clear();
+                blockSnapshot.set(true);
+                Thread snapshot = new Thread(() -> service.receive(fromProxy(
+                        VotingPluginWire.presenceSnapshotRequest("neoforge", UUID.randomUUID(), incarnation,
+                                startedAt, System.currentTimeMillis()))));
+                snapshot.start();
+                assertTrue(snapshotEntered.await(5, TimeUnit.SECONDS));
+                Thread logout = new Thread(() -> {
+                    service.playerOffline(identity);
+                    logoutFinished.countDown();
+                });
+                logout.start();
+                assertFalse(logoutFinished.await(100, TimeUnit.MILLISECONDS));
+                releaseSnapshot.countDown();
+                snapshot.join(5_000L);
+                logout.join(5_000L);
+                assertTrue(logoutFinished.await(1, TimeUnit.SECONDS));
+
+                JsonEnvelope snapshotMessage = sent.stream().filter(message -> VotingPluginWire.SUB_PRESENCE_SNAPSHOT
+                        .equals(message.getSubChannel())).findFirst().orElseThrow();
+                JsonEnvelope logoutMessage = sent.stream().filter(message -> VotingPluginWire.SUB_LOGOUT
+                        .equals(message.getSubChannel())).findFirst().orElseThrow();
+                assertTrue(Long.parseLong(logoutMessage.getFields().get(VotingPluginWire.K_PRESENCE_TIMESTAMP))
+                        > Long.parseLong(snapshotMessage.getFields().get(VotingPluginWire.K_PRESENCE_TIMESTAMP)));
+                assertEquals(List.of(identity.uuid().toString()), VotingPluginWire.readPresenceSnapshot(snapshotMessage)
+                        .players.stream().map(player -> player.uuid).toList());
+            } finally {
+                releaseSnapshot.countDown();
             }
         }
     }

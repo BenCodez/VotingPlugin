@@ -699,6 +699,42 @@ class NeoForgeDeferredVoteStoreTest {
     }
 
     @Test
+    void releasedReceiptCapacityIsGlobalAndExpiredRowsArePruned() throws IOException {
+        writeConfiguration();
+        UUID firstPlayer = UUID.randomUUID();
+        UUID secondPlayer = UUID.randomUUID();
+        UUID firstVote = UUID.randomUUID();
+        UUID secondVote = UUID.randomUUID();
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            runtime.storage().user(firstPlayer).write(UserStorage.SQLITE,
+                    NeoForgeDeferredVoteStore.COMPLETED_DEFERRED_VOTES,
+                    new DataValueString("v2|" + firstVote + "|" + System.currentTimeMillis()));
+            runtime.storage().user(secondPlayer).write(UserStorage.SQLITE,
+                    NeoForgeDeferredVoteStore.COMPLETED_DEFERRED_VOTES,
+                    new DataValueString("v1|" + secondVote));
+            NeoForgeDeferredVoteStore bounded = new NeoForgeDeferredVoteStore(
+                    runtime.storage(), 2, 2, 2, 2, 2, 1);
+
+            assertEquals(NeoForgeDeferredVoteStore.ReleaseResult.RELEASE_CAPACITY_REACHED,
+                    bounded.release(secondPlayer, secondVote));
+
+            runtime.storage().user(firstPlayer).write(UserStorage.SQLITE,
+                    NeoForgeDeferredVoteStore.COMPLETED_DEFERRED_VOTES,
+                    new DataValueString("v2|" + firstVote + "|"
+                            + (System.currentTimeMillis() - TimeUnit.DAYS.toMillis(8))));
+            NeoForgeDeferredVoteStore restarted = new NeoForgeDeferredVoteStore(
+                    runtime.storage(), 2, 2, 2, 2, 2, 1);
+            assertEquals(NeoForgeDeferredVoteStore.ReleaseResult.RELEASED,
+                    restarted.release(secondPlayer, secondVote));
+            String firstReceipts = runtime.storage().user(firstPlayer).readRow(UserStorage.SQLITE).stream()
+                    .filter(column -> column.getName().equalsIgnoreCase(
+                            NeoForgeDeferredVoteStore.COMPLETED_DEFERRED_VOTES))
+                    .findFirst().orElseThrow().getValue().getString();
+            assertEquals("", firstReceipts);
+        }
+    }
+
+    @Test
     void repeatedReleaseRenewsExpiredTombstoneAcrossRestart() throws IOException {
         writeConfiguration();
         UUID playerId = UUID.randomUUID();
