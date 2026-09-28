@@ -24,6 +24,7 @@ class ProxyVoteEventNullServiceTest {
 	@Test
 	void bungeeNullServiceSchedulesVoteWithCompatibilityName() throws Exception {
 		VotingPluginBungee plugin = mock(VotingPluginBungee.class);
+		when(plugin.isRuntimeOperational()).thenReturn(true);
 		net.md_5.bungee.api.ProxyServer proxy = mock(net.md_5.bungee.api.ProxyServer.class);
 		net.md_5.bungee.api.scheduler.TaskScheduler scheduler =
 				mock(net.md_5.bungee.api.scheduler.TaskScheduler.class);
@@ -50,6 +51,7 @@ class ProxyVoteEventNullServiceTest {
 	@Test
 	void velocityNullServiceSchedulesVoteWithCompatibilityName() throws Exception {
 		VotingPluginVelocity plugin = mock(VotingPluginVelocity.class);
+		when(plugin.isRuntimeOperational()).thenReturn(true);
 		ScheduledExecutorService timer = mock(ScheduledExecutorService.class);
 		when(plugin.getTimer()).thenReturn(timer);
 		AtomicReference<Runnable> task = new AtomicReference<>();
