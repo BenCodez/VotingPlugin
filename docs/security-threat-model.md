@@ -11,13 +11,13 @@ VotingPlugin runs in Bukkit/Paper/Folia servers and BungeeCord/Velocity proxies 
 The highest-value properties are:
 
 1. **Vote authenticity:** a lower-trust actor must not forge, replay, multiply, redirect, or transform one legitimate vote into extra rewards, points, totals, vote-party progress, commands, or webhook effects.
-2. **Deduplication within the documented at-least-once contract:** ordinary retries, reconnects, broker duplication, reloads, restarts, and mixed-version handoffs should not repeat a reward-bearing vote once completion is durably known. The documented crash window where reward side effects occur before the completion receipt becomes durable is an acknowledged ambiguous outcome of at-least-once delivery, not an exactly-once guarantee; stronger atomic reward execution would require a different reward/storage design.
+2. **Deduplication within the documented at-least-once contract:** ordinary retries, reconnects, broker duplication, reloads, restarts, and mixed-version handoffs should not repeat a reward-bearing vote once the protocol can safely prove completion. Two documented ambiguous cases are not exactly-once guarantees: (a) a backend crash after reward side effects but before the completion receipt becomes durable, and (b) capability loss after completion was journaled but its ACK was lost, where the proxy deliberately drains the already-admitted entry once through the legacy path and retains at-least-once semantics. Stronger atomic reward execution across those cases would require a different reward/storage or upgrade-transition design.
 3. **Cross-node identity and membership:** transports with independent per-node credentials must prevent one authenticated node from impersonating another. Shared-key Redis/MQTT/multi-proxy authentication instead proves possession of the network-wide key and message integrity/freshness; it does **not** provide cryptographic isolation between nodes that legitimately possess that shared key.
 4. **Authorization at the final sink:** permissions, ownership, balances, limits, node/session ownership, and deployment leases must be revalidated when delayed work actually executes.
 5. **Trust-boundary preservation:** attacker-derived strings must remain data and must not become PlaceholderAPI expressions, console commands, YAML/file paths, SQL syntax, URL authority, JSON/Discord syntax, or another interpreter's code through a second parsing pass.
 6. **Durability and recovery safety on reliable routes:** for acknowledgement-capable routes and entries admitted to the durable vote-delivery outbox, accepted reward-bearing work must not be silently lost, duplicated, resurrected, or acknowledged in a state that disagrees with durable side effects. Legacy/non-negotiated routes retain their documented historical delivery semantics and are not implicitly upgraded by this model.
 7. **Control-plane integrity:** Control may inspect, configure, or deploy only what the authenticated node/session/capability permits. Credentials, revisions, attempts, operation IDs, redacted secrets, journals, and recovery state must remain bound to the correct actor and target.
-8. **Bounded attacker-influenced state:** queues, replay caches, snapshots, journals, placeholders, webhooks, retries, logs, and response bodies must have useful count/byte/time bounds before expensive processing or persistence.
+8. **Lifecycle-appropriate bounds on attacker-influenced state:** queues, replay caches, snapshots, placeholders, webhooks, retries, logs, and response bodies must have useful count/byte/time bounds where expiry is safe. Accepted reliable-delivery state is different: durable outbox entries and completed receipts awaiting acknowledgement/release must remain bounded by admission/capacity and protocol retirement, not by a TTL that can discard the only retry or deduplication record before the required handshake completes.
 
 ## Trust boundaries
 
@@ -68,6 +68,8 @@ These transports use a network-wide shared `secretkey.key`. Their MAC binds the 
 
 Apply this section to acknowledgement-capable routes and to entries already admitted to the durable delivery outbox. Reliable at-least-once delivery is capability-negotiated; older backends and legacy multi-proxy paths retain their documented legacy semantics. Do not classify expected loss/duplication from a route that never negotiated the reliable-delivery contract as a violation of that contract unless code incorrectly treated the route as reliable.
 
+There is also a documented capability-loss transition for an already-admitted reliable entry: if the backend durably completed the vote, its acknowledgement was lost, and a later backend generation stops advertising acknowledgement support, the proxy drains that entry once through the legacy send path before moving it toward receipt retirement. That transition intentionally retains at-least-once semantics and can repeat an external reward whose completion was already journaled. Treat the existence of this downgrade window as part of the compatibility contract, not a security failure by itself; review whether code sends more than once, loses the retirement state, applies the downgrade when capability was not actually lost, or lets a lower-trust actor force/amplify the transition.
+
 Trace a logical vote end to end:
 
 ingress -> proxy accounting -> routing -> durable/outbox admission -> publish -> backend admission -> duplicate reservation -> semantic validation -> identity lookup -> reward/accounting effects -> durable completion -> acknowledgement -> retirement.
@@ -80,7 +82,7 @@ High-value failures include:
 - reservations not released after failed processing;
 - behavior that widens, makes attacker-controllable, or incorrectly classifies the documented ambiguous crash window between reward side effects and durable completion;
 - deleting outbox/journal state before ACK is durable;
-- partial fan-out followed by replay of already-completed destinations;
+- partial fan-out followed by replay of already-completed destinations outside documented capability-loss/legacy-drain behavior;
 - retirement of dedupe fences while retries can still arrive;
 - a peer or route being treated as ACK-capable when that capability was not negotiated, or older peers bypassing guarantees that the sender incorrectly assumed applied;
 - accepted queue entries that cannot actually be persisted;
@@ -88,7 +90,7 @@ High-value failures include:
 - cached votes removed before confirmed delivery;
 - transport-switch migration losing or duplicating accepted work.
 
-Treat proxy/backend crashes, restarts, reloads, disconnects, and duplicate broker delivery as normal adversarial lifecycle events. However, do not report the documented at-least-once ambiguity by itself: if a backend process crashes after an external reward side effect but before its completion receipt is durable, a later retry can repeat that effect. A security finding should show a violation outside that documented contract, an attacker-controlled way to force or amplify the ambiguous outcome, premature acknowledgement/retirement, or a dedupe failure after completion was already durably recorded.
+Treat proxy/backend crashes, restarts, reloads, disconnects, capability loss, and duplicate broker delivery as normal adversarial lifecycle events. Do not report either documented at-least-once ambiguity by itself: a crash after an external reward side effect but before durable completion may retry, and a lost completion ACK followed by capability loss may cause the already-admitted entry to drain once through the legacy path. A security finding should show a violation outside those contracts, an attacker-controlled way to force or amplify them, more than the documented one-time legacy drain, premature acknowledgement/retirement, or a dedupe failure after the protocol should have safely retired the entry.
 
 ### Presence and routing
 
@@ -192,7 +194,7 @@ Require a credible lower-trust path and meaningful amplification. Prioritize:
 - Control request/response/result journals and backup/history counts;
 - malformed-input log amplification.
 
-Check count, bytes, TTL/eviction, cancellation, and restart persistence.
+Check count, bytes, eviction/retirement rules, cancellation, and restart persistence. Use TTLs only where expiration is semantically safe. Do not require accepted reliable-delivery outbox entries or completed receipts awaiting release to expire before the acknowledgement/release protocol has durably retired them; those states should instead be admission/capacity bounded and retained until protocol completion.
 
 ## Storage and database boundaries
 
@@ -242,7 +244,7 @@ Previously heavily reviewed areas include shared-transport authentication, Redis
 2. A valid Redis/MQTT authenticator for one destination/type is redirected elsewhere.
 3. COMPATIBILITY -> REQUIRED migration occurs while old/new runtimes overlap.
 4. Proxy crashes after publish but before ACK.
-5. Backend crashes after reward effects but before durable completion; verify recovery matches the documented ambiguous at-least-once outcome and that no lower-trust actor can force, amplify, or extend it beyond that contract.
+5. Exercise both documented ambiguous delivery windows: backend crash after reward effects but before durable completion, and lost completion ACK followed by capability loss/legacy drain; verify no lower-trust actor can force, amplify, repeat, or extend either case beyond its documented at-least-once behavior.
 6. Multi-proxy fan-out partially succeeds and retries after restart.
 7. Player opens an authorized shop/admin GUI, permissions/config reload, then clicks stale state.
 8. Two servers concurrently spend the same shared-MySQL points.
@@ -258,7 +260,7 @@ Previously heavily reviewed areas include shared-transport authentication, Redis
 
 **Critical:** remote unauthenticated or ordinary-player arbitrary server/OS/plugin code execution; unauthorized installation of an attacker-selected JAR; broad Control/admin authentication bypass enabling arbitrary privileged commands/configuration.
 
-**High:** forged/replayed rewards despite the configured hardened boundary, including a shared-key member exceeding its authorized message role; repeatable reward/economy duplication outside the documented ambiguous at-least-once crash window and outside routes that never negotiated reliable delivery; cross-node impersonation where independent per-node identity is actually promised (for example Control or another per-node credentialed protocol); player authorization bypass to privileged actions; Control cross-node operation/deployment; practical attacker-triggered persistent resource exhaustion; repeatable theft/duplication through shared-storage races. Possession of the network-wide shared transport key by one compromised Redis/MQTT node is not, by itself, a per-node-authentication bypass because that mode authenticates shared network membership rather than isolating key-holding nodes.
+**High:** forged/replayed rewards despite the configured hardened boundary, including a shared-key member exceeding its authorized message role; repeatable reward/economy duplication outside the documented ambiguous at-least-once crash and capability-loss drain windows and outside routes that never negotiated reliable delivery; cross-node impersonation where independent per-node identity is actually promised (for example Control or another per-node credentialed protocol); player authorization bypass to privileged actions; Control cross-node operation/deployment; practical attacker-triggered persistent resource exhaustion; repeatable theft/duplication through shared-storage races. Possession of the network-wide shared transport key by one compromised Redis/MQTT node is not, by itself, a per-node-authentication bypass because that mode authenticates shared network membership rather than isolating key-holding nodes.
 
 **Medium:** prerequisite-heavy integrity failures; occasional lost/duplicate rewards; sensitive token disclosure to a limited actor; meaningful lower-privilege SSRF; message/placeholder injection with configuration-dependent privileged effect; timing-dependent reload boundary failures.
 
