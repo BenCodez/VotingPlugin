@@ -422,6 +422,11 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 	}
 
 	@Override
+	public void deleteRetainedHttpListenerSettings(java.nio.file.Path source) throws java.io.IOException {
+		super.deleteRetainedHttpListenerSettings(source);
+	}
+
+	@Override
 	public void warn(String message) {
 		warnings.add(message);
 	}

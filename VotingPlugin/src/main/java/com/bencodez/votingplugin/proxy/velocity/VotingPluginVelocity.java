@@ -37,6 +37,7 @@ import org.spongepowered.configurate.yaml.YamlConfigurationLoader;
 import com.bencodez.simpleapi.file.velocity.VelocityYMLFile;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfig;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfigVelocity;
+import com.bencodez.votingplugin.proxy.IncomingVoteRuntimeResult;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 import com.bencodez.votingplugin.proxy.ProxyRuntimeReplacementLifecycle;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
@@ -276,19 +277,28 @@ public class VotingPluginVelocity {
 		String sourceServer = ((ServerConnection) event.getSource()).getServerInfo().getName();
 
 		if (reloading) {
-			byte[] copy = new byte[event.getData().length];
-			System.arraycopy(event.getData(), 0, copy, 0, event.getData().length);
-			queuedPluginMessages.add(new QueuedPluginMessage(sourceServer, copy));
+			queuePluginMessage(sourceServer, event.getData());
 			return;
 		}
-
-		handlePluginMessageBytes(sourceServer, event.getData());
+		synchronized (reloadLock) {
+			if (reloading) {
+				queuePluginMessage(sourceServer, event.getData());
+				return;
+			}
+			if (!runtimeOperational || votingPluginProxy == null) {
+				logger.error("Plugin message received while VotingPlugin proxy runtime is not operational; message was not processed");
+				return;
+			}
+			handlePluginMessageBytes(sourceServer, event.getData());
+		}
 	}
 
 	@Subscribe
 	public void onProxyDisable(ProxyShutdownEvent event) {
 		synchronized (reloadLock) {
-			reloading = true;
+			// Shutdown is terminal. Do not schedule reload retries against a timer that
+			// is being stopped.
+			reloading = false;
 			runtimeOperational = false;
 
 			cancelTasks();
@@ -320,7 +330,6 @@ public class VotingPluginVelocity {
 			} catch (Exception ignored) {
 			}
 
-			reloading = false;
 		}
 
 		logger.info("VotingPlugin disabled");
@@ -424,6 +433,21 @@ public class VotingPluginVelocity {
 		return runtimeOperational;
 	}
 
+	/**
+	 * Admits a Votifier vote against one runtime generation. The reload lock keeps
+	 * teardown from disposing the selected runtime until the vote call returns.
+	 */
+	public IncomingVoteRuntimeResult processIncomingVote(String player, String service, UUID voteId) {
+		if (reloading) return IncomingVoteRuntimeResult.RETRY_AFTER_RELOAD;
+		synchronized (reloadLock) {
+			if (reloading) return IncomingVoteRuntimeResult.RETRY_AFTER_RELOAD;
+			VotingPluginProxy runtime = votingPluginProxy;
+			if (!runtimeOperational || runtime == null) return IncomingVoteRuntimeResult.RUNTIME_UNAVAILABLE;
+			runtime.vote(player, service, true, false, 0, null, null, voteId);
+			return IncomingVoteRuntimeResult.PROCESSED;
+		}
+	}
+
 	/** Returns whether a runtime replacement is currently in progress. */
 	public boolean isReloading() {
 		return reloading;
@@ -448,119 +472,105 @@ public class VotingPluginVelocity {
 	public void reloadAllInternal(boolean loadMysql) {
 		synchronized (reloadLock) {
 			reloading = true;
-
-			// Always stop repeating tasks while we touch state
 			cancelTasks();
 
-			// Always reload config first
 			try {
-				config.reload(); // or config.load() - whichever your VelocityConfig provides
+				config.reload();
 			} catch (Exception e) {
 				logger.error("Failed to reload bungeeconfig.yml", e);
 			}
 
-			// Update plugin message channel (safe for both modes)
 			try {
 				ChannelIdentifier old = channel;
 				ChannelIdentifier next = buildChannelIdentifier(config.getPluginMessageChannel());
-
 				if (old != null && !old.equals(next)) {
 					try {
 						server.getChannelRegistrar().unregister(old);
 					} catch (Exception ignored) {
 					}
 				}
-
-				try {
-					server.getChannelRegistrar().register(next);
-				} catch (Exception ignored) {
-				}
-
+				server.getChannelRegistrar().register(next);
 				channel = next;
 			} catch (Exception e) {
 				logger.error("Failed to update plugin message channel", e);
 			}
 
-			// =========================
-			// SOFT RELOAD (NO MYSQL)
-			// =========================
 			if (!loadMysql) {
-				// We intentionally do NOT call onDisable()/shutdown, because that would stop
-				// MySQL.
-				// We also do NOT recreate the proxy instance, because it owns the MySQL
-				// pool/table.
 				try {
-					if (votingPluginProxy != null) {
-						votingPluginProxy.reload();
-					}
+					if (votingPluginProxy != null) votingPluginProxy.reload();
 				} catch (Throwable t) {
 					logger.error("Error while applying soft reload", t);
 				}
-
-				// Restart tasks that don't depend on rebuilding the proxy
-				scheduleTasks();
-
+				try {
+					scheduleTasks();
+				} catch (RuntimeException taskFailure) {
+					runtimeOperational = false;
+					logger.error("VotingPlugin could not restart proxy tasks; votes are NOT being processed.", taskFailure);
+				}
 				reloading = false;
 			} else {
-
-				// =========================
-				// FULL RELOAD (WITH MYSQL)
-				// =========================
-				// Preserve the current live HTTP listener while it owns retained durable
-				// deliveries. A fresh runtime would read the newly loaded endpoint, which
-				// may have been removed or changed before that FIFO is acknowledged.
-				if (votingPluginProxy != null
-						&& votingPluginProxy.requiresHttpRetentionCheckBeforeRuntimeReplacement()) {
-					votingPluginProxy.reload();
-					if (votingPluginProxy.isRetainingHttpTransportForDeferredReconciliation()) {
+				try {
+					if (votingPluginProxy != null
+							&& votingPluginProxy.requiresHttpRetentionCheckBeforeRuntimeReplacement()) {
+						votingPluginProxy.reload();
+						if (votingPluginProxy.isRetainingHttpTransportForDeferredReconciliation()) {
+							scheduleTasks();
+							reloading = false;
+							drainQueuedPluginMessagesAfterReloadLock();
+							return;
+						}
+					}
+				} catch (Throwable retentionFailure) {
+					logger.error("Reload aborted while checking retained HTTP delivery state; the existing runtime remains active", retentionFailure);
+					try {
 						scheduleTasks();
-						reloading = false;
-						drainQueuedPluginMessagesAfterReloadLock();
-						return;
+					} catch (RuntimeException taskFailure) {
+						retentionFailure.addSuppressed(taskFailure);
+						runtimeOperational = false;
+						logger.error("VotingPlugin could not restart proxy tasks; votes are NOT being processed.", taskFailure);
 					}
+					reloading = false;
+					return;
 				}
 
-				// Best-effort save caches before shutdown
 				try {
-					if (voteCacheFile != null) {
-						voteCacheFile.save();
-					}
+					if (voteCacheFile != null) voteCacheFile.save();
 				} catch (Exception ignored) {
 				}
 				try {
-					if (nonVotedPlayersCache != null) {
-						nonVotedPlayersCache.save();
-					}
+					if (nonVotedPlayersCache != null) nonVotedPlayersCache.save();
 				} catch (Exception ignored) {
 				}
 
-				// Stop Control first; replacement must not overlap a retained hosted child/connector.
 				try {
 					ProxyRuntimeReplacementLifecycle.prepare(votingPluginProxy);
 				} catch (Exception shutdownFailure) {
 					logger.error("Reload aborted because hosted Control did not stop safely", shutdownFailure);
 					try {
 						scheduleTasks();
-					} catch (Exception taskFailure) {
+					} catch (RuntimeException taskFailure) {
 						shutdownFailure.addSuppressed(taskFailure);
+						runtimeOperational = false;
+						logger.error("VotingPlugin could not restart proxy tasks; votes are NOT being processed.", taskFailure);
 					}
 					reloading = false;
 					return;
 				}
-				// Later transport/cache failures must not leave the old runtime partially disabled.
 				try {
 					ProxyRuntimeReplacementLifecycle.complete(votingPluginProxy);
 				} catch (Exception cleanupFailure) {
 					logger.error("Old proxy runtime cleanup was incomplete; replacement will continue", cleanupFailure);
 				}
-				// The predecessor is no longer a safe fallback beyond this point.
 				runtimeOperational = false;
 
-				// Recreate the runtime only after the old connector has drained its result.
-				VotingPluginProxy replacementRuntime = createProxyRuntime();
-				votingPluginProxy = replacementRuntime;
+				try {
+					votingPluginProxy = createProxyRuntime();
+				} catch (Throwable creationFailure) {
+					logger.error("Reload aborted while creating the replacement proxy runtime", creationFailure);
+					reloading = false;
+					return;
+				}
 
-				// Init MySQL BEFORE calling proxy.load(...)
 				try {
 					if (config.hasDatabaseConfigured()) {
 						votingPluginProxy.loadMysql(getMysqlConfig(), getGlobalDataMysqlConfig());
@@ -572,64 +582,64 @@ public class VotingPluginVelocity {
 					logger.error("Failed to initialize MySQL during reload", t);
 					votingPluginProxy.setProxyMySQL(null);
 				}
-
-				// If MySQL is required (your proxy.load assumes it), abort cleanly
 				if (votingPluginProxy.getProxyMySQL() == null) {
 					logger.error("Reload aborted: Proxy MySQL is not initialized.");
 					logger.error("VotingPlugin proxy runtime is NOT processing incoming votes.");
+					retireFailedReplacementRuntime();
 					reloading = false;
 					return;
 				}
 
-				// Recreate storages (or keep existing if you prefer)
-				voteCacheFile = new VelocityJsonVoteCache(new File(dataDirectory.toFile(), "votecache.json"));
-				nonVotedPlayersCache = new VelocityJsonNonVotedPlayersCache(
-						new File(dataDirectory.toFile(), "nonvotedplayerscache.json"));
-
-				convertYamlCachesIfPresent();
-
-				// Load proxy state (requires MySQL)
 				try {
+					voteCacheFile = new VelocityJsonVoteCache(new File(dataDirectory.toFile(), "votecache.json"));
+					nonVotedPlayersCache = new VelocityJsonNonVotedPlayersCache(
+							new File(dataDirectory.toFile(), "nonvotedplayerscache.json"));
+					convertYamlCachesIfPresent();
 					votingPluginProxy.load(voteCacheFile, nonVotedPlayersCache);
+					votingPluginProxy.reload();
 				} catch (Throwable t) {
 					logger.error("Reload aborted while loading proxy state", t);
 					logger.error("VotingPlugin proxy runtime is NOT processing incoming votes.");
+					retireFailedReplacementRuntime();
 					reloading = false;
 					return;
 				}
 
-				// Restart tasks
-				scheduleTasks();
-
-				// Apply runtime-only config
 				try {
-					votingPluginProxy.reload();
-				} catch (Throwable t) {
-					logger.error("Error while reloading proxy internals", t);
+					scheduleTasks();
+				} catch (RuntimeException taskFailure) {
+					logger.error("Reload aborted while scheduling proxy tasks", taskFailure);
+					retireFailedReplacementRuntime();
+					reloading = false;
+					return;
+				}
+				if (!initVotifierListenerIfNeeded()) {
+					logger.error("VotingPlugin Votifier listener failed to initialize; votes are NOT being processed.");
+					retireFailedReplacementRuntime();
+					reloading = false;
+					return;
 				}
 
+				// Publish a completely ready runtime before clearing the reload fence.
+				runtimeOperational = true;
+				reloading = false;
 			}
 		}
 
-		// Out of lock: flush queued messages (optional)
 		drainQueuedPluginMessages();
-
-		if (!initVotifierListenerIfNeeded()) {
-			runtimeOperational = false;
-			reloading = false;
-			cancelTasks();
-			logger.error("VotingPlugin Votifier listener failed to initialize; votes are NOT being processed.");
-			return;
-		}
-		runtimeOperational = true;
-		reloading = false;
-
-		// Optional: re-announce server names
 		try {
-			if (votingPluginProxy != null) {
-				votingPluginProxy.sendServerNameMessage();
-			}
+			if (votingPluginProxy != null) votingPluginProxy.sendServerNameMessage();
 		} catch (Exception ignored) {
+		}
+	}
+	/** Stops every partially initialized replacement component after a terminal load failure. */
+	private void retireFailedReplacementRuntime() {
+		runtimeOperational = false;
+		cancelTasks();
+		try {
+			if (votingPluginProxy != null) votingPluginProxy.onDisable();
+		} catch (Exception cleanupFailure) {
+			logger.error("Failed replacement runtime cleanup was incomplete", cleanupFailure);
 		}
 	}
 
@@ -1065,22 +1075,33 @@ public class VotingPluginVelocity {
 	 */
 	boolean initVotifierListenerIfNeeded() {
 		try {
-			Class.forName("com.vexsoftware.votifier.velocity.event.VotifierEvent");
+			requireVotifierEventClass();
 		} catch (ClassNotFoundException e) {
 			getVotingPluginProxy().setVotifierEnabled(false);
 			return true;
+		} catch (LinkageError incompatible) {
+			logger.error("Votifier is present but its event API could not be loaded", incompatible);
+			return false;
 		}
 
 		if (!getVotingPluginProxy().isVotifierEnabled() || voteEventVelocity != null) return true;
 		try {
-			VoteEventVelocity candidate = new VoteEventVelocity(this);
+			VoteEventVelocity candidate = createVotifierListener();
 			server.getEventManager().register(this, candidate);
 			voteEventVelocity = candidate;
 			return true;
-		} catch (Exception e) {
+		} catch (RuntimeException | LinkageError e) {
 			logger.error("Unable to register the Votifier listener", e);
 			return false;
 		}
+	}
+
+	void requireVotifierEventClass() throws ClassNotFoundException {
+		Class.forName("com.vexsoftware.votifier.velocity.event.VotifierEvent");
+	}
+
+	VoteEventVelocity createVotifierListener() {
+		return new VoteEventVelocity(this);
 	}
 
 	private void cancelTasks() {
@@ -1141,10 +1162,20 @@ public class VotingPluginVelocity {
 		}
 	}
 
+	private void queuePluginMessage(String sourceServer, byte[] data) {
+		byte[] copy = new byte[data.length];
+		System.arraycopy(data, 0, copy, 0, data.length);
+		queuedPluginMessages.add(new QueuedPluginMessage(sourceServer, copy));
+	}
+
 	private void drainQueuedPluginMessages() {
-		QueuedPluginMessage msg;
-		while ((msg = queuedPluginMessages.poll()) != null) {
-			handlePluginMessageBytes(msg.sourceServer(), msg.data());
+		while (true) {
+			synchronized (reloadLock) {
+				if (reloading || !runtimeOperational || votingPluginProxy == null) return;
+				QueuedPluginMessage msg = queuedPluginMessages.poll();
+				if (msg == null) return;
+				handlePluginMessageBytes(msg.sourceServer(), msg.data());
+			}
 		}
 	}
 

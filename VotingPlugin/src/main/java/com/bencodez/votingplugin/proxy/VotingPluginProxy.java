@@ -4137,10 +4137,15 @@ public abstract class VotingPluginProxy {
 
 	private void clearRetainedHttpListenerSettings() {
 		try {
-			DurableFiles.deleteIfExists(retainedHttpListenerSettingsPath());
+			deleteRetainedHttpListenerSettings(retainedHttpListenerSettingsPath());
 		} catch (IOException failure) {
 			logSevere("Unable to remove obsolete retained HTTP listener settings: " + failure.getMessage());
 		}
+	}
+
+	/** Filesystem seam used to verify that an undeletable retained snapshot stays fenced in memory. */
+	protected void deleteRetainedHttpListenerSettings(Path source) throws IOException {
+		DurableFiles.deleteIfExists(source);
 	}
 
 	private boolean hasChangedLiveHttpConfiguration() {

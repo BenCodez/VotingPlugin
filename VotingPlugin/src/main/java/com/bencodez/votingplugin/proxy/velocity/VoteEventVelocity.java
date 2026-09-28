@@ -3,6 +3,7 @@ package com.bencodez.votingplugin.proxy.velocity;
 import java.util.concurrent.TimeUnit;
 import java.util.UUID;
 
+import com.bencodez.votingplugin.proxy.IncomingVoteRuntimeResult;
 import com.bencodez.votingplugin.util.MinecraftUsernameValidator;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy.VoteRetryException;
 import com.velocitypowered.api.event.Subscribe;
@@ -49,22 +50,19 @@ public class VoteEventVelocity {
 
 		@Override
 		public void run() {
-			// Read reloading first. The successful transition publishes runtimeOperational
-			// before clearing this volatile flag, so observing false here also observes
-			// the replacement runtime's final operational state.
-			if (plugin.isReloading()) {
-				plugin.getTimer().schedule(this, 1, TimeUnit.SECONDS);
-				return;
-			}
-			if (!plugin.isRuntimeOperational()) {
-				plugin.getLogger().error("Vote received while VotingPlugin proxy runtime is not operational; vote was not processed for {}",
-						MinecraftUsernameValidator.sanitizeForLog(player));
-				return;
-			}
-			plugin.getLogger().info("Vote received " + MinecraftUsernameValidator.sanitizeForLog(player)
-					+ " from service site " + MinecraftUsernameValidator.sanitizeForLog(service));
 			try {
-				plugin.getVotingPluginProxy().vote(player, service, true, false, 0, null, null, voteId);
+				IncomingVoteRuntimeResult result = plugin.processIncomingVote(player, service, voteId);
+				if (result == IncomingVoteRuntimeResult.RETRY_AFTER_RELOAD) {
+					plugin.getTimer().schedule(this, 1, TimeUnit.SECONDS);
+					return;
+				}
+				if (result == IncomingVoteRuntimeResult.RUNTIME_UNAVAILABLE) {
+					plugin.getLogger().error("Vote received while VotingPlugin proxy runtime is not operational; vote was not processed for {}",
+							MinecraftUsernameValidator.sanitizeForLog(player));
+					return;
+				}
+				plugin.getLogger().info("Vote received " + MinecraftUsernameValidator.sanitizeForLog(player)
+						+ " from service site " + MinecraftUsernameValidator.sanitizeForLog(service));
 			} catch (VoteRetryException retryable) {
 				attempts++;
 				if (attempts < MAX_ATTEMPTS) {

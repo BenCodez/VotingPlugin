@@ -2684,7 +2684,8 @@ public class VotingPluginProxyTest {
 
 	@Test
 	void startupKeepsOtherConfiguredTransportsWhenCachedDeliveryIdsExistButHttpNeverRan() throws Exception {
-		for (BungeeMethod configured : new BungeeMethod[] { BungeeMethod.MYSQL, BungeeMethod.REDIS }) {
+		for (BungeeMethod configured : new BungeeMethod[] {
+				BungeeMethod.MYSQL, BungeeMethod.REDIS, BungeeMethod.MQTT, BungeeMethod.SOCKETS }) {
 			VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
 			OfflineBungeeVote serverVote = new OfflineBungeeVote(java.util.UUID.randomUUID(), "Player", "uuid",
 					"Service", 100L, true, "totals");
@@ -2760,27 +2761,18 @@ public class VotingPluginProxyTest {
 
 	@Test
 	void fallbackSurvivesAnUndeletableRetainedSettingsFile() throws Exception {
-		org.junit.jupiter.api.Assumptions.assumeTrue(
-				java.nio.file.FileSystems.getDefault().supportedFileAttributeViews().contains("posix"));
 		java.nio.file.Path retained = writeRetainedListenerSettings("127.0.0.1");
-		java.nio.file.Path httpDirectory = retained.getParent();
-		java.util.Set<java.nio.file.attribute.PosixFilePermission> original =
-				java.nio.file.Files.getPosixFilePermissions(httpDirectory);
-		java.nio.file.Files.setPosixFilePermissions(httpDirectory,
-				java.nio.file.attribute.PosixFilePermissions.fromString("r-xr-xr-x"));
-		try {
-			VotingPluginProxyTestImpl spyProxy = restartedProxyWithJournaledCache(BungeeMethod.HTTP);
-			java.lang.reflect.Method start = VotingPluginProxy.class.getDeclaredMethod("startHttpTransportOrFallBack");
-			start.setAccessible(true);
-			start.invoke(spyProxy);
-			assertEquals(BungeeMethod.PLUGINMESSAGING, spyProxy.getMethod());
-			assertTrue(java.nio.file.Files.isRegularFile(retained));
-			spyProxy.reloadFromControl();
-			assertEquals(BungeeMethod.PLUGINMESSAGING, spyProxy.getMethod());
-			assertEquals(false, getProxyField(spyProxy, "deferredHttpTransportReconciliation"));
-		} finally {
-			java.nio.file.Files.setPosixFilePermissions(httpDirectory, original);
-		}
+		VotingPluginProxyTestImpl spyProxy = restartedProxyWithJournaledCache(BungeeMethod.HTTP);
+		Mockito.doThrow(new java.io.IOException("injected delete failure")).when(spyProxy)
+				.deleteRetainedHttpListenerSettings(retained);
+		java.lang.reflect.Method start = VotingPluginProxy.class.getDeclaredMethod("startHttpTransportOrFallBack");
+		start.setAccessible(true);
+		start.invoke(spyProxy);
+		assertEquals(BungeeMethod.PLUGINMESSAGING, spyProxy.getMethod());
+		assertTrue(java.nio.file.Files.isRegularFile(retained));
+		spyProxy.reloadFromControl();
+		assertEquals(BungeeMethod.PLUGINMESSAGING, spyProxy.getMethod());
+		assertEquals(false, getProxyField(spyProxy, "deferredHttpTransportReconciliation"));
 	}
 
 	@Test
@@ -2803,18 +2795,21 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
-	void retainedHttpFailureDoesNotPretendRedisWasInitialized() throws Exception {
-		votingPluginProxy.setMethod(BungeeMethod.HTTP);
-		Mockito.when(votingPluginProxy.getConfig().getBungeeMethod()).thenReturn("REDIS");
-		Mockito.when(votingPluginProxy.getConfig().getHttpPublicEndpoint()).thenReturn("");
+	void retainedHttpFailureDoesNotPretendAnotherConfiguredTransportWasInitialized() throws Exception {
 		java.lang.reflect.Method start = VotingPluginProxy.class.getDeclaredMethod("startHttpTransportOrFallBack");
 		start.setAccessible(true);
+		for (BungeeMethod configured : new BungeeMethod[] {
+				BungeeMethod.MYSQL, BungeeMethod.REDIS, BungeeMethod.MQTT, BungeeMethod.SOCKETS }) {
+			votingPluginProxy.setMethod(BungeeMethod.HTTP);
+			Mockito.when(votingPluginProxy.getConfig().getBungeeMethod()).thenReturn(configured.name());
+			Mockito.when(votingPluginProxy.getConfig().getHttpPublicEndpoint()).thenReturn("");
 
-		java.lang.reflect.InvocationTargetException failure = assertThrows(
-				java.lang.reflect.InvocationTargetException.class, () -> start.invoke(votingPluginProxy));
+			java.lang.reflect.InvocationTargetException failure = assertThrows(
+					java.lang.reflect.InvocationTargetException.class, () -> start.invoke(votingPluginProxy), configured.name());
 
-		assertTrue(failure.getCause() instanceof IllegalStateException);
-		assertEquals(BungeeMethod.HTTP, votingPluginProxy.getMethod());
+			assertTrue(failure.getCause() instanceof IllegalStateException, configured.name());
+			assertEquals(BungeeMethod.HTTP, votingPluginProxy.getMethod(), configured.name());
+		}
 	}
 
 	private java.nio.file.Path writeRetainedListenerSettings(String host) throws Exception {
