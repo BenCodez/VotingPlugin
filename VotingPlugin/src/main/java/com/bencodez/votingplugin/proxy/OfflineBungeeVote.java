@@ -374,18 +374,42 @@ public class OfflineBungeeVote {
 	 * @return true when unfinished HTTP transport state is present
 	 */
 	public boolean hasPendingHttpTransportDeliveryIds() {
+		return hasPendingHttpTransportDeliveryIds(Collections.emptySet());
+	}
+
+	/**
+	 * Variant used during proxy startup so reward IDs written by older builds can
+	 * be recognized even when their original server-name casing was lost from the
+	 * normalized delivery-id map key.
+	 *
+	 * @param configuredServers current configured backend names
+	 * @return true when unfinished HTTP transport state is present
+	 */
+	public boolean hasPendingHttpTransportDeliveryIds(Iterable<String> configuredServers) {
 		if (!httpBroadcastDeliveryIds.isEmpty()) return true;
 		for (Map.Entry<String, String> entry : httpDeliveryIds.entrySet()) {
 			if (isRewardJournalMarker(entry.getKey())) continue;
-			if (!isDeterministicRewardJournalDeliveryId(entry.getKey(), entry.getValue())) return true;
+			if (!isDeterministicRewardJournalDeliveryId(entry.getKey(), entry.getValue(), configuredServers)) return true;
 		}
 		return false;
 	}
 
-	private boolean isDeterministicRewardJournalDeliveryId(String server, String deliveryId) {
+	private boolean isDeterministicRewardJournalDeliveryId(String server, String deliveryId,
+			Iterable<String> configuredServers) {
 		if (voteId == null || server == null || server.isBlank() || deliveryId == null || deliveryId.isBlank()) {
 			return false;
 		}
+		if (matchesRewardJournalDeliveryId(server, deliveryId)) return true;
+		if (configuredServers != null) {
+			for (String configuredServer : configuredServers) {
+				if (configuredServer != null && configuredServer.equalsIgnoreCase(server)
+						&& matchesRewardJournalDeliveryId(configuredServer, deliveryId)) return true;
+			}
+		}
+		return false;
+	}
+
+	private boolean matchesRewardJournalDeliveryId(String server, String deliveryId) {
 		String key = voteId + ":reward:" + server;
 		String expected = UUID.nameUUIDFromBytes(key.getBytes(StandardCharsets.UTF_8)).toString();
 		return expected.equalsIgnoreCase(deliveryId);
