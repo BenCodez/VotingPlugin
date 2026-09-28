@@ -508,6 +508,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 		if (!initVotifierListenerIfNeeded()) {
 			runtimeOperational = false;
+			cancelPlatformTasks();
 			getLogger().severe("VotingPlugin Votifier listener failed to initialize; votes are NOT being processed.");
 			return;
 		}
