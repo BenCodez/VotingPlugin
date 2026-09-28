@@ -95,6 +95,8 @@ public class VotingPluginBungee extends Plugin implements Listener {
 	 * This prevents a partially initialized plugin from advertising normal service.
 	 */
 	private volatile boolean runtimeOperational = false;
+	/** True once shared runtime state loaded, even if platform tasks need a retry. */
+	private volatile boolean runtimeInitialized = false;
 
 	/**
 	 * Plugin messages received during reload are queued and replayed after reload.
@@ -236,6 +238,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			// rather than scheduling a retry against a timer that is being stopped.
 			reloading = false;
 			runtimeOperational = false;
+			runtimeInitialized = false;
 
 			cancelPlatformTasks();
 
@@ -336,6 +339,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 	 */
 	public void reloadPlugin(boolean loadMysql) {
 		synchronized (reloadLock) {
+			final boolean retainedRuntimeWasOperational = runtimeOperational;
 			reloading = true;
 			final String oldChannel = config != null ? config.getPluginMessageChannel() : null;
 			cancelPlatformTasks();
@@ -363,20 +367,25 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			}
 
 			if (!loadMysql) {
+				boolean softReloadApplied = true;
 				try {
 					if (votingPluginProxy != null) votingPluginProxy.reload();
 				} catch (Throwable t) {
+					softReloadApplied = false;
 					getLogger().severe("Error while applying soft reload");
 					t.printStackTrace();
 				}
 				try {
 					schedulePlatformTasks();
+					if (softReloadApplied) publishRetainedRuntimeOperational();
+					else runtimeOperational = retainedRuntimeWasOperational;
 				} catch (Exception taskFailure) {
 					runtimeOperational = false;
 					getLogger().severe("VotingPlugin could not restart proxy tasks; votes are NOT being processed.");
 					taskFailure.printStackTrace();
 				}
 				reloading = false;
+				drainQueuedPluginMessagesAfterReloadLock();
 				return;
 			}
 
@@ -386,6 +395,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 					votingPluginProxy.reload();
 					if (votingPluginProxy.isRetainingHttpTransportForDeferredReconciliation()) {
 						schedulePlatformTasks();
+						publishRetainedRuntimeOperational();
 						reloading = false;
 						drainQueuedPluginMessagesAfterReloadLock();
 						return;
@@ -396,12 +406,14 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				retentionFailure.printStackTrace();
 				try {
 					schedulePlatformTasks();
+					runtimeOperational = retainedRuntimeWasOperational;
 				} catch (Exception taskFailure) {
 					retentionFailure.addSuppressed(taskFailure);
 					runtimeOperational = false;
 					getLogger().severe("VotingPlugin could not restart proxy tasks; votes are NOT being processed.");
 				}
 				reloading = false;
+				drainQueuedPluginMessagesAfterReloadLock();
 				return;
 			}
 
@@ -421,12 +433,14 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				shutdownFailure.printStackTrace();
 				try {
 					schedulePlatformTasks();
+					runtimeOperational = retainedRuntimeWasOperational;
 				} catch (Exception taskFailure) {
 					shutdownFailure.addSuppressed(taskFailure);
 					runtimeOperational = false;
 					getLogger().severe("VotingPlugin could not restart proxy tasks; votes are NOT being processed.");
 				}
 				reloading = false;
+				drainQueuedPluginMessagesAfterReloadLock();
 				return;
 			}
 			try {
@@ -436,6 +450,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				cleanupFailure.printStackTrace();
 			}
 			runtimeOperational = false;
+			runtimeInitialized = false;
 
 			try {
 				votingPluginProxy = createProxyRuntime();
@@ -474,6 +489,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				}
 				votingPluginProxy.load(voteCacheFile, nonVotedPlayersCache);
 				votingPluginProxy.reload();
+				runtimeInitialized = true;
 			} catch (Throwable t) {
 				getLogger().severe("Reload aborted while loading proxy state");
 				getLogger().severe("VotingPlugin proxy runtime is NOT processing incoming votes.");
@@ -560,6 +576,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 	/** Stops every partially initialized replacement component after a terminal load failure. */
 	private void retireFailedReplacementRuntime() {
 		runtimeOperational = false;
+		runtimeInitialized = false;
 		cancelPlatformTasks();
 		try {
 			if (votingPluginProxy != null) votingPluginProxy.onDisable();
@@ -567,6 +584,16 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			getLogger().severe("Failed replacement runtime cleanup was incomplete");
 			cleanupFailure.printStackTrace();
 		}
+	}
+
+	/** Restores readiness only for a retained runtime whose shared state finished loading. */
+	void publishRetainedRuntimeOperational() {
+		if (!runtimeInitialized) {
+			runtimeOperational = false;
+			getLogger().severe("Soft reload cannot make an incomplete proxy runtime operational; run a full reload.");
+			return;
+		}
+		runtimeOperational = true;
 	}
 
 	/** The retention branch returns from inside reloadLock; drain only after that lock is released. */

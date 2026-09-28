@@ -173,6 +173,34 @@ class VotingPluginVelocityInitializationTest {
 		}
 	}
 
+	@Test
+	void successfulSoftReloadTaskRetryRestoresRetainedRuntimeReadiness(@TempDir Path dataDirectory) throws Exception {
+		VotingPluginVelocity plugin = new VotingPluginVelocity(mock(ProxyServer.class), mock(Logger.class),
+				mock(Metrics.Factory.class), dataDirectory);
+		setField(plugin, "runtimeInitialized", true);
+		setField(plugin, "runtimeOperational", false);
+		try {
+			plugin.publishRetainedRuntimeOperational();
+			assertTrue(plugin.isRuntimeOperational());
+		} finally {
+			plugin.getTimer().shutdownNow();
+		}
+	}
+
+	@Test
+	void softReloadCannotPublishAnIncompleteRuntime(@TempDir Path dataDirectory) throws Exception {
+		VotingPluginVelocity plugin = new VotingPluginVelocity(mock(ProxyServer.class), mock(Logger.class),
+				mock(Metrics.Factory.class), dataDirectory);
+		setField(plugin, "runtimeInitialized", false);
+		setField(plugin, "runtimeOperational", true);
+		try {
+			plugin.publishRetainedRuntimeOperational();
+			assertFalse(plugin.isRuntimeOperational());
+		} finally {
+			plugin.getTimer().shutdownNow();
+		}
+	}
+
 	private static void setField(Object target, String name, Object value) throws Exception {
 		java.lang.reflect.Field field = VotingPluginVelocity.class.getDeclaredField(name);
 		field.setAccessible(true);

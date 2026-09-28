@@ -129,6 +129,8 @@ public class VotingPluginVelocity {
 	 * True only after the proxy runtime and required Votifier listener are ready.
 	 */
 	private volatile boolean runtimeOperational = false;
+	/** True once shared runtime state loaded, even if platform tasks need a retry. */
+	private volatile boolean runtimeInitialized = false;
 
 	/**
 	 * Plugin messages received during reload are queued.
@@ -300,6 +302,7 @@ public class VotingPluginVelocity {
 			// is being stopped.
 			reloading = false;
 			runtimeOperational = false;
+			runtimeInitialized = false;
 
 			cancelTasks();
 
@@ -471,6 +474,7 @@ public class VotingPluginVelocity {
 	 */
 	public void reloadAllInternal(boolean loadMysql) {
 		synchronized (reloadLock) {
+			final boolean retainedRuntimeWasOperational = runtimeOperational;
 			reloading = true;
 			cancelTasks();
 
@@ -496,13 +500,17 @@ public class VotingPluginVelocity {
 			}
 
 			if (!loadMysql) {
+				boolean softReloadApplied = true;
 				try {
 					if (votingPluginProxy != null) votingPluginProxy.reload();
 				} catch (Throwable t) {
+					softReloadApplied = false;
 					logger.error("Error while applying soft reload", t);
 				}
 				try {
 					scheduleTasks();
+					if (softReloadApplied) publishRetainedRuntimeOperational();
+					else runtimeOperational = retainedRuntimeWasOperational;
 				} catch (RuntimeException taskFailure) {
 					runtimeOperational = false;
 					logger.error("VotingPlugin could not restart proxy tasks; votes are NOT being processed.", taskFailure);
@@ -515,6 +523,7 @@ public class VotingPluginVelocity {
 						votingPluginProxy.reload();
 						if (votingPluginProxy.isRetainingHttpTransportForDeferredReconciliation()) {
 							scheduleTasks();
+							publishRetainedRuntimeOperational();
 							reloading = false;
 							drainQueuedPluginMessagesAfterReloadLock();
 							return;
@@ -524,12 +533,14 @@ public class VotingPluginVelocity {
 					logger.error("Reload aborted while checking retained HTTP delivery state; the existing runtime remains active", retentionFailure);
 					try {
 						scheduleTasks();
+						runtimeOperational = retainedRuntimeWasOperational;
 					} catch (RuntimeException taskFailure) {
 						retentionFailure.addSuppressed(taskFailure);
 						runtimeOperational = false;
 						logger.error("VotingPlugin could not restart proxy tasks; votes are NOT being processed.", taskFailure);
 					}
 					reloading = false;
+					drainQueuedPluginMessagesAfterReloadLock();
 					return;
 				}
 
@@ -548,12 +559,14 @@ public class VotingPluginVelocity {
 					logger.error("Reload aborted because hosted Control did not stop safely", shutdownFailure);
 					try {
 						scheduleTasks();
+						runtimeOperational = retainedRuntimeWasOperational;
 					} catch (RuntimeException taskFailure) {
 						shutdownFailure.addSuppressed(taskFailure);
 						runtimeOperational = false;
 						logger.error("VotingPlugin could not restart proxy tasks; votes are NOT being processed.", taskFailure);
 					}
 					reloading = false;
+					drainQueuedPluginMessagesAfterReloadLock();
 					return;
 				}
 				try {
@@ -562,6 +575,7 @@ public class VotingPluginVelocity {
 					logger.error("Old proxy runtime cleanup was incomplete; replacement will continue", cleanupFailure);
 				}
 				runtimeOperational = false;
+				runtimeInitialized = false;
 
 				try {
 					votingPluginProxy = createProxyRuntime();
@@ -597,6 +611,7 @@ public class VotingPluginVelocity {
 					convertYamlCachesIfPresent();
 					votingPluginProxy.load(voteCacheFile, nonVotedPlayersCache);
 					votingPluginProxy.reload();
+					runtimeInitialized = true;
 				} catch (Throwable t) {
 					logger.error("Reload aborted while loading proxy state", t);
 					logger.error("VotingPlugin proxy runtime is NOT processing incoming votes.");
@@ -635,12 +650,23 @@ public class VotingPluginVelocity {
 	/** Stops every partially initialized replacement component after a terminal load failure. */
 	private void retireFailedReplacementRuntime() {
 		runtimeOperational = false;
+		runtimeInitialized = false;
 		cancelTasks();
 		try {
 			if (votingPluginProxy != null) votingPluginProxy.onDisable();
 		} catch (Exception cleanupFailure) {
 			logger.error("Failed replacement runtime cleanup was incomplete", cleanupFailure);
 		}
+	}
+
+	/** Restores readiness only for a retained runtime whose shared state finished loading. */
+	void publishRetainedRuntimeOperational() {
+		if (!runtimeInitialized) {
+			runtimeOperational = false;
+			logger.error("Soft reload cannot make an incomplete proxy runtime operational; run a full reload.");
+			return;
+		}
+		runtimeOperational = true;
 	}
 
 	/** The retention branch returns from inside reloadLock; drain only after that lock is released. */

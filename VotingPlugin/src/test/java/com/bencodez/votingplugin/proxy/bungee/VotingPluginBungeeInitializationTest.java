@@ -151,6 +151,29 @@ class VotingPluginBungeeInitializationTest {
 		assertFalse(plugin.isRuntimeOperational());
 	}
 
+	@Test
+	void successfulSoftReloadTaskRetryRestoresRetainedRuntimeReadiness() throws Exception {
+		VotingPluginBungee plugin = mock(VotingPluginBungee.class, CALLS_REAL_METHODS);
+		setField(plugin, "runtimeInitialized", true);
+		setField(plugin, "runtimeOperational", false);
+
+		plugin.publishRetainedRuntimeOperational();
+
+		assertTrue(plugin.isRuntimeOperational());
+	}
+
+	@Test
+	void softReloadCannotPublishAnIncompleteRuntime() throws Exception {
+		VotingPluginBungee plugin = mock(VotingPluginBungee.class, CALLS_REAL_METHODS);
+		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getLogger("VotingPluginBungeeInitializationTest"));
+		setField(plugin, "runtimeInitialized", false);
+		setField(plugin, "runtimeOperational", true);
+
+		plugin.publishRetainedRuntimeOperational();
+
+		assertFalse(plugin.isRuntimeOperational());
+	}
+
 	private static void setField(Object target, String name, Object value) throws Exception {
 		java.lang.reflect.Field field = VotingPluginBungee.class.getDeclaredField(name);
 		field.setAccessible(true);
