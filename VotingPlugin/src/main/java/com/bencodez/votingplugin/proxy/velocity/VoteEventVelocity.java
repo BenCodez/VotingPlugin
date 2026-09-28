@@ -49,11 +49,14 @@ public class VoteEventVelocity {
 
 		@Override
 		public void run() {
+			// Read reloading first. The successful transition publishes runtimeOperational
+			// before clearing this volatile flag, so observing false here also observes
+			// the replacement runtime's final operational state.
+			if (plugin.isReloading()) {
+				plugin.getTimer().schedule(this, 1, TimeUnit.SECONDS);
+				return;
+			}
 			if (!plugin.isRuntimeOperational()) {
-				if (plugin.isReloading()) {
-					plugin.getTimer().schedule(this, 1, TimeUnit.SECONDS);
-					return;
-				}
 				plugin.getLogger().error("Vote received while VotingPlugin proxy runtime is not operational; vote was not processed for {}",
 						MinecraftUsernameValidator.sanitizeForLog(player));
 				return;
