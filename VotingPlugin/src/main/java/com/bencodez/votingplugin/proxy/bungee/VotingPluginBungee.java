@@ -90,6 +90,12 @@ public class VotingPluginBungee extends Plugin implements Listener {
 	private volatile boolean reloading = false;
 
 	/**
+	 * True only after the proxy runtime and required Votifier listener are ready.
+	 * This prevents a partially initialized plugin from advertising normal service.
+	 */
+	private volatile boolean runtimeOperational = false;
+
+	/**
 	 * Plugin messages received during reload are queued and replayed after reload.
 	 */
 	private final Queue<QueuedPluginMessage> queuedPluginMessages = new ConcurrentLinkedQueue<>();
@@ -210,6 +216,10 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		}
 
 		initializeFirstRuntime();
+		if (!runtimeOperational) {
+			getLogger().severe("VotingPlugin proxy runtime failed to initialize; votes are NOT being processed.");
+			throw new IllegalStateException("VotingPlugin proxy runtime failed to initialize");
+		}
 
 		loadVersionFile();
 		getLogger().info("VotingPlugin loaded, using method: " + getVotingPluginProxy().getMethod().toString());
@@ -222,6 +232,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 	public void onDisable() {
 		synchronized (reloadLock) {
 			reloading = true;
+			runtimeOperational = false;
 
 			cancelPlatformTasks();
 
@@ -429,6 +440,8 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				getLogger().severe("Old proxy runtime cleanup was incomplete; replacement will continue");
 				cleanupFailure.printStackTrace();
 			}
+			// The predecessor is no longer a safe fallback beyond this point.
+			runtimeOperational = false;
 
 			// Recreate the runtime only after the old connector has drained its result.
 			VotingPluginProxy replacementRuntime = createProxyRuntime();
@@ -452,6 +465,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			// VotingPluginProxy.load)
 			if (votingPluginProxy.getProxyMySQL() == null) {
 				getLogger().severe("Reload aborted: Proxy MySQL is not initialized (see logs above).");
+				getLogger().severe("VotingPlugin proxy runtime is NOT processing incoming votes.");
 				reloading = false;
 				return;
 			}
@@ -473,6 +487,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				votingPluginProxy.reload();
 			} catch (Throwable t) {
 				getLogger().severe("Reload aborted while loading proxy state");
+				getLogger().severe("VotingPlugin proxy runtime is NOT processing incoming votes.");
 				t.printStackTrace();
 				reloading = false;
 				return;
@@ -491,7 +506,12 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		// Replay queued plugin messages after swap
 		drainQueuedPluginMessages();
 
-		initVotifierListenerIfNeeded();
+		if (!initVotifierListenerIfNeeded()) {
+			runtimeOperational = false;
+			getLogger().severe("VotingPlugin Votifier listener failed to initialize; votes are NOT being processed.");
+			return;
+		}
+		runtimeOperational = true;
 
 		// Send server name message again (safe)
 		try {
@@ -521,6 +541,10 @@ public class VotingPluginBungee extends Plugin implements Listener {
 	void initializeFirstRuntime() {
 		// Full initialization creates the first runtime; there is no old runtime to retire.
 		reloadPlugin(true);
+	}
+
+	boolean isRuntimeOperational() {
+		return runtimeOperational;
 	}
 
 	/** The retention branch returns from inside reloadLock; drain only after that lock is released. */
@@ -916,31 +940,30 @@ public class VotingPluginBungee extends Plugin implements Listener {
 	}
 
 	/**
-	 * Initializes votifier listener if enabled and available. Registers the
-	 * listener only once.
+	 * Initializes the Votifier listener when Votifier is present and enabled.
+	 * The listener field is published only after platform registration succeeds so
+	 * a later reload can retry a failed registration.
+	 *
+	 * @return true when vote receipt is intentionally unavailable or ready
 	 */
-	private void initVotifierListenerIfNeeded() {
-		boolean eventFound = true;
+	private boolean initVotifierListenerIfNeeded() {
 		try {
 			Class.forName("com.vexsoftware.votifier.bungee.events.VotifierEvent");
 		} catch (ClassNotFoundException e) {
-			eventFound = false;
-		}
-
-		if (!eventFound) {
 			getVotingPluginProxy().setVotifierEnabled(false);
-			return;
+			return true;
 		}
 
-		if (getVotingPluginProxy().isVotifierEnabled()) {
-			if (voteEventBungee == null) {
-				try {
-					voteEventBungee = new VoteEventBungee(this);
-					getProxy().getPluginManager().registerListener(this, voteEventBungee);
-				} catch (Exception e) {
-					getVotingPluginProxy().setVotifierEnabled(false);
-				}
-			}
+		if (!getVotingPluginProxy().isVotifierEnabled() || voteEventBungee != null) return true;
+		try {
+			VoteEventBungee candidate = new VoteEventBungee(this);
+			getProxy().getPluginManager().registerListener(this, candidate);
+			voteEventBungee = candidate;
+			return true;
+		} catch (Exception e) {
+			getLogger().severe("Unable to register the Votifier listener: " + e.getMessage());
+			if (getConfig().getDebug()) e.printStackTrace();
+			return false;
 		}
 	}
 
