@@ -44,7 +44,11 @@ final class NeoForgeRewardConfiguration {
         }
         if (unsupported != null) return blocked(unsupported);
         actions.replaceAll(action -> new NeoForgeRewardPlan.Action(action.type(), action.value()
-                .replace("%SiteName%", site.displayName()).replace("%sitename%", site.displayName())));
+                .replace("%SiteName%", site.displayName()).replace("%sitename%", site.displayName())
+                .replace("%ServiceSite%", vote.serviceSite()).replace("%servicesite%", vote.serviceSite())));
+        if (actions.stream().anyMatch(action -> !supportedValue(action.value(), action.type()))) {
+            return blocked("Expanded reward action contains unsupported formatting or placeholders");
+        }
         boolean hasMessages = actions.stream().anyMatch(action ->
                 action.type() == NeoForgeRewardPlan.ActionType.PLAYER_MESSAGE);
         boolean hasCommands = actions.stream().anyMatch(action ->

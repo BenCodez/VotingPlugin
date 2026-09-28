@@ -322,6 +322,8 @@ class NeoForgeDeferredVoteStoreTest {
             assertEquals(NeoForgeVoteResult.Status.DEFERRED,
                     processor.process(complete(secondId, playerId, 200L)).status());
             assertTrue(bounded.claim(playerId, secondId).isEmpty());
+            assertEquals(NeoForgeDeferredVoteStore.ClaimStatus.RECEIPT_CAPACITY_REACHED,
+                    bounded.claimForReplay(playerId, secondId).status());
 
             assertEquals(List.of(secondId), bounded.pending(playerId).stream()
                     .map(NeoForgeDeferredVote::voteId).toList());

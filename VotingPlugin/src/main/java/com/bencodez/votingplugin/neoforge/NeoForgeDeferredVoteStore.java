@@ -22,6 +22,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 
 import com.bencodez.advancedcore.api.user.usercache.keys.UserDataKey;
 import com.bencodez.advancedcore.api.user.usercache.keys.UserDataKeyString;
@@ -36,6 +37,7 @@ import com.bencodez.votingplugin.core.vote.SharedVoteInput;
 
 /** Ordered, bounded storage for complete votes and their completion receipts. */
 public final class NeoForgeDeferredVoteStore {
+    private static final Logger LOGGER = Logger.getLogger(NeoForgeDeferredVoteStore.class.getName());
     static final String DEFERRED_VOTES = "DeferredVotes";
     static final String COMPLETED_DEFERRED_VOTES = "CompletedDeferredVotes";
     static final int MAX_DEFERRED_PER_USER = 64;
@@ -193,28 +195,33 @@ public final class NeoForgeDeferredVoteStore {
      * pending payload unchanged; the next claim checks durable capacity again.
      */
     public synchronized Optional<Claim> claim(UUID playerId, UUID voteId) {
+        return claimForReplay(playerId, voteId).optionalClaim();
+    }
+
+    synchronized ClaimAttempt claimForReplay(UUID playerId, UUID voteId) {
         Objects.requireNonNull(playerId, "playerId");
         Objects.requireNonNull(voteId, "voteId");
         OccurrenceKey key = new OccurrenceKey(playerId, voteId);
-        if (activeClaims.contains(key)) return Optional.empty();
+        if (activeClaims.contains(key)) return new ClaimAttempt(ClaimStatus.ACTIVE, null);
         Map<String, DataValue> row = row(backend.user(playerId).readRow(backend.storageType()));
         List<CompletionReceipt> completed = parseCompleted(value(row, COMPLETED_DEFERRED_VOTES));
         if (containsReceipt(completed, voteId)) {
             reconcileCompleted(playerId, voteId);
-            return Optional.empty();
+            return new ClaimAttempt(ClaimStatus.ALREADY_COMPLETED, null);
         }
         Optional<NeoForgeDeferredVote> vote = parsePending(value(row, DEFERRED_VOTES), playerId).stream()
                 .filter(candidate -> candidate.voteId().equals(voteId)).findFirst();
-        if (vote.isEmpty() || vote.get().quarantined()) return Optional.empty();
+        if (vote.isEmpty()) return new ClaimAttempt(ClaimStatus.NOT_PENDING, null);
+        if (vote.get().quarantined()) return new ClaimAttempt(ClaimStatus.QUARANTINED, null);
         ensureCounts();
         if (activeReceiptCount(completed) + receiptReservationsByUser.getOrDefault(playerId, 0)
                 >= completedPerUserLimit || completedCount + receiptReservationsTotal >= completedTotalLimit) {
-            return Optional.empty();
+            return new ClaimAttempt(ClaimStatus.RECEIPT_CAPACITY_REACHED, null);
         }
         activeClaims.add(key);
         receiptReservationsByUser.merge(playerId, 1, Integer::sum);
         receiptReservationsTotal++;
-        return Optional.of(new Claim(key, vote.get()));
+        return new ClaimAttempt(ClaimStatus.CLAIMED, new Claim(key, vote.get()));
     }
 
     /** Durably prevents automatic replay after an external effect may have happened. */
@@ -398,6 +405,7 @@ public final class NeoForgeDeferredVoteStore {
         LinkedHashSet<UUID> discovered = new LinkedHashSet<>();
         int pending = 0;
         int completed = 0;
+        int malformedIdentityRows = 0;
         String columns = "`UUID`, `" + DEFERRED_VOTES + "`, `" + COMPLETED_DEFERRED_VOTES + "`";
         String table = "`" + NeoForgeRuntime.USER_TABLE_NAME + "`";
         String pendingRows = "`" + DEFERRED_VOTES + "` IS NOT NULL AND `" + DEFERRED_VOTES + "` <> ''";
@@ -411,7 +419,19 @@ public final class NeoForgeDeferredVoteStore {
                 PreparedStatement statement = connection.prepareStatement(sql);
                 ResultSet result = statement.executeQuery()) {
             while (result.next()) {
-                UUID playerId = parseCanonicalUuid(result.getString(1));
+                UUID playerId;
+                try {
+                    playerId = parseCanonicalUuid(result.getString(1));
+                } catch (IllegalStateException malformedIdentity) {
+                    malformedIdentityRows++;
+                    if (result.getString(2) != null && !result.getString(2).isEmpty()) {
+                        pending = cappedAdd(pending, perUserLimit, totalLimit);
+                    }
+                    if (result.getString(3) != null && !result.getString(3).isEmpty()) {
+                        completed = cappedAdd(completed, completedPerUserLimit, completedTotalLimit);
+                    }
+                    continue;
+                }
                 String pendingData = result.getString(2);
                 String completedData = result.getString(3);
                 if (pendingData != null && !pendingData.isEmpty()) {
@@ -431,6 +451,10 @@ public final class NeoForgeDeferredVoteStore {
             }
         } catch (SQLException failure) {
             throw new IllegalStateException("Failed to discover deferred NeoForge vote rows", failure);
+        }
+        if (malformedIdentityRows > 0) {
+            LOGGER.warning("Skipped " + malformedIdentityRows
+                    + " deferred NeoForge vote row(s) with malformed UUID identities");
         }
         replayCandidates.addAll(discovered);
         replayCandidatesInitialized = true;
@@ -633,6 +657,10 @@ public final class NeoForgeDeferredVoteStore {
     enum Status { RETAINED, ALREADY_RETAINED, ALREADY_COMPLETED, CAPACITY_REACHED }
     public enum CompletionResult { COMPLETED, ALREADY_COMPLETED, NOT_PENDING, RECEIPT_CAPACITY_REACHED }
     enum ReleaseResult { RELEASED, ALREADY_RELEASED, NOT_COMPLETED, RELEASE_CAPACITY_REACHED }
+    enum ClaimStatus { CLAIMED, ACTIVE, ALREADY_COMPLETED, NOT_PENDING, QUARANTINED, RECEIPT_CAPACITY_REACHED }
+    record ClaimAttempt(ClaimStatus status, Claim claim) {
+        Optional<Claim> optionalClaim() { return Optional.ofNullable(claim); }
+    }
     public record CompletionOutcome(CompletionResult result, NeoForgeVoteAccount account) { }
     record DeferralResult(Status status, List<NeoForgeDeferredVote> pending) { }
     private record CompletionReceipt(UUID voteId, long releasedAt) {
