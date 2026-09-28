@@ -354,9 +354,45 @@ public class OfflineBungeeVote {
 		return new LinkedHashMap<>(httpBroadcastDeliveryIds);
 	}
 
-	/** Returns whether any reward or standalone HTTP delivery is still pending. */
+	/** Returns whether any reward or standalone HTTP delivery metadata is still present. */
 	public boolean hasPendingHttpDeliveryIds() {
 		return !httpDeliveryIds.isEmpty() || !httpBroadcastDeliveryIds.isEmpty();
+	}
+
+	/**
+	 * Returns whether this row contains transport-owned HTTP state that requires the
+	 * HTTP transport to survive a method change. Reward-journal IDs are deliberately
+	 * excluded: they are deterministic crash-durability fences used by every proxy
+	 * transport, including PLUGINMESSAGING.
+	 *
+	 * <p>Legacy affected caches need no rewrite. Target rows written by the reward
+	 * journal can be identified from their vote ID, target server and deterministic
+	 * delivery ID. A delivery ID recovered from the HTTP transport after an
+	 * indeterminate publication remains transport-owned and therefore still retains
+	 * HTTP.</p>
+	 *
+	 * @return true when unfinished HTTP transport state is present
+	 */
+	public boolean hasPendingHttpTransportDeliveryIds() {
+		if (!httpBroadcastDeliveryIds.isEmpty()) return true;
+		for (Map.Entry<String, String> entry : httpDeliveryIds.entrySet()) {
+			if (isRewardJournalMarker(entry.getKey())) continue;
+			if (!isDeterministicRewardJournalDeliveryId(entry.getKey(), entry.getValue())) return true;
+		}
+		return false;
+	}
+
+	private boolean isDeterministicRewardJournalDeliveryId(String server, String deliveryId) {
+		if (voteId == null || server == null || server.isBlank() || deliveryId == null || deliveryId.isBlank()) {
+			return false;
+		}
+		String key = voteId + ":reward:" + server;
+		String expected = UUID.nameUUIDFromBytes(key.getBytes(StandardCharsets.UTF_8)).toString();
+		return expected.equalsIgnoreCase(deliveryId);
+	}
+
+	private static boolean isRewardJournalMarker(String target) {
+		return target != null && target.startsWith("__vp_reward_target__:");
 	}
 
 	/**
