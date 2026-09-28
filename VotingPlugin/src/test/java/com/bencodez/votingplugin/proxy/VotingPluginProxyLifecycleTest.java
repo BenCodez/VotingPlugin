@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -22,6 +23,7 @@ import java.nio.file.Path;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
@@ -296,6 +298,42 @@ class VotingPluginProxyLifecycleTest {
 		assertSame(original, authentication.get(proxy));
 		assertEquals(SharedTransportEnvelopeAuthenticator.Rejection.REPLAY,
 				original.verify(signed, Domain.REDIS_PROXY_BACKEND, channel).rejection());
+	}
+
+	@Test
+	void ordinarySocketReloadRebuildsPerBackendAuthenticationKeys(@TempDir Path dataDirectory) throws Exception {
+		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
+		proxy.setDataFolder(dataDirectory.toFile());
+		Path oldKeyFile = dataDirectory.resolve("old-auth.key");
+		Path newKeyFile = dataDirectory.resolve("new-auth.key");
+		Files.writeString(oldKeyFile, Base64.getEncoder().encodeToString(
+				"0123456789abcdef0123456789abcdef".getBytes(StandardCharsets.US_ASCII)));
+		Files.writeString(newKeyFile, Base64.getEncoder().encodeToString(
+				"abcdef0123456789abcdef0123456789".getBytes(StandardCharsets.US_ASCII)));
+		when(proxy.getConfig().getBungeeMethod()).thenReturn("SOCKETS");
+		when(proxy.getConfig().getCommunicationEncryption()).thenReturn(false);
+		when(proxy.getConfig().getBlockedServers()).thenReturn(List.of());
+		when(proxy.getConfig().getSpigotServers()).thenReturn(List.of("backend-a"));
+		when(proxy.getConfig().getSpigotServerConfiguration("backend-a")).thenReturn(Map.of(
+				"Host", "127.0.0.1", "Port", 1298, "AuthenticationKeyFile", "new-auth.key"));
+		SharedTransportEnvelopeAuthenticator oldAuthenticator = SharedTransportEnvelopeAuthenticator.load(
+				oldKeyFile, Mode.REQUIRED);
+		setField(proxy, "socketAuthenticators", Map.of("backend-a", oldAuthenticator));
+
+		proxy.reload();
+
+		@SuppressWarnings("unchecked")
+		Map<String, SharedTransportEnvelopeAuthenticator> authenticators =
+				(Map<String, SharedTransportEnvelopeAuthenticator>) field(proxy, "socketAuthenticators");
+		SharedTransportEnvelopeAuthenticator reloaded = authenticators.get("backend-a");
+		assertNotNull(reloaded);
+		JsonEnvelope status = VotingPluginWire.statusOkay("backend-a");
+		JsonEnvelope signedWithNewKey = SharedTransportEnvelopeAuthenticator.load(newKeyFile, Mode.REQUIRED)
+				.sign(status, Domain.SOCKET_PROXY_BACKEND, "backend-a", "proxy1");
+		JsonEnvelope signedWithOldKey = oldAuthenticator.sign(status,
+				Domain.SOCKET_PROXY_BACKEND, "backend-a", "proxy1");
+		assertTrue(reloaded.verify(signedWithNewKey, Domain.SOCKET_PROXY_BACKEND, "proxy1").accepted());
+		assertFalse(reloaded.verify(signedWithOldKey, Domain.SOCKET_PROXY_BACKEND, "proxy1").accepted());
 	}
 
 	@Test

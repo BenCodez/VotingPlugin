@@ -3933,7 +3933,7 @@ public abstract class VotingPluginProxy {
 		warnIfSharedTransportCompatibilityMode(replacementAuthenticator);
 		scheduleDeferredHttpTransportReconciliation();
 		warnUnsupportedDedicatedVotingProxyMode();
-		if (!restartControlServices && method == BungeeMethod.SOCKETS) {
+		if (method == BungeeMethod.SOCKETS) {
 			rebuildSocketClients();
 		}
 
