@@ -212,6 +212,8 @@ public final class ServiceSiteValidator {
 		if (occurrences.isEmpty()) return template;
 		occurrences.sort(Comparator.comparingInt(TemplateOccurrence::offset));
 		StringBuilder result = new StringBuilder(template.length() + occurrences.size() * 2);
+		boolean[] leadingBoundaries = new boolean[occurrences.size()];
+		boolean[] trailingBoundaries = new boolean[occurrences.size()];
 		int copiedThrough = 0;
 		for (int index = 0; index < occurrences.size(); index++) {
 			TemplateOccurrence occurrence = occurrences.get(index);
@@ -227,7 +229,13 @@ public final class ServiceSiteValidator {
 					contextOffset = context.length();
 					context.append(other.token());
 				} else {
+					if (otherIndex < index && leadingBoundaries[otherIndex]) {
+						context.append(FORMATTING_BOUNDARY);
+					}
 					context.append(inertForActions(other.value() == null ? "" : other.value()));
+					if (otherIndex < index && trailingBoundaries[otherIndex]) {
+						context.append(FORMATTING_BOUNDARY);
+					}
 				}
 				contextThrough = other.offset() + other.token().length();
 			}
@@ -238,6 +246,8 @@ public final class ServiceSiteValidator {
 					contextOffset + occurrence.token().length(), occurrence.value());
 			boolean trailing = closesValueTokenAt(contextText,
 					contextOffset + occurrence.token().length(), occurrence.value());
+			leadingBoundaries[index] = leading;
+			trailingBoundaries[index] = trailing;
 			result.append(template, copiedThrough, occurrence.offset());
 			if (leading && (result.length() == 0
 					|| result.charAt(result.length() - 1) != FORMATTING_BOUNDARY.charAt(0))) {
