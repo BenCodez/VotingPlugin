@@ -281,14 +281,16 @@ public class CoolDownCheck implements Listener {
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onCoolDownEnd(PlayerVoteSiteCoolDownEndEvent event) {
 		VoteSite site = event.getSite();
+		Map<String, String> substitutions = Map.of(
+				"sitename", site.getDisplayNameForActions(),
+				"url", site.getVoteURL(false));
 		ConfigurationSection rewardData = RewardActionTemplateGuard.isolate(
-				site.getSiteData(), "CoolDownEndRewards",
-				site.isDisplayNameFromAutomaticCreation()
-						? Map.of("sitename", site.getDisplayName()) : Map.of());
+				site.getSiteData(), "CoolDownEndRewards", substitutions,
+				site.isDisplayNameFromAutomaticCreation() ? java.util.Set.of("sitename") : java.util.Set.of());
 		plugin.getRewardHandler().giveReward(event.getPlayer(), rewardData, "CoolDownEndRewards",
-				new RewardOptions().addPlaceholder("sitename", site.getDisplayNameForActions())
+				new RewardOptions().addPlaceholder("sitename", substitutions.get("sitename"))
 						.addDisplayPlaceholder("sitename", site.getDisplayNameForFormatting())
-						.addPlaceholder("url", site.getVoteURL(false)));
+						.addPlaceholder("url", substitutions.get("url")));
 	}
 
 	/**

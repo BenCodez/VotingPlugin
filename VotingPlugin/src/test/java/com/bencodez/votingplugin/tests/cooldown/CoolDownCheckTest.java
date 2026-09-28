@@ -29,7 +29,7 @@ class CoolDownCheckTest {
 		VoteSite site = mock(VoteSite.class);
 		YamlConfiguration data = new YamlConfiguration();
 		data.set("CoolDownEndRewards.Commands", java.util.List.of(
-				"unsafe %%sitename%%", "safe %sitename%"));
+				"unsafe %%sitename%%", "safe %sitename%", "%url%foo%%sitename%%"));
 		when(plugin.getRewardHandler()).thenReturn(rewards);
 		when(event.getPlayer()).thenReturn(user);
 		when(event.getSite()).thenReturn(site);
@@ -49,7 +49,8 @@ class CoolDownCheckTest {
 		ArgumentCaptor<ConfigurationSection> config = ArgumentCaptor.forClass(ConfigurationSection.class);
 		ArgumentCaptor<RewardOptions> options = ArgumentCaptor.forClass(RewardOptions.class);
 		verify(rewards).giveReward(eq(user), config.capture(), eq("CoolDownEndRewards"), options.capture());
-		assertEquals(java.util.List.of("unsafe %\u2060%sitename%%", "safe %sitename%"),
+		assertEquals(java.util.List.of("unsafe %\u2060%sitename%%", "safe %sitename%",
+				"%url%foo%\u2060%sitename%%"),
 				config.getValue().getStringList("CoolDownEndRewards.Commands"));
 		assertEquals("player_name", options.getValue().getPlaceholders().get("sitename"));
 	}

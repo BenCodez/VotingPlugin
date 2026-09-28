@@ -89,10 +89,12 @@ public class VoteRemindersListener implements Listener {
 		HashMap<String, String> placeholders = new HashMap<>();
 		placeholders.put("votesite", event.getSite().getDisplayNameForActions());
 		RewardDisplayPlaceholders.put(placeholders, "votesite", event.getSite().getDisplayNameForFormatting());
-		placeholders.put("votesite_id", event.getSite().getKey());
+		placeholders.put("votesite_id", event.getSite().getKeyForActions());
+		java.util.HashSet<String> guarded = new java.util.HashSet<>();
+		if (event.getSite().isDisplayNameFromAutomaticCreation()) guarded.add("votesite");
+		if (event.getSite().isKeyFromAutomaticCreation()) guarded.add("votesite_id");
 		plugin.getVoteRemindersManager().onCooldownTrigger(event.getPlayer(), VoteReminderType.COOLDOWN_END_ANY_SITE,
-				placeholders, event.getSite().isDisplayNameFromAutomaticCreation()
-						? Set.of("votesite") : Set.of());
+				placeholders, Set.copyOf(guarded));
 
 	}
 

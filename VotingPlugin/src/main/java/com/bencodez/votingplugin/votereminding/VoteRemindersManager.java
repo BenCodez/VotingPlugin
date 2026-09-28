@@ -1130,19 +1130,15 @@ public final class VoteRemindersManager {
 
 	private RewardBuilder prepareRewardFromPath(VotingPluginUser user, ReminderPlayerSnapshot snapshot, String rewardsPath,
 			Map<String, String> placeholders, Set<String> guardedActionPlaceholders) {
-		Map<String, String> guardedValues = new HashMap<>();
-		if (placeholders != null && guardedActionPlaceholders != null) {
-			for (String key : guardedActionPlaceholders) {
-				String value = placeholders.get(key);
-				if (value != null) guardedValues.put(key, value);
-			}
-		}
+		Map<String, String> substitutions = new HashMap<>();
+		if (placeholders != null) substitutions.putAll(placeholders);
+		substitutions.put("sitesavailable", "" + sitesNotVotedOn(user, snapshot));
 		org.bukkit.configuration.ConfigurationSection configured = plugin.getConfig();
 		org.bukkit.configuration.ConfigurationSection rewardData = RewardActionTemplateGuard.isolate(
-				configured, rewardsPath, guardedValues);
+				configured, rewardsPath, substitutions, guardedActionPlaceholders);
 		RewardBuilder rb = onlineRewardBuilder(rewardData, rewardsPath);
 		if (rewardData != configured) rb.withSuffix(null);
-		rb.withPlaceHolder("sitesavailable", "" + sitesNotVotedOn(user, snapshot));
+		rb.withPlaceHolder("sitesavailable", substitutions.get("sitesavailable"));
 		if (placeholders != null) for (Map.Entry<String, String> entry : placeholders.entrySet()) rb.withPlaceHolder(entry.getKey(), entry.getValue());
 		return rb;
 	}

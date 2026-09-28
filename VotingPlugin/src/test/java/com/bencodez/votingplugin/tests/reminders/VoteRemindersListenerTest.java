@@ -68,4 +68,28 @@ class VoteRemindersListenerTest {
 		assertEquals("site_key", values.get("votesite"));
 		assertEquals("\u2060site_key\u2060", RewardDisplayPlaceholders.forDisplay(values).get("votesite"));
 	}
+
+	@Test
+	void cooldownGuardsAutomaticallyCreatedSiteKeyAndItsProvenance() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		VoteRemindersManager manager = mock(VoteRemindersManager.class);
+		VoteSite site = mock(VoteSite.class);
+		VotingPluginUser user = mock(VotingPluginUser.class);
+		PlayerVoteSiteCoolDownEndEvent event = mock(PlayerVoteSiteCoolDownEndEvent.class);
+		when(plugin.getVoteRemindersManager()).thenReturn(manager);
+		when(event.getPlayer()).thenReturn(user);
+		when(event.getSite()).thenReturn(site);
+		when(site.getDisplayNameForActions()).thenReturn("Configured display");
+		when(site.getDisplayNameForFormatting()).thenReturn("\u2060Configured display\u2060");
+		when(site.getKeyForActions()).thenReturn("%\u2060player_name%");
+		when(site.isKeyFromAutomaticCreation()).thenReturn(true);
+
+		new VoteRemindersListener(plugin).onCoolDownEnd(event);
+
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<Map<String, String>> placeholders = ArgumentCaptor.forClass(Map.class);
+		verify(manager).onCooldownTrigger(eq(user), eq(VoteReminderType.COOLDOWN_END_ANY_SITE), placeholders.capture(),
+				eq(Set.of("votesite_id")));
+		assertEquals("%\u2060player_name%", placeholders.getValue().get("votesite_id"));
+	}
 }

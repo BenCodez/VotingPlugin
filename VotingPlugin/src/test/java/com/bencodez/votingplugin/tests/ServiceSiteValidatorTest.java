@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Map;
+import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
@@ -151,6 +152,15 @@ class ServiceSiteValidatorTest {
 				ServiceSiteValidator.inertTemplateBoundaries(
 						"%ServiceSite%foo%%SiteName%%",
 						Map.of("ServiceSite", "player_name", "SiteName", "player_name")));
+	}
+
+	@Test
+	void modelsTrustedSubstitutionsWithoutGuardingTheirValues() {
+		assertEquals("%VoteURL%foo%\u2060%ServiceSite%%",
+				ServiceSiteValidator.inertTemplateBoundaries(
+						"%VoteURL%foo%%ServiceSite%%",
+						Map.of("VoteURL", "https://example.test/", "ServiceSite", "player_name"),
+						Set.of("ServiceSite")));
 	}
 
 	@Test

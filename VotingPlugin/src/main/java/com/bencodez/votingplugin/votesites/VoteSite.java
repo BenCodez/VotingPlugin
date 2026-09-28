@@ -199,14 +199,28 @@ public class VoteSite {
 	}
 
 	private ConfigurationSection rewardDataForActions(ConfigurationSection root, String path) {
-		java.util.LinkedHashMap<String, String> untrusted = new java.util.LinkedHashMap<>();
-		if (serviceSiteFromAutomaticCreation) untrusted.put("ServiceSite", getServiceSite());
-		if (displayNameFallback && automaticallyCreatedVoteSite) untrusted.put("SiteName", getDisplayName());
-		return RewardActionTemplateGuard.isolate(root, path, untrusted);
+		java.util.LinkedHashMap<String, String> substitutions = new java.util.LinkedHashMap<>();
+		substitutions.put("ServiceSite", getServiceSiteForActions());
+		substitutions.put("SiteName", getDisplayNameForActions());
+		substitutions.put("VoteDelay", "" + getVoteDelay());
+		substitutions.put("VoteURL", getVoteURL());
+		java.util.HashSet<String> guarded = new java.util.HashSet<>();
+		if (serviceSiteFromAutomaticCreation) guarded.add("ServiceSite");
+		if (displayNameFallback && automaticallyCreatedVoteSite) guarded.add("SiteName");
+		return RewardActionTemplateGuard.isolate(root, path, substitutions, guarded);
 	}
 
 	public boolean isDisplayNameFromAutomaticCreation() {
 		return displayNameFallback && automaticallyCreatedVoteSite;
+	}
+
+	/** Returns an automatically derived key guarded for reward actions. */
+	public String getKeyForActions() {
+		return automaticallyCreatedVoteSite ? ServiceSiteValidator.inertForActions(getKey()) : getKey();
+	}
+
+	public boolean isKeyFromAutomaticCreation() {
+		return automaticallyCreatedVoteSite;
 	}
 
 	/** Sets an administrator-controlled display name. */

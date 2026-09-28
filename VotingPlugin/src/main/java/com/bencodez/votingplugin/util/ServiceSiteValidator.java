@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Validates service-site names received from vote sources.
@@ -196,6 +197,13 @@ public final class ServiceSiteValidator {
 	 * placeholder is substituted.
 	 */
 	public static String inertTemplateBoundaries(String template, Map<String, String> placeholders) {
+		return inertTemplateBoundaries(template, placeholders,
+				placeholders == null ? Set.of() : placeholders.keySet());
+	}
+
+	/** Models all substitutions but inserts boundaries only around guarded placeholders. */
+	public static String inertTemplateBoundaries(String template, Map<String, String> placeholders,
+			Set<String> guardedPlaceholders) {
 		if (template == null || placeholders == null || placeholders.isEmpty()) return template;
 		List<TemplateOccurrence> occurrences = new ArrayList<>();
 		for (Map.Entry<String, String> entry : placeholders.entrySet()) {
@@ -204,7 +212,8 @@ public final class ServiceSiteValidator {
 			String token = "%" + placeholder + "%";
 			for (int offset = 0; offset <= template.length() - token.length(); offset++) {
 				if (template.regionMatches(true, offset, token, 0, token.length())) {
-					occurrences.add(new TemplateOccurrence(offset, token, entry.getValue()));
+					occurrences.add(new TemplateOccurrence(offset, token, entry.getValue(),
+							guardedPlaceholders != null && guardedPlaceholders.contains(placeholder)));
 					offset += token.length() - 1;
 				}
 			}
@@ -232,7 +241,8 @@ public final class ServiceSiteValidator {
 					if (otherIndex < index && leadingBoundaries[otherIndex]) {
 						context.append(FORMATTING_BOUNDARY);
 					}
-					context.append(inertForActions(other.value() == null ? "" : other.value()));
+					String replacement = other.value() == null ? "" : other.value();
+					context.append(other.guarded() ? inertForActions(replacement) : replacement);
 					if (otherIndex < index && trailingBoundaries[otherIndex]) {
 						context.append(FORMATTING_BOUNDARY);
 					}
@@ -242,9 +252,9 @@ public final class ServiceSiteValidator {
 			context.append(template, contextThrough, template.length());
 			if (contextOffset < 0) continue;
 			String contextText = context.toString();
-			boolean leading = opensActionTokenAt(contextText, contextOffset,
+			boolean leading = occurrence.guarded() && opensActionTokenAt(contextText, contextOffset,
 					contextOffset + occurrence.token().length(), occurrence.value());
-			boolean trailing = closesValueTokenAt(contextText,
+			boolean trailing = occurrence.guarded() && closesValueTokenAt(contextText,
 					contextOffset + occurrence.token().length(), occurrence.value());
 			leadingBoundaries[index] = leading;
 			trailingBoundaries[index] = trailing;
@@ -260,7 +270,7 @@ public final class ServiceSiteValidator {
 		return result.append(template, copiedThrough, template.length()).toString();
 	}
 
-	private record TemplateOccurrence(int offset, String token, String value) { }
+	private record TemplateOccurrence(int offset, String token, String value, boolean guarded) { }
 
 	private static boolean closesValueTokenAt(String template, int offset, String value) {
 		if (value == null || value.isEmpty() || offset >= template.length()) return false;
