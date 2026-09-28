@@ -30,6 +30,10 @@ public class VoteEventBungee implements net.md_5.bungee.api.plugin.Listener {
 	 */
 	@EventHandler
 	public void onVote(VotifierEvent event) {
+		if (!plugin.isRuntimeOperational()) {
+			plugin.getLogger().severe("Vote received while VotingPlugin proxy runtime is not operational; vote was not processed");
+			return;
+		}
 		Vote vote = event.getVote();
 		String serviceName = vote.getServiceName();
 		String serviceSite = serviceName == null || serviceName.isEmpty() ? "Empty" : serviceName;
