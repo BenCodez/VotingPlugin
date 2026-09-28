@@ -208,7 +208,10 @@ public final class ServiceSiteValidator {
 
 	private static boolean endsWithPlaceholderFragment(String value) {
 		int opener = value.lastIndexOf('%');
-		return opener >= 0 && isPlaceholderFragment(value, opener + 1, value.length());
+		if (opener < 0) return false;
+		if (opener + 1 < value.length()) return isPlaceholderFragment(value, opener + 1, value.length());
+		int prior = value.lastIndexOf('%', opener - 1);
+		return prior < 0 || !isPlaceholderFragment(value, prior + 1, opener);
 	}
 
 	private static boolean opensActionTokenAt(String template, int offset) {

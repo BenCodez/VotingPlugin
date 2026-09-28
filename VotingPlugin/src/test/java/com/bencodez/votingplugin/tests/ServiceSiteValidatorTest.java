@@ -107,6 +107,12 @@ class ServiceSiteValidatorTest {
 				ServiceSiteValidator.inertTemplateBoundaries(
 						"unsafe %ServiceSite%name% and safe %ServiceSite% name%",
 						"ServiceSite", "%player_"));
+		assertEquals("unsafe %ServiceSite%\u2060player_name%",
+				ServiceSiteValidator.inertTemplateBoundaries(
+						"unsafe %ServiceSite%player_name%", "ServiceSite", "site%"));
+		assertEquals("safe %ServiceSite%player_name%",
+				ServiceSiteValidator.inertTemplateBoundaries(
+						"safe %ServiceSite%player_name%", "ServiceSite", "%already_closed%"));
 		assertEquals("unsafe %ServiceSite%\u2060a",
 				ServiceSiteValidator.inertTemplateBoundaries(
 						"unsafe %ServiceSite%a", "ServiceSite", "&"));
