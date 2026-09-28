@@ -171,7 +171,7 @@ public final class ServiceSiteValidator {
 
 	private static boolean closesValueTokenAt(String template, int offset, String value) {
 		if (value == null || value.isEmpty() || offset >= template.length()) return false;
-		if (template.charAt(offset) == '%' && endsWithPlaceholderFragment(value)) return true;
+		if (endsWithPlaceholderFragment(value) && completesPlaceholder(template, offset)) return true;
 		int ampersand = value.lastIndexOf('&');
 		if (ampersand < 0) return false;
 		String partial = value.substring(ampersand + 1);
@@ -183,6 +183,15 @@ public final class ServiceSiteValidator {
 			if (Character.digit(partial.charAt(index), 16) < 0) return false;
 		}
 		return completesHexColor(template, offset, 7 - partial.length(), false);
+	}
+
+	private static boolean completesPlaceholder(String template, int offset) {
+		for (int index = offset; index < template.length(); index++) {
+			char character = template.charAt(index);
+			if (character == '%') return true;
+			if (Character.isWhitespace(character)) return false;
+		}
+		return false;
 	}
 
 	private static boolean completesHexColor(String template, int offset, int hexCharacters, boolean hashRequired) {
