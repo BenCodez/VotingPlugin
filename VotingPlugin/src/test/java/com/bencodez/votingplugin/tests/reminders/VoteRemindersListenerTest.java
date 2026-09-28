@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -25,7 +26,7 @@ import com.bencodez.votingplugin.votesites.VoteSite;
 class VoteRemindersListenerTest {
 
 	@Test
-	void postVoteKeepsRawActionValueAndSeparateDisplayValue() {
+	void postVoteCarriesGuardedActionProvenanceAndSeparateDisplayValue() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);
 		VoteRemindersManager manager = mock(VoteRemindersManager.class);
 		VoteSite site = mock(VoteSite.class);
@@ -34,12 +35,13 @@ class VoteRemindersListenerTest {
 		when(plugin.getVoteRemindersManager()).thenReturn(manager);
 		when(event.getUser()).thenReturn(user);
 		when(event.getVoteSite()).thenReturn(site);
-		when(site.getDisplayName()).thenReturn("site_key");
+		when(site.getDisplayNameForActions()).thenReturn("site_key");
 		when(site.getDisplayNameForFormatting()).thenReturn("\u2060site_key\u2060");
+		when(site.isDisplayNameFromAutomaticCreation()).thenReturn(true);
 
 		new VoteRemindersListener(plugin).onPostVote(event);
 
-		verify(manager).onVoteCast(user, "site_key", "\u2060site_key\u2060");
+		verify(manager).onVoteCast(user, "site_key", "\u2060site_key\u2060", Set.of("site"));
 	}
 
 	@Test
@@ -52,7 +54,7 @@ class VoteRemindersListenerTest {
 		when(plugin.getVoteRemindersManager()).thenReturn(manager);
 		when(event.getPlayer()).thenReturn(user);
 		when(event.getSite()).thenReturn(site);
-		when(site.getDisplayName()).thenReturn("site_key");
+		when(site.getDisplayNameForActions()).thenReturn("site_key");
 		when(site.getDisplayNameForFormatting()).thenReturn("\u2060site_key\u2060");
 		when(site.getKey()).thenReturn("site_key");
 
@@ -60,7 +62,8 @@ class VoteRemindersListenerTest {
 
 		@SuppressWarnings("unchecked")
 		ArgumentCaptor<Map<String, String>> placeholders = ArgumentCaptor.forClass(Map.class);
-		verify(manager).onCooldownTrigger(eq(user), eq(VoteReminderType.COOLDOWN_END_ANY_SITE), placeholders.capture());
+		verify(manager).onCooldownTrigger(eq(user), eq(VoteReminderType.COOLDOWN_END_ANY_SITE), placeholders.capture(),
+				eq(Set.of()));
 		HashMap<String, String> values = new HashMap<>(placeholders.getValue());
 		assertEquals("site_key", values.get("votesite"));
 		assertEquals("\u2060site_key\u2060", RewardDisplayPlaceholders.forDisplay(values).get("votesite"));

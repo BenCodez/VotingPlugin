@@ -16,6 +16,7 @@ import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -144,9 +145,9 @@ public class VoteRemindersManagerTest {
 		when(serverData.getDisabledReminders()).thenReturn(Collections.emptyList());
 		VoteRemindersManager manager = new VoteRemindersManager(plugin, store);
 		Method schedule = VoteRemindersManager.class.getDeclaredMethod("scheduleDelayedEvaluation",
-				UUID.class, String.class, Map.class, long.class);
+				UUID.class, String.class, Map.class, Set.class, long.class);
 		schedule.setAccessible(true);
-		schedule.invoke(manager, UUID.randomUUID(), "login", Collections.emptyMap(), 60_000L);
+		schedule.invoke(manager, UUID.randomUUID(), "login", Collections.emptyMap(), Set.of(), 60_000L);
 
 		manager.shutdown();
 

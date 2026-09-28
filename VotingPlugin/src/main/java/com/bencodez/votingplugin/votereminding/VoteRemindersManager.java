@@ -31,8 +31,9 @@ import com.bencodez.simpleapi.time.ParsedDuration;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.util.BukkitCompletionScheduler;
-import com.bencodez.votingplugin.votesites.VoteSite;
+import com.bencodez.votingplugin.util.RewardActionTemplateGuard;
 import com.bencodez.votingplugin.votereminding.store.VoteReminderCooldownStore;
+import com.bencodez.votingplugin.votesites.VoteSite;
 
 /**
  * VoteReminders core manager (no Bukkit repeating tasks).
@@ -336,12 +337,14 @@ public final class VoteRemindersManager {
 		volatile boolean cooldownAll;
 
 		final Map<String, String> placeholders = new HashMap<>();
+		final Set<String> guardedActionPlaceholders = new HashSet<>();
 
-		void mergePlaceholders(Map<String, String> ph) {
+		void mergePlaceholders(Map<String, String> ph, Set<String> guarded) {
 			if (ph == null || ph.isEmpty()) {
 				return;
 			}
 			placeholders.putAll(ph);
+			if (guarded != null) guardedActionPlaceholders.addAll(guarded);
 		}
 
 		List<VoteReminderType> snapshotTypes() {
@@ -488,10 +491,15 @@ public final class VoteRemindersManager {
 	}
 
 	public void onVoteCast(VotingPluginUser user, String siteKey) {
-		onVoteCast(user, siteKey, siteKey);
+		onVoteCast(user, siteKey, siteKey, Set.of());
 	}
 
 	public void onVoteCast(VotingPluginUser user, String siteKey, String displaySite) {
+		onVoteCast(user, siteKey, displaySite, Set.of());
+	}
+
+	public void onVoteCast(VotingPluginUser user, String siteKey, String displaySite,
+			Set<String> guardedActionPlaceholders) {
 		if (!isEnabled() || user == null) {
 			return;
 		}
@@ -510,11 +518,16 @@ public final class VoteRemindersManager {
 			RewardDisplayPlaceholders.put(ph, "site", displaySite);
 		}
 
-		queueTrigger(user, VoteReminderType.VOTE_CAST, ph);
+		queueTrigger(user, VoteReminderType.VOTE_CAST, ph, guardedActionPlaceholders);
 		flushSoon(user.getJavaUUID(), user.getPlayerName());
 	}
 
 	public void onCooldownTrigger(VotingPluginUser user, VoteReminderType type, Map<String, String> placeholders) {
+		onCooldownTrigger(user, type, placeholders, Set.of());
+	}
+
+	public void onCooldownTrigger(VotingPluginUser user, VoteReminderType type, Map<String, String> placeholders,
+			Set<String> guardedActionPlaceholders) {
 		if (!isEnabled() || user == null) {
 			return;
 		}
@@ -530,7 +543,7 @@ public final class VoteRemindersManager {
 			return;
 		}
 
-		queueTrigger(user, type, placeholders);
+		queueTrigger(user, type, placeholders, guardedActionPlaceholders);
 		flushSoon(user.getJavaUUID(), user.getPlayerName());
 	}
 
@@ -628,10 +641,20 @@ public final class VoteRemindersManager {
 	 */
 
 	private void queueTrigger(VotingPluginUser user, VoteReminderType type, Map<String, String> placeholders) {
-		queueTrigger(user.getJavaUUID(), type, placeholders);
+		queueTrigger(user.getJavaUUID(), type, placeholders, Set.of());
 	}
 
 	private void queueTrigger(UUID uuid, VoteReminderType type, Map<String, String> placeholders) {
+		queueTrigger(uuid, type, placeholders, Set.of());
+	}
+
+	private void queueTrigger(VotingPluginUser user, VoteReminderType type, Map<String, String> placeholders,
+			Set<String> guardedActionPlaceholders) {
+		queueTrigger(user.getJavaUUID(), type, placeholders, guardedActionPlaceholders);
+	}
+
+	private void queueTrigger(UUID uuid, VoteReminderType type, Map<String, String> placeholders,
+			Set<String> guardedActionPlaceholders) {
 		PendingTriggers pt = pending.computeIfAbsent(uuid, k -> new PendingTriggers());
 		switch (type) {
 		case LOGIN:
@@ -655,7 +678,7 @@ public final class VoteRemindersManager {
 		default:
 			break;
 		}
-		pt.mergePlaceholders(placeholders);
+		pt.mergePlaceholders(placeholders, guardedActionPlaceholders);
 	}
 
 	private void flushSoon(UUID uuid, String playerName) {
@@ -691,7 +714,8 @@ public final class VoteRemindersManager {
 		plugin.extraDebug("[VoteReminders] flush " + snapshot.playerName() + " triggers=" + types);
 		for (VoteReminderDefinition def : reminders) {
 			if (!types.contains(def.getType())) continue;
-			boolean matched = attemptOrSchedule(user, snapshot, def, pt.placeholders);
+			boolean matched = attemptOrSchedule(user, snapshot, def, pt.placeholders,
+					pt.guardedActionPlaceholders);
 			if (matched) {
 				plugin.extraDebug("[VoteReminders] matched " + def.getName() + " for " + snapshot.playerName() + " type="
 						+ def.getType() + " stopAfterMatch=" + options.isStopAfterMatch());
@@ -894,22 +918,23 @@ public final class VoteRemindersManager {
 	 */
 
 	private boolean attemptOrSchedule(VotingPluginUser user, ReminderPlayerSnapshot snapshot, VoteReminderDefinition def,
-			Map<String, String> placeholders) {
+			Map<String, String> placeholders, Set<String> guardedActionPlaceholders) {
 		if (!isEnabled()) return false;
 		plugin.extraDebug("[VoteReminders] attempt " + def.getName() + " player=" + snapshot.playerName() + " type=" + def.getType());
 		if (!isUserReminderEnabled(user)) return false;
 		if (!snapshot.basePermission()) return false;
 		long delayMs = safeMs(def.getDelay());
 		if (delayMs > 0) {
-			scheduleDelayedEvaluation(snapshot.uuid(), def.getName(), placeholders, delayMs);
+			scheduleDelayedEvaluation(snapshot.uuid(), def.getName(), placeholders, guardedActionPlaceholders, delayMs);
 			return true;
 		}
-		return attemptFireNow(user, snapshot, def, placeholders);
+		return attemptFireNow(user, snapshot, def, placeholders, guardedActionPlaceholders);
 	}
 
 	private void scheduleDelayedEvaluation(UUID uuid, String reminderName, Map<String, String> placeholders,
-			long delayMs) {
+			Set<String> guardedActionPlaceholders, long delayMs) {
 		Map<String, String> ph = placeholders == null ? null : new HashMap<>(placeholders);
+		Set<String> guarded = guardedActionPlaceholders == null ? Set.of() : Set.copyOf(guardedActionPlaceholders);
 		int generation = taskGeneration.get();
 		delayedFutures.removeIf(future -> future.isDone() || future.isCancelled());
 		ScheduledFuture<?> future = scheduler.schedule(() -> {
@@ -919,7 +944,7 @@ public final class VoteRemindersManager {
 				if (def == null) return;
 				VotingPluginUser user = snapshotUser(plugin, uuid, snapshot.playerName());
 				if (user == null) return;
-				attemptFireNow(user, snapshot, def, ph);
+				attemptFireNow(user, snapshot, def, ph, guarded);
 			}, () -> {});
 		}, Math.max(1L, delayMs), TimeUnit.MILLISECONDS);
 		delayedFutures.add(future);
@@ -927,7 +952,7 @@ public final class VoteRemindersManager {
 	}
 
 	private boolean attemptFireNow(VotingPluginUser user, ReminderPlayerSnapshot snapshot, VoteReminderDefinition def,
-			Map<String, String> placeholders) {
+			Map<String, String> placeholders, Set<String> guardedActionPlaceholders) {
 		if (!isUserReminderEnabled(user)) return false;
 		if (snapshot.noRemind() || !snapshot.basePermission()) return false;
 		if (!passesConditions(user, snapshot, def.getConditions())) return false;
@@ -958,7 +983,8 @@ public final class VoteRemindersManager {
 		});
 		RewardBuilder reward;
 		try {
-			reward = prepareRewardFromPath(user, snapshot, def.getRewardsPath(), placeholders);
+			reward = prepareRewardFromPath(user, snapshot, def.getRewardsPath(), placeholders,
+					guardedActionPlaceholders);
 		} catch (RuntimeException failure) {
 			releaseClaims.run();
 			plugin.debug(failure);
@@ -1096,12 +1122,23 @@ public final class VoteRemindersManager {
 		ReminderPlayerSnapshot snapshot = new ReminderPlayerSnapshot(user.getJavaUUID(), player.getName(),
 				player.hasPermission("VotingPlugin.Login.RemindVotes") || player.hasPermission("VotingPlugin.Player"),
 				player.hasPermission("VotingPlugin.NoRemind"), !player.hasPlayedBefore(), Set.copyOf(visible));
-		return attemptFireNow(user, snapshot, def, placeholders);
+		return attemptFireNow(user, snapshot, def, placeholders, Set.of());
 	}
 
 	private RewardBuilder prepareRewardFromPath(VotingPluginUser user, ReminderPlayerSnapshot snapshot, String rewardsPath,
-			Map<String, String> placeholders) {
-		RewardBuilder rb = onlineRewardBuilder(plugin.getConfig(), rewardsPath);
+			Map<String, String> placeholders, Set<String> guardedActionPlaceholders) {
+		Map<String, String> guardedValues = new HashMap<>();
+		if (placeholders != null && guardedActionPlaceholders != null) {
+			for (String key : guardedActionPlaceholders) {
+				String value = placeholders.get(key);
+				if (value != null) guardedValues.put(key, value);
+			}
+		}
+		org.bukkit.configuration.ConfigurationSection configured = plugin.getConfig();
+		org.bukkit.configuration.ConfigurationSection rewardData = RewardActionTemplateGuard.isolate(
+				configured, rewardsPath, guardedValues);
+		RewardBuilder rb = onlineRewardBuilder(rewardData, rewardsPath);
+		if (rewardData != configured) rb.withSuffix(null);
 		rb.withPlaceHolder("sitesavailable", "" + sitesNotVotedOn(user, snapshot));
 		if (placeholders != null) for (Map.Entry<String, String> entry : placeholders.entrySet()) rb.withPlaceHolder(entry.getKey(), entry.getValue());
 		return rb;

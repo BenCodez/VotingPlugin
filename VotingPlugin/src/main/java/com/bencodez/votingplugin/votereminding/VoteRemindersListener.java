@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin.votereminding;
 
 import java.util.HashMap;
+import java.util.Set;
 
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -14,6 +15,7 @@ import com.bencodez.votingplugin.events.PlayerPostVoteEvent;
 import com.bencodez.votingplugin.events.PlayerVoteCoolDownEndEvent;
 import com.bencodez.votingplugin.events.PlayerVoteSiteCoolDownEndEvent;
 import com.bencodez.votingplugin.votereminding.VoteRemindersManager.VoteReminderType;
+import com.bencodez.votingplugin.votesites.VoteSite;
 
 /**
  * Listener for vote reminder events.
@@ -38,8 +40,10 @@ public class VoteRemindersListener implements Listener {
 	 */
 	@EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
 	public void onPostVote(PlayerPostVoteEvent event) {
-		plugin.getVoteRemindersManager().onVoteCast(event.getUser(), event.getVoteSite().getDisplayName(),
-				event.getVoteSite().getDisplayNameForFormatting());
+		VoteSite site = event.getVoteSite();
+		plugin.getVoteRemindersManager().onVoteCast(event.getUser(), site.getDisplayNameForActions(),
+				site.getDisplayNameForFormatting(),
+				site.isDisplayNameFromAutomaticCreation() ? Set.of("site") : Set.of());
 	}
 
 	/**
@@ -83,11 +87,12 @@ public class VoteRemindersListener implements Listener {
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onCoolDownEnd(PlayerVoteSiteCoolDownEndEvent event) {
 		HashMap<String, String> placeholders = new HashMap<>();
-		placeholders.put("votesite", event.getSite().getDisplayName());
+		placeholders.put("votesite", event.getSite().getDisplayNameForActions());
 		RewardDisplayPlaceholders.put(placeholders, "votesite", event.getSite().getDisplayNameForFormatting());
 		placeholders.put("votesite_id", event.getSite().getKey());
 		plugin.getVoteRemindersManager().onCooldownTrigger(event.getPlayer(), VoteReminderType.COOLDOWN_END_ANY_SITE,
-				placeholders);
+				placeholders, event.getSite().isDisplayNameFromAutomaticCreation()
+						? Set.of("votesite") : Set.of());
 
 	}
 

@@ -11,6 +11,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -23,6 +24,7 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerVoteCoolDownEndEvent;
 import com.bencodez.votingplugin.events.PlayerVoteSiteCoolDownEndEvent;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.util.RewardActionTemplateGuard;
 import com.bencodez.votingplugin.votesites.NextSite;
 import com.bencodez.votingplugin.votesites.VoteSite;
 
@@ -278,10 +280,15 @@ public class CoolDownCheck implements Listener {
 	 */
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onCoolDownEnd(PlayerVoteSiteCoolDownEndEvent event) {
-		plugin.getRewardHandler().giveReward(event.getPlayer(), event.getSite().getSiteData(), "CoolDownEndRewards",
-				new RewardOptions().addPlaceholder("sitename", event.getSite().getDisplayName())
-						.addDisplayPlaceholder("sitename", event.getSite().getDisplayNameForFormatting())
-						.addPlaceholder("url", event.getSite().getVoteURL(false)));
+		VoteSite site = event.getSite();
+		ConfigurationSection rewardData = RewardActionTemplateGuard.isolate(
+				site.getSiteData(), "CoolDownEndRewards",
+				site.isDisplayNameFromAutomaticCreation()
+						? Map.of("sitename", site.getDisplayName()) : Map.of());
+		plugin.getRewardHandler().giveReward(event.getPlayer(), rewardData, "CoolDownEndRewards",
+				new RewardOptions().addPlaceholder("sitename", site.getDisplayNameForActions())
+						.addDisplayPlaceholder("sitename", site.getDisplayNameForFormatting())
+						.addPlaceholder("url", site.getVoteURL(false)));
 	}
 
 	/**

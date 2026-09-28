@@ -171,7 +171,8 @@ public final class ServiceSiteValidator {
 		int copiedThrough = 0;
 		for (int offset = 0; offset <= template.length() - token.length(); offset++) {
 			if (!template.regionMatches(true, offset, token, 0, token.length())) continue;
-			boolean leading = opensActionTokenAt(template, offset);
+			boolean leading = value == null ? opensActionTokenAt(template, offset)
+					: opensActionTokenAt(template, offset, offset + token.length(), value);
 			boolean trailing = closesValueTokenAt(template, offset + token.length(), value);
 			if (!leading && !trailing) continue;
 			if (result == null) result = new StringBuilder(template.length() + 4);
@@ -252,6 +253,28 @@ public final class ServiceSiteValidator {
 		return prior < 0 || !isPlaceholderFragment(template, prior + 1, opener);
 	}
 
+	private static boolean opensActionTokenAt(String template, int offset, int suffixOffset, String value) {
+		if (offset <= 0) return false;
+		String suffix = template.substring(suffixOffset);
+		String replacement = inertForActions(value == null ? "" : value);
+		if (opensColorTokenAt(template, offset, replacement, suffix)) return true;
+		int opener = template.lastIndexOf('%', offset - 1);
+		if (opener < 0) return false;
+		String prefix;
+		if (opener + 1 < offset) {
+			if (!isPlaceholderFragment(template, opener + 1, offset)) return false;
+			prefix = template.substring(opener + 1, offset);
+		} else {
+			int prior = template.lastIndexOf('%', opener - 1);
+			if (prior >= 0 && isPlaceholderFragment(template, prior + 1, opener)) return false;
+			prefix = "";
+		}
+		String tail = replacement + suffix;
+		int closing = tail.indexOf('%');
+		if (closing < 0) return false;
+		return isPlaceholderFragment(prefix + tail, 0, prefix.length() + closing);
+	}
+
 	private static boolean isPlaceholderFragment(String value, int start, int end) {
 		if (start >= end) return false;
 		char first = value.charAt(start);
@@ -263,6 +286,24 @@ public final class ServiceSiteValidator {
 		return true;
 	}
 
+	private static boolean opensColorTokenAt(String template, int offset, String replacement, String suffix) {
+		int ampersand = template.lastIndexOf('&', offset - 1);
+		if (ampersand < 0) return false;
+		int partialLength = offset - ampersand - 1;
+		String continuation = replacement + suffix;
+		if (partialLength == 0) {
+			if (continuation.isEmpty()) return false;
+			if (isLegacyColorCode(continuation.charAt(0))) return true;
+			if (continuation.charAt(0) != '#') return false;
+			return startsWithHex(continuation, 1, 6);
+		}
+		if (template.charAt(ampersand + 1) != '#' || partialLength > 6) return false;
+		for (int index = ampersand + 2; index < offset; index++) {
+			if (Character.digit(template.charAt(index), 16) < 0) return false;
+		}
+		return startsWithHex(continuation, 0, 7 - partialLength);
+	}
+
 	private static boolean opensColorTokenAt(String template, int offset) {
 		int ampersand = template.lastIndexOf('&', offset - 1);
 		if (ampersand < 0) return false;
@@ -271,6 +312,14 @@ public final class ServiceSiteValidator {
 		if (template.charAt(ampersand + 1) != '#' || partialLength > 6) return false;
 		for (int index = ampersand + 2; index < offset; index++) {
 			if (Character.digit(template.charAt(index), 16) < 0) return false;
+		}
+		return true;
+	}
+
+	private static boolean startsWithHex(String value, int offset, int length) {
+		if (length <= 0 || offset + length > value.length()) return false;
+		for (int index = offset; index < offset + length; index++) {
+			if (Character.digit(value.charAt(index), 16) < 0) return false;
 		}
 		return true;
 	}
