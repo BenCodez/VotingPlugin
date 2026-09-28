@@ -320,6 +320,12 @@ public abstract class VotingPluginProxy {
 	private boolean cachedVoteDeliveryRetryScheduled;
 	private boolean votePartyDeliveryRetryScheduled;
 	private boolean deferredHttpTransportReconciliation;
+	/**
+	 * Remembers that retained HTTP state could not be started in this runtime.
+	 * This prevents an undeletable retained-listener file from immediately
+	 * re-selecting HTTP on the next reload.
+	 */
+	private boolean retainedHttpUnstartable;
 	private boolean httpTransportReconciliationScheduled;
 	private boolean httpTransportReconciliationRunning;
 	private long httpTransportReconciliationGeneration;
@@ -1931,7 +1937,9 @@ public abstract class VotingPluginProxy {
 		} catch (IOException failure) {
 			throw new IllegalStateException("Unable to load durable proxy vote delivery outbox", failure);
 		}
-		method = retainHttpForPendingDeliveries(method);
+		synchronized (this) {
+			method = retainHttpForPendingDeliveries(method);
+		}
 
 		nonVotedPlayersCache = new NonVotedPlayersCache(getNonVotedCacheMySQLConfig(),
 				getConfig().getNonVotedCacheUseMySQL(), getConfig().getNonVotedCacheUseMainMySQL(),
@@ -2244,7 +2252,7 @@ public abstract class VotingPluginProxy {
 		// Open the listener last: backend callbacks can immediately reach routing,
 		// presence, vote-log, multi-proxy, and Control-adjacent runtime helpers.
 		if (method.equals(BungeeMethod.HTTP)) {
-			startHttpTransport();
+			startHttpTransportOrFallBack();
 		}
 		scheduleVotePartyDeliveryRetry();
 
@@ -3917,7 +3925,9 @@ public abstract class VotingPluginProxy {
 		SharedTransportEnvelopeAuthenticator replacementAuthenticator = createSharedTransportAuthenticator(
 				configuredMethod);
 		TransportEnvelopeEncryption replacementEncryption = createCommunicationEncryption();
-		method = retainHttpForPendingDeliveries(configuredMethod);
+		synchronized (this) {
+			method = retainHttpForPendingDeliveries(configuredMethod);
+		}
 		installTransportSecurity(replacementAuthenticator, replacementEncryption);
 		sharedTransportAuthenticationFailureLogged.set(false);
 		sharedTransportCompatibilityWarningLogged.set(false);
@@ -3970,6 +3980,18 @@ public abstract class VotingPluginProxy {
 			return configuredMethod;
 		}
 		HttpProxyTransportServer transport = httpTransportServer;
+		// Cached delivery IDs are not proof that this proxy ever ran HTTP: the
+		// transport-independent reward journal historically stores its crash-durable
+		// IDs in the same map. A configured non-HTTP runtime may retain HTTP only when
+		// this process is already running HTTP, a live HTTP transport exists, or a
+		// valid retained listener snapshot proves HTTP previously ran here.
+		if (configuredMethod != BungeeMethod.HTTP && method != BungeeMethod.HTTP && transport == null
+				&& (retainedHttpUnstartable || !hasRetainedHttpListenerSettings())) {
+			deferredHttpTransportReconciliation = false;
+			retainedHttpStartupSettings = null;
+			logParkedHttpQueueIfPresent();
+			return configuredMethod;
+		}
 		if (transport != null && httpTransportHasPendingDeliveries(transport)) {
 			persistLiveHttpListenerSettings();
 			deferredHttpTransportReconciliation = true;
@@ -4024,6 +4046,34 @@ public abstract class VotingPluginProxy {
 
 	private Path retainedHttpListenerSettingsPath() {
 		return getDataFolderPlugin().toPath().resolve("http").resolve("retained-listener-v1.bin");
+	}
+
+	/**
+	 * Returns true only when the retained listener snapshot exists and is readable.
+	 * A corrupt snapshot must never force a configured non-HTTP proxy into HTTP.
+	 */
+	private boolean hasRetainedHttpListenerSettings() {
+		Path source = retainedHttpListenerSettingsPath();
+		if (!Files.isRegularFile(source)) return false;
+		try {
+			return loadRetainedHttpListenerSettings() != null;
+		} catch (IOException invalid) {
+			logSevere("Ignoring unreadable retained HTTP listener settings at " + source + " (" + invalid.getMessage()
+					+ "); delete or replace the file");
+			return false;
+		}
+	}
+
+	/** Warns when HTTP-only queue files remain parked while a non-HTTP transport runs. */
+	private void logParkedHttpQueueIfPresent() {
+		Path outgoing = getDataFolderPlugin().toPath().resolve("http").resolve("outgoing-v1");
+		try {
+			if (httpQueueHasPersistedDeliveries(outgoing)) {
+				logSevere("HTTP-only queued deliveries in http/outgoing-v1 stay parked until an HTTP transport starts again");
+			}
+		} catch (IOException unreadableQueue) {
+			logSevere("HTTP-only queued deliveries in http/outgoing-v1 could not be inspected and stay parked until an HTTP transport starts again");
+		}
 	}
 
 	private void persistLiveHttpListenerSettings() {
@@ -4343,6 +4393,38 @@ public abstract class VotingPluginProxy {
 	protected synchronized boolean sendHttpEnvelope(String server, String deliveryId, JsonEnvelope envelope) {
 		HttpProxyTransportServer transport = httpTransportServer;
 		return transport != null && transport.send(server, deliveryId, envelope);
+	}
+
+	/**
+	 * Starts retained HTTP state, falling back only to PLUGINMESSAGING when the
+	 * retained listener cannot be reconstructed. Other configured transports need
+	 * their own initialization and therefore fail closed instead of pretending to
+	 * be operational.
+	 */
+	private void startHttpTransportOrFallBack() {
+		try {
+			startHttpTransport();
+			retainedHttpUnstartable = false;
+		} catch (IllegalStateException failure) {
+			BungeeMethod configuredMethod = BungeeMethod.getByName(getConfig().getBungeeMethod());
+			if (configuredMethod != BungeeMethod.PLUGINMESSAGING) throw failure;
+			Throwable cause = failure.getCause() != null ? failure.getCause() : failure;
+			String reason = cause.getMessage() != null ? cause.getMessage() : cause.toString();
+			logSevere("Retained HTTP transport could not start (" + reason
+					+ "); continuing with the configured PLUGINMESSAGING transport");
+			logParkedHttpQueueIfPresent();
+			synchronized (this) {
+				method = configuredMethod;
+				deferredHttpTransportReconciliation = false;
+				retainedHttpStartupSettings = null;
+				retainedHttpUnstartable = true;
+				clearRetainedHttpListenerSettings();
+			}
+			if (getConfig().getPluginMessageEncryption() && encryptionHandler == null) {
+				encryptionHandler = new EncryptionHandler("VotingPlugin",
+						new File(getDataFolderPlugin(), "secretkey.key"));
+			}
+		}
 	}
 
 	private void startHttpTransport() {
