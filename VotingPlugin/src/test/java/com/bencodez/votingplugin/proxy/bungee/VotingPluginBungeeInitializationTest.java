@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin.proxy.bungee;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.doAnswer;
@@ -22,5 +23,15 @@ class VotingPluginBungeeInitializationTest {
 		plugin.initializeFirstRuntime();
 
 		assertEquals(1, reloadCalls.get());
+	}
+
+	@Test
+	void failedInitialReloadDoesNotReportAnOperationalRuntime() {
+		VotingPluginBungee plugin = mock(VotingPluginBungee.class, CALLS_REAL_METHODS);
+		doAnswer(invocation -> null).when(plugin).reloadPlugin(true);
+
+		plugin.initializeFirstRuntime();
+
+		assertFalse(plugin.isRuntimeOperational());
 	}
 }
