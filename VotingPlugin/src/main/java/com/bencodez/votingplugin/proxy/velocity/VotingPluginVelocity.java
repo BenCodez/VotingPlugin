@@ -424,6 +424,11 @@ public class VotingPluginVelocity {
 		return runtimeOperational;
 	}
 
+	/** Returns whether a runtime replacement is currently in progress. */
+	public boolean isReloading() {
+		return reloading;
+	}
+
 	/**
 	 * Reloads VotingPluginProxy on Velocity.
 	 *
@@ -603,7 +608,6 @@ public class VotingPluginVelocity {
 					logger.error("Error while reloading proxy internals", t);
 				}
 
-				reloading = false;
 			}
 		}
 
@@ -612,11 +616,13 @@ public class VotingPluginVelocity {
 
 		if (!initVotifierListenerIfNeeded()) {
 			runtimeOperational = false;
+			reloading = false;
 			cancelTasks();
 			logger.error("VotingPlugin Votifier listener failed to initialize; votes are NOT being processed.");
 			return;
 		}
 		runtimeOperational = true;
+		reloading = false;
 
 		// Optional: re-announce server names
 		try {
