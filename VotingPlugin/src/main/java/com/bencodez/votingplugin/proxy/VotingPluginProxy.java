@@ -4180,7 +4180,7 @@ public abstract class VotingPluginProxy {
 	private static boolean hasPendingHttpDelivery(Collection<OfflineBungeeVote> votes) {
 		if (votes == null) return false;
 		for (OfflineBungeeVote vote : votes) {
-			if (vote != null && vote.hasPendingHttpDeliveryIds()) return true;
+			if (vote != null && vote.hasPendingHttpTransportDeliveryIds()) return true;
 		}
 		return false;
 	}
