@@ -18,6 +18,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import com.bencodez.votingplugin.core.vote.SharedVoteIdentity;
 import com.bencodez.votingplugin.util.MinecraftUsernameValidator;
 
 /** Bounded storage-worker replay for retained COMPLETE NeoForge votes. */
@@ -25,6 +26,8 @@ public final class NeoForgeRewardReplayService implements AutoCloseable {
     private static final Logger LOGGER = Logger.getLogger(NeoForgeRewardReplayService.class.getName());
     static final int MAX_PER_RUN = 16;
     static final int MAX_USERS_PER_RUN = 32;
+    private static final int MAX_MALFORMED_REPORTS = NeoForgeDeferredVoteStore.MAX_DEFERRED_TOTAL;
+    private static final long MALFORMED_REPORT_INTERVAL = TimeUnit.MINUTES.toNanos(1);
     private final NeoForgeVoteConfiguration configuration;
     private final NeoForgeRewardConfiguration rewards;
     private final NeoForgeVoteAccountingStore accounting;
@@ -35,7 +38,7 @@ public final class NeoForgeRewardReplayService implements AutoCloseable {
     private final AtomicBoolean scanning = new AtomicBoolean();
     private final AtomicBoolean open = new AtomicBoolean(true);
     private final ConcurrentHashMap<UUID, Long> retryAfter = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<UUID, Integer> occurrenceOffsets = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<UUID, Long> malformedReportAfter = new ConcurrentHashMap<>();
     private int userOffset;
     private volatile ScheduledFuture<?> periodic;
 
@@ -96,20 +99,19 @@ public final class NeoForgeRewardReplayService implements AutoCloseable {
                         } catch (NeoForgeDeferredVoteStore.MalformedDeferredVoteData malformed) {
                             // The durable row stays untouched and observable through the store;
                             // another user's healthy queue must continue replaying.
+                            reportMalformed(playerId);
                             continue;
                         }
+                        malformedReportAfter.remove(playerId);
                         if (pending.isEmpty()) {
-                            occurrenceOffsets.remove(playerId);
                             continue;
                         }
-                        int voteStart = Math.floorMod(occurrenceOffsets.getOrDefault(playerId, 0), pending.size());
-                        for (int checked = 0; checked < pending.size(); checked++) {
-                            int index = (voteStart + checked) % pending.size();
-                            NeoForgeDeferredVote vote = pending.get(index);
-                            if (retryAfter.getOrDefault(vote.voteId(), 0L) > System.nanoTime()) continue;
-                            occurrenceOffsets.put(playerId, (index + 1) % pending.size());
+                        // Accounting decisions and reward effects are order-sensitive. A delayed
+                        // head occurrence therefore blocks only this player, while the outer loop
+                        // continues admitting other players.
+                        NeoForgeDeferredVote vote = pending.get(0);
+                        if (deadlineReached(retryAfter.get(vote.voteId()), System.nanoTime())) {
                             work.add(replay(vote));
-                            break;
                         }
                     }
                     if (!users.isEmpty()) userOffset = (start + visited) % users.size();
@@ -148,7 +150,8 @@ public final class NeoForgeRewardReplayService implements AutoCloseable {
                     "Legacy retained vote has no accepted accounting snapshot; operator action is required", 60));
         }
         var onlineIdentity = players.online(vote.playerId());
-        String currentName = players.latestName(vote.playerId()).orElse(vote.playerName());
+        String currentName = players.latestName(vote.playerId())
+                .or(() -> accounting.storedPlayerName(vote.playerId())).orElse(vote.playerName());
         if (!MinecraftUsernameValidator.isValid(currentName, configuration.bedrockPlayerPrefix())) {
             return CompletableFuture.completedFuture(delayed(vote, Status.BLOCKED_UNSUPPORTED,
                     "Retained player name is invalid and cannot be used in rewards", 60));
@@ -233,6 +236,37 @@ public final class NeoForgeRewardReplayService implements AutoCloseable {
         Long previous = retryAfter.put(vote.voteId(), System.nanoTime() + TimeUnit.SECONDS.toNanos(seconds));
         if (previous == null) LOGGER.warning("NeoForge deferred vote " + vote.voteId() + " is " + status);
         return result(vote, status, detail);
+    }
+
+    void rememberIdentity(SharedVoteIdentity identity) {
+        Objects.requireNonNull(identity, "identity");
+        if (!open.get()) return;
+        try {
+            worker.execute(() -> {
+                try {
+                    accounting.rememberIdentity(identity);
+                } catch (RuntimeException failure) {
+                    LOGGER.log(Level.SEVERE, "Unable to persist NeoForge player identity", failure);
+                }
+            });
+        } catch (RejectedExecutionException stopped) {
+            if (open.get()) LOGGER.log(Level.WARNING, "Unable to queue NeoForge player identity persistence", stopped);
+        }
+    }
+
+    private void reportMalformed(UUID playerId) {
+        long now = System.nanoTime();
+        malformedReportAfter.compute(playerId, (ignored, deadline) -> {
+            if (deadline != null && !deadlineReached(deadline, now)) return deadline;
+            if (deadline == null && malformedReportAfter.size() >= MAX_MALFORMED_REPORTS) return null;
+            LOGGER.warning("Malformed deferred NeoForge vote data for player " + playerId
+                    + "; the row remains durable and replay is isolated");
+            return now + MALFORMED_REPORT_INTERVAL;
+        });
+    }
+
+    static boolean deadlineReached(Long deadline, long now) {
+        return deadline == null || deadline != Long.MAX_VALUE && deadline - now <= 0L;
     }
 
     private ReplayResult quarantine(NeoForgeDeferredVote vote, Status status, String detail) {

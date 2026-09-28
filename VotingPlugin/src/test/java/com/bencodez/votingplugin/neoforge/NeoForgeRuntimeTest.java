@@ -88,6 +88,17 @@ class NeoForgeRuntimeTest {
     }
 
     @Test
+    void runtimePlayerJoinPersistsUuidBoundIdentityAcrossRestart() throws IOException {
+        UUID uuid = UUID.randomUUID();
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory, new Object())) {
+            runtime.playerJoined(new FakePlayer(uuid, "CurrentName"));
+        }
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            assertEquals("CurrentName", runtime.accounting().load(uuid).orElseThrow().playerName());
+        }
+    }
+
+    @Test
     void packagedEntryPointHasMatchingModId() {
         assertEquals("votingplugin", NeoForgeVotingPlugin.class.getAnnotation(Mod.class).value());
         assertTrue(NeoForgeRuntimeTest.class.getClassLoader().getResource("META-INF/neoforge.mods.toml") != null);

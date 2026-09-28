@@ -56,7 +56,7 @@ public final class NeoForgeVotingPlugin {
 
     private void joined(PlayerEvent.PlayerLoggedInEvent event) {
         if (runtime != null) {
-            var identity = runtime.players().joined(NeoForgePlayerDirectory.playerFromEvent(event));
+            var identity = runtime.playerJoinedIdentity(NeoForgePlayerDirectory.playerFromEvent(event));
             runtime.proxySocket().ifPresent(proxy -> proxy.playerOnline(identity));
         }
     }

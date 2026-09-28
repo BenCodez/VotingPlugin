@@ -128,6 +128,18 @@ public final class NeoForgeVoteAccountingStore {
                 row.integer(WEEKLY_TOTAL), row.integer(POINTS), parseLastVotes(row.string(LAST_VOTES))));
     }
 
+    void rememberIdentity(SharedVoteIdentity identity) {
+        Objects.requireNonNull(identity, "identity");
+        backend.user(identity.uuid()).write(backend.storageType(),
+                PLAYER_NAME, new DataValueString(identity.playerName()));
+    }
+
+    Optional<String> storedPlayerName(UUID uuid) {
+        Objects.requireNonNull(uuid, "uuid");
+        String playerName = Row.from(backend.user(uuid).readRow(backend.storageType())).string(PLAYER_NAME);
+        return playerName == null || playerName.isBlank() ? Optional.empty() : Optional.of(playerName);
+    }
+
     PreparedAccounting prepareDeferred(NeoForgeDeferredVote vote, NeoForgeVoteSite site, List<Column> columns,
             boolean currentlyOnline, String currentPlayerName) {
         SharedVoteIdentity identity = new SharedVoteIdentity(vote.playerId(), currentPlayerName, currentlyOnline);
