@@ -54,7 +54,7 @@ public final class NeoForgeVotingPlugin {
     }
 
     private void joined(PlayerEvent.PlayerLoggedInEvent event) {
-        if (runtime != null) runtime.players().joined(NeoForgePlayerDirectory.playerFromEvent(event));
+        if (runtime != null) runtime.playerJoined(NeoForgePlayerDirectory.playerFromEvent(event));
     }
 
     private void left(PlayerEvent.PlayerLoggedOutEvent event) {

@@ -86,6 +86,50 @@ class NeoForgeRewardReplayServiceTest {
     }
 
     @Test
+    void malformedUserRowsAreReportedOnceDuringRepeatedScans() throws Exception {
+        writeConfiguration(false);
+        UUID playerId = UUID.randomUUID();
+        AtomicInteger reports = new AtomicInteger();
+        Handler handler = new Handler() {
+            @Override public void publish(LogRecord record) {
+                if (record.getMessage().contains("Malformed deferred NeoForge vote data for player")) {
+                    reports.incrementAndGet();
+                }
+            }
+            @Override public void flush() { }
+            @Override public void close() { }
+        };
+        java.util.logging.Logger logger = java.util.logging.Logger.getLogger(
+                NeoForgeRewardReplayService.class.getName());
+        logger.addHandler(handler);
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory);
+                NeoForgeRewardReplayService replay = service(runtime, new RecordingActions())) {
+            runtime.storage().user(playerId).write(UserStorage.SQLITE,
+                    NeoForgeDeferredVoteStore.DEFERRED_VOTES,
+                    new DataValueString("malformed-but-relevant"));
+
+            assertTrue(replay.replayOnce().get(5, TimeUnit.SECONDS).isEmpty());
+            assertTrue(replay.replayOnce().get(5, TimeUnit.SECONDS).isEmpty());
+
+            assertEquals(1, reports.get());
+            assertEquals("malformed-but-relevant", runtime.storage().user(playerId)
+                    .readRow(UserStorage.SQLITE).stream()
+                    .filter(column -> column.getName().equalsIgnoreCase(NeoForgeDeferredVoteStore.DEFERRED_VOTES))
+                    .findFirst().orElseThrow().getValue().getString());
+        } finally {
+            logger.removeHandler(handler);
+        }
+    }
+
+    @Test
+    void replayDeadlinesHandleMissingQuarantineAndNanoTimeWrap() {
+        assertTrue(NeoForgeRewardReplayService.deadlineReached(null, -10L));
+        assertFalse(NeoForgeRewardReplayService.deadlineReached(Long.MAX_VALUE, Long.MAX_VALUE));
+        assertFalse(NeoForgeRewardReplayService.deadlineReached(Long.MIN_VALUE + 5L, Long.MAX_VALUE - 5L));
+        assertTrue(NeoForgeRewardReplayService.deadlineReached(Long.MAX_VALUE - 5L, Long.MIN_VALUE + 5L));
+    }
+
+    @Test
     void disabledRewardProcessingKeepsRetainedVotePending() throws Exception {
         writeConfiguration(false);
         Files.writeString(directory.resolve("Config.yml"), Files.readString(directory.resolve("Config.yml"))
@@ -136,6 +180,34 @@ class NeoForgeRewardReplayServiceTest {
             runtime.players().joined(renamed);
             runtime.players().left(renamed);
 
+            assertEquals(NeoForgeRewardReplayService.Status.COMPLETED,
+                    runOne(runtime, replay, actions).status());
+            assertEquals(List.of("say NewName"), actions.rendered);
+            assertEquals("NewName", runtime.accounting().load(playerId).orElseThrow().playerName());
+        }
+    }
+
+    @Test
+    void replayRetainsLatestUuidIdentityNameAfterLogoutAndRestart() throws Exception {
+        writeConfiguration(false);
+        Files.writeString(directory.resolve("VoteSites.yml"), Files.readString(directory.resolve("VoteSites.yml"))
+                .replaceFirst("(?m)^(\\s*)WaitUntilVoteDelay: false", "$0\n$1ForceOffline: true"));
+        UUID playerId = UUID.randomUUID();
+        UUID voteId = UUID.randomUUID();
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory);
+                NeoForgeRewardReplayService replay = service(runtime, new RecordingActions())) {
+            SharedVoteIdentity oldIdentity = new SharedVoteIdentity(playerId, "OldName", true);
+            runtime.players().joined(oldIdentity);
+            replay.rememberIdentity(oldIdentity);
+            retain(runtime, voteId, playerId, "Service");
+            NeoForgeRuntimeTest.FakePlayer renamed = new NeoForgeRuntimeTest.FakePlayer(playerId, "NewName");
+            replay.rememberIdentity(runtime.players().joinedIdentity(renamed));
+            runtime.players().left(renamed);
+        }
+
+        RecordingActions actions = new RecordingActions();
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory);
+                NeoForgeRewardReplayService replay = service(runtime, actions)) {
             assertEquals(NeoForgeRewardReplayService.Status.COMPLETED,
                     runOne(runtime, replay, actions).status());
             assertEquals(List.of("say NewName"), actions.rendered);

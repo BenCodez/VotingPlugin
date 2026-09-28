@@ -18,6 +18,7 @@ import com.bencodez.advancedcore.api.user.usercache.keys.UserDataKey;
 import com.bencodez.advancedcore.core.user.storage.sql.SqlBackendLogger;
 import com.bencodez.advancedcore.core.user.storage.sql.SqlUserBackend;
 import com.bencodez.advancedcore.core.user.storage.sql.SqlUserBackendFactory;
+import com.bencodez.votingplugin.core.vote.SharedVoteIdentity;
 import com.bencodez.votingplugin.util.SqliteNativeLibrary;
 
 /** Owns NeoForge bootstrap resources; vote and reward services are not started here. */
@@ -124,6 +125,11 @@ public final class NeoForgeRuntime implements AutoCloseable {
     public NeoForgePlayerDirectory players() { return players; }
     public NeoForgeVoteProcessor voteProcessor() { return voteProcessor; }
     public Optional<NeoForgeRewardReplayService> rewardReplay() { return Optional.ofNullable(rewardReplay); }
+
+    public void playerJoined(Object player) {
+        SharedVoteIdentity identity = players.joinedIdentity(player);
+        if (rewardReplay != null) rewardReplay.rememberIdentity(identity);
+    }
 
     @Override public synchronized void close() {
         if (closed) return;

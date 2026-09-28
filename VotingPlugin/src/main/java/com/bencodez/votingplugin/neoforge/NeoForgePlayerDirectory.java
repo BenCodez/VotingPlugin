@@ -15,9 +15,14 @@ public final class NeoForgePlayerDirectory {
     private final Map<UUID, String> latestNames = new ConcurrentHashMap<>();
 
     public void joined(Object player) {
+        joinedIdentity(player);
+    }
+
+    SharedVoteIdentity joinedIdentity(Object player) {
         SharedVoteIdentity identity = identity(player);
         latestNames.put(identity.uuid(), identity.playerName());
         online.put(identity.uuid(), new OnlinePlayer(identity, player));
+        return identity;
     }
 
     void joined(SharedVoteIdentity identity) {
