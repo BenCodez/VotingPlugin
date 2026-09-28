@@ -420,7 +420,7 @@ public class VotingPluginVelocity {
 		reloadAllInternal(true);
 	}
 
-	boolean isRuntimeOperational() {
+	public boolean isRuntimeOperational() {
 		return runtimeOperational;
 	}
 
