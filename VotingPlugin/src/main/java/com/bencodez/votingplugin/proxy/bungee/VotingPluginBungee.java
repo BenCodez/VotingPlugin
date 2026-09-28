@@ -946,7 +946,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 	 *
 	 * @return true when vote receipt is intentionally unavailable or ready
 	 */
-	private boolean initVotifierListenerIfNeeded() {
+	boolean initVotifierListenerIfNeeded() {
 		try {
 			Class.forName("com.vexsoftware.votifier.bungee.events.VotifierEvent");
 		} catch (ClassNotFoundException e) {
