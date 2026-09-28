@@ -167,9 +167,14 @@ public final class NeoForgeRewardReplayService implements AutoCloseable {
         if (plan.status() == NeoForgeRewardPlan.Status.WAITING_FOR_PLAYER) {
             return CompletableFuture.completedFuture(delayed(vote, Status.WAITING_FOR_PLAYER, plan.detail(), 5));
         }
-        NeoForgeDeferredVoteStore.Claim claim = deferred.claim(vote.playerId(), vote.voteId()).orElse(null);
+        NeoForgeDeferredVoteStore.ClaimAttempt attempt = deferred.claimForReplay(vote.playerId(), vote.voteId());
+        if (attempt.status() == NeoForgeDeferredVoteStore.ClaimStatus.RECEIPT_CAPACITY_REACHED) {
+            return CompletableFuture.completedFuture(delayed(vote, Status.COMPLETION_CAPACITY_UNAVAILABLE,
+                    "Completion receipt capacity is exhausted; retained vote remains pending", 60));
+        }
+        NeoForgeDeferredVoteStore.Claim claim = attempt.optionalClaim().orElse(null);
         if (claim == null) return CompletableFuture.completedFuture(
-                result(vote, Status.NOT_CLAIMED, "Vote is already claimed or completion capacity is unavailable"));
+                result(vote, Status.NOT_CLAIMED, "Vote claim was not admitted: " + attempt.status()));
         CompletableFuture<ReplayResult> completion = new CompletableFuture<>();
         CompletionStage<Void> action;
         try {
@@ -325,7 +330,7 @@ public final class NeoForgeRewardReplayService implements AutoCloseable {
 
     public enum Status {
         COMPLETED, WAITING_FOR_PLAYER, BLOCKED_UNSUPPORTED, REWARD_FAILED, REWARD_UNCERTAIN,
-        COMPLETION_UNCERTAIN, NOT_CLAIMED
+        COMPLETION_UNCERTAIN, COMPLETION_CAPACITY_UNAVAILABLE, NOT_CLAIMED
     }
 
     public record ReplayResult(UUID voteId, Status status, NeoForgeVoteAccount account, String detail) { }
