@@ -1056,7 +1056,7 @@ public class VotingPluginVelocity {
 	 *
 	 * @return true when vote receipt is intentionally unavailable or ready
 	 */
-	private boolean initVotifierListenerIfNeeded() {
+	boolean initVotifierListenerIfNeeded() {
 		try {
 			Class.forName("com.vexsoftware.votifier.velocity.event.VotifierEvent");
 		} catch (ClassNotFoundException e) {
