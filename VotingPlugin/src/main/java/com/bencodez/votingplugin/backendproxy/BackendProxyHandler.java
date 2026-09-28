@@ -203,6 +203,15 @@ public class BackendProxyHandler implements Listener {
 	 * Closes backend/proxy components and persists cached proxy state.
 	 */
 	public void close() {
+		close(false);
+	}
+
+	/** Closes shutdown handoffs without waiting on the Bukkit lifecycle thread. */
+	public void closeForShutdown() {
+		close(true);
+	}
+
+	private void close(boolean shutdown) {
 		synchronized (inboundPublication) {
 			if (!inboundPublished && !inboundAborted) inboundAborted = true;
 			inboundPublication.notifyAll();
@@ -219,7 +228,8 @@ public class BackendProxyHandler implements Listener {
 		// transport is still usable. BackendGlobalDataSync bounds this drain and
 		// force-closes an owned SQL runtime when its grace expires.
 		globalDataSync.close();
-		transportManager.close();
+		if (shutdown) transportManager.closeForShutdown();
+		else transportManager.close();
 	}
 
 	/** Opens inbound dispatch only after the replacement and all handoffs are committed. */
@@ -765,16 +775,21 @@ public class BackendProxyHandler implements Listener {
 		// must therefore retire its listener before the staged handler is started;
 		// rollback recreates this prepared transport if validation later fails.
 		if (method == BungeeMethod.SOCKETS && replacementMethod == BungeeMethod.SOCKETS) {
+			transportManager.prepareAsyncHandoffForReplacement(deadlineNanos);
 			transportManager.prepareForReplacement();
 			return true;
 		}
 		if (method == BungeeMethod.MQTT && replacementMethod == BungeeMethod.MQTT) {
 			// A duplicate MQTT ClientID disconnects the live broker session, so stage
 			// only after retiring the predecessor and restore it on validation rollback.
+			transportManager.prepareAsyncHandoffForReplacement(deadlineNanos);
 			transportManager.prepareForReplacement();
 			return true;
 		}
 		if (method == BungeeMethod.HTTP) {
+			// A previous cross-transport handoff still belongs to this manager. Drain it
+			// before detaching HTTP so a second replacement cannot strand that FIFO.
+			transportManager.prepareAsyncHandoffForReplacement(deadlineNanos);
 			transportManager.prepareForReplacement();
 			return true;
 		}
@@ -900,7 +915,20 @@ public class BackendProxyHandler implements Listener {
 	/** Forwards messages buffered while the previous transport was fenced. */
 	public void completeHttpHandoff(BackendProxyHandler replacement) {
 		if (replacement == null) return;
-		transportManager.completePreparedTransportHandoff(replacement.transportManager);
+		transportManager.completePreparedTransportHandoff(replacement.transportManager,
+				envelope -> adaptEnvelopeForHandoff(envelope, replacement));
+	}
+
+	private JsonEnvelope adaptEnvelopeForHandoff(JsonEnvelope envelope, BackendProxyHandler replacement) {
+		JsonEnvelope semantic = envelope;
+		if (!transportHandlesEncryption()) {
+			Decryption decrypted = communicationEncryption.decrypt(envelope);
+			if (!decrypted.accepted())
+				throw new IllegalStateException("Prepared proxy message failed its existing encryption policy");
+			semantic = decrypted.envelope();
+		}
+		return replacement.transportHandlesEncryption()
+				? semantic : replacement.communicationEncryption.encrypt(semantic);
 	}
 
 	/** Routes already admitted time-change completions through the published replacement. */

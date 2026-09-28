@@ -20,6 +20,8 @@ public class BackendProxyTransportManager {
 	private static final int MAX_PREPARED_SENDS = 1024;
 	private static final int MAX_ASYNC_HANDOFF_SENDS = 6144;
 	private static final int PLUGIN_MESSAGE_HANDOFF_BATCH_SIZE = 32;
+	private static final int HTTP_SHUTDOWN_ADAPT_BATCH_SIZE = 32;
+	private static final long HTTP_HANDOFF_CLOSE_GRACE_MILLIS = 11_000L;
 
 	private final VotingPluginMain plugin;
 	private final ProcessedVoteCache processedVoteCache;
@@ -32,8 +34,9 @@ public class BackendProxyTransportManager {
 	// publication subsequently fails or is abandoned.
 	private RedisBackendProxyTransport completedRedisHandoffTransport;
 	private BackendProxyTransportManager forwardingManager;
-	private final java.util.ArrayDeque<JsonEnvelope> preparedSends = new java.util.ArrayDeque<>();
-	private final java.util.ArrayDeque<JsonEnvelope> asyncHandoffSends = new java.util.ArrayDeque<>();
+	private java.util.function.UnaryOperator<JsonEnvelope> forwardingAdapter;
+	private final java.util.ArrayDeque<PendingHandoffEnvelope> preparedSends = new java.util.ArrayDeque<>();
+	private final java.util.ArrayDeque<PendingHandoffEnvelope> asyncHandoffSends = new java.util.ArrayDeque<>();
 	private Thread asyncHandoffWorker;
 	private boolean pluginMessageHandoffScheduled;
 	private long handoffGeneration;
@@ -43,6 +46,7 @@ public class BackendProxyTransportManager {
 	private boolean preparedQueueWarning;
 	private boolean rejectedSendWarning;
 	private boolean asyncHandoffRetryWarning;
+	private boolean httpHandoffSendInProgress;
 
 	public BackendProxyTransportManager(VotingPluginMain plugin) {
 		this(plugin, new ProcessedVoteCache());
@@ -106,7 +110,7 @@ public class BackendProxyTransportManager {
 		} else if (preparedSendFence) {
 			acceptPreparedSend(envelope);
 		} else if (forwardingManager != null) {
-			forwardingManager.send(envelope);
+			forwardingManager.acceptForwardedSend(envelope, forwardingAdapter);
 		} else if (hasPendingAsyncHandoff()) {
 			acceptQueuedTransportSend(envelope);
 		} else if (transport instanceof PluginMessagingBackendProxyTransport) {
@@ -154,6 +158,10 @@ public class BackendProxyTransportManager {
 	}
 
 	private void acceptPreparedSend(JsonEnvelope envelope) {
+		acceptPreparedSend(PendingHandoffEnvelope.direct(envelope));
+	}
+
+	private void acceptPreparedSend(PendingHandoffEnvelope envelope) {
 		if (preparedSends.size() < MAX_PREPARED_SENDS) {
 			preparedSends.addLast(envelope);
 		} else if (!preparedQueueWarning) {
@@ -166,15 +174,99 @@ public class BackendProxyTransportManager {
 		if (transport != null) transport.activateAfterPublication();
 	}
 
-	public synchronized void close() {
+	public void close() {
+		awaitNonHttpHandoffBeforeClose();
+		synchronized (this) {
+			closeLocked();
+		}
+	}
+
+	/** Keeps a bounded non-HTTP handoff alive without waiting on the Bukkit shutdown thread. */
+	public void closeForShutdown() {
+		if (!requiresAsyncNonHttpClose()) {
+			close();
+			return;
+		}
+		Thread cleanup = new Thread(this::close, "VotingPlugin-Backend-Handoff-Close");
+		cleanup.setDaemon(true);
+		cleanup.start();
+		retainNonHttpCleanupThroughJvmShutdown(cleanup);
+	}
+
+	private synchronized boolean requiresAsyncNonHttpClose() {
+		return !(transport instanceof HttpBackendProxyTransport)
+				&& !(transport instanceof PluginMessagingBackendProxyTransport)
+				&& hasPendingAsyncHandoff();
+	}
+
+	private void retainNonHttpCleanupThroughJvmShutdown(Thread cleanup) {
+		Thread owner = new Thread(() -> awaitNonHttpHandoffCleanup(cleanup),
+				"VotingPlugin-Backend-Handoff-Owner");
+		owner.setDaemon(false);
+		owner.start();
+	}
+
+	private void awaitNonHttpHandoffCleanup(Thread cleanup) {
+		try {
+			cleanup.join(HTTP_HANDOFF_CLOSE_GRACE_MILLIS + 1_000L);
+		} catch (InterruptedException interrupted) {
+			Thread.currentThread().interrupt();
+		}
+		if (cleanup.isAlive()) {
+			cleanup.interrupt();
+			if (plugin != null && plugin.getLogger() != null) {
+				plugin.getLogger().severe(
+						"Backend proxy handoff cleanup exceeded its bounded shutdown grace; delivery remains at risk");
+			}
+		}
+	}
+
+	/** Gives restored broker/socket sends a bounded chance to leave before their transport is detached. */
+	private void awaitNonHttpHandoffBeforeClose() {
+		synchronized (this) {
+			if (transport instanceof HttpBackendProxyTransport
+					|| transport instanceof PluginMessagingBackendProxyTransport
+					|| !hasPendingAsyncHandoff()) return;
+		}
+		try {
+			awaitAsyncHandoff(System.nanoTime()
+					+ java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(HTTP_HANDOFF_CLOSE_GRACE_MILLIS));
+		} catch (IllegalStateException failure) {
+			if (plugin != null && plugin.getLogger() != null) {
+				plugin.getLogger().severe(
+						"Backend proxy handoff did not drain within the bounded shutdown grace; delivery remains at risk");
+				plugin.debug(failure);
+			}
+		}
+	}
+
+	/** Captures all manager-owned state while preventing a concurrent send admission. */
+	private void closeLocked() {
+		boolean interruptedWhileAwaitingHttpAdmission = false;
+		while (httpHandoffSendInProgress) {
+			try {
+				wait();
+			} catch (InterruptedException interrupted) {
+				interruptedWhileAwaitingHttpAdmission = true;
+			}
+		}
+		if (interruptedWhileAwaitingHttpAdmission) Thread.currentThread().interrupt();
 		handoffGeneration++;
 		if (asyncHandoffWorker != null) asyncHandoffWorker.interrupt();
 		asyncHandoffWorker = null;
 		pluginMessageHandoffScheduled = false;
+		java.util.ArrayDeque<PendingHandoffEnvelope> httpShutdownHandoff = new java.util.ArrayDeque<>();
+		if (transport instanceof HttpBackendProxyTransport && !asyncHandoffSends.isEmpty()) {
+			httpShutdownHandoff.addAll(asyncHandoffSends);
+		}
 		asyncHandoffSends.clear();
 		notifyAll();
 		if (transport != null) {
-			transport.close();
+			if (transport instanceof HttpBackendProxyTransport http) {
+				startHttpCloseWithPendingHandoff(http, httpShutdownHandoff);
+			} else {
+				transport.close();
+			}
 			transport = null;
 		}
 		if (preparedTransport != null) {
@@ -203,6 +295,67 @@ public class BackendProxyTransportManager {
 		}
 		completedRedisHandoffTransport = null;
 		if (forwardingManager == null) preparedSends.clear();
+	}
+
+	/** Resolves wire-policy adapters off the server thread before HTTP performs its bounded final flush. */
+	private void startHttpCloseWithPendingHandoff(HttpBackendProxyTransport http,
+			java.util.ArrayDeque<PendingHandoffEnvelope> pending) {
+		Thread cleanup = new Thread(() -> {
+			try {
+				while (!pending.isEmpty()) {
+					java.util.ArrayList<JsonEnvelope> resolved =
+							new java.util.ArrayList<>(HTTP_SHUTDOWN_ADAPT_BATCH_SIZE);
+					for (int index = 0; index < HTTP_SHUTDOWN_ADAPT_BATCH_SIZE; index++) {
+						PendingHandoffEnvelope envelope = pending.pollFirst();
+						if (envelope == null) break;
+						try {
+							resolved.add(envelope.resolve());
+						} catch (RuntimeException failure) {
+							if (plugin != null && plugin.getLogger() != null) {
+								plugin.getLogger().severe(
+										"Unable to adapt one HTTP handoff message for the final shutdown flush");
+								plugin.debug(failure);
+							}
+						}
+					}
+					if (!resolved.isEmpty()) http.appendShutdownHandoffMessages(resolved);
+				}
+			} catch (RuntimeException failure) {
+				if (plugin != null && plugin.getLogger() != null) {
+					plugin.getLogger().severe("Unable to prepare HTTP handoff messages for the final shutdown flush");
+					plugin.debug(failure);
+				}
+			} finally {
+				http.closeAndAwaitFinalHandoff();
+			}
+		}, "VotingPlugin-Backend-HTTP-Handoff-Close");
+		cleanup.setDaemon(true);
+		cleanup.start();
+		retainHttpCleanupThroughJvmShutdown(cleanup);
+	}
+
+	/** Keeps the bounded daemon cleanup alive without waiting on the Bukkit lifecycle thread. */
+	private void retainHttpCleanupThroughJvmShutdown(Thread cleanup) {
+		Thread owner = new Thread(() -> awaitHttpHandoffCleanup(cleanup),
+				"VotingPlugin-Backend-HTTP-Handoff-Owner");
+		owner.setDaemon(false);
+		owner.start();
+	}
+
+	private void awaitHttpHandoffCleanup(Thread cleanup) {
+		if (cleanup == null) return;
+		try {
+			cleanup.join(HTTP_HANDOFF_CLOSE_GRACE_MILLIS);
+		} catch (InterruptedException interrupted) {
+			Thread.currentThread().interrupt();
+		}
+		if (cleanup.isAlive()) {
+			cleanup.interrupt();
+			if (plugin != null && plugin.getLogger() != null) {
+				plugin.getLogger().severe(
+						"HTTP handoff final flush exceeded its bounded shutdown grace; delivery remains at risk");
+			}
+		}
 	}
 
 	/** Retries only a fenced retired Redis listener off the Bukkit publication callback. */
@@ -267,8 +420,8 @@ public class BackendProxyTransportManager {
 					// that live instance instead of creating a second directory owner/client.
 					transport = candidate;
 					preparedTransport = null;
-					while (!preparedSends.isEmpty() && transport.send(preparedSends.peekFirst()))
-						preparedSends.removeFirst();
+					preparedSendFence = false;
+					resumePreparedSends();
 					preparedQueueWarning = false;
 				} else {
 					// Enrollment cancellation may already have closed this instance. Restore
@@ -285,13 +438,22 @@ public class BackendProxyTransportManager {
 	}
 
 	public synchronized void completePreparedTransportHandoff(BackendProxyTransportManager replacement) {
+		completePreparedTransportHandoff(replacement, null);
+	}
+
+	/** Transfers the predecessor FIFO for worker-side adaptation to the replacement wire policy. */
+	public synchronized void completePreparedTransportHandoff(BackendProxyTransportManager replacement,
+			java.util.function.UnaryOperator<JsonEnvelope> adapter) {
 		if (preparedTransport == null && !preparedSendFence) return;
 		BackendProxyTransportManager target = java.util.Objects.requireNonNull(replacement, "replacement");
-		java.util.ArrayList<JsonEnvelope> pending = new java.util.ArrayList<>();
+		java.util.ArrayList<PendingHandoffEnvelope> pending = new java.util.ArrayList<>();
 		if (preparedTransport instanceof HttpBackendProxyTransport http) {
-			pending.addAll(http.preparedMessagesSnapshot());
+			for (JsonEnvelope envelope : http.preparedMessagesSnapshot()) {
+				pending.add(adapter == null ? PendingHandoffEnvelope.direct(envelope)
+						: PendingHandoffEnvelope.adapted(envelope, adapter));
+			}
 		}
-		pending.addAll(preparedSends);
+		for (PendingHandoffEnvelope envelope : preparedSends) pending.add(envelope.then(adapter));
 		target.acceptPreparedHandoffMessages(pending);
 		// Do not consume the old queues or forward subsequent sends until the
 		// replacement has admitted every snapshot. A failed admission therefore
@@ -299,6 +461,7 @@ public class BackendProxyTransportManager {
 		if (preparedTransport instanceof HttpBackendProxyTransport http) http.drainPreparedMessages();
 		preparedSends.clear();
 		forwardingManager = target;
+		forwardingAdapter = adapter;
 		preparedSendFence = false;
 	}
 
@@ -351,19 +514,12 @@ public class BackendProxyTransportManager {
 
 	/** Holds staged replacement sends until its predecessor FIFO can be prepended. */
 	public synchronized void beginPreparedTransportHandoff() {
-		if (transport instanceof HttpBackendProxyTransport http) {
-			http.beginPreparedHandoff();
-		} else {
-			preparedSendFence = true;
-		}
+		if (transport instanceof HttpBackendProxyTransport http) http.beginPreparedHandoff();
+		preparedSendFence = true;
 	}
 
 	/** Admits the predecessor before staged replacement messages without caller-thread I/O. */
-	private void acceptPreparedHandoffMessages(java.util.List<JsonEnvelope> pending) {
-		if (transport instanceof HttpBackendProxyTransport http) {
-			http.acceptHandoffMessages(pending);
-			return;
-		}
+	private void acceptPreparedHandoffMessages(java.util.List<PendingHandoffEnvelope> pending) {
 		Thread worker = null;
 		boolean schedulePluginMessages = false;
 		long generation = 0;
@@ -373,10 +529,17 @@ public class BackendProxyTransportManager {
 			int admitted = pending.size() + preparedSends.size();
 			if (admitted > MAX_ASYNC_HANDOFF_SENDS - asyncHandoffSends.size())
 				throw new IllegalStateException("Backend proxy handoff queue exceeded its fixed capacity");
+			if (transport instanceof HttpBackendProxyTransport http) {
+				// Presence activation can add replacement-side sends after the predecessor's
+				// provisional reservation. Validate the complete atomic admission before
+				// consuming either side's queue.
+				http.reservePreparedHandoffCapacity(admitted + asyncHandoffSends.size());
+			}
 			asyncHandoffSends.addAll(pending);
 			asyncHandoffSends.addAll(preparedSends);
 			preparedSends.clear();
 			preparedSendFence = false;
+			if (transport instanceof HttpBackendProxyTransport http) http.activatePreparedHandoffDrain();
 			if (!asyncHandoffSends.isEmpty() && asyncHandoffWorker == null && !pluginMessageHandoffScheduled) {
 				if (transport instanceof PluginMessagingBackendProxyTransport) {
 					pluginMessageHandoffScheduled = true;
@@ -392,8 +555,41 @@ public class BackendProxyTransportManager {
 	}
 
 	/** Preserves handoff FIFO and keeps plugin-message API access on the primary thread. */
+	private void acceptForwardedSend(JsonEnvelope envelope,
+			java.util.function.UnaryOperator<JsonEnvelope> adapter) {
+		BackendProxyTransportManager successor;
+		java.util.function.UnaryOperator<JsonEnvelope> successorAdapter;
+		synchronized (this) {
+			successor = forwardingManager;
+			if (successor == null) {
+				PendingHandoffEnvelope pending = adapter == null ? PendingHandoffEnvelope.direct(envelope)
+						: PendingHandoffEnvelope.adapted(envelope, adapter);
+				if (preparedSendFence || preparedTransport != null) acceptPreparedSend(pending);
+				else acceptQueuedTransportSend(pending);
+				return;
+			}
+			successorAdapter = composeAdapters(adapter, forwardingAdapter);
+		}
+		successor.acceptForwardedSend(envelope, successorAdapter);
+	}
+
+	private static java.util.function.UnaryOperator<JsonEnvelope> composeAdapters(
+			java.util.function.UnaryOperator<JsonEnvelope> first,
+			java.util.function.UnaryOperator<JsonEnvelope> second) {
+		if (first == null) return second;
+		if (second == null) return first;
+		return envelope -> second.apply(first.apply(envelope));
+	}
+
 	private void acceptQueuedTransportSend(JsonEnvelope envelope) {
-		if (asyncHandoffSends.size() >= MAX_ASYNC_HANDOFF_SENDS) {
+		acceptQueuedTransportSend(PendingHandoffEnvelope.direct(envelope));
+	}
+
+	private void acceptQueuedTransportSend(PendingHandoffEnvelope envelope) {
+		boolean httpHandoffFull = transport instanceof HttpBackendProxyTransport http
+				&& http.isManagerHandoffActive()
+				&& !http.canAcceptManagerHandoff(asyncHandoffSends.size());
+		if (asyncHandoffSends.size() >= MAX_ASYNC_HANDOFF_SENDS || httpHandoffFull) {
 			if (!preparedQueueWarning) {
 				preparedQueueWarning = true;
 				plugin.getLogger().severe("Plugin-message delivery queue is full; delivery was not accepted");
@@ -441,25 +637,117 @@ public class BackendProxyTransportManager {
 	private void drainAsyncHandoffMessages() {
 		try {
 			while (!Thread.currentThread().isInterrupted()) {
-				JsonEnvelope envelope;
+				PendingHandoffEnvelope pending;
 				BackendProxyTransport target;
+				boolean httpAdmission;
 				synchronized (this) {
-					envelope = asyncHandoffSends.peekFirst();
-					if (envelope == null) {
+					pending = asyncHandoffSends.peekFirst();
+					if (pending == null) {
+						if (transport instanceof HttpBackendProxyTransport http) http.finishPreparedHandoffDrain();
 						if (asyncHandoffWorker == Thread.currentThread()) asyncHandoffWorker = null;
 						notifyAll();
 						return;
 					}
 					target = transport;
+					httpAdmission = target instanceof HttpBackendProxyTransport;
+					if (httpAdmission) httpHandoffSendInProgress = true;
 				}
 				if (target == null) return;
+				JsonEnvelope envelope;
+				boolean resolved = false;
+				try {
+					envelope = pending.resolve();
+					resolved = true;
+				} catch (RuntimeException adaptationFailure) {
+					synchronized (this) {
+						if (!asyncHandoffRetryWarning && plugin != null && plugin.getLogger() != null) {
+							asyncHandoffRetryWarning = true;
+							plugin.getLogger().warning(
+									"Backend proxy handoff adaptation failed; retaining it for retry");
+						}
+						try {
+							wait(250L);
+						} catch (InterruptedException interrupted) {
+							Thread.currentThread().interrupt();
+							return;
+						}
+					}
+					continue;
+				} finally {
+					if (httpAdmission && !resolved) releaseHttpHandoffAdmission();
+				}
+				if (Thread.currentThread().isInterrupted()) {
+					if (httpAdmission) releaseHttpHandoffAdmission();
+					return;
+				}
+				if (target instanceof PluginMessagingBackendProxyTransport) {
+					java.util.List<PendingHandoffEnvelope> lookahead = new java.util.ArrayList<>();
+					synchronized (this) {
+						for (PendingHandoffEnvelope queued : asyncHandoffSends) {
+							if (lookahead.size() >= PLUGIN_MESSAGE_HANDOFF_BATCH_SIZE) break;
+							lookahead.add(queued);
+						}
+					}
+					for (PendingHandoffEnvelope queued : lookahead) {
+						if (Thread.currentThread().isInterrupted()) return;
+						try {
+							queued.resolve();
+						} catch (RuntimeException adaptationFailure) {
+							break;
+						}
+					}
+					boolean schedule;
+					long generation;
+					synchronized (this) {
+						if (asyncHandoffWorker == Thread.currentThread()) asyncHandoffWorker = null;
+						schedule = !pluginMessageHandoffScheduled;
+						if (schedule) pluginMessageHandoffScheduled = true;
+						generation = handoffGeneration;
+					}
+					if (schedule) try {
+						schedulePluginMessageHandoff(generation);
+					} catch (RuntimeException schedulingFailure) {
+						synchronized (this) {
+							if (asyncHandoffWorker == null) asyncHandoffWorker = Thread.currentThread();
+							if (!asyncHandoffRetryWarning && plugin != null && plugin.getLogger() != null) {
+								asyncHandoffRetryWarning = true;
+								plugin.getLogger().warning(
+										"Plugin-message handoff scheduling failed; retaining it for retry");
+							}
+							try {
+								wait(250L);
+							} catch (InterruptedException interrupted) {
+								Thread.currentThread().interrupt();
+								return;
+							}
+						}
+						continue;
+					}
+					synchronized (this) {
+						asyncHandoffRetryWarning = false;
+						notifyAll();
+					}
+					return;
+				}
 				boolean accepted;
+				boolean sendReturned = false;
 				try {
 					accepted = target.send(envelope);
+					sendReturned = true;
 				} catch (RuntimeException sendFailure) {
 					accepted = false;
+					sendReturned = true;
+				} finally {
+					if (httpAdmission && !sendReturned) synchronized (this) {
+						httpHandoffSendInProgress = false;
+						notifyAll();
+					}
 				}
 				synchronized (this) {
+					if (httpAdmission) {
+						httpHandoffSendInProgress = false;
+						notifyAll();
+					}
 					if (!accepted) {
 						if (!asyncHandoffRetryWarning && plugin != null && plugin.getLogger() != null) {
 							asyncHandoffRetryWarning = true;
@@ -470,12 +758,13 @@ public class BackendProxyTransportManager {
 							wait(250L);
 						} catch (InterruptedException interrupted) {
 							Thread.currentThread().interrupt();
+							notifyAll();
 							return;
 						}
 						continue;
 					}
 					asyncHandoffRetryWarning = false;
-					if (asyncHandoffSends.peekFirst() == envelope) asyncHandoffSends.removeFirst();
+					if (asyncHandoffSends.peekFirst() == pending) asyncHandoffSends.removeFirst();
 					notifyAll();
 				}
 			}
@@ -485,6 +774,11 @@ public class BackendProxyTransportManager {
 				notifyAll();
 			}
 		}
+	}
+
+	private synchronized void releaseHttpHandoffAdmission() {
+		httpHandoffSendInProgress = false;
+		notifyAll();
 	}
 
 	private void schedulePluginMessageHandoff(long generation) {
@@ -501,18 +795,29 @@ public class BackendProxyTransportManager {
 
 	private void drainPluginMessageHandoff(long generation) {
 		for (int sent = 0; sent < PLUGIN_MESSAGE_HANDOFF_BATCH_SIZE; sent++) {
-			JsonEnvelope envelope;
+			PendingHandoffEnvelope pending;
 			BackendProxyTransport target;
 			synchronized (this) {
 				if (handoffGeneration != generation) return;
-				envelope = asyncHandoffSends.peekFirst();
-				if (envelope == null) {
+				pending = asyncHandoffSends.peekFirst();
+				if (pending == null) {
 					pluginMessageHandoffScheduled = false;
 					preparedQueueWarning = false;
 					notifyAll();
 					return;
 				}
 				target = transport;
+			}
+			JsonEnvelope envelope = pending.resolved();
+			if (envelope == null) {
+				Thread worker;
+				synchronized (this) {
+					if (handoffGeneration != generation) return;
+					pluginMessageHandoffScheduled = false;
+					worker = asyncHandoffWorker == null ? createAsyncHandoffWorker() : null;
+				}
+				startAsyncHandoffWorker(worker);
+				return;
 			}
 			if (!(target instanceof PluginMessagingBackendProxyTransport)) {
 				synchronized (this) {
@@ -535,7 +840,7 @@ public class BackendProxyTransportManager {
 			}
 			synchronized (this) {
 				if (handoffGeneration != generation) return;
-				if (asyncHandoffSends.peekFirst() == envelope) asyncHandoffSends.removeFirst();
+				if (asyncHandoffSends.peekFirst() == pending) asyncHandoffSends.removeFirst();
 				notifyAll();
 			}
 		}
@@ -554,14 +859,24 @@ public class BackendProxyTransportManager {
 	/** Reserves replacement capacity for every old queued message and future prepared send. */
 	public synchronized void reservePreparedTransportHandoff(BackendProxyTransportManager replacement) {
 		if (preparedTransport == null && !preparedSendFence) return;
-		if (!(java.util.Objects.requireNonNull(replacement, "replacement").transport
-				instanceof HttpBackendProxyTransport target))
+		BackendProxyTransportManager target = java.util.Objects.requireNonNull(replacement, "replacement");
+		if (!(target.transport instanceof HttpBackendProxyTransport))
 			throw new IllegalStateException("HTTP replacement transport is unavailable");
 		// send() remains available while the previous credential is fenced. Reserve
 		// its whole remaining bounded allowance, not only the current queue size.
 		int previousMessages = preparedTransport instanceof HttpBackendProxyTransport previous
 				? previous.preparedMessageCount() : 0;
 		target.reservePreparedHandoffCapacity(previousMessages + MAX_PREPARED_SENDS);
+	}
+
+	private synchronized void reservePreparedHandoffCapacity(int messages) {
+		if (!preparedSendFence)
+			throw new IllegalStateException("HTTP replacement transport is not awaiting a prepared handoff");
+		if (messages < 0 || messages > MAX_ASYNC_HANDOFF_SENDS - preparedSends.size())
+			throw new IllegalStateException("HTTP prepared handoff exceeds its fixed capacity");
+		if (transport instanceof HttpBackendProxyTransport http) {
+			http.reservePreparedHandoffCapacity(messages);
+		}
 	}
 
 	public void beginPreparedHttpHandoff() {
@@ -589,8 +904,23 @@ public class BackendProxyTransportManager {
 		}
 		preparedTransport = null;
 		preparedSendFence = false;
-		while (!preparedSends.isEmpty() && transport.send(preparedSends.peekFirst())) preparedSends.removeFirst();
+		resumePreparedSends();
 		preparedQueueWarning = false;
+	}
+
+	/** Restores fenced sends through the worker so composed crypto adapters never run on Bukkit. */
+	private void resumePreparedSends() {
+		if (preparedSends.isEmpty()) return;
+		if (preparedSends.size() > MAX_ASYNC_HANDOFF_SENDS - asyncHandoffSends.size())
+			throw new IllegalStateException("Backend proxy handoff queue exceeded its fixed capacity");
+		if (transport instanceof HttpBackendProxyTransport http)
+			http.activateRestoredHandoffDrain(asyncHandoffSends.size() + preparedSends.size());
+		asyncHandoffSends.addAll(preparedSends);
+		preparedSends.clear();
+		if (asyncHandoffWorker == null && !pluginMessageHandoffScheduled) {
+			Thread worker = createAsyncHandoffWorker();
+			startAsyncHandoffWorker(worker);
+		}
 	}
 
 	public void restoreAfterFailedReplacement() {
@@ -816,5 +1146,42 @@ public class BackendProxyTransportManager {
 	public MqttHandler getMqttHandler() {
 		return transport instanceof MqttBackendProxyTransport
 				? ((MqttBackendProxyTransport) transport).getMqttHandler() : null;
+	}
+
+	/** One handed-off envelope whose potentially expensive wire-policy conversion is worker-owned. */
+	private static final class PendingHandoffEnvelope {
+		private final JsonEnvelope source;
+		private final java.util.function.UnaryOperator<JsonEnvelope> adapter;
+		private volatile JsonEnvelope resolved;
+
+		private PendingHandoffEnvelope(JsonEnvelope source,
+				java.util.function.UnaryOperator<JsonEnvelope> adapter, JsonEnvelope resolved) {
+			this.source = java.util.Objects.requireNonNull(source, "source");
+			this.adapter = adapter;
+			this.resolved = resolved;
+		}
+
+		private static PendingHandoffEnvelope direct(JsonEnvelope envelope) {
+			return new PendingHandoffEnvelope(envelope, null, envelope);
+		}
+
+		private static PendingHandoffEnvelope adapted(JsonEnvelope envelope,
+				java.util.function.UnaryOperator<JsonEnvelope> adapter) {
+			return new PendingHandoffEnvelope(envelope, java.util.Objects.requireNonNull(adapter, "adapter"), null);
+		}
+
+		private PendingHandoffEnvelope then(java.util.function.UnaryOperator<JsonEnvelope> following) {
+			if (following == null) return this;
+			return adapted(source, composeAdapters(adapter, following));
+		}
+
+		private JsonEnvelope resolved() {
+			return resolved;
+		}
+
+		private synchronized JsonEnvelope resolve() {
+			if (resolved == null) resolved = java.util.Objects.requireNonNull(adapter.apply(source), "adapted envelope");
+			return resolved;
+		}
 	}
 }
