@@ -152,14 +152,19 @@ public class VoteSite {
 		// Service-site values can originate at the Votifier trust boundary. Preserve
 		// ordinary identifiers exactly, but break placeholder/color token syntax before
 		// reward actions (including console commands) consume externally supplied text.
-		ConfigurationSection rewardData = rewardDataForActions(plugin.getConfigVoteSites().getData(), path);
-		return new RewardBuilder(rewardData, path).setOnline(online)
+		ConfigurationSection configuredData = plugin.getConfigVoteSites().getData();
+		ConfigurationSection rewardData = rewardDataForActions(configuredData, path);
+		RewardBuilder builder = new RewardBuilder(rewardData, path).setOnline(online)
 				.withPlaceHolder("ServiceSite", getServiceSiteForActions())
 				.withPlaceHolder("SiteName", getDisplayNameForActions())
 				.withDisplayPlaceHolder("ServiceSite", getServiceSiteForFormatting())
 				.withDisplayPlaceHolder("SiteName", getDisplayNameForFormatting())
 				.withPlaceHolder("VoteDelay", "" + getVoteDelay()).withPlaceHolder("VoteURL", getVoteURL())
 				.setServer(bungee);
+		// A registered direct reward points at the original section. Only the isolated
+		// guarded copy may execute when an external value can complete template syntax.
+		if (rewardData != configuredData) builder.withSuffix(null);
+		return builder;
 	}
 
 	public boolean hasRewards() {

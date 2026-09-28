@@ -187,7 +187,11 @@ public final class ServiceSiteValidator {
 
 	private static boolean closesValueTokenAt(String template, int offset, String value) {
 		if (value == null || value.isEmpty() || offset >= template.length()) return false;
-		if (endsWithPlaceholderFragment(value) && completesPlaceholder(template, offset)) return true;
+		// Guarding an internal opener changes which percent delimiter remains open.
+		// Inspect the exact value that reward substitution will consume so overlapping
+		// fragments cannot reuse its final delimiter with the trusted suffix.
+		if (endsWithPlaceholderFragment(inertForActions(value))
+				&& completesPlaceholder(template, offset)) return true;
 		int ampersand = value.lastIndexOf('&');
 		if (ampersand < 0) return false;
 		String partial = value.substring(ampersand + 1);
