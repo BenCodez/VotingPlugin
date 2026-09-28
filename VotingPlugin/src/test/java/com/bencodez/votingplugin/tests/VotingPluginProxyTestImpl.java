@@ -408,8 +408,15 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 		System.out.println("LOG: " + message);
 	}
 
+	private final List<String> severeMessages = new ArrayList<>();
+
+	public List<String> getSevereMessages() {
+		return severeMessages;
+	}
+
 	@Override
 	public void logSevere(String message) {
+		severeMessages.add(message);
 		// For testing, simply print the severe message
 		System.err.println("SEVERE: " + message);
 	}
