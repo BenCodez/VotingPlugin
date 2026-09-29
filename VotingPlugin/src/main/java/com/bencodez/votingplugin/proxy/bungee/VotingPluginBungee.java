@@ -113,6 +113,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 	private final Queue<QueuedPluginMessage> queuedPluginMessages = new ConcurrentLinkedQueue<>();
 	private final PendingIncomingVoteQueue pendingIncomingVotes = new PendingIncomingVoteQueue();
 	private PendingIncomingVoteJournal pendingIncomingVoteJournal;
+	private PendingIncomingVoteJournal pendingIncomingVoteRescueJournal;
 
 	/**
 	 * Logs debug output if enabled in config.
@@ -758,7 +759,16 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				retained = true;
 				getLogger().warning("Accepted votes were preserved in the emergency lifecycle journal during " + reason);
 			} catch (IOException | RuntimeException journalFailure) {
-				getLogger().severe("Unable to write the emergency pending-vote journal: " + journalFailure.getMessage());
+				getLogger().severe("Unable to write the primary emergency pending-vote journal: " + journalFailure.getMessage());
+				try {
+					pendingIncomingVoteRescueJournal().merge(emergencyVotes);
+					for (PendingIncomingVote pending : emergencyPending) pendingIncomingVotes.complete(pending);
+					retained = true;
+					getLogger().warning("Accepted votes were preserved in the sibling rescue journal during " + reason);
+				} catch (IOException | RuntimeException rescueFailure) {
+					getLogger().severe("Unable to write the sibling pending-vote rescue journal: "
+							+ rescueFailure.getMessage());
+				}
 			}
 		}
 		return retained;
@@ -771,13 +781,26 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		return pendingIncomingVoteJournal;
 	}
 
+	private PendingIncomingVoteJournal pendingIncomingVoteRescueJournal() {
+		if (pendingIncomingVoteRescueJournal == null) {
+			pendingIncomingVoteRescueJournal = PendingIncomingVoteJournal.rescue(getDataFolder().toPath());
+		}
+		return pendingIncomingVoteRescueJournal;
+	}
+
 	private boolean recoverEmergencyIncomingVotes(VotingPluginProxy runtime) {
+		boolean primaryRecovered = recoverEmergencyIncomingVotes(runtime, pendingIncomingVoteJournal());
+		boolean rescueRecovered = recoverEmergencyIncomingVotes(runtime, pendingIncomingVoteRescueJournal());
+		return primaryRecovered && rescueRecovered;
+	}
+
+	private boolean recoverEmergencyIncomingVotes(VotingPluginProxy runtime, PendingIncomingVoteJournal journal) {
 		try {
 			List<VoteTimeQueue> remaining = new ArrayList<>();
-			for (VoteTimeQueue vote : pendingIncomingVoteJournal().load()) {
+			for (VoteTimeQueue vote : journal.load()) {
 				if (!runtime.retainIncomingVoteForRestart(vote)) remaining.add(vote);
 			}
-			pendingIncomingVoteJournal().replace(remaining);
+			journal.replace(remaining);
 			return remaining.isEmpty();
 		} catch (IOException failure) {
 			getLogger().severe("Unable to recover the emergency pending-vote journal: " + failure.getMessage());

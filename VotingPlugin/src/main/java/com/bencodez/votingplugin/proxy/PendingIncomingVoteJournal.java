@@ -30,6 +30,21 @@ public final class PendingIncomingVoteJournal {
 		this.file = dataDirectory.resolve("pending-incoming-votes-v1.json").toAbsolutePath().normalize();
 	}
 
+	private PendingIncomingVoteJournal(Path file, boolean directFile) {
+		this.file = file.toAbsolutePath().normalize();
+	}
+
+	/**
+	 * A sibling rescue journal remains writable when the plugin data directory or
+	 * its primary journal entry is damaged during terminal proxy shutdown.
+	 */
+	public static PendingIncomingVoteJournal rescue(Path dataDirectory) {
+		Path normalized = dataDirectory.toAbsolutePath().normalize();
+		Path parent = normalized.getParent();
+		String name = normalized.getFileName() + ".pending-incoming-votes-rescue-v1.json";
+		return new PendingIncomingVoteJournal(parent.resolve(name), true);
+	}
+
 	public synchronized List<VoteTimeQueue> load() throws IOException {
 		try {
 			return loadValidated();

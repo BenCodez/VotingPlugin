@@ -87,4 +87,16 @@ class PendingIncomingVoteJournalTest {
 
 		assertThrows(java.io.IOException.class, journal::load);
 	}
+
+	@Test
+	void siblingRescueJournalSurvivesPrimaryDirectoryFailure() throws Exception {
+		Path dataDirectory = temporaryDirectory.resolve("VotingPlugin");
+		Files.createDirectories(dataDirectory);
+		PendingIncomingVoteJournal rescue = PendingIncomingVoteJournal.rescue(dataDirectory);
+		VoteTimeQueue vote = new VoteTimeQueue(UUID.randomUUID(), "Player", "Service", 1L);
+
+		rescue.merge(List.of(vote));
+
+		assertEquals(vote.getVoteId(), rescue.load().get(0).getVoteId());
+	}
 }

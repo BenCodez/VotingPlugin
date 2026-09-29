@@ -281,6 +281,32 @@ class VotingPluginBungeeInitializationTest {
 	}
 
 	@Test
+	void failedPrimaryEmergencyJournalUsesSiblingRescue() throws Exception {
+		VotingPluginBungee plugin = mock(VotingPluginBungee.class, CALLS_REAL_METHODS);
+		VotingPluginProxy runtime = mock(VotingPluginProxy.class);
+		PendingIncomingVoteQueue queue = new PendingIncomingVoteQueue();
+		queue.admit("Player", "Service");
+		PendingIncomingVoteJournal primary = mock(PendingIncomingVoteJournal.class);
+		PendingIncomingVoteJournal rescue = mock(PendingIncomingVoteJournal.class);
+		setField(plugin, "reloadLock", new Object());
+		setField(plugin, "pendingIncomingVotes", queue);
+		setField(plugin, "votingPluginProxy", runtime);
+		setField(plugin, "pendingIncomingVoteJournal", primary);
+		setField(plugin, "pendingIncomingVoteRescueJournal", rescue);
+		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getLogger("VotingPluginBungeeInitializationTest"));
+		when(runtime.retainIncomingVoteForRestart(any(PendingIncomingVote.class))).thenReturn(false);
+		doThrow(new java.io.IOException("primary unavailable")).when(primary).merge(any());
+		java.lang.reflect.Method persist = VotingPluginBungee.class.getDeclaredMethod(
+				"persistPendingIncomingVotes", VotingPluginProxy.class, String.class);
+		persist.setAccessible(true);
+
+		assertTrue((Boolean) persist.invoke(plugin, runtime, "test shutdown"));
+
+		assertEquals(0, queue.size());
+		verify(rescue).merge(any());
+	}
+
+	@Test
 	void acceptedVoteCompletesOnceWithItsOriginalId() throws Exception {
 		VotingPluginBungee plugin = mock(VotingPluginBungee.class, CALLS_REAL_METHODS);
 		VotingPluginProxy runtime = mock(VotingPluginProxy.class);

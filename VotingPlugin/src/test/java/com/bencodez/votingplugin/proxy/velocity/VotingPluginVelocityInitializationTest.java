@@ -76,6 +76,31 @@ class VotingPluginVelocityInitializationTest {
 	}
 
 	@Test
+	void failedPrimaryEmergencyJournalUsesSiblingRescue(@TempDir Path dataDirectory) throws Exception {
+		VotingPluginVelocity plugin = new VotingPluginVelocity(mock(ProxyServer.class), mock(Logger.class),
+				mock(Metrics.Factory.class), dataDirectory);
+		VotingPluginProxy runtime = mock(VotingPluginProxy.class);
+		PendingIncomingVoteQueue queue = (PendingIncomingVoteQueue) getField(plugin, "pendingIncomingVotes");
+		queue.admit("Player", "Service");
+		PendingIncomingVoteJournal primary = mock(PendingIncomingVoteJournal.class);
+		PendingIncomingVoteJournal rescue = mock(PendingIncomingVoteJournal.class);
+		setField(plugin, "votingPluginProxy", runtime);
+		setField(plugin, "pendingIncomingVoteJournal", primary);
+		setField(plugin, "pendingIncomingVoteRescueJournal", rescue);
+		when(runtime.retainIncomingVoteForRestart(any(PendingIncomingVote.class))).thenReturn(false);
+		doThrow(new java.io.IOException("primary unavailable")).when(primary).merge(any());
+		java.lang.reflect.Method persist = VotingPluginVelocity.class.getDeclaredMethod(
+				"persistPendingIncomingVotes", VotingPluginProxy.class, String.class);
+		persist.setAccessible(true);
+
+		assertTrue((Boolean) persist.invoke(plugin, runtime, "test shutdown"));
+
+		assertEquals(0, queue.size());
+		verify(rescue).merge(any());
+		plugin.getTimer().shutdownNow();
+	}
+
+	@Test
 	void freshInitializationDoesNotCreateADisposableRuntimeBeforeFullLoad(@TempDir Path dataDirectory) {
 		TestVelocity plugin = new TestVelocity(dataDirectory);
 		try {
