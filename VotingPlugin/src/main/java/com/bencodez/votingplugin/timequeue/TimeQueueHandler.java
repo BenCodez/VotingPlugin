@@ -160,10 +160,13 @@ public class TimeQueueHandler implements Listener {
 	public synchronized void save() {
 		persistQueueSnapshot();
 		timeChangeQueue.clear();
+		completedAwaitingPersistence.clear();
 	}
 
 	private void persistQueueSnapshot() {
-		plugin.getServerData().replaceTimedVoteCache(new ArrayList<>(timeChangeQueue));
+		ArrayList<VoteTimeQueue> pending = new ArrayList<>(timeChangeQueue);
+		pending.removeAll(completedAwaitingPersistence);
+		plugin.getServerData().replaceTimedVoteCache(pending);
 	}
 
 	private boolean persistWithout(VoteTimeQueue completed) {
