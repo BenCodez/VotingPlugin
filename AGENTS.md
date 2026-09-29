@@ -178,6 +178,81 @@ full, case-normalized ServiceSite (up to the 2048-character validator bound); tr
 and classify unmatched logged services against every configured site rather than only the displayed page. Do not accept
 raw SQL from Control or expose the database/table configuration.
 
+## Proxy vote lifecycle and durability invariants
+
+Treat every proxy-side Votifier event as durable work as soon as VotingPlugin accepts it. A Java stack frame, scheduled
+task, executor queue, or platform scheduler entry is **not** durable ownership.
+
+- Before any fallible or cancellable scheduler/executor handoff, transfer the accepted vote into VotingPlugin-owned state.
+  At every point afterward, the vote must be either: (a) actively processing against a runtime protected from teardown,
+  (b) present in a bounded process-owned pending queue, or (c) durably persisted for restart recovery. There must be no
+  gap where scheduler admission is the only thing preventing loss.
+- Scheduler callbacks are wakeups, not owners. Rejection, plugin disable, proxy shutdown, `shutdownNow()`, task
+  cancellation, executor replacement, or a platform scheduler refusing work must leave the vote owned in pending/durable
+  state with the same vote ID.
+- Preserve one stable `voteId` from Votifier acceptance through reload waiting, storage retry, durable handoff, restart,
+  backend delivery, reward execution, and completion fencing. Never generate a replacement ID merely because an attempt
+  was rescheduled or recovered.
+- Runtime lifecycle transitions must have explicit semantics:
+  - operational: votes may enter the protected runtime;
+  - reloading/replacing: accepted votes wait in owned pending state and do not consume storage-failure retry budget merely
+    for waiting on lifecycle replacement;
+  - terminal/unavailable: do not invoke the broken/disposed runtime; hand pending work to durable recovery where possible
+    and emit an explicit diagnostic if persistence fails.
+- Publish a replacement runtime as operational only after required transport state, caches/storage, periodic tasks, and
+  required Votifier listener registration are ready. Publish readiness before clearing the reload fence. Never expose a
+  transient `reloading=false && runtimeOperational=false` state on an otherwise successful replacement that could cause
+  a vote to be mistaken for terminal failure.
+- Protect runtime selection and teardown with the same lifecycle fence. A vote that has selected a runtime must not race
+  teardown of that runtime. Conversely, teardown must not proceed while accepted process-owned votes have no durable
+  recovery path.
+- Before retiring the old runtime during a full replacement, persist or otherwise durably transfer all accepted pending
+  votes. If that transfer fails while the predecessor can still safely run, abort replacement and keep the predecessor.
+  Final shutdown may continue only with an explicit reconciliation/error signal for any work that could not be persisted.
+- Do not remove a pending vote merely because a retry was scheduled. Remove process-owned state only after the vote is
+  safely processed/completed or a durable recovery record has been confirmed. Scheduling success does not imply future
+  execution; a subsequent shutdown/cancellation can still prevent the callback from running.
+- For graceful lifecycle, retry, scheduler, reload, shutdown-handoff, and restart-replay paths, preserve exactly-once
+  vote effects across totals, points, streaks, VoteParty, rewards, broadcasts, backend delivery, and completion
+  acknowledgement. Stable vote IDs and durable completion fences must prevent duplicates caused by those recoverable
+  paths. Do not claim universal exactly-once semantics for arbitrary external side effects: if a reward/command succeeds
+  and the process hard-crashes before its completion record is durably persisted, recovery may repeat that effect. Treat
+  that as the documented hard-crash transaction boundary, not as an acceptable graceful-lifecycle loss/duplication path.
+- Bungee/Waterfall and Velocity must have equivalent lifecycle guarantees. A fix on one proxy platform is incomplete until
+  the other platform is audited and either changed or explicitly proven safe with tests.
+- Plugin-message queues and vote queues are separate durability concerns. Reload-abort and retained-runtime paths must
+  drain/retry queued messages against the still-valid runtime; do not strand them until an unrelated future reload.
+- Distinguish graceful lifecycle guarantees from unavoidable hard-crash boundaries. Do not claim graceful reload/shutdown
+  safety if accepted work can still disappear or duplicate through scheduler rejection, cancellation, retry, or restart
+  replay. Separately document any remaining process-crash boundary where an external side effect can occur before its
+  durable completion record; that boundary must not be misrepresented as universally exactly-once.
+
+For any change touching proxy vote receipt, `VoteEventBungee`, `VoteEventVelocity`, `VotingPluginBungee`,
+`VotingPluginVelocity`, `VotingPluginProxy.vote(...)`, proxy schedulers/executors, pending vote/cache state, transport
+handoff, reload, runtime replacement, or shutdown, the review must explicitly trace and test these interleavings:
+
+1. vote arrives immediately before reload starts;
+2. vote arrives after the reload fence is raised but before predecessor retirement;
+3. vote is accepted while replacement is in progress;
+4. scheduler/executor rejects the wakeup after the vote is accepted;
+5. scheduler accepts the wakeup, then shutdown/cancellation occurs before it runs;
+6. replacement preparation fails while the predecessor is still safe;
+7. replacement fails after predecessor retirement;
+8. successful replacement drains pending votes exactly once;
+9. soft reload fails and a later successful soft reload restores readiness;
+10. graceful shutdown persists pending accepted votes before stopping scheduling infrastructure;
+11. restart replays durable pending votes with the original vote ID and does not replay them again after completion;
+12. multiple concurrent pending votes remain independently owned and cannot overwrite or collapse into one another.
+
+Use deterministic tests with barriers, latches, fake/rejecting schedulers, or explicit lifecycle seams. Do not rely on sleeps
+or timing luck to prove race safety. A green build without these interleaving checks is not sufficient evidence for a
+proxy lifecycle/vote-durability change.
+
+For transport-selection changes, additionally prove that generic reward-journal/cache IDs do not fabricate transport
+provenance. Genuine retained HTTP work must survive handoff; cached reward IDs from a non-HTTP installation must not force
+HTTP startup. Corrupt/missing retained listener state, parked HTTP queues, failed retained HTTP startup, undeletable
+retained state, and fallback to the configured transport must be covered without requiring manual cache/config cleanup.
+
 ## Change and PR workflow
 
 Keep changes focused and avoid unrelated formatting. Before any commit, push, PR update, review reply, or other remote change:
@@ -219,14 +294,14 @@ Control behavior in production.
 ## Safe change checklist
 
 - Trace whether the code runs on the connector worker, proxy thread, Bukkit primary thread, or a SQL executor.
-- Preserve queued votes across saturation, shutdown, and restart; overflow handling must be bounded, durable when promised, and observable rather than silently dropping work.
+- Preserve queued votes across saturation, reload, runtime replacement, scheduler rejection/cancellation, shutdown, and restart; overflow handling must be bounded, durable when promised, and observable rather than silently dropping work. Scheduler admission is never proof of durable ownership.
 - Proxy-to-backend guaranteed delivery is capability negotiated and at least once. Journal a reward-bearing envelope before
   reporting transport acceptance, retain it until the matching backend completion acknowledgement is durable, persist
   completed IDs before acknowledgement for restart-safe deduplication, retire receipts only through the durable
   proxy-confirmed release handshake, retain a bounded durable tombstone for in-flight retries, and keep legacy send
   behavior for backends that do not advertise the capability.
 - Treat scheduler units explicitly. Verify whether each delay is in ticks, milliseconds, or seconds, especially across Bukkit, Folia, BungeeCord, and Velocity adapters.
-- Register listeners and lifecycle wakeups before producers can publish work; startup/reload ordering must not strand already-persisted or newly-arriving operations.
+- Register listeners and lifecycle wakeups before producers can publish work; startup/reload ordering must not strand already-persisted or newly-arriving operations. For proxy Votifier paths, runtime readiness is not published until listener registration succeeds, and reload waiting must retain the vote independently of the scheduler.
 - Protocol-mode changes must not silently broaden legacy v1/RSA acceptance when token-only operation is configured or intended; cover downgrade behavior with tests.
 - Add strict type/field/range/count validation before calling plugin services.
 - Snapshot synchronized live collections before iterating; do not return mutable collections across threads.
