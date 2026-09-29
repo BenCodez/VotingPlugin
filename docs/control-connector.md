@@ -212,14 +212,15 @@ restart. This capability is deliberately separate from configuration control and
 VotingPlugin never hot-reloads itself and never restarts the server or proxy automatically.
 
 Deployment is available only on the currently enabled Control route. Recovery-only connectors that exist solely to
-acknowledge an older durable result never advertise or poll this capability. The node also requires a credential-safe
-artifact transport: HTTPS is accepted generally; HTTP is accepted only when the existing hosted-Control checks prove the
-endpoint is the direct same-node listener. A LAN/private HTTP endpoint may still be used for ordinary Control operations,
-but it is intentionally ineligible for credentialed plugin-JAR staging.
+acknowledge an older durable result never advertise or poll this capability. HTTPS endpoints can stage generally. HTTP
+staging is limited to literal loopback, link-local, and private-network endpoint addresses, plus `localhost` when direct
+local hosting on the same node is confirmed. Other hostnames and public IPs do not qualify. HTTPS is strongly recommended
+because the artifact request carries the node bearer credential and plugin artifact in transit; connectors emit a startup
+warning when verified staging is enabled over HTTP.
 
 Control leases deployment work through `POST /api/v1/nodes/{nodeId}/deployments`. The node downloads the artifact through
 the matching deployment artifact endpoint with its bearer credential plus exact session and attempt headers, then
-independently verifies the 64 MiB size bound, SHA-256, JAR structure, and root `plugin.yml` identity. Bukkit stages the
+independently re-verifies Control's 64 MiB size bound, SHA-256, JAR structure, and root `plugin.yml` identity. Bukkit stages the
 verified JAR in the configured update folder; BungeeCord/Velocity retain a durable backup before atomically replacing the
 running plugin JAR on disk. A durable deployment marker makes lost result acknowledgements idempotent, including the
 post-restart Bukkit state where the server has already consumed the staged update JAR.

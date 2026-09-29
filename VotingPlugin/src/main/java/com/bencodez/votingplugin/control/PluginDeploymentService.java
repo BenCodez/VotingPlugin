@@ -2,6 +2,7 @@ package com.bencodez.votingplugin.control;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.InetAddress;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -122,9 +123,9 @@ public final class PluginDeploymentService {
 		if (!staging.compareAndSet(false, true)) return Result.failure("DEPLOYMENT_FAILED", "Another deployment is still staging");
 		try {
 			validate(task);
-			if (!credentialEndpointAllowed(endpoint, directLocalHosted)) {
+			if (!deploymentEndpointAllowed(endpoint, directLocalHosted)) {
 				return Result.failure("INSECURE_ENDPOINT",
-						"Verified update staging requires HTTPS unless Control is hosted directly on this node");
+						"Verified update staging requires HTTPS, a literal private-network HTTP endpoint, or proven same-node localhost hosting");
 			}
 			if (!active.getAsBoolean()) return Result.failure("CANCELLED", "Deployment was cancelled before download");
 			if (alreadyStaged(task)) return Result.restartRequired();
@@ -444,12 +445,58 @@ public final class PluginDeploymentService {
 		DurableFiles.forceDirectory(directory);
 	}
 
-	/** True when a deployment bearer credential may be sent to this Control endpoint. */
+	/**
+	 * True when the configured Control transport can carry a deployment request.
+	 *
+	 * <p>HTTP remains supported for literal loopback, link-local, and private network
+	 * addresses. The overload also permits {@code localhost} when direct local hosting
+	 * is confirmed. Public addresses and other hostnames require HTTPS. Callers warn
+	 * operators because HTTPS is strongly recommended whenever traffic leaves the
+	 * local process.</p>
+	 */
+	public static boolean deploymentEndpointAllowed(URI endpoint) {
+		return deploymentEndpointAllowed(endpoint, false);
+	}
+
+	public static boolean deploymentEndpointAllowed(URI endpoint, boolean directLocalHosted) {
+		if (endpoint == null) return false;
+		return "https".equalsIgnoreCase(endpoint.getScheme())
+				|| "http".equalsIgnoreCase(endpoint.getScheme())
+				&& (isLocalNetworkAddress(endpoint.getHost())
+						|| directLocalHosted && "localhost".equalsIgnoreCase(endpoint.getHost()));
+	}
+
+	/** @deprecated Retained for credential transport callers; use {@link #deploymentEndpointAllowed(URI, boolean)} only for deployment staging. */
+	@Deprecated
 	public static boolean credentialEndpointAllowed(URI endpoint, boolean directLocalHosted) {
 		if (endpoint == null) return false;
 		if ("https".equalsIgnoreCase(endpoint.getScheme())) return true;
 		return directLocalHosted && "http".equalsIgnoreCase(endpoint.getScheme())
 				&& isLoopbackHost(endpoint.getHost());
+	}
+
+	public static boolean usesUnencryptedHttp(URI endpoint) {
+		return endpoint != null && "http".equalsIgnoreCase(endpoint.getScheme());
+	}
+
+	private static boolean isLocalNetworkAddress(String host) {
+		if (host == null || host.isBlank()) return false;
+		String literal = host;
+		if (literal.length() >= 2 && literal.charAt(0) == '[' && literal.charAt(literal.length() - 1) == ']') {
+			literal = literal.substring(1, literal.length() - 1);
+		}
+		int zone = literal.indexOf('%');
+		if (zone >= 0) literal = literal.substring(0, zone);
+		if (!(literal.indexOf(':') >= 0 || literal.matches("[0-9]{1,3}(\\.[0-9]{1,3}){3}"))) return false;
+		try {
+			InetAddress address = InetAddress.getByName(literal);
+			byte[] bytes = address.getAddress();
+			boolean uniqueLocalV6 = bytes.length == 16 && (bytes[0] & 0xfe) == 0xfc;
+			return address.isLoopbackAddress() || address.isSiteLocalAddress()
+					|| address.isLinkLocalAddress() || uniqueLocalV6;
+		} catch (Exception invalid) {
+			return false;
+		}
 	}
 
 	private static boolean isLoopbackHost(String host) {

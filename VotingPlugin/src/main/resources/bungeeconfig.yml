@@ -511,6 +511,9 @@ MultiProxyServers:
 # Optional local-first VotingPlugin Control discovery. Missing keys preserve the disabled default.
 Control:
   Enabled: false
+  # HTTP staging accepts literal local/private IPs, or localhost when direct hosting on this same node is confirmed.
+  # HTTPS is strongly recommended because connector credentials
+  # and staged plugin artifacts cross this connection.
   Endpoint: 'http://127.0.0.1:8080'
   # Blank reuses ProxyServerName.
   NodeId: ''

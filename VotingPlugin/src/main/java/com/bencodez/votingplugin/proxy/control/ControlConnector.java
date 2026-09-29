@@ -259,12 +259,16 @@ public final class ControlConnector implements AutoCloseable {
 				config.getControlHostedStartupTimeoutSeconds(), config.getControlHostedDownloadTimeoutSeconds());
 		boolean directLocalDeploymentEndpoint = HostedControlManager.isDirectLocalEndpoint(
 				settings.endpoint().toString(), hosted);
-		boolean deploymentEndpointAllowed = PluginDeploymentService.credentialEndpointAllowed(
+		boolean deploymentEndpointAllowed = PluginDeploymentService.deploymentEndpointAllowed(
 				settings.endpoint(), directLocalDeploymentEndpoint);
 		PluginDeploymentService deployments = deploymentRouteCurrent && deploymentEndpointAllowed
 				? prepareDeployment(proxy) : null;
 		if (deploymentRouteCurrent && !deploymentEndpointAllowed) {
-			proxy.log("[Control] Plugin deployment staging requires HTTPS unless Control is hosted directly on this node");
+			proxy.log("[Control] Plugin deployment staging requires HTTPS or a literal private-network HTTP endpoint");
+		}
+		if (deployments != null && PluginDeploymentService.usesUnencryptedHttp(settings.endpoint())) {
+			proxy.log("[Control] Verified plugin staging is enabled over unencrypted HTTP. "
+					+ "HTTPS is strongly recommended because node credentials and plugin artifacts cross this connection");
 		}
 		HttpClient deploymentHttp = deployments == null ? null : HttpClient.newBuilder()
 				.connectTimeout(Duration.ofMillis(settings.connectTimeoutMillis()))
