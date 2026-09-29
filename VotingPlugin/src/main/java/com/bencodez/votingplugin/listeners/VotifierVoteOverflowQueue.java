@@ -154,8 +154,12 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 					plugin.getVoteTimer().submit(() -> {
 						try {
 							processor.accept(pending.serviceSite, pending.username);
-						} finally {
 							acknowledge(pending);
+						} catch (RuntimeException failure) {
+							plugin.getLogger().severe("Queued Votifier vote processing failed for "
+									+ MinecraftUsernameValidator.sanitizeForLog(pending.username)
+									+ "; retaining it for restart recovery");
+							plugin.debug(failure);
 						}
 					});
 				} catch (RejectedExecutionException rejected) {
