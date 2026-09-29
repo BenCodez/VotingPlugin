@@ -853,6 +853,7 @@ public class VotingPluginVelocity {
 				// Acquire/release establishes that the returning reload has left its lock.
 			}
 			drainQueuedPluginMessages();
+			if (votingPluginProxy != null) votingPluginProxy.scheduleQueuedVoteReplay();
 			retryPendingIncomingVotes();
 		}, "VotingPlugin-Velocity-Reload-Queue-Drain");
 		drain.setDaemon(true);

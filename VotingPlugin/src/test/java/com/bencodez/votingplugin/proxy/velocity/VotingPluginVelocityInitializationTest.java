@@ -32,6 +32,27 @@ import com.velocitypowered.api.proxy.ProxyServer;
 
 class VotingPluginVelocityInitializationTest {
 	@Test
+	void reloadAbortDrainSchedulesDurableVoteReplay(@TempDir Path dataDirectory) throws Exception {
+		VotingPluginVelocity plugin = new VotingPluginVelocity(mock(ProxyServer.class), mock(Logger.class),
+				mock(Metrics.Factory.class), dataDirectory);
+		VotingPluginProxy runtime = mock(VotingPluginProxy.class);
+		java.util.concurrent.CountDownLatch replayScheduled = new java.util.concurrent.CountDownLatch(1);
+		setField(plugin, "votingPluginProxy", runtime);
+		doAnswer(invocation -> {
+			replayScheduled.countDown();
+			return true;
+		}).when(runtime).scheduleQueuedVoteReplay();
+		java.lang.reflect.Method drain = VotingPluginVelocity.class.getDeclaredMethod(
+				"drainQueuedPluginMessagesAfterReloadLock");
+		drain.setAccessible(true);
+
+		drain.invoke(plugin);
+
+		assertTrue(replayScheduled.await(2, java.util.concurrent.TimeUnit.SECONDS));
+		plugin.getTimer().shutdownNow();
+	}
+
+	@Test
 	void failedRuntimeHandoffUsesEmergencyJournal(@TempDir Path dataDirectory) throws Exception {
 		VotingPluginVelocity plugin = new VotingPluginVelocity(mock(ProxyServer.class), mock(Logger.class),
 				mock(Metrics.Factory.class), dataDirectory);

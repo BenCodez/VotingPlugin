@@ -95,6 +95,7 @@ public final class PendingIncomingVoteJournal {
 		Files.createDirectories(parent);
 		JsonArray root = new JsonArray();
 		for (VoteTimeQueue vote : votes) {
+			validateForWrite(vote);
 			JsonObject value = new JsonObject();
 			value.addProperty("voteId", vote.getVoteId().toString());
 			value.addProperty("player", vote.getName());
@@ -121,6 +122,21 @@ public final class PendingIncomingVoteJournal {
 			DurableFiles.publishStagedFile(staged, file);
 		} finally {
 			Files.deleteIfExists(staged);
+		}
+	}
+
+	private static void validateForWrite(VoteTimeQueue vote) throws IOException {
+		if (vote == null || vote.getVoteId() == null) throw new IOException("Pending vote has no stable ID");
+		if (vote.getName() == null || vote.getName().isEmpty() || vote.getName().length() > 100) {
+			throw new IOException("Pending vote has an invalid player name");
+		}
+		if (!ServiceSiteValidator.isValid(vote.getService())) {
+			throw new IOException("Pending vote has an invalid service");
+		}
+		if (vote.getUuid() != null && vote.getUuid().length() > 36) throw new IOException("Invalid UUID field");
+		if (vote.getTotals() != null && vote.getTotals().length() > 4096) throw new IOException("Invalid totals field");
+		if (vote.encodeBroadcastForwardedServers().length() > 16384) {
+			throw new IOException("Invalid forwarded-server state");
 		}
 	}
 

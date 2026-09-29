@@ -2,6 +2,7 @@ package com.bencodez.votingplugin.proxy;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
@@ -68,5 +69,14 @@ class PendingIncomingVoteJournalTest {
 		journal.merge(List.of(new VoteTimeQueue(UUID.randomUUID(), "Player", service, 1L)));
 
 		assertEquals(service, journal.load().get(0).getService());
+	}
+
+	@Test
+	void invalidRecordIsRejectedBeforePublication() {
+		PendingIncomingVoteJournal journal = new PendingIncomingVoteJournal(temporaryDirectory);
+		VoteTimeQueue invalid = new VoteTimeQueue(UUID.randomUUID(), "Player", "s".repeat(2049), 1L);
+
+		assertThrows(java.io.IOException.class, () -> journal.merge(List.of(invalid)));
+		assertFalse(Files.exists(temporaryDirectory.resolve("pending-incoming-votes-v1.json")));
 	}
 }
