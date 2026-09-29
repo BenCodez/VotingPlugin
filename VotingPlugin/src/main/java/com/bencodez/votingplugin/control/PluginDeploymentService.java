@@ -448,8 +448,9 @@ public final class PluginDeploymentService {
 	/**
 	 * True when the configured Control transport can carry a deployment request.
 	 *
-	 * <p>HTTP remains supported only for literal loopback, link-local, and private
-	 * network addresses. Public addresses and hostnames require HTTPS. Callers warn
+	 * <p>HTTP remains supported for literal loopback, link-local, and private network
+	 * addresses. The overload also permits {@code localhost} when direct local hosting
+	 * is confirmed. Public addresses and other hostnames require HTTPS. Callers warn
 	 * operators because HTTPS is strongly recommended whenever traffic leaves the
 	 * local process.</p>
 	 */
