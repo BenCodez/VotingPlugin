@@ -194,11 +194,11 @@ and never restarts a proxy or backend automatically. A node advertises it only w
 
 - the connector is the currently enabled Control route, not a recovery-only connector draining an older durable result;
 - a safe local staging target was prepared;
-- the Control endpoint uses HTTP or HTTPS.
+- the Control endpoint uses HTTPS, or HTTP with a literal loopback/link-local/private-network address.
 
-HTTP remains supported for trusted private networks so deployment has the same transport compatibility as the rest of
-the connector. HTTPS is strongly recommended because the artifact request carries the node bearer credential and the
-plugin artifact in transit. Connectors log that recommendation at startup when staging is enabled over HTTP.
+HTTP remains supported for directly addressed trusted private networks. Hostnames and public IP addresses require HTTPS,
+which is strongly recommended because the artifact request carries the node bearer credential and plugin artifact in
+transit. Connectors log that recommendation at startup when staging is enabled over HTTP.
 
 Control leases deployment work separately from configuration operations:
 
@@ -219,7 +219,8 @@ X-Node-Session: <connector-session-uuid>
 X-Deployment-Attempt: <attemptId>
 ```
 
-The node independently verifies the exact size and SHA-256, bounded ZIP/JAR structure, root `plugin.yml`, and
+Control verifies the uploaded artifact before leasing it. The node independently re-verifies the exact size and SHA-256,
+bounded ZIP/JAR structure, root `plugin.yml`, and
 `name: VotingPlugin` before publication. Bukkit nodes stage to the server update folder; proxy nodes atomically replace
 their discovered plugin JAR only after creating a durable `.control-backup`. A small durable
 `.control-deployment` marker is published before the verified target is moved into place, so a lost result

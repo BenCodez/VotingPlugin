@@ -263,7 +263,7 @@ public final class ControlConnector implements AutoCloseable {
 		PluginDeploymentService deployments = deploymentRouteCurrent && deploymentEndpointAllowed
 				? prepareDeployment(proxy) : null;
 		if (deploymentRouteCurrent && !deploymentEndpointAllowed) {
-			proxy.log("[Control] Plugin deployment staging requires an HTTP or HTTPS Control endpoint");
+			proxy.log("[Control] Plugin deployment staging requires HTTPS or a literal private-network HTTP endpoint");
 		}
 		if (deployments != null && PluginDeploymentService.usesUnencryptedHttp(settings.endpoint())) {
 			proxy.log("[Control] Verified plugin staging is enabled over unencrypted HTTP. "

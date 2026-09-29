@@ -151,7 +151,7 @@ public final class BackendControlConnector implements AutoCloseable {
 				plugin.getLogger().warning("[Control] Plugin deployment staging is unavailable; capability not advertised");
 			}
 		} else if (!recovering && !deploymentEndpointAllowed) {
-			plugin.getLogger().warning("[Control] Plugin deployment staging requires an HTTP or HTTPS Control endpoint");
+			plugin.getLogger().warning("[Control] Plugin deployment staging requires HTTPS or a literal private-network HTTP endpoint");
 		}
 		if (prepared != null && PluginDeploymentService.usesUnencryptedHttp(settings.endpoint())) {
 			plugin.getLogger().warning("[Control] Verified plugin staging is enabled over unencrypted HTTP. "

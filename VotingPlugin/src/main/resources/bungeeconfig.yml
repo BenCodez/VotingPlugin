@@ -511,7 +511,7 @@ MultiProxyServers:
 # Optional local-first VotingPlugin Control discovery. Missing keys preserve the disabled default.
 Control:
   Enabled: false
-  # HTTP works on trusted private networks. HTTPS is strongly recommended because connector credentials
+  # HTTP staging works only with a literal loopback/private-network IP. HTTPS is strongly recommended because connector credentials
   # and staged plugin artifacts cross this connection.
   Endpoint: 'http://127.0.0.1:8080'
   # Blank reuses ProxyServerName.

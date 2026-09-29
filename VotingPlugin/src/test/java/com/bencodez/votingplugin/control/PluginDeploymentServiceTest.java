@@ -133,24 +133,36 @@ class PluginDeploymentServiceTest {
 				"a deleted or quarantined update must be staged again before restart");
 	}
 
-	@Test void credentialedDeploymentSupportsConfiguredHttpButIdentifiesItAsUnencrypted() {
+	@Test void credentialedDeploymentAllowsHttpsAndLiteralPrivateNetworkHttp() {
 		assertTrue(PluginDeploymentService.deploymentEndpointAllowed(
 				java.net.URI.create("https://control.example.test")));
 		assertTrue(PluginDeploymentService.deploymentEndpointAllowed(
-				java.net.URI.create("http://192.0.2.10:8080")));
+				java.net.URI.create("http://192.168.0.50:8080")));
+		assertTrue(PluginDeploymentService.deploymentEndpointAllowed(
+				java.net.URI.create("http://10.20.30.40:8080")));
+		assertTrue(PluginDeploymentService.deploymentEndpointAllowed(
+				java.net.URI.create("http://172.31.4.5:8080")));
 		assertTrue(PluginDeploymentService.deploymentEndpointAllowed(
 				java.net.URI.create("http://127.0.0.1:8080")));
 		assertTrue(PluginDeploymentService.deploymentEndpointAllowed(
 				java.net.URI.create("http://[::1]:8080")));
 		assertTrue(PluginDeploymentService.deploymentEndpointAllowed(
-				java.net.URI.create("http://127.example.com:8080")));
+				java.net.URI.create("http://[fd00::50]:8080")));
+		assertFalse(PluginDeploymentService.deploymentEndpointAllowed(
+				java.net.URI.create("http://192.0.2.10:8080")));
+		assertFalse(PluginDeploymentService.deploymentEndpointAllowed(
+				java.net.URI.create("http://8.8.8.8:8080")));
+		assertFalse(PluginDeploymentService.deploymentEndpointAllowed(
+				java.net.URI.create("http://localhost:8080")));
+		assertFalse(PluginDeploymentService.deploymentEndpointAllowed(
+				java.net.URI.create("http://control.example.test:8080")));
 		assertFalse(PluginDeploymentService.deploymentEndpointAllowed(
 				java.net.URI.create("ftp://control.example.test")));
 		assertFalse(PluginDeploymentService.deploymentEndpointAllowed(null));
 		assertTrue(PluginDeploymentService.credentialEndpointAllowed(
-				java.net.URI.create("http://192.0.2.10:8080"), false));
+				java.net.URI.create("http://192.168.0.50:8080"), false));
 		assertTrue(PluginDeploymentService.usesUnencryptedHttp(
-				java.net.URI.create("http://192.0.2.10:8080")));
+				java.net.URI.create("http://192.168.0.50:8080")));
 		assertFalse(PluginDeploymentService.usesUnencryptedHttp(
 				java.net.URI.create("https://control.example.test")));
 	}
