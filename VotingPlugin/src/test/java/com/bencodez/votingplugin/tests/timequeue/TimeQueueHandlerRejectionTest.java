@@ -2,6 +2,7 @@ package com.bencodez.votingplugin.tests.timequeue;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -19,13 +20,16 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
+import org.bukkit.Server;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.plugin.PluginManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.bencodez.advancedcore.api.time.events.DateChangedEvent;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.data.ServerData;
+import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.timequeue.TimeQueueHandler;
 
 class TimeQueueHandlerRejectionTest {
@@ -71,6 +75,23 @@ class TimeQueueHandlerRejectionTest {
 		assertDoesNotThrow(() -> handler.postTimeChange((DateChangedEvent) null));
 		assertEquals(2, handler.getTimeChangeQueue().size());
 		verify(logger, org.mockito.Mockito.atLeastOnce()).warning(anyString());
+	}
+
+	@Test
+	void queuedVoteRestoresOriginalTimestampOnReplay() {
+		TimeQueueHandler handler = new TimeQueueHandler(plugin);
+		Server server = mock(Server.class);
+		PluginManager manager = mock(PluginManager.class);
+		when(plugin.getServer()).thenReturn(server);
+		when(server.getPluginManager()).thenReturn(manager);
+		when(plugin.getVoteSiteManager().getVoteSiteName(true, "example.org")).thenReturn("example.org");
+		org.mockito.ArgumentCaptor<PlayerVoteEvent> event = org.mockito.ArgumentCaptor.forClass(PlayerVoteEvent.class);
+
+		handler.processQueue();
+
+		verify(manager).callEvent(event.capture());
+		assertNotNull(event.getValue());
+		assertEquals(123L, event.getValue().getTime());
 	}
 
 	@Test
