@@ -2894,9 +2894,16 @@ public abstract class VotingPluginProxy {
 	}
 
 	private VoteTimeQueue findUnprocessedQueuedVote(UUID voteId) {
+		VoteTimeQueue queued = findQueuedVote(voteId);
+		return queued != null && !queued.isProcessed() ? queued : null;
+	}
+
+	private VoteTimeQueue findQueuedVote(UUID voteId) {
 		if (voteId == null) return null;
-		for (VoteTimeQueue queued : getVoteCacheHandler().getTimeChangeQueue()) {
-			if (voteId.equals(queued.getVoteId()) && !queued.isProcessed()) return queued;
+		VoteCacheHandler cache = getVoteCacheHandler();
+		if (cache == null || cache.getTimeChangeQueue() == null) return null;
+		for (VoteTimeQueue queued : cache.getTimeChangeQueue()) {
+			if (voteId.equals(queued.getVoteId())) return queued;
 		}
 		return null;
 	}
@@ -5717,7 +5724,8 @@ public abstract class VotingPluginProxy {
 
 	public synchronized void vote(String player, String service, boolean realVote, boolean timeQueue, long queueTime,
 			VoteTotalsSnapshot text, String uuid, UUID voteId) {
-		if (vote(player, service, realVote, timeQueue, queueTime, text, uuid, null, voteId) == QueuedVoteResult.RETRY) {
+		VoteTimeQueue retained = findQueuedVote(voteId);
+		if (vote(player, service, realVote, timeQueue, queueTime, text, uuid, retained, voteId) == QueuedVoteResult.RETRY) {
 			throw new VoteRetryException();
 		}
 	}
@@ -5725,6 +5733,43 @@ public abstract class VotingPluginProxy {
 	/** Releases retry-only state after the bounded event-listener retries are exhausted. */
 	public synchronized void abandonLiveVoteRetry(UUID voteId) {
 		if (voteId != null) liveVoteRetries.remove(voteId);
+	}
+
+	/**
+	 * Hands a platform-owned Votifier event to the existing durable timed-vote
+	 * journal before proxy teardown. The stable ID links any partially completed
+	 * live retry to this row, so shutdown settlement and restart replay share one
+	 * completion fence.
+	 *
+	 * @return true once the vote is durably recoverable
+	 */
+	public synchronized boolean retainIncomingVoteForRestart(PendingIncomingVote pending) {
+		if (pending == null || pending.getVoteId() == null) return false;
+		VoteCacheHandler cache = getVoteCacheHandler();
+		if (cache == null) return false;
+		VoteTimeQueue queued = null;
+		for (VoteTimeQueue candidate : cache.getTimeChangeQueue()) {
+			if (pending.getVoteId().equals(candidate.getVoteId())) {
+				queued = candidate;
+				break;
+			}
+		}
+		if (queued == null) {
+			queued = new VoteTimeQueue(pending.getVoteId(), pending.getPlayer(), pending.getService(),
+					pending.getAcceptedAt());
+			if (!cache.addTimeVoteToCache(queued)) return false;
+		}
+		LiveVoteRetryState retry = liveVoteRetries.get(pending.getVoteId());
+		if (retry != null) {
+			queued.setUuid(retry.uuid == null ? "" : retry.uuid);
+			queued.setRealVote(retry.realVote);
+			queued.setWasOnline(retry.playerOnline);
+			if (retry.totals != null) queued.setTotals(retry.totals.toString());
+			queued.setDeliveryStateDirty(true);
+			if (!cache.updateTimeVote(queued)) return false;
+			retry.queuedVote = queued;
+		}
+		return true;
 	}
 
 	enum QueuedVoteResult {

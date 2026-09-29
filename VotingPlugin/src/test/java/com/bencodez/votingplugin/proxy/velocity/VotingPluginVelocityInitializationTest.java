@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -23,6 +24,8 @@ import org.slf4j.Logger;
 
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 import com.bencodez.votingplugin.proxy.IncomingVoteRuntimeResult;
+import com.bencodez.votingplugin.proxy.PendingIncomingVote;
+import com.bencodez.votingplugin.proxy.PendingIncomingVoteQueue;
 import com.velocitypowered.api.event.EventManager;
 import com.velocitypowered.api.proxy.ProxyServer;
 
@@ -153,6 +156,94 @@ class VotingPluginVelocityInitializationTest {
 		} finally {
 			plugin.getTimer().shutdownNow();
 		}
+	}
+
+	@Test
+	void rejectedExecutorAdmissionLeavesVoteOwnedUntilDurableHandoff(@TempDir Path dataDirectory) throws Exception {
+		VotingPluginVelocity plugin = new VotingPluginVelocity(mock(ProxyServer.class), mock(Logger.class),
+				mock(Metrics.Factory.class), dataDirectory);
+		VotingPluginProxy runtime = mock(VotingPluginProxy.class);
+		java.util.concurrent.ScheduledExecutorService rejected = mock(java.util.concurrent.ScheduledExecutorService.class);
+		plugin.getTimer().shutdownNow();
+		setField(plugin, "timer", rejected);
+		setField(plugin, "votingPluginProxy", runtime);
+		setField(plugin, "runtimeOperational", true);
+		doThrow(new java.util.concurrent.RejectedExecutionException("stopped")).when(rejected).execute(any(Runnable.class));
+		when(runtime.retainIncomingVoteForRestart(any(PendingIncomingVote.class))).thenReturn(true);
+
+		plugin.acceptIncomingVote("Player", "Service");
+
+		PendingIncomingVoteQueue pending = (PendingIncomingVoteQueue) getField(plugin, "pendingIncomingVotes");
+		assertEquals(1, pending.size());
+		java.lang.reflect.Method persist = VotingPluginVelocity.class.getDeclaredMethod(
+				"persistPendingIncomingVotes", VotingPluginProxy.class, String.class);
+		persist.setAccessible(true);
+		assertTrue((Boolean) persist.invoke(plugin, runtime, "test shutdown"));
+		org.mockito.ArgumentCaptor<PendingIncomingVote> retained =
+				org.mockito.ArgumentCaptor.forClass(PendingIncomingVote.class);
+		verify(runtime).retainIncomingVoteForRestart(retained.capture());
+		assertEquals("Player", retained.getValue().getPlayer());
+		assertEquals(0, pending.size());
+	}
+
+	@Test
+	void acceptedVoteCompletesOnceWithItsOriginalId(@TempDir Path dataDirectory) throws Exception {
+		VotingPluginVelocity plugin = new VotingPluginVelocity(mock(ProxyServer.class), mock(Logger.class),
+				mock(Metrics.Factory.class), dataDirectory);
+		VotingPluginProxy runtime = mock(VotingPluginProxy.class);
+		java.util.concurrent.ScheduledExecutorService timer = mock(java.util.concurrent.ScheduledExecutorService.class);
+		java.util.concurrent.atomic.AtomicReference<Runnable> task = new java.util.concurrent.atomic.AtomicReference<>();
+		plugin.getTimer().shutdownNow();
+		setField(plugin, "timer", timer);
+		setField(plugin, "votingPluginProxy", runtime);
+		setField(plugin, "runtimeOperational", true);
+		doAnswer(invocation -> {
+			task.set(invocation.getArgument(0));
+			return null;
+		}).when(timer).execute(any(Runnable.class));
+
+		plugin.acceptIncomingVote("Player", "Service");
+		PendingIncomingVote pending = ((PendingIncomingVoteQueue) getField(plugin, "pendingIncomingVotes"))
+				.snapshot().get(0);
+		task.get().run();
+
+		verify(runtime).vote("Player", "Service", true, false, 0, null, null, pending.getVoteId());
+		assertEquals(0, ((PendingIncomingVoteQueue) getField(plugin, "pendingIncomingVotes")).size());
+	}
+
+	@Test
+	void reloadWaitingKeepsStableIdWithoutConsumingStorageAttempts(@TempDir Path dataDirectory) throws Exception {
+		VotingPluginVelocity plugin = new VotingPluginVelocity(mock(ProxyServer.class), mock(Logger.class),
+				mock(Metrics.Factory.class), dataDirectory);
+		VotingPluginProxy runtime = mock(VotingPluginProxy.class);
+		java.util.concurrent.ScheduledExecutorService timer = mock(java.util.concurrent.ScheduledExecutorService.class);
+		java.util.concurrent.atomic.AtomicReference<Runnable> initial = new java.util.concurrent.atomic.AtomicReference<>();
+		java.util.concurrent.atomic.AtomicReference<Runnable> retry = new java.util.concurrent.atomic.AtomicReference<>();
+		plugin.getTimer().shutdownNow();
+		setField(plugin, "timer", timer);
+		setField(plugin, "votingPluginProxy", runtime);
+		setField(plugin, "runtimeOperational", true);
+		setField(plugin, "reloading", true);
+		doAnswer(invocation -> {
+			initial.set(invocation.getArgument(0));
+			return null;
+		}).when(timer).execute(any(Runnable.class));
+		doAnswer(invocation -> {
+			retry.set(invocation.getArgument(0));
+			return null;
+		}).when(timer).schedule(any(Runnable.class), eq(1L), eq(java.util.concurrent.TimeUnit.SECONDS));
+
+		plugin.acceptIncomingVote("Player", "Service");
+		PendingIncomingVote pending = ((PendingIncomingVoteQueue) getField(plugin, "pendingIncomingVotes"))
+				.snapshot().get(0);
+		initial.get().run();
+
+		assertEquals(0, pending.getStorageAttempts());
+		assertTrue(((PendingIncomingVoteQueue) getField(plugin, "pendingIncomingVotes")).contains(pending.getVoteId()));
+		setField(plugin, "reloading", false);
+		retry.get().run();
+		verify(runtime).vote("Player", "Service", true, false, 0, null, null, pending.getVoteId());
+		assertEquals(0, ((PendingIncomingVoteQueue) getField(plugin, "pendingIncomingVotes")).size());
 	}
 
 	@Test

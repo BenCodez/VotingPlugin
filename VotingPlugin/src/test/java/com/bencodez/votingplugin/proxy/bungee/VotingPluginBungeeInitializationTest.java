@@ -18,6 +18,8 @@ import static org.mockito.Mockito.verify;
 import org.junit.jupiter.api.Test;
 
 import com.bencodez.votingplugin.proxy.IncomingVoteRuntimeResult;
+import com.bencodez.votingplugin.proxy.PendingIncomingVote;
+import com.bencodez.votingplugin.proxy.PendingIncomingVoteQueue;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 
 class VotingPluginBungeeInitializationTest {
@@ -134,6 +136,135 @@ class VotingPluginBungeeInitializationTest {
 		assertSame(IncomingVoteRuntimeResult.RUNTIME_UNAVAILABLE,
 				plugin.processIncomingVote("Player", "Service", voteId));
 		org.mockito.Mockito.verifyNoMoreInteractions(replacement);
+	}
+
+	@Test
+	void rejectedSchedulerAdmissionLeavesVoteOwnedUntilDurableHandoff() throws Exception {
+		VotingPluginBungee plugin = mock(VotingPluginBungee.class, CALLS_REAL_METHODS);
+		VotingPluginProxy runtime = mock(VotingPluginProxy.class);
+		net.md_5.bungee.api.ProxyServer proxy = mock(net.md_5.bungee.api.ProxyServer.class);
+		net.md_5.bungee.api.scheduler.TaskScheduler scheduler =
+				mock(net.md_5.bungee.api.scheduler.TaskScheduler.class);
+		setField(plugin, "reloadLock", new Object());
+		setField(plugin, "pendingIncomingVotes", new PendingIncomingVoteQueue());
+		setField(plugin, "votingPluginProxy", runtime);
+		setField(plugin, "runtimeOperational", true);
+		when(plugin.getProxy()).thenReturn(proxy);
+		when(proxy.getScheduler()).thenReturn(scheduler);
+		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getLogger("VotingPluginBungeeInitializationTest"));
+		doThrow(new IllegalStateException("scheduler stopped")).when(scheduler)
+				.runAsync(eq(plugin), any(Runnable.class));
+		when(runtime.retainIncomingVoteForRestart(any(PendingIncomingVote.class))).thenReturn(true);
+
+		plugin.acceptIncomingVote("Player", "Service");
+
+		PendingIncomingVoteQueue pending = (PendingIncomingVoteQueue) getField(plugin, "pendingIncomingVotes");
+		assertEquals(1, pending.size());
+		java.lang.reflect.Method persist = VotingPluginBungee.class.getDeclaredMethod(
+				"persistPendingIncomingVotes", VotingPluginProxy.class, String.class);
+		persist.setAccessible(true);
+		assertTrue((Boolean) persist.invoke(plugin, runtime, "test shutdown"));
+		org.mockito.ArgumentCaptor<PendingIncomingVote> retained =
+				org.mockito.ArgumentCaptor.forClass(PendingIncomingVote.class);
+		verify(runtime).retainIncomingVoteForRestart(retained.capture());
+		assertEquals("Player", retained.getValue().getPlayer());
+		assertEquals(0, pending.size());
+	}
+
+	@Test
+	void failedDurableHandoffKeepsTheOnlyInMemoryVote() throws Exception {
+		VotingPluginBungee plugin = mock(VotingPluginBungee.class, CALLS_REAL_METHODS);
+		VotingPluginProxy runtime = mock(VotingPluginProxy.class);
+		net.md_5.bungee.api.ProxyServer proxy = mock(net.md_5.bungee.api.ProxyServer.class);
+		net.md_5.bungee.api.scheduler.TaskScheduler scheduler =
+				mock(net.md_5.bungee.api.scheduler.TaskScheduler.class);
+		setField(plugin, "reloadLock", new Object());
+		setField(plugin, "pendingIncomingVotes", new PendingIncomingVoteQueue());
+		setField(plugin, "votingPluginProxy", runtime);
+		setField(plugin, "runtimeOperational", true);
+		when(plugin.getProxy()).thenReturn(proxy);
+		when(proxy.getScheduler()).thenReturn(scheduler);
+		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getLogger("VotingPluginBungeeInitializationTest"));
+		doThrow(new IllegalStateException("scheduler stopped")).when(scheduler)
+				.runAsync(eq(plugin), any(Runnable.class));
+		when(runtime.retainIncomingVoteForRestart(any(PendingIncomingVote.class))).thenReturn(false);
+
+		plugin.acceptIncomingVote("Player", "Service");
+		java.lang.reflect.Method persist = VotingPluginBungee.class.getDeclaredMethod(
+				"persistPendingIncomingVotes", VotingPluginProxy.class, String.class);
+		persist.setAccessible(true);
+
+		assertFalse((Boolean) persist.invoke(plugin, runtime, "test shutdown"));
+		assertEquals(1, ((PendingIncomingVoteQueue) getField(plugin, "pendingIncomingVotes")).size());
+	}
+
+	@Test
+	void acceptedVoteCompletesOnceWithItsOriginalId() throws Exception {
+		VotingPluginBungee plugin = mock(VotingPluginBungee.class, CALLS_REAL_METHODS);
+		VotingPluginProxy runtime = mock(VotingPluginProxy.class);
+		net.md_5.bungee.api.ProxyServer proxy = mock(net.md_5.bungee.api.ProxyServer.class);
+		net.md_5.bungee.api.scheduler.TaskScheduler scheduler =
+				mock(net.md_5.bungee.api.scheduler.TaskScheduler.class);
+		java.util.concurrent.atomic.AtomicReference<Runnable> task = new java.util.concurrent.atomic.AtomicReference<>();
+		setField(plugin, "reloadLock", new Object());
+		setField(plugin, "pendingIncomingVotes", new PendingIncomingVoteQueue());
+		setField(plugin, "votingPluginProxy", runtime);
+		setField(plugin, "runtimeOperational", true);
+		when(plugin.getProxy()).thenReturn(proxy);
+		when(proxy.getScheduler()).thenReturn(scheduler);
+		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getLogger("VotingPluginBungeeInitializationTest"));
+		doAnswer(invocation -> {
+			task.set(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).runAsync(eq(plugin), any(Runnable.class));
+
+		plugin.acceptIncomingVote("Player", "Service");
+		PendingIncomingVote pending = ((PendingIncomingVoteQueue) getField(plugin, "pendingIncomingVotes"))
+				.snapshot().get(0);
+		task.get().run();
+
+		verify(runtime).vote("Player", "Service", true, true, 0, null, null, pending.getVoteId());
+		assertEquals(0, ((PendingIncomingVoteQueue) getField(plugin, "pendingIncomingVotes")).size());
+	}
+
+	@Test
+	void reloadWaitingKeepsStableIdWithoutConsumingStorageAttempts() throws Exception {
+		VotingPluginBungee plugin = mock(VotingPluginBungee.class, CALLS_REAL_METHODS);
+		VotingPluginProxy runtime = mock(VotingPluginProxy.class);
+		net.md_5.bungee.api.ProxyServer proxy = mock(net.md_5.bungee.api.ProxyServer.class);
+		net.md_5.bungee.api.scheduler.TaskScheduler scheduler =
+				mock(net.md_5.bungee.api.scheduler.TaskScheduler.class);
+		java.util.concurrent.atomic.AtomicReference<Runnable> initial = new java.util.concurrent.atomic.AtomicReference<>();
+		java.util.concurrent.atomic.AtomicReference<Runnable> retry = new java.util.concurrent.atomic.AtomicReference<>();
+		setField(plugin, "reloadLock", new Object());
+		setField(plugin, "pendingIncomingVotes", new PendingIncomingVoteQueue());
+		setField(plugin, "votingPluginProxy", runtime);
+		setField(plugin, "runtimeOperational", true);
+		setField(plugin, "reloading", true);
+		when(plugin.getProxy()).thenReturn(proxy);
+		when(proxy.getScheduler()).thenReturn(scheduler);
+		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getLogger("VotingPluginBungeeInitializationTest"));
+		doAnswer(invocation -> {
+			initial.set(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).runAsync(eq(plugin), any(Runnable.class));
+		doAnswer(invocation -> {
+			retry.set(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).schedule(eq(plugin), any(Runnable.class), eq(1L),
+				eq(java.util.concurrent.TimeUnit.SECONDS));
+
+		plugin.acceptIncomingVote("Player", "Service");
+		PendingIncomingVote pending = ((PendingIncomingVoteQueue) getField(plugin, "pendingIncomingVotes"))
+				.snapshot().get(0);
+		initial.get().run();
+
+		assertEquals(0, pending.getStorageAttempts());
+		assertTrue(((PendingIncomingVoteQueue) getField(plugin, "pendingIncomingVotes")).contains(pending.getVoteId()));
+		setField(plugin, "reloading", false);
+		retry.get().run();
+		verify(runtime).vote("Player", "Service", true, true, 0, null, null, pending.getVoteId());
+		assertEquals(0, ((PendingIncomingVoteQueue) getField(plugin, "pendingIncomingVotes")).size());
 	}
 
 	@Test

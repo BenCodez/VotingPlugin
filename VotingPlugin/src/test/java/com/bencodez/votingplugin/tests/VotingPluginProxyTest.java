@@ -27,6 +27,7 @@ import com.bencodez.simpleapi.servercomm.http.HttpProxyTransportServer;
 import com.bencodez.simpleapi.servercomm.mysql.MySqlMessenger;
 import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.bencodez.votingplugin.proxy.OfflineBungeeVote;
+import com.bencodez.votingplugin.proxy.PendingIncomingVote;
 import com.bencodez.votingplugin.proxy.ProxyMysqlUserTable;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 import com.bencodez.votingplugin.proxy.VotingPluginWire;
@@ -1716,6 +1717,32 @@ public class VotingPluginProxyTest {
 		assertEquals("", queue.element().getTotals());
 		assertFalse(queue.element().isRealVote());
 		assertEquals(1024, retryMap.size());
+	}
+
+	@Test
+	void acceptedPlatformVoteRetainsStableIdentityInExistingDurableQueue() {
+		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		java.util.Queue<VoteTimeQueue> queue = new java.util.concurrent.ConcurrentLinkedQueue<>();
+		Mockito.when(voteCache.getTimeChangeQueue()).thenReturn(queue);
+		Mockito.when(voteCache.addTimeVoteToCache(Mockito.any())).thenAnswer(invocation -> {
+			queue.add(invocation.getArgument(0));
+			return true;
+		});
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
+		java.util.UUID voteId = java.util.UUID.randomUUID();
+		PendingIncomingVote pending = new PendingIncomingVote(voteId, "Player", "Service", 1234L);
+
+		assertTrue(spyProxy.retainIncomingVoteForRestart(pending));
+		assertTrue(spyProxy.retainIncomingVoteForRestart(pending));
+
+		assertEquals(1, queue.size());
+		VoteTimeQueue retained = queue.element();
+		assertEquals(voteId, retained.getVoteId());
+		assertEquals("Player", retained.getName());
+		assertEquals("Service", retained.getService());
+		assertEquals(1234L, retained.getTime());
+		verify(voteCache, Mockito.times(1)).addTimeVoteToCache(Mockito.any());
 	}
 
 	@Test

@@ -25,9 +25,13 @@ import java.util.zip.ZipInputStream;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfig;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfigBungee;
 import com.bencodez.votingplugin.proxy.IncomingVoteRuntimeResult;
+import com.bencodez.votingplugin.proxy.PendingIncomingVote;
+import com.bencodez.votingplugin.proxy.PendingIncomingVoteQueue;
 import com.bencodez.votingplugin.proxy.ProxyRuntimeReplacementLifecycle;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
+import com.bencodez.votingplugin.proxy.VotingPluginProxy.VoteRetryException;
+import com.bencodez.votingplugin.util.MinecraftUsernameValidator;
 
 import lombok.Getter;
 import net.md_5.bungee.api.ChatColor;
@@ -102,6 +106,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 	 * Plugin messages received during reload are queued and replayed after reload.
 	 */
 	private final Queue<QueuedPluginMessage> queuedPluginMessages = new ConcurrentLinkedQueue<>();
+	private final PendingIncomingVoteQueue pendingIncomingVotes = new PendingIncomingVoteQueue();
 
 	/**
 	 * Logs debug output if enabled in config.
@@ -239,6 +244,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			reloading = false;
 			runtimeOperational = false;
 			runtimeInitialized = false;
+			persistPendingIncomingVotes(votingPluginProxy, "proxy shutdown");
 
 			cancelPlatformTasks();
 
@@ -426,6 +432,19 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			} catch (Exception ignored) {
 			}
 
+			if (!persistPendingIncomingVotes(votingPluginProxy, "runtime replacement")) {
+				getLogger().severe("Reload aborted because accepted votes could not be durably retained");
+				try {
+					schedulePlatformTasks();
+					runtimeOperational = retainedRuntimeWasOperational;
+				} catch (Exception taskFailure) {
+					runtimeOperational = false;
+					getLogger().severe("VotingPlugin could not restart proxy tasks; votes are NOT being processed.");
+				}
+				reloading = false;
+				drainQueuedPluginMessagesAfterReloadLock();
+				return;
+			}
 			try {
 				ProxyRuntimeReplacementLifecycle.prepare(votingPluginProxy);
 			} catch (Exception shutdownFailure) {
@@ -521,6 +540,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		}
 
 		drainQueuedPluginMessages();
+		retryPendingIncomingVotes();
 		try {
 			getVotingPluginProxy().sendServerNameMessage();
 		} catch (Exception ignored) {
@@ -573,6 +593,120 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		}
 	}
 
+	/** Owns a Votifier event before any fallible scheduler handoff. */
+	public void acceptIncomingVote(String player, String service) {
+		boolean admitted = false;
+		synchronized (reloadLock) {
+			if (!reloading && (!runtimeOperational || votingPluginProxy == null)) {
+				getLogger().severe("Vote received while VotingPlugin proxy runtime is not operational; vote was not accepted for "
+						+ MinecraftUsernameValidator.sanitizeForLog(player));
+				return;
+			}
+			PendingIncomingVote pending = pendingIncomingVotes.admit(player, service);
+			if (pending == null) {
+				pending = new PendingIncomingVote(UUID.randomUUID(), player, service, System.currentTimeMillis());
+				if (votingPluginProxy == null || !votingPluginProxy.retainIncomingVoteForRestart(pending)) {
+					getLogger().severe("Pending vote admission is full and durable overflow failed; vote was not accepted for "
+							+ MinecraftUsernameValidator.sanitizeForLog(player));
+					return;
+				}
+				getLogger().warning("Pending vote admission is full; accepted vote was handed directly to durable recovery");
+				return;
+			}
+			admitted = true;
+		}
+		if (admitted) retryPendingIncomingVotes();
+	}
+
+	private void schedulePendingIncomingVote(PendingIncomingVote pending, long delaySeconds) {
+		if (!pendingIncomingVotes.contains(pending.getVoteId()) || !pending.beginScheduling()) return;
+		Runnable wakeup = () -> {
+			pending.endScheduling();
+			processPendingIncomingVote(pending);
+		};
+		try {
+			ScheduledTask accepted;
+			if (delaySeconds == 0) {
+				accepted = getProxy().getScheduler().runAsync(this, wakeup);
+			} else {
+				accepted = getProxy().getScheduler().schedule(this, wakeup, delaySeconds,
+						TimeUnit.SECONDS);
+			}
+			if (accepted == null) {
+				pending.endScheduling();
+				getLogger().warning("Proxy scheduler declined pending vote processing; the accepted vote remains retained for lifecycle recovery");
+			}
+		} catch (RuntimeException rejected) {
+			pending.endScheduling();
+			getLogger().warning("Unable to schedule pending vote processing; the accepted vote remains retained for lifecycle recovery");
+		}
+	}
+
+	private void processPendingIncomingVote(PendingIncomingVote pending) {
+		if (!pendingIncomingVotes.contains(pending.getVoteId()) || !pending.beginProcessing()) return;
+		try {
+			IncomingVoteRuntimeResult result;
+			synchronized (reloadLock) {
+				result = processIncomingVote(pending.getPlayer(), pending.getService(), pending.getVoteId());
+				if (result == IncomingVoteRuntimeResult.PROCESSED) pendingIncomingVotes.complete(pending);
+			}
+			if (result == IncomingVoteRuntimeResult.PROCESSED) {
+				getLogger().info("Vote received " + MinecraftUsernameValidator.sanitizeForLog(pending.getPlayer())
+						+ " from service site " + MinecraftUsernameValidator.sanitizeForLog(pending.getService()));
+				return;
+			}
+			if (result == IncomingVoteRuntimeResult.RETRY_AFTER_RELOAD) {
+				schedulePendingIncomingVote(pending, 1);
+				return;
+			}
+			persistTerminalPendingVote(pending);
+		} catch (VoteRetryException retryable) {
+			if (pending.incrementStorageAttempts() < 12) {
+				getLogger().warning("Vote processing is waiting for durable storage; retrying shortly");
+				schedulePendingIncomingVote(pending, 5);
+			} else {
+				persistTerminalPendingVote(pending);
+			}
+		} finally {
+			pending.endProcessing();
+		}
+	}
+
+	private void persistTerminalPendingVote(PendingIncomingVote pending) {
+		synchronized (reloadLock) {
+			VotingPluginProxy runtime = votingPluginProxy;
+			if (runtime != null && runtime.retainIncomingVoteForRestart(pending)) {
+				pendingIncomingVotes.complete(pending);
+				getLogger().warning("Vote processing was handed to durable restart recovery for "
+						+ MinecraftUsernameValidator.sanitizeForLog(pending.getPlayer()));
+				return;
+			}
+		}
+		getLogger().severe("Unable to durably retain accepted vote for "
+				+ MinecraftUsernameValidator.sanitizeForLog(pending.getPlayer())
+				+ "; keeping it in process memory for a later lifecycle retry");
+	}
+
+	private boolean persistPendingIncomingVotes(VotingPluginProxy runtime, String reason) {
+		boolean retained = true;
+		for (PendingIncomingVote pending : pendingIncomingVotes.snapshot()) {
+			if (runtime != null && runtime.retainIncomingVoteForRestart(pending)) {
+				pendingIncomingVotes.complete(pending);
+			} else {
+				retained = false;
+				getLogger().severe("Unable to retain accepted vote during " + reason + " for "
+						+ MinecraftUsernameValidator.sanitizeForLog(pending.getPlayer()));
+			}
+		}
+		return retained;
+	}
+
+	private void retryPendingIncomingVotes() {
+		for (PendingIncomingVote pending : pendingIncomingVotes.snapshot()) {
+			schedulePendingIncomingVote(pending, 0);
+		}
+	}
+
 	/** Stops every partially initialized replacement component after a terminal load failure. */
 	private void retireFailedReplacementRuntime() {
 		runtimeOperational = false;
@@ -603,6 +737,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				// Acquire/release establishes that the returning reload has left its lock.
 			}
 			drainQueuedPluginMessages();
+			retryPendingIncomingVotes();
 		}, "VotingPlugin-Bungee-Reload-Queue-Drain");
 		drain.setDaemon(true);
 		drain.start();
