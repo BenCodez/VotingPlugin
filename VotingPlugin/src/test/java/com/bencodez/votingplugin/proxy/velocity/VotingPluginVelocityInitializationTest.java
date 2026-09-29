@@ -257,6 +257,23 @@ class VotingPluginVelocityInitializationTest {
 	}
 
 	@Test
+	void fullPendingAdmissionRejectsInsteadOfSpillingToDurableRecovery(@TempDir Path dataDirectory) throws Exception {
+		VotingPluginVelocity plugin = new VotingPluginVelocity(mock(ProxyServer.class), mock(Logger.class),
+				mock(Metrics.Factory.class), dataDirectory);
+		VotingPluginProxy runtime = mock(VotingPluginProxy.class);
+		PendingIncomingVoteQueue queue = (PendingIncomingVoteQueue) getField(plugin, "pendingIncomingVotes");
+		for (int i = 0; i < 4096; i++) assertTrue(queue.admit("Player" + i, "Service") != null);
+		setField(plugin, "votingPluginProxy", runtime);
+
+		plugin.acceptIncomingVote("Overflow", "Service");
+
+		assertEquals(4096, queue.size());
+		verify(runtime, never()).retainIncomingVoteForRestart(any(PendingIncomingVote.class));
+		verify(runtime, never()).scheduleQueuedVoteReplay();
+		plugin.getTimer().shutdownNow();
+	}
+
+	@Test
 	void failedDurableHandoffSchedulesAnotherAttempt(@TempDir Path dataDirectory) throws Exception {
 		VotingPluginVelocity plugin = new VotingPluginVelocity(mock(ProxyServer.class), mock(Logger.class),
 				mock(Metrics.Factory.class), dataDirectory);
