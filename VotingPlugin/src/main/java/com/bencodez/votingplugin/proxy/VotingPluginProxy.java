@@ -1073,6 +1073,10 @@ public abstract class VotingPluginProxy {
 		if (method != BungeeMethod.PLUGINMESSAGING || globalMessageProxyHandler == null) return;
 		int delay = 1;
 		for (String server : getAllAvailableServers()) {
+			// Plugin messaging requires an active player connection to carry the
+			// payload to a backend. Avoid a permanent once-per-minute failed Status
+			// probe loop while that backend is empty.
+			if (!isSomeoneOnlineServer(server)) continue;
 			globalMessageProxyHandler.sendMessage(server, delay++,
 					VotingPluginWire.status(server, UUID.randomUUID()));
 		}
