@@ -163,14 +163,32 @@ class PluginDeploymentServiceTest {
 		assertFalse(PluginDeploymentService.deploymentEndpointAllowed(
 				java.net.URI.create("ftp://control.example.test")));
 		assertFalse(PluginDeploymentService.deploymentEndpointAllowed(null));
-		assertTrue(PluginDeploymentService.credentialEndpointAllowed(
-				java.net.URI.create("http://192.168.0.50:8080"), false));
-		assertTrue(PluginDeploymentService.credentialEndpointAllowed(
-				java.net.URI.create("http://localhost:8080"), true));
 		assertTrue(PluginDeploymentService.usesUnencryptedHttp(
 				java.net.URI.create("http://192.168.0.50:8080")));
 		assertFalse(PluginDeploymentService.usesUnencryptedHttp(
 				java.net.URI.create("https://control.example.test")));
+	}
+
+	@Test void credentialEndpointRetainsTheOriginalHttpsOrProvenLoopbackRule() {
+		assertTrue(PluginDeploymentService.deploymentEndpointAllowed(
+				java.net.URI.create("http://192.168.0.50:8080"), false));
+		assertFalse(PluginDeploymentService.credentialEndpointAllowed(
+				java.net.URI.create("http://192.168.0.50:8080"), false));
+		assertFalse(PluginDeploymentService.credentialEndpointAllowed(
+				java.net.URI.create("http://192.168.0.50:8080"), true));
+		assertFalse(PluginDeploymentService.credentialEndpointAllowed(
+				java.net.URI.create("http://169.254.1.2:8080"), true));
+		assertFalse(PluginDeploymentService.credentialEndpointAllowed(
+				java.net.URI.create("http://localhost:8080"), false));
+		assertTrue(PluginDeploymentService.credentialEndpointAllowed(
+				java.net.URI.create("http://localhost:8080"), true));
+		assertTrue(PluginDeploymentService.credentialEndpointAllowed(
+				java.net.URI.create("http://127.0.0.2:8080"), true));
+		assertTrue(PluginDeploymentService.credentialEndpointAllowed(
+				java.net.URI.create("http://[::1]:8080"), true));
+		assertTrue(PluginDeploymentService.credentialEndpointAllowed(
+				java.net.URI.create("https://control.example.test"), false));
+		assertFalse(PluginDeploymentService.credentialEndpointAllowed(null, true));
 	}
 
 	@Test void backendIgnoresMatchingMarkerOnlyWhenTargetIsValidThenRestagesWhenCorrupted() throws Exception {

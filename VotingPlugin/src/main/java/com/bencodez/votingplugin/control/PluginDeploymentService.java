@@ -466,10 +466,13 @@ public final class PluginDeploymentService {
 						|| directLocalHosted && "localhost".equalsIgnoreCase(endpoint.getHost()));
 	}
 
-	/** @deprecated Use {@link #deploymentEndpointAllowed(URI, boolean)}. */
+	/** @deprecated Retained for credential transport callers; use {@link #deploymentEndpointAllowed(URI, boolean)} only for deployment staging. */
 	@Deprecated
 	public static boolean credentialEndpointAllowed(URI endpoint, boolean directLocalHosted) {
-		return deploymentEndpointAllowed(endpoint, directLocalHosted);
+		if (endpoint == null) return false;
+		if ("https".equalsIgnoreCase(endpoint.getScheme())) return true;
+		return directLocalHosted && "http".equalsIgnoreCase(endpoint.getScheme())
+				&& isLoopbackHost(endpoint.getHost());
 	}
 
 	public static boolean usesUnencryptedHttp(URI endpoint) {
@@ -494,6 +497,23 @@ public final class PluginDeploymentService {
 		} catch (Exception invalid) {
 			return false;
 		}
+	}
+
+	private static boolean isLoopbackHost(String host) {
+		if (host == null) return false;
+		String normalized = host;
+		if (normalized.length() >= 2 && normalized.charAt(0) == '['
+				&& normalized.charAt(normalized.length() - 1) == ']') {
+			normalized = normalized.substring(1, normalized.length() - 1);
+		}
+		if ("localhost".equalsIgnoreCase(normalized) || "::1".equalsIgnoreCase(normalized)
+				|| "0:0:0:0:0:0:0:1".equalsIgnoreCase(normalized)) return true;
+		String[] octets = normalized.split("\\.", -1);
+		if (octets.length != 4 || !"127".equals(octets[0])) return false;
+		for (int index = 1; index < octets.length; index++) {
+			if (!octets[index].matches("[0-9]{1,3}") || Integer.parseInt(octets[index]) > 255) return false;
+		}
+		return true;
 	}
 
 	private static MessageDigest sha256() {
