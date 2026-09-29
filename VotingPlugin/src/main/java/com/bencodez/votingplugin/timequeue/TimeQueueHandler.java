@@ -3,6 +3,7 @@ package com.bencodez.votingplugin.timequeue;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Queue;
+import java.util.ArrayList;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -48,9 +49,10 @@ public class TimeQueueHandler implements Listener {
 	 * @param voteUsername the voter username
 	 * @param voteSiteName the vote site name
 	 */
-	public void addVote(String voteUsername, String voteSiteName) {
+	public synchronized void addVote(String voteUsername, String voteSiteName) {
 		timeChangeQueue.add(new VoteTimeQueue(voteUsername, voteSiteName,
 				LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()));
+		persistQueueSnapshot();
 	}
 
 	/**
@@ -76,12 +78,7 @@ public class TimeQueueHandler implements Listener {
 	}
 
 	private void scheduleQueueProcessing(long delay, TimeUnit unit) {
-		boolean admitted = VoteTaskAdmission.trySchedule(plugin.getVoteTimer(), () -> {
-			// Clear only after the bounded executor has admitted the task. If it is
-			// rejected, shutdown persistence can still recover the in-memory queue.
-			plugin.getServerData().clearTimedVoteCache();
-			processQueue();
-		}, delay, unit);
+		boolean admitted = VoteTaskAdmission.trySchedule(plugin.getVoteTimer(), this::processQueue, delay, unit);
 		if (!admitted) {
 			plugin.getLogger().warning("Unable to schedule time-queue processing because vote processing is busy; queued votes were retained.");
 			scheduleRetry();
@@ -109,33 +106,38 @@ public class TimeQueueHandler implements Listener {
 	/**
 	 * Processes all votes in the queue.
 	 */
-	public void processQueue() {
-		while (getTimeChangeQueue().size() > 0) {
-			VoteTimeQueue vote = getTimeChangeQueue().remove();
+	public synchronized void processQueue() {
+		while (true) {
+			VoteTimeQueue vote = getTimeChangeQueue().peek();
+			if (vote == null) return;
 			PlayerVoteEvent voteEvent = new PlayerVoteEvent(
 					plugin.getVoteSiteManager().getVoteSite(plugin.getVoteSiteManager().getVoteSiteName(true, vote.getService()), true), vote.getName(),
 					vote.getService(), true);
 			voteEvent.setTime(vote.getTime());
-			plugin.getServer().getPluginManager().callEvent(voteEvent);
-
-			if (voteEvent.isCancelled()) {
-				plugin.debug("Vote cancelled");
+			try {
+				plugin.getServer().getPluginManager().callEvent(voteEvent);
+			} catch (RuntimeException failure) {
+				plugin.getLogger().warning("Unable to process queued time-change vote; retaining it for retry");
+				plugin.debug(failure);
+				scheduleRetry();
 				return;
 			}
+
+			getTimeChangeQueue().remove(vote);
+			persistQueueSnapshot();
+			if (voteEvent.isCancelled()) plugin.debug("Vote cancelled");
 		}
 	}
 
 	/**
 	 * Saves pending votes to server data.
 	 */
-	public void save() {
-		if (!timeChangeQueue.isEmpty()) {
-			int num = 0;
-			for (VoteTimeQueue vote : timeChangeQueue) {
-				plugin.getServerData().addTimeVoted(num, vote);
-				num++;
-			}
-		}
+	public synchronized void save() {
+		persistQueueSnapshot();
 		timeChangeQueue.clear();
+	}
+
+	private void persistQueueSnapshot() {
+		plugin.getServerData().replaceTimedVoteCache(new ArrayList<>(timeChangeQueue));
 	}
 }
