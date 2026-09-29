@@ -477,24 +477,11 @@ public class VotingPluginVelocity {
 			if (!pendingIncomingVotes.isAccepting()) {
 				logger.error("Vote received after VotingPlugin proxy shutdown began; vote was not accepted for {}",
 						MinecraftUsernameValidator.sanitizeForLog(player));
-				return;
+			} else {
+				logger.error("Pending vote admission is full; vote was rejected instead of expanding durable recovery for {}",
+						MinecraftUsernameValidator.sanitizeForLog(player));
 			}
-			synchronized (reloadLock) {
-				if (!pendingIncomingVotes.isAccepting()) {
-					logger.error("Vote received after VotingPlugin proxy shutdown began; vote was not accepted for {}",
-							MinecraftUsernameValidator.sanitizeForLog(player));
-					return;
-				}
-				pending = new PendingIncomingVote(UUID.randomUUID(), player, service, System.currentTimeMillis());
-				if (votingPluginProxy == null || !votingPluginProxy.retainIncomingVoteForRestart(pending)) {
-					logger.error("Pending vote admission is full and durable overflow failed; vote was not accepted for {}",
-							MinecraftUsernameValidator.sanitizeForLog(player));
-					return;
-				}
-				votingPluginProxy.scheduleQueuedVoteReplay();
-				logger.warn("Pending vote admission is full; accepted vote was handed directly to durable recovery");
-				return;
-			}
+			return;
 		}
 		retryPendingIncomingVotes();
 	}
