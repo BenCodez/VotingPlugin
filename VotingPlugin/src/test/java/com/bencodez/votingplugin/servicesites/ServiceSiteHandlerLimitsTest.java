@@ -1,5 +1,6 @@
 package com.bencodez.votingplugin.servicesites;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -16,8 +17,19 @@ import org.junit.jupiter.api.Test;
 
 class ServiceSiteHandlerLimitsTest {
 	@Test
+	void primarySourceUsesMirroredWikiDirectory() {
+		assertEquals("https://raw.githubusercontent.com/wiki/BenCodez/VotingPlugin/"
+				+ "VotingPlugin/Minecraft-Server-Lists.md", ServiceSiteHandler.PRIMARY_URL);
+	}
+
+	@Test
 	void acceptsNormalEntries() {
 		assertTrue(ServiceSiteHandler.isSafeEntry("PlanetMinecraft", "planetminecraft.com"));
+	}
+
+	@Test
+	void rejectsMarkdownColumnLegend() {
+		assertFalse(ServiceSiteHandler.isSafeEntry("Domain", "Service site"));
 	}
 
 	@Test
