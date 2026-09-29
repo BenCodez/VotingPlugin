@@ -4,6 +4,7 @@ import java.time.temporal.WeekFields;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Collection;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
@@ -107,6 +108,24 @@ public class ServerData {
 	 */
 	public void clearTimedVoteCache() {
 		getData().set("TimedVoteCache", null);
+		saveData();
+	}
+
+	/**
+	 * Replaces the timed vote cache and persists the complete snapshot with one save.
+	 *
+	 * @param votes pending timed votes in replay order
+	 */
+	public synchronized void replaceTimedVoteCache(Collection<VoteTimeQueue> votes) {
+		ConfigurationSection data = getData();
+		data.set("TimedVoteCache", null);
+		int index = 0;
+		for (VoteTimeQueue vote : votes) {
+			String path = "TimedVoteCache." + index++;
+			data.set(path + ".Name", vote.getName());
+			data.set(path + ".Service", vote.getService());
+			data.set(path + ".Time", vote.getTime());
+		}
 		saveData();
 	}
 
