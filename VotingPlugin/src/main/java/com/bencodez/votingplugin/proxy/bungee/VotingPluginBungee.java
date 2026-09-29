@@ -239,6 +239,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 	@Override
 	public void onDisable() {
 		synchronized (reloadLock) {
+			pendingIncomingVotes.closeAdmission();
 			// Shutdown is terminal. A live event must fail after this lock is released
 			// rather than scheduling a retry against a timer that is being stopped.
 			reloading = false;
@@ -540,6 +541,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		}
 
 		drainQueuedPluginMessages();
+		if (votingPluginProxy != null) votingPluginProxy.scheduleQueuedVoteReplay();
 		retryPendingIncomingVotes();
 		try {
 			getVotingPluginProxy().sendServerNameMessage();
@@ -595,27 +597,26 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 	/** Owns a Votifier event before any fallible scheduler handoff. */
 	public void acceptIncomingVote(String player, String service) {
-		boolean admitted = false;
-		synchronized (reloadLock) {
-			if (!reloading && (!runtimeOperational || votingPluginProxy == null)) {
-				getLogger().severe("Vote received while VotingPlugin proxy runtime is not operational; vote was not accepted for "
+		PendingIncomingVote pending = pendingIncomingVotes.admit(player, service);
+		if (pending == null) {
+			if (!pendingIncomingVotes.isAccepting()) {
+				getLogger().severe("Vote received after VotingPlugin proxy shutdown began; vote was not accepted for "
 						+ MinecraftUsernameValidator.sanitizeForLog(player));
 				return;
 			}
-			PendingIncomingVote pending = pendingIncomingVotes.admit(player, service);
-			if (pending == null) {
+			synchronized (reloadLock) {
 				pending = new PendingIncomingVote(UUID.randomUUID(), player, service, System.currentTimeMillis());
 				if (votingPluginProxy == null || !votingPluginProxy.retainIncomingVoteForRestart(pending)) {
 					getLogger().severe("Pending vote admission is full and durable overflow failed; vote was not accepted for "
 							+ MinecraftUsernameValidator.sanitizeForLog(player));
 					return;
 				}
+				votingPluginProxy.scheduleQueuedVoteReplay();
 				getLogger().warning("Pending vote admission is full; accepted vote was handed directly to durable recovery");
 				return;
 			}
-			admitted = true;
 		}
-		if (admitted) retryPendingIncomingVotes();
+		retryPendingIncomingVotes();
 	}
 
 	private void schedulePendingIncomingVote(PendingIncomingVote pending, long delaySeconds) {
@@ -677,6 +678,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			VotingPluginProxy runtime = votingPluginProxy;
 			if (runtime != null && runtime.retainIncomingVoteForRestart(pending)) {
 				pendingIncomingVotes.complete(pending);
+				runtime.scheduleQueuedVoteReplay();
 				getLogger().warning("Vote processing was handed to durable restart recovery for "
 						+ MinecraftUsernameValidator.sanitizeForLog(pending.getPlayer()));
 				return;
@@ -737,6 +739,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				// Acquire/release establishes that the returning reload has left its lock.
 			}
 			drainQueuedPluginMessages();
+			if (votingPluginProxy != null) votingPluginProxy.scheduleQueuedVoteReplay();
 			retryPendingIncomingVotes();
 		}, "VotingPlugin-Bungee-Reload-Queue-Drain");
 		drain.setDaemon(true);

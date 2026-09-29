@@ -172,6 +172,49 @@ class VotingPluginBungeeInitializationTest {
 	}
 
 	@Test
+	void voteIsOwnedBeforeAFullReloadReleasesTheLifecycleLock() throws Exception {
+		VotingPluginBungee plugin = mock(VotingPluginBungee.class, CALLS_REAL_METHODS);
+		VotingPluginProxy runtime = mock(VotingPluginProxy.class);
+		net.md_5.bungee.api.ProxyServer proxy = mock(net.md_5.bungee.api.ProxyServer.class);
+		net.md_5.bungee.api.scheduler.TaskScheduler scheduler =
+				mock(net.md_5.bungee.api.scheduler.TaskScheduler.class);
+		Object reloadLock = new Object();
+		PendingIncomingVoteQueue pending = new PendingIncomingVoteQueue();
+		setField(plugin, "reloadLock", reloadLock);
+		setField(plugin, "pendingIncomingVotes", pending);
+		setField(plugin, "votingPluginProxy", runtime);
+		setField(plugin, "reloading", true);
+		when(runtime.retainIncomingVoteForRestart(any(PendingIncomingVote.class))).thenReturn(true);
+		when(plugin.getProxy()).thenReturn(proxy);
+		when(proxy.getScheduler()).thenReturn(scheduler);
+		when(scheduler.runAsync(eq(plugin), any(Runnable.class)))
+				.thenReturn(mock(net.md_5.bungee.api.scheduler.ScheduledTask.class));
+		java.util.concurrent.CountDownLatch returned = new java.util.concurrent.CountDownLatch(1);
+
+		synchronized (reloadLock) {
+			Thread callback = new Thread(() -> {
+				plugin.acceptIncomingVote("Player", "Service");
+				returned.countDown();
+			});
+			callback.start();
+			assertTrue(returned.await(2, java.util.concurrent.TimeUnit.SECONDS));
+			assertEquals(1, pending.size());
+			java.util.UUID admittedId = pending.snapshot().get(0).getVoteId();
+			pending.closeAdmission();
+			java.lang.reflect.Method persist = VotingPluginBungee.class.getDeclaredMethod(
+					"persistPendingIncomingVotes", VotingPluginProxy.class, String.class);
+			persist.setAccessible(true);
+			assertTrue((Boolean) persist.invoke(plugin, runtime, "test shutdown"));
+			org.mockito.ArgumentCaptor<PendingIncomingVote> retained =
+					org.mockito.ArgumentCaptor.forClass(PendingIncomingVote.class);
+			verify(runtime).retainIncomingVoteForRestart(retained.capture());
+			assertEquals(admittedId, retained.getValue().getVoteId());
+		}
+
+		assertEquals(0, pending.snapshot().size());
+	}
+
+	@Test
 	void failedDurableHandoffKeepsTheOnlyInMemoryVote() throws Exception {
 		VotingPluginBungee plugin = mock(VotingPluginBungee.class, CALLS_REAL_METHODS);
 		VotingPluginProxy runtime = mock(VotingPluginProxy.class);

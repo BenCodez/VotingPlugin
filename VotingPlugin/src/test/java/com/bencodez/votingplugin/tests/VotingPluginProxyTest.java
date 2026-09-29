@@ -1746,6 +1746,30 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
+	void retainedListenerVoteSchedulesReplayWhenGlobalDataIsDisabled() {
+		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		java.util.Queue<VoteTimeQueue> queue = new java.util.concurrent.ConcurrentLinkedQueue<>();
+		Mockito.when(voteCache.getTimeChangeQueue()).thenReturn(queue);
+		Mockito.when(voteCache.addTimeVoteToCache(Mockito.any())).thenAnswer(invocation -> {
+			queue.add(invocation.getArgument(0));
+			return true;
+		});
+		java.util.concurrent.ScheduledExecutorService scheduler =
+				Mockito.mock(java.util.concurrent.ScheduledExecutorService.class);
+		votingPluginProxy.setSchedulerForTest(scheduler);
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
+		Mockito.when(spyProxy.getConfig().getGlobalDataEnabled()).thenReturn(false);
+		PendingIncomingVote pending = new PendingIncomingVote(java.util.UUID.randomUUID(), "Player", "Service", 1234L);
+
+		assertTrue(spyProxy.retainIncomingVoteForRestart(pending));
+		assertTrue(spyProxy.scheduleQueuedVoteReplay());
+
+		verify(scheduler).schedule(Mockito.any(Runnable.class), Mockito.eq(0L),
+				Mockito.eq(java.util.concurrent.TimeUnit.SECONDS));
+	}
+
+	@Test
 	void finalShutdownSettlesConsumedForwardedVoteBeforeDroppingRetryState() throws Exception {
 		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
 		Mockito.when(votingPluginProxy.getConfig().getSendVotesToAllServers()).thenReturn(true);

@@ -38,4 +38,17 @@ class PendingIncomingVoteQueueTest {
 		assertTrue(queue.admit("Overflow", "Site") == null);
 		assertEquals(4096, queue.size());
 	}
+
+	@Test
+	void closingAdmissionAtomicallyFencesShutdownSnapshot() {
+		PendingIncomingVoteQueue queue = new PendingIncomingVoteQueue();
+		PendingIncomingVote admitted = queue.admit("BeforeShutdown", "Site");
+
+		queue.closeAdmission();
+
+		assertFalse(queue.isAccepting());
+		assertTrue(queue.contains(admitted.getVoteId()));
+		assertTrue(queue.admit("AfterShutdown", "Site") == null);
+		assertEquals(1, queue.snapshot().size());
+	}
 }

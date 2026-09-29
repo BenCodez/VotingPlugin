@@ -187,6 +187,44 @@ class VotingPluginVelocityInitializationTest {
 	}
 
 	@Test
+	void voteIsOwnedBeforeAFullReloadReleasesTheLifecycleLock(@TempDir Path dataDirectory) throws Exception {
+		VotingPluginVelocity plugin = new VotingPluginVelocity(mock(ProxyServer.class), mock(Logger.class),
+				mock(Metrics.Factory.class), dataDirectory);
+		VotingPluginProxy runtime = mock(VotingPluginProxy.class);
+		java.util.concurrent.ScheduledExecutorService timer = mock(java.util.concurrent.ScheduledExecutorService.class);
+		plugin.getTimer().shutdownNow();
+		setField(plugin, "timer", timer);
+		setField(plugin, "votingPluginProxy", runtime);
+		setField(plugin, "reloading", true);
+		when(runtime.retainIncomingVoteForRestart(any(PendingIncomingVote.class))).thenReturn(true);
+		Object reloadLock = getField(plugin, "reloadLock");
+		PendingIncomingVoteQueue pending = (PendingIncomingVoteQueue) getField(plugin, "pendingIncomingVotes");
+		java.util.concurrent.CountDownLatch returned = new java.util.concurrent.CountDownLatch(1);
+
+		synchronized (reloadLock) {
+			Thread callback = new Thread(() -> {
+				plugin.acceptIncomingVote("Player", "Service");
+				returned.countDown();
+			});
+			callback.start();
+			assertTrue(returned.await(2, java.util.concurrent.TimeUnit.SECONDS));
+			assertEquals(1, pending.size());
+			java.util.UUID admittedId = pending.snapshot().get(0).getVoteId();
+			pending.closeAdmission();
+			java.lang.reflect.Method persist = VotingPluginVelocity.class.getDeclaredMethod(
+					"persistPendingIncomingVotes", VotingPluginProxy.class, String.class);
+			persist.setAccessible(true);
+			assertTrue((Boolean) persist.invoke(plugin, runtime, "test shutdown"));
+			org.mockito.ArgumentCaptor<PendingIncomingVote> retained =
+					org.mockito.ArgumentCaptor.forClass(PendingIncomingVote.class);
+			verify(runtime).retainIncomingVoteForRestart(retained.capture());
+			assertEquals(admittedId, retained.getValue().getVoteId());
+		}
+
+		assertEquals(0, pending.snapshot().size());
+	}
+
+	@Test
 	void acceptedVoteCompletesOnceWithItsOriginalId(@TempDir Path dataDirectory) throws Exception {
 		VotingPluginVelocity plugin = new VotingPluginVelocity(mock(ProxyServer.class), mock(Logger.class),
 				mock(Metrics.Factory.class), dataDirectory);

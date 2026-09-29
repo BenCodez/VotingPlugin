@@ -304,6 +304,7 @@ public class VotingPluginVelocity {
 	@Subscribe
 	public void onProxyDisable(ProxyShutdownEvent event) {
 		synchronized (reloadLock) {
+			pendingIncomingVotes.closeAdmission();
 			// Shutdown is terminal. Do not schedule reload retries against a timer that
 			// is being stopped.
 			reloading = false;
@@ -460,27 +461,26 @@ public class VotingPluginVelocity {
 
 	/** Owns a Votifier event before any fallible executor handoff. */
 	public void acceptIncomingVote(String player, String service) {
-		boolean admitted = false;
-		synchronized (reloadLock) {
-			if (!reloading && (!runtimeOperational || votingPluginProxy == null)) {
-				logger.error("Vote received while VotingPlugin proxy runtime is not operational; vote was not accepted for {}",
+		PendingIncomingVote pending = pendingIncomingVotes.admit(player, service);
+		if (pending == null) {
+			if (!pendingIncomingVotes.isAccepting()) {
+				logger.error("Vote received after VotingPlugin proxy shutdown began; vote was not accepted for {}",
 						MinecraftUsernameValidator.sanitizeForLog(player));
 				return;
 			}
-			PendingIncomingVote pending = pendingIncomingVotes.admit(player, service);
-			if (pending == null) {
+			synchronized (reloadLock) {
 				pending = new PendingIncomingVote(UUID.randomUUID(), player, service, System.currentTimeMillis());
 				if (votingPluginProxy == null || !votingPluginProxy.retainIncomingVoteForRestart(pending)) {
 					logger.error("Pending vote admission is full and durable overflow failed; vote was not accepted for {}",
 							MinecraftUsernameValidator.sanitizeForLog(player));
 					return;
 				}
+				votingPluginProxy.scheduleQueuedVoteReplay();
 				logger.warn("Pending vote admission is full; accepted vote was handed directly to durable recovery");
 				return;
 			}
-			admitted = true;
 		}
-		if (admitted) retryPendingIncomingVotes();
+		retryPendingIncomingVotes();
 	}
 
 	private void schedulePendingIncomingVote(PendingIncomingVote pending, long delaySeconds) {
@@ -533,6 +533,7 @@ public class VotingPluginVelocity {
 			VotingPluginProxy runtime = votingPluginProxy;
 			if (runtime != null && runtime.retainIncomingVoteForRestart(pending)) {
 				pendingIncomingVotes.complete(pending);
+				runtime.scheduleQueuedVoteReplay();
 				logger.warn("Vote processing was handed to durable restart recovery for {}",
 						MinecraftUsernameValidator.sanitizeForLog(pending.getPlayer()));
 				return;
@@ -766,6 +767,7 @@ public class VotingPluginVelocity {
 		}
 
 		drainQueuedPluginMessages();
+		if (votingPluginProxy != null) votingPluginProxy.scheduleQueuedVoteReplay();
 		retryPendingIncomingVotes();
 		try {
 			if (votingPluginProxy != null) votingPluginProxy.sendServerNameMessage();

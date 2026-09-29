@@ -3896,9 +3896,22 @@ public abstract class VotingPluginProxy {
 	}
 
 	private void scheduleTimeVoteRetry() {
-		if (timeVoteRetryScheduled || getScheduler() == null) {
-			return;
-		}
+		scheduleTimeVoteRetry(5);
+	}
+
+	/**
+	 * Schedules durable queued-vote replay independently of global-data rollover.
+	 * Listener votes handed off during proxy lifecycle changes use this path.
+	 */
+	public synchronized boolean scheduleQueuedVoteReplay() {
+		VoteCacheHandler cache = getVoteCacheHandler();
+		if (cache == null || cache.getTimeChangeQueue() == null || cache.getTimeChangeQueue().isEmpty()) return true;
+		return scheduleTimeVoteRetry(0);
+	}
+
+	private boolean scheduleTimeVoteRetry(long delaySeconds) {
+		if (timeVoteRetryScheduled) return true;
+		if (getScheduler() == null) return false;
 		timeVoteRetryScheduled = true;
 		try {
 			getScheduler().schedule(() -> {
@@ -3906,10 +3919,12 @@ public abstract class VotingPluginProxy {
 					timeVoteRetryScheduled = false;
 				}
 				processQueue();
-			}, 5, TimeUnit.SECONDS);
+			}, delaySeconds, TimeUnit.SECONDS);
+			return true;
 		} catch (RuntimeException e) {
 			timeVoteRetryScheduled = false;
 			debug("Unable to schedule rollover vote retry: " + e.getMessage());
+			return false;
 		}
 	}
 
