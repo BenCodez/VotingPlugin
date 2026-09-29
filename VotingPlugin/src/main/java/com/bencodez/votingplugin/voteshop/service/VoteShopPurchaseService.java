@@ -28,7 +28,6 @@ import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.advancedcore.api.user.usercache.UserDataCache;
 import com.bencodez.advancedcore.api.user.userstorage.mysql.MySQL;
-import com.bencodez.simpleapi.folialib.enums.EntityTaskResult;
 import com.bencodez.simpleapi.sql.DataType;
 import com.bencodez.simpleapi.sql.mysql.DbType;
 import com.bencodez.votingplugin.VotingPluginMain;
@@ -406,10 +405,10 @@ public class VoteShopPurchaseService {
 			BukkitCompletionScheduler.run(plugin, player, task, rejected);
 			return;
 		}
-		CompletableFuture<EntityTaskResult> result = plugin.getBukkitScheduler().getFoliaLib().getImpl()
+		CompletableFuture<?> result = plugin.getBukkitScheduler().getFoliaLib().getImpl()
 				.runAtEntityWithFallback(player, ignored -> task.run(), rejected);
 		result.whenComplete((status, failure) -> {
-			if (failure != null || status != EntityTaskResult.SUCCESS) rejected.run();
+			if (failure != null || !BukkitCompletionScheduler.isSuccessfulEntityTaskResult(status)) rejected.run();
 		});
 	}
 
