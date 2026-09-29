@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 
 import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
+import com.bencodez.advancedcore.api.user.UserData;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.votesites.VoteSite;
 import com.bencodez.votingplugin.votesites.VoteSiteManager;
@@ -26,6 +27,8 @@ class VotingPluginUserOfflineVoteReplayTest {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
 		when(plugin.getOptions().isProcessRewards()).thenReturn(true);
 		AdvancedCoreUser base = mock(AdvancedCoreUser.class);
+		UserData data = mock(UserData.class);
+		when(base.getUserData()).thenReturn(data);
 		when(base.getUUID()).thenReturn("00000000-0000-0000-0000-000000000001");
 		when(base.getPlayerName()).thenReturn("Player");
 		VotingPluginUser user = spy(new VotingPluginUser(plugin, base));
