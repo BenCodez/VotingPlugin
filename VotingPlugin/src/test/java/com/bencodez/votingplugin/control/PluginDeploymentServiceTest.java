@@ -154,6 +154,10 @@ class PluginDeploymentServiceTest {
 				java.net.URI.create("http://8.8.8.8:8080")));
 		assertFalse(PluginDeploymentService.deploymentEndpointAllowed(
 				java.net.URI.create("http://localhost:8080")));
+		assertTrue(PluginDeploymentService.deploymentEndpointAllowed(
+				java.net.URI.create("http://localhost:8080"), true));
+		assertFalse(PluginDeploymentService.deploymentEndpointAllowed(
+				java.net.URI.create("http://localhost:8080"), false));
 		assertFalse(PluginDeploymentService.deploymentEndpointAllowed(
 				java.net.URI.create("http://control.example.test:8080")));
 		assertFalse(PluginDeploymentService.deploymentEndpointAllowed(
@@ -161,6 +165,8 @@ class PluginDeploymentServiceTest {
 		assertFalse(PluginDeploymentService.deploymentEndpointAllowed(null));
 		assertTrue(PluginDeploymentService.credentialEndpointAllowed(
 				java.net.URI.create("http://192.168.0.50:8080"), false));
+		assertTrue(PluginDeploymentService.credentialEndpointAllowed(
+				java.net.URI.create("http://localhost:8080"), true));
 		assertTrue(PluginDeploymentService.usesUnencryptedHttp(
 				java.net.URI.create("http://192.168.0.50:8080")));
 		assertFalse(PluginDeploymentService.usesUnencryptedHttp(

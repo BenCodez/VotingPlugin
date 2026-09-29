@@ -142,7 +142,8 @@ public final class BackendControlConnector implements AutoCloseable {
 		directLocalDeploymentEndpoint = HostedControlManager.isDirectLocalEndpoint(
 				settings.endpoint().toString(), hostedConfiguration);
 		PluginDeploymentService prepared = null;
-		boolean deploymentEndpointAllowed = PluginDeploymentService.deploymentEndpointAllowed(settings.endpoint());
+		boolean deploymentEndpointAllowed = PluginDeploymentService.deploymentEndpointAllowed(
+				settings.endpoint(), directLocalDeploymentEndpoint);
 		if (!recovering && deploymentEndpointAllowed) {
 			try {
 				prepared = PluginDeploymentService.backend(plugin.getServer().getUpdateFolderFile().toPath(),

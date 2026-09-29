@@ -123,9 +123,9 @@ public final class PluginDeploymentService {
 		if (!staging.compareAndSet(false, true)) return Result.failure("DEPLOYMENT_FAILED", "Another deployment is still staging");
 		try {
 			validate(task);
-			if (!deploymentEndpointAllowed(endpoint)) {
+			if (!deploymentEndpointAllowed(endpoint, directLocalHosted)) {
 				return Result.failure("INSECURE_ENDPOINT",
-						"Verified update staging requires HTTPS or a literal private-network HTTP endpoint");
+						"Verified update staging requires HTTPS, a literal private-network HTTP endpoint, or proven same-node localhost hosting");
 			}
 			if (!active.getAsBoolean()) return Result.failure("CANCELLED", "Deployment was cancelled before download");
 			if (alreadyStaged(task)) return Result.restartRequired();
@@ -454,15 +454,21 @@ public final class PluginDeploymentService {
 	 * local process.</p>
 	 */
 	public static boolean deploymentEndpointAllowed(URI endpoint) {
-		if (endpoint == null) return false;
-		return "https".equalsIgnoreCase(endpoint.getScheme())
-				|| "http".equalsIgnoreCase(endpoint.getScheme()) && isLocalNetworkAddress(endpoint.getHost());
+		return deploymentEndpointAllowed(endpoint, false);
 	}
 
-	/** @deprecated Use {@link #deploymentEndpointAllowed(URI)}. */
+	public static boolean deploymentEndpointAllowed(URI endpoint, boolean directLocalHosted) {
+		if (endpoint == null) return false;
+		return "https".equalsIgnoreCase(endpoint.getScheme())
+				|| "http".equalsIgnoreCase(endpoint.getScheme())
+				&& (isLocalNetworkAddress(endpoint.getHost())
+						|| directLocalHosted && "localhost".equalsIgnoreCase(endpoint.getHost()));
+	}
+
+	/** @deprecated Use {@link #deploymentEndpointAllowed(URI, boolean)}. */
 	@Deprecated
 	public static boolean credentialEndpointAllowed(URI endpoint, boolean directLocalHosted) {
-		return deploymentEndpointAllowed(endpoint);
+		return deploymentEndpointAllowed(endpoint, directLocalHosted);
 	}
 
 	public static boolean usesUnencryptedHttp(URI endpoint) {

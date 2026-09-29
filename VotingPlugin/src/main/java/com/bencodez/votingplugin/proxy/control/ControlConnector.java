@@ -259,7 +259,8 @@ public final class ControlConnector implements AutoCloseable {
 				config.getControlHostedStartupTimeoutSeconds(), config.getControlHostedDownloadTimeoutSeconds());
 		boolean directLocalDeploymentEndpoint = HostedControlManager.isDirectLocalEndpoint(
 				settings.endpoint().toString(), hosted);
-		boolean deploymentEndpointAllowed = PluginDeploymentService.deploymentEndpointAllowed(settings.endpoint());
+		boolean deploymentEndpointAllowed = PluginDeploymentService.deploymentEndpointAllowed(
+				settings.endpoint(), directLocalDeploymentEndpoint);
 		PluginDeploymentService deployments = deploymentRouteCurrent && deploymentEndpointAllowed
 				? prepareDeployment(proxy) : null;
 		if (deploymentRouteCurrent && !deploymentEndpointAllowed) {
