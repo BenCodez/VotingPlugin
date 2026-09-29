@@ -37,63 +37,88 @@ public class VotiferEvent implements Listener {
 	 */
 	public void processVote(String voteSite, String voteUsername) {
 		try {
-			plugin.getServerData().addServiceSite(voteSite);
-			if (plugin.getBungeeSettings().isUseBungeecoord() && !plugin.getBungeeSettings().isVotifierBypass()
-					&& (plugin.getBackendProxyHandler().getMethod().equals(BungeeMethod.PLUGINMESSAGING)
-							|| plugin.getBackendProxyHandler().getMethod().equals(BungeeMethod.SOCKETS)
-							|| plugin.getBackendProxyHandler().getMethod().equals(BungeeMethod.HTTP)
-							|| plugin.getBackendProxyHandler().getMethod().equals(BungeeMethod.MQTT)
-							|| plugin.getBackendProxyHandler().getMethod().equals(BungeeMethod.REDIS))) {
-				plugin.getLogger().severe(
-						"Ignoring vote from votifier since a proxy vote transport is enabled; receive votes on the proxy or enable VotifierBypass, then check: https://github.com/BenCodez/VotingPlugin/wiki/Bungeecord-Setups");
-				return;
-			}
-
-			String matchSite = "";
-			if (plugin.getConfigFile().isAdvancedServiceSiteHandling()) {
-				if (plugin.getServiceSiteHandler() != null) {
-					matchSite = plugin.getServiceSiteHandler().matchReverse(voteSite);
-				}
-			}
-
-			String voteSiteNameStr = plugin.getVoteSiteManager().getVoteSiteName(false, voteSite, matchSite);
-			boolean createSite = !plugin.getVoteSiteManager().hasVoteSite(voteSiteNameStr)
-					&& !plugin.getVoteSiteManager().hasConfiguredVoteSite(voteSiteNameStr);
-
-			String serviceSite = voteSite;
-
-			if (plugin.getConfigFile().isAutoCreateVoteSites() && createSite) {
-				plugin.getLogger().warning("VoteSite with service site '" + voteSiteNameStr
-						+ "' does not exist, attempting to generate...");
-				if (plugin.getConfigVoteSites().tryAutoGenerateVoteSite(voteSiteNameStr)) {
-					plugin.getLogger().info("Current known service sites: "
-							+ ArrayUtils.makeStringList(plugin.getServerData().getServiceSites()));
-				} else {
-					plugin.getLogger().warning("Unable to generate VoteSite for service site '"
-							+ ServiceSiteValidator.sanitizeForLog(voteSiteNameStr) + "'");
-				}
-			}
-
-			if (plugin.getTimeChecker().isActiveProcessing()
-					&& plugin.getConfigFile().isQueueVotesDuringTimeChange()) {
-				plugin.debug("Adding vote to time queue " + voteUsername + "/" + voteSite);
-				plugin.getTimeQueueHandler().addVote(voteUsername, voteSite);
-				return;
-			}
-
-			String voteSiteName = plugin.getVoteSiteManager().getVoteSiteName(true, serviceSite, matchSite);
-
-			PlayerVoteEvent voteEvent = new PlayerVoteEvent(
-					plugin.getVoteSiteManager().getVoteSite(voteSiteName, true), voteUsername, voteSite, true);
-			plugin.getServer().getPluginManager().callEvent(voteEvent);
-
-			if (voteEvent.isCancelled()) {
-				plugin.debug("Vote cancelled");
-			}
+			processVoteInternal(voteSite, voteUsername);
 		} catch (Exception e) {
-			plugin.getLogger().severe("Error occured during vote processing");
-			e.printStackTrace();
+			logVoteProcessingFailure(e);
 		}
+	}
+
+	/**
+	 * Processes a durable overflow vote and propagates failures so the owning
+	 * queue does not acknowledge work whose effects did not finish.
+	 *
+	 * @param voteSite the validated service site
+	 * @param voteUsername the validated player name
+	 */
+	public void processVoteDurably(String voteSite, String voteUsername) {
+		try {
+			processVoteInternal(voteSite, voteUsername);
+		} catch (Exception e) {
+			logVoteProcessingFailure(e);
+			if (e instanceof RuntimeException) throw (RuntimeException) e;
+			throw new IllegalStateException("Votifier vote processing failed", e);
+		}
+	}
+
+	private void processVoteInternal(String voteSite, String voteUsername) throws Exception {
+		plugin.getServerData().addServiceSite(voteSite);
+		if (plugin.getBungeeSettings().isUseBungeecoord() && !plugin.getBungeeSettings().isVotifierBypass()
+				&& (plugin.getBackendProxyHandler().getMethod().equals(BungeeMethod.PLUGINMESSAGING)
+						|| plugin.getBackendProxyHandler().getMethod().equals(BungeeMethod.SOCKETS)
+						|| plugin.getBackendProxyHandler().getMethod().equals(BungeeMethod.HTTP)
+						|| plugin.getBackendProxyHandler().getMethod().equals(BungeeMethod.MQTT)
+						|| plugin.getBackendProxyHandler().getMethod().equals(BungeeMethod.REDIS))) {
+			plugin.getLogger().severe(
+					"Ignoring vote from votifier since a proxy vote transport is enabled; receive votes on the proxy or enable VotifierBypass, then check: https://github.com/BenCodez/VotingPlugin/wiki/Bungeecord-Setups");
+			return;
+		}
+
+		String matchSite = "";
+		if (plugin.getConfigFile().isAdvancedServiceSiteHandling()) {
+			if (plugin.getServiceSiteHandler() != null) {
+				matchSite = plugin.getServiceSiteHandler().matchReverse(voteSite);
+			}
+		}
+
+		String voteSiteNameStr = plugin.getVoteSiteManager().getVoteSiteName(false, voteSite, matchSite);
+		boolean createSite = !plugin.getVoteSiteManager().hasVoteSite(voteSiteNameStr)
+				&& !plugin.getVoteSiteManager().hasConfiguredVoteSite(voteSiteNameStr);
+
+		String serviceSite = voteSite;
+
+		if (plugin.getConfigFile().isAutoCreateVoteSites() && createSite) {
+			plugin.getLogger().warning("VoteSite with service site '" + voteSiteNameStr
+					+ "' does not exist, attempting to generate...");
+			if (plugin.getConfigVoteSites().tryAutoGenerateVoteSite(voteSiteNameStr)) {
+				plugin.getLogger().info("Current known service sites: "
+						+ ArrayUtils.makeStringList(plugin.getServerData().getServiceSites()));
+			} else {
+				plugin.getLogger().warning("Unable to generate VoteSite for service site '"
+						+ ServiceSiteValidator.sanitizeForLog(voteSiteNameStr) + "'");
+			}
+		}
+
+		if (plugin.getTimeChecker().isActiveProcessing()
+				&& plugin.getConfigFile().isQueueVotesDuringTimeChange()) {
+			plugin.debug("Adding vote to time queue " + voteUsername + "/" + voteSite);
+			plugin.getTimeQueueHandler().addVote(voteUsername, voteSite);
+			return;
+		}
+
+		String voteSiteName = plugin.getVoteSiteManager().getVoteSiteName(true, serviceSite, matchSite);
+
+		PlayerVoteEvent voteEvent = new PlayerVoteEvent(
+				plugin.getVoteSiteManager().getVoteSite(voteSiteName, true), voteUsername, voteSite, true);
+		plugin.getServer().getPluginManager().callEvent(voteEvent);
+
+		if (voteEvent.isCancelled()) {
+			plugin.debug("Vote cancelled");
+		}
+	}
+
+	private void logVoteProcessingFailure(Exception e) {
+		plugin.getLogger().severe("Error occured during vote processing");
+		e.printStackTrace();
 	}
 
 	/**
