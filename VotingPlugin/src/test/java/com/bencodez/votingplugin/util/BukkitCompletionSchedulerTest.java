@@ -1,5 +1,6 @@
 package com.bencodez.votingplugin.util;
 
+import com.bencodez.votingplugin.util.EntityTaskResultTestCompat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -17,7 +18,6 @@ import org.bukkit.entity.Player;
 import org.junit.jupiter.api.Test;
 
 import com.bencodez.simpleapi.folialib.FoliaLib;
-import com.bencodez.simpleapi.folialib.enums.EntityTaskResult;
 import com.bencodez.simpleapi.folialib.impl.ServerImplementation;
 import com.bencodez.simpleapi.scheduler.BukkitScheduler;
 import com.bencodez.votingplugin.VotingPluginMain;
@@ -29,7 +29,7 @@ class BukkitCompletionSchedulerTest {
 		when(fixture.entityScheduler.runAtEntityWithFallback(eq(fixture.player), any(), any(Runnable.class)))
 				.thenAnswer(invocation -> {
 					invocation.getArgument(2, Runnable.class).run();
-					return CompletableFuture.completedFuture(EntityTaskResult.ENTITY_RETIRED);
+					return EntityTaskResultTestCompat.entityRetired();
 				});
 		AtomicInteger completions = new AtomicInteger();
 
@@ -43,7 +43,7 @@ class BukkitCompletionSchedulerTest {
 	void alreadyRetiredSchedulerRunsCompletionOnceOnGlobalFallback() {
 		Fixture fixture = fixture();
 		when(fixture.entityScheduler.runAtEntityWithFallback(eq(fixture.player), any(), any(Runnable.class)))
-				.thenReturn(CompletableFuture.completedFuture(EntityTaskResult.SCHEDULER_RETIRED));
+				.thenReturn(EntityTaskResultTestCompat.schedulerRetired());
 		AtomicInteger completions = new AtomicInteger();
 
 		BukkitCompletionScheduler.run(fixture.plugin, fixture.player, completions::incrementAndGet);
@@ -69,7 +69,7 @@ class BukkitCompletionSchedulerTest {
 	void rejectedEveryFallbackCallsRejectedOnlyWhenTaskNeverBegan() {
 		Fixture fixture = fixture();
 		when(fixture.entityScheduler.runAtEntityWithFallback(eq(fixture.player), any(), any(Runnable.class)))
-				.thenReturn(CompletableFuture.completedFuture(EntityTaskResult.SCHEDULER_RETIRED));
+				.thenReturn(EntityTaskResultTestCompat.schedulerRetired());
 		doThrow(new RejectedExecutionException("stopping")).when(fixture.scheduler).runTask(eq(fixture.plugin),
 				any(Runnable.class));
 		AtomicInteger completed = new AtomicInteger();
@@ -87,7 +87,7 @@ class BukkitCompletionSchedulerTest {
 		when(fixture.entityScheduler.runAtEntityWithFallback(eq(fixture.player), any(), any(Runnable.class)))
 				.thenAnswer(invocation -> {
 					invocation.getArgument(2, Runnable.class).run();
-					return CompletableFuture.completedFuture(EntityTaskResult.ENTITY_RETIRED);
+					return EntityTaskResultTestCompat.entityRetired();
 				});
 		AtomicInteger entity = new AtomicInteger();
 		AtomicInteger fallback = new AtomicInteger();

@@ -1,5 +1,6 @@
 package com.bencodez.votingplugin.tests.reminders;
 
+import com.bencodez.votingplugin.util.EntityTaskResultTestCompat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -33,7 +34,6 @@ import com.bencodez.advancedcore.AdvancedCoreConfigOptions;
 import com.bencodez.simpleapi.time.ParsedDuration;
 import com.bencodez.simpleapi.scheduler.BukkitScheduler;
 import com.bencodez.simpleapi.folialib.FoliaLib;
-import com.bencodez.simpleapi.folialib.enums.EntityTaskResult;
 import com.bencodez.simpleapi.folialib.impl.ServerImplementation;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.votingplugin.VotingPluginMain;
@@ -271,7 +271,7 @@ public class VoteRemindersManagerTest {
 		when(implementation.runAtEntityWithFallback(eq(player), any(), any(Runnable.class)))
 				.thenAnswer(invocation -> {
 					invocation.getArgument(2, Runnable.class).run();
-					return CompletableFuture.completedFuture(EntityTaskResult.ENTITY_RETIRED);
+					return EntityTaskResultTestCompat.entityRetired();
 				});
 		org.mockito.Mockito.doAnswer(invocation -> {
 			invocation.getArgument(1, Runnable.class).run();

@@ -1,5 +1,6 @@
 package com.bencodez.votingplugin.commands;
 
+import com.bencodez.votingplugin.util.EntityTaskResultTestCompat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -19,7 +20,6 @@ import org.junit.jupiter.api.Test;
 
 import com.bencodez.simpleapi.scheduler.BukkitScheduler;
 import com.bencodez.simpleapi.folialib.FoliaLib;
-import com.bencodez.simpleapi.folialib.enums.EntityTaskResult;
 import com.bencodez.simpleapi.folialib.impl.ServerImplementation;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.config.Config;
@@ -213,6 +213,6 @@ class CommandLoaderSchedulingTest {
 		when(scheduler.getFoliaLib()).thenReturn(folia);
 		when(folia.getImpl()).thenReturn(entityScheduler);
 		when(entityScheduler.runAtEntityWithFallback(any(), any(), any(Runnable.class)))
-				.thenReturn(CompletableFuture.completedFuture(EntityTaskResult.SUCCESS));
+				.thenReturn(EntityTaskResultTestCompat.success());
 	}
 }

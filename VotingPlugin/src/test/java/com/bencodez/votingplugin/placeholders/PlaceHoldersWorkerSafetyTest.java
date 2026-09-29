@@ -1,5 +1,6 @@
 package com.bencodez.votingplugin.placeholders;
 
+import com.bencodez.votingplugin.util.EntityTaskResultTestCompat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -34,7 +35,6 @@ import com.bencodez.advancedcore.api.placeholder.PlaceHolder;
 import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
 import com.bencodez.advancedcore.api.user.usercache.UserDataManager;
 import com.bencodez.simpleapi.folialib.FoliaLib;
-import com.bencodez.simpleapi.folialib.enums.EntityTaskResult;
 import com.bencodez.simpleapi.folialib.impl.ServerImplementation;
 import com.bencodez.simpleapi.scheduler.BukkitScheduler;
 import com.bencodez.votingplugin.VotingPluginMain;
@@ -227,7 +227,7 @@ class PlaceHoldersWorkerSafetyTest {
 		when(entityScheduler.runAtEntityWithFallback(eq(fixture.player), any(), any(Runnable.class)))
 				.thenAnswer(call -> {
 					call.getArgument(2, Runnable.class).run();
-					return CompletableFuture.completedFuture(EntityTaskResult.ENTITY_RETIRED);
+					return EntityTaskResultTestCompat.entityRetired();
 				});
 		doAnswer(call -> { call.getArgument(1, Runnable.class).run(); return null; })
 				.when(fixture.scheduler).runTask(eq(fixture.plugin), any(Runnable.class));

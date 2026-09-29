@@ -1,5 +1,6 @@
 package com.bencodez.votingplugin.tests.backgroundtask;
 
+import com.bencodez.votingplugin.util.EntityTaskResultTestCompat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -99,8 +100,7 @@ public class VotingPluginBackgroundTaskTest {
 		when(scheduler.getFoliaLib()).thenReturn(folia);
 		when(folia.getImpl()).thenReturn(implementation);
 		when(implementation.runAtEntityWithFallback(eq(player), any(), any(Runnable.class)))
-				.thenReturn(java.util.concurrent.CompletableFuture.completedFuture(
-						com.bencodez.simpleapi.folialib.enums.EntityTaskResult.SCHEDULER_RETIRED));
+				.thenReturn(EntityTaskResultTestCompat.schedulerRetired());
 		doAnswer(call -> { call.getArgument(1, Runnable.class).run(); return null; })
 				.when(scheduler).runTask(eq(plugin), any(Runnable.class));
 		java.util.concurrent.atomic.AtomicReference<java.util.Map<java.util.UUID, Boolean>> result =
