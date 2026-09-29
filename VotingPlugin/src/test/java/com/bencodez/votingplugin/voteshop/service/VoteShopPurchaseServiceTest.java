@@ -1,5 +1,6 @@
 package com.bencodez.votingplugin.voteshop.service;
 
+import com.bencodez.votingplugin.util.EntityTaskResultTestCompat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -54,7 +55,6 @@ import com.bencodez.simpleapi.sql.data.DataValue;
 import com.bencodez.advancedcore.api.user.userstorage.mysql.MySQL;
 import com.bencodez.advancedcore.api.rewards.RewardHandler;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
-import com.bencodez.simpleapi.folialib.enums.EntityTaskResult;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.SharedMysqlCacheReconciler;
 import com.bencodez.votingplugin.voteshop.shop.VoteShopDefinition;
@@ -676,7 +676,7 @@ class VoteShopPurchaseServiceTest {
 			return null;
 		}).when(scheduler).runTask(eq(plugin), any(Runnable.class), eq(player));
 		when(entityScheduler.runAtEntityWithFallback(org.mockito.ArgumentMatchers.eq(player), any(),
-				any(Runnable.class))).thenReturn(CompletableFuture.completedFuture(EntityTaskResult.SCHEDULER_RETIRED));
+				any(Runnable.class))).thenReturn(EntityTaskResultTestCompat.schedulerRetired());
 		new VoteShopPurchaseService(plugin, definition).purchase(player, user, item, result -> {
 			completionResult.set(result);
 			completions.incrementAndGet();
@@ -745,7 +745,7 @@ class VoteShopPurchaseServiceTest {
 		@SuppressWarnings("rawtypes")
 		ArgumentCaptor<java.util.function.Consumer> callback = ArgumentCaptor.forClass(java.util.function.Consumer.class);
 		when(entityScheduler.runAtEntityWithFallback(any(), callback.capture(), any(Runnable.class)))
-				.thenReturn(CompletableFuture.completedFuture(EntityTaskResult.SCHEDULER_RETIRED));
+				.thenReturn(EntityTaskResultTestCompat.schedulerRetired());
 		SharedMysqlPurchaseJournal journal = mock(SharedMysqlPurchaseJournal.class);
 		when(journal.markCompensating("purchase-1")).thenReturn(true);
 		when(journal.refundCompensatingReward("purchase-1")).thenReturn(false);
@@ -811,7 +811,7 @@ class VoteShopPurchaseServiceTest {
 		when(folia.getImpl()).thenReturn(entityScheduler);
 		when(plugin.getTimer()).thenReturn(persistenceExecutor);
 		when(entityScheduler.runAtEntityWithFallback(any(), any(), any(Runnable.class)))
-				.thenReturn(CompletableFuture.completedFuture(EntityTaskResult.SCHEDULER_RETIRED));
+				.thenReturn(EntityTaskResultTestCompat.schedulerRetired());
 		org.mockito.Mockito.doThrow(new java.util.concurrent.RejectedExecutionException("stopping"))
 				.when(persistenceExecutor).execute(any(Runnable.class));
 		SharedMysqlPurchaseJournal journal = mock(SharedMysqlPurchaseJournal.class);
@@ -848,7 +848,7 @@ class VoteShopPurchaseServiceTest {
 			@SuppressWarnings("rawtypes")
 			java.util.function.Consumer callback = invocation.getArgument(1, java.util.function.Consumer.class);
 			callback.accept(null);
-			return CompletableFuture.completedFuture(EntityTaskResult.SUCCESS);
+			return EntityTaskResultTestCompat.success();
 		}).when(entityScheduler).runAtEntityWithFallback(any(), any(), any(Runnable.class));
 		org.mockito.Mockito.doThrow(new java.util.concurrent.RejectedExecutionException("stopping"))
 				.when(scheduler).runTaskAsynchronously(eq(plugin), any(Runnable.class));
@@ -906,7 +906,7 @@ class VoteShopPurchaseServiceTest {
 		@SuppressWarnings("rawtypes")
 		ArgumentCaptor<java.util.function.Consumer> rewardCallback = ArgumentCaptor.forClass(java.util.function.Consumer.class);
 		when(entityScheduler.runAtEntityWithFallback(eq(player), rewardCallback.capture(), any(Runnable.class)))
-				.thenReturn(CompletableFuture.completedFuture(EntityTaskResult.SUCCESS));
+				.thenReturn(EntityTaskResultTestCompat.success());
 
 		VotingPluginUser user = mock(VotingPluginUser.class);
 		when(user.getPlayerName()).thenReturn("player");
@@ -967,8 +967,8 @@ class VoteShopPurchaseServiceTest {
 		@SuppressWarnings("rawtypes")
 		ArgumentCaptor<java.util.function.Consumer> entityTask = ArgumentCaptor.forClass(java.util.function.Consumer.class);
 		when(entityScheduler.runAtEntityWithFallback(eq(player), entityTask.capture(), any(Runnable.class)))
-				.thenReturn(CompletableFuture.completedFuture(EntityTaskResult.SUCCESS),
-						CompletableFuture.completedFuture(EntityTaskResult.SCHEDULER_RETIRED));
+				.thenReturn(EntityTaskResultTestCompat.success(),
+						EntityTaskResultTestCompat.schedulerRetired());
 		SharedMysqlPurchaseJournal journal = mock(SharedMysqlPurchaseJournal.class);
 		when(journal.complete("purchase-1")).thenReturn(true);
 		VoteShopPurchaseService.SharedPurchaseDebit debit = new VoteShopPurchaseService.SharedPurchaseDebit(
@@ -1017,7 +1017,7 @@ class VoteShopPurchaseServiceTest {
 		@SuppressWarnings("rawtypes")
 		ArgumentCaptor<java.util.function.Consumer> rewardCallback = ArgumentCaptor.forClass(java.util.function.Consumer.class);
 		when(entityScheduler.runAtEntityWithFallback(eq(player), rewardCallback.capture(), any(Runnable.class)))
-				.thenReturn(CompletableFuture.completedFuture(EntityTaskResult.SUCCESS));
+				.thenReturn(EntityTaskResultTestCompat.success());
 		SharedMysqlPurchaseJournal journal = mock(SharedMysqlPurchaseJournal.class);
 		VoteShopPurchaseService.SharedPurchaseDebit debit = new VoteShopPurchaseService.SharedPurchaseDebit(
 				VoteShopPurchaseResult.SUCCESS, journal, "purchase-1", "Points", null);
@@ -1161,7 +1161,7 @@ class VoteShopPurchaseServiceTest {
 		when(plugin.getTimer()).thenReturn(persistenceExecutor);
 		when(plugin.getDataFolder()).thenReturn(temporaryDirectory.toFile());
 		when(entityScheduler.runAtEntityWithFallback(any(), any(), any(Runnable.class)))
-				.thenReturn(CompletableFuture.completedFuture(EntityTaskResult.SCHEDULER_RETIRED));
+				.thenReturn(EntityTaskResultTestCompat.schedulerRetired());
 		org.mockito.Mockito.doThrow(new java.util.concurrent.RejectedExecutionException("stopping"))
 				.when(persistenceExecutor).execute(any(Runnable.class));
 		org.mockito.Mockito.doThrow(new java.util.concurrent.RejectedExecutionException("disabling"))
@@ -1189,7 +1189,7 @@ class VoteShopPurchaseServiceTest {
 		com.bencodez.simpleapi.folialib.impl.ServerImplementation entityScheduler =
 				plugin.getBukkitScheduler().getFoliaLib().getImpl();
 		when(entityScheduler.runAtEntityWithFallback(any(), any(), any(Runnable.class)))
-				.thenReturn(CompletableFuture.completedFuture(EntityTaskResult.SCHEDULER_RETIRED));
+				.thenReturn(EntityTaskResultTestCompat.schedulerRetired());
 		SharedMysqlPurchaseJournal journal = mock(SharedMysqlPurchaseJournal.class);
 		when(journal.markCompensating("purchase-1"))
 				.thenThrow(new java.sql.SQLException("down"))
@@ -1224,7 +1224,7 @@ class VoteShopPurchaseServiceTest {
 		com.bencodez.simpleapi.folialib.impl.ServerImplementation entityScheduler =
 				plugin.getBukkitScheduler().getFoliaLib().getImpl();
 		when(entityScheduler.runAtEntityWithFallback(any(), any(), any(Runnable.class)))
-				.thenReturn(CompletableFuture.completedFuture(EntityTaskResult.SCHEDULER_RETIRED));
+				.thenReturn(EntityTaskResultTestCompat.schedulerRetired());
 		return plugin;
 	}
 
@@ -1538,7 +1538,7 @@ class VoteShopPurchaseServiceTest {
 		when(scheduler.getFoliaLib()).thenReturn(folia);
 		when(folia.getImpl()).thenReturn(entityScheduler);
 		when(entityScheduler.runAtEntityWithFallback(any(), any(), any(Runnable.class)))
-				.thenReturn(CompletableFuture.completedFuture(EntityTaskResult.SUCCESS));
+				.thenReturn(EntityTaskResultTestCompat.success());
 		VoteShopDefinition definition = mock(VoteShopDefinition.class);
 		when(definition.isEnabled()).thenReturn(true);
 		when(definition.getTitle()).thenReturn("Vote Shop");
