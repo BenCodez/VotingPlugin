@@ -212,16 +212,20 @@ task, executor queue, or platform scheduler entry is **not** durable ownership.
 - Do not remove a pending vote merely because a retry was scheduled. Remove process-owned state only after the vote is
   safely processed/completed or a durable recovery record has been confirmed. Scheduling success does not imply future
   execution; a subsequent shutdown/cancellation can still prevent the callback from running.
-- Exactly-once safety must be considered across totals, points, streaks, VoteParty, rewards, broadcasts, backend delivery,
-  and completion acknowledgement. At-least-once transport is acceptable only when the stable vote ID and durable
-  completion fences prevent duplicate externally visible vote effects.
+- For graceful lifecycle, retry, scheduler, reload, shutdown-handoff, and restart-replay paths, preserve exactly-once
+  vote effects across totals, points, streaks, VoteParty, rewards, broadcasts, backend delivery, and completion
+  acknowledgement. Stable vote IDs and durable completion fences must prevent duplicates caused by those recoverable
+  paths. Do not claim universal exactly-once semantics for arbitrary external side effects: if a reward/command succeeds
+  and the process hard-crashes before its completion record is durably persisted, recovery may repeat that effect. Treat
+  that as the documented hard-crash transaction boundary, not as an acceptable graceful-lifecycle loss/duplication path.
 - Bungee/Waterfall and Velocity must have equivalent lifecycle guarantees. A fix on one proxy platform is incomplete until
   the other platform is audited and either changed or explicitly proven safe with tests.
 - Plugin-message queues and vote queues are separate durability concerns. Reload-abort and retained-runtime paths must
   drain/retry queued messages against the still-valid runtime; do not strand them until an unrelated future reload.
 - Distinguish graceful lifecycle guarantees from unavoidable hard-crash boundaries. Do not claim graceful reload/shutdown
-  safety if accepted work can still disappear through scheduler rejection or cancellation. Separately document any
-  remaining process-crash boundary where an external side effect can occur before its durable completion record.
+  safety if accepted work can still disappear or duplicate through scheduler rejection, cancellation, retry, or restart
+  replay. Separately document any remaining process-crash boundary where an external side effect can occur before its
+  durable completion record; that boundary must not be misrepresented as universally exactly-once.
 
 For any change touching proxy vote receipt, `VoteEventBungee`, `VoteEventVelocity`, `VotingPluginBungee`,
 `VotingPluginVelocity`, `VotingPluginProxy.vote(...)`, proxy schedulers/executors, pending vote/cache state, transport
