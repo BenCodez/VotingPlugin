@@ -5,11 +5,19 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.bukkit.entity.Player;
 
-import com.bencodez.simpleapi.folialib.enums.EntityTaskResult;
 import com.bencodez.votingplugin.VotingPluginMain;
 
 /** Schedules exactly-once completion work with an entity-retirement fallback. */
 public final class BukkitCompletionScheduler {
+
+	/**
+	 * Checks Folia's entity-task completion without depending on its relocated enum type.
+	 * The enum is shaded by SimpleAPI, so naming it directly breaks Eclipse workspace
+	 * resolution when SimpleAPI is open as a source project.
+	 */
+	public static boolean isSuccessfulEntityTaskResult(Object status) {
+		return status instanceof Enum<?> result && "SUCCESS".equals(result.name());
+	}
 	private BukkitCompletionScheduler() {
 	}
 
@@ -49,12 +57,12 @@ public final class BukkitCompletionScheduler {
 				runLegacyEntity(plugin, player, entityOnce, fallback);
 				return;
 			}
-			CompletableFuture<EntityTaskResult> result = plugin.getBukkitScheduler().getFoliaLib().getImpl()
+			CompletableFuture<?> result = plugin.getBukkitScheduler().getFoliaLib().getImpl()
 					.runAtEntityWithFallback(player, ignored -> entityOnce.run(), fallback);
 			result.whenComplete((status, failure) -> {
 				// ENTITY_RETIRED invokes fallback itself. A scheduler that was already
 				// retired returns SCHEDULER_RETIRED without invoking it.
-				if (failure != null || status != EntityTaskResult.SUCCESS) {
+				if (failure != null || !isSuccessfulEntityTaskResult(status)) {
 					fallback.run();
 				} else if (!executed.get()) {
 					// Compatibility with scheduler adapters that report admission but do
