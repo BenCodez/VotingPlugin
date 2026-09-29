@@ -109,6 +109,26 @@ class TimeQueueHandlerRejectionTest {
 	}
 
 	@Test
+	void completedVoteDoesNotRepeatEffectsWhenRetirementPersistenceRetries() {
+		TimeQueueHandler handler = new TimeQueueHandler(plugin);
+		Server server = mock(Server.class);
+		PluginManager manager = mock(PluginManager.class);
+		when(plugin.getServer()).thenReturn(server);
+		when(server.getPluginManager()).thenReturn(manager);
+		when(plugin.getVoteSiteManager().getVoteSiteName(true, "example.org")).thenReturn("example.org");
+		doThrow(new IllegalStateException("save failed")).doNothing()
+				.when(serverData).replaceTimedVoteCache(any());
+
+		handler.processQueue();
+		assertEquals(1, handler.getTimeChangeQueue().size());
+		verify(manager, times(1)).callEvent(any(PlayerVoteEvent.class));
+
+		handler.processQueue();
+		assertEquals(0, handler.getTimeChangeQueue().size());
+		verify(manager, times(1)).callEvent(any(PlayerVoteEvent.class));
+	}
+
+	@Test
 	void cancelledVoteDoesNotStrandLaterQueuedVotes() {
 		TimeQueueHandler handler = new TimeQueueHandler(plugin);
 		handler.addVote("Alex", "second.example.org");
