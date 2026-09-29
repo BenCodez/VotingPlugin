@@ -22,6 +22,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.data.ServerData;
 import com.bencodez.votingplugin.config.ConfigVoteSites;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.listeners.VotiferEvent;
@@ -147,8 +148,9 @@ public class VotiferEventDisabledVoteSiteTest {
 
 	@Test
 	public void testDurableOverflowProcessorPropagatesFailure() {
+		ServerData serverData = plugin.getServerData();
 		doThrow(new IllegalStateException("processing failed"))
-				.when(plugin.getServerData()).addServiceSite(SERVICE_SITE);
+				.when(serverData).addServiceSite(SERVICE_SITE);
 
 		assertThrows(IllegalStateException.class,
 				() -> listener.processVoteDurably(SERVICE_SITE, "Steve"));
