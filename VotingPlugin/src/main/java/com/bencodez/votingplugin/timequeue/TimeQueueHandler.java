@@ -4,6 +4,9 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Queue;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -32,6 +35,8 @@ public class TimeQueueHandler implements Listener {
 	private VotingPluginMain plugin;
 	private final AtomicBoolean retryPending = new AtomicBoolean();
 	private final AtomicInteger retryAttempts = new AtomicInteger();
+	private final Set<VoteTimeQueue> completedAwaitingPersistence =
+			Collections.newSetFromMap(new IdentityHashMap<>());
 
 	/**
 	 * Constructs a new TimeQueueHandler.
@@ -110,22 +115,29 @@ public class TimeQueueHandler implements Listener {
 		while (true) {
 			VoteTimeQueue vote = getTimeChangeQueue().peek();
 			if (vote == null) return;
-			PlayerVoteEvent voteEvent = new PlayerVoteEvent(
-					plugin.getVoteSiteManager().getVoteSite(plugin.getVoteSiteManager().getVoteSiteName(true, vote.getService()), true), vote.getName(),
-					vote.getService(), true);
-			voteEvent.setTime(vote.getTime());
-			try {
-				plugin.getServer().getPluginManager().callEvent(voteEvent);
-			} catch (RuntimeException failure) {
-				plugin.getLogger().warning("Unable to process queued time-change vote; retaining it for retry");
-				plugin.debug(failure);
+			if (!completedAwaitingPersistence.contains(vote)) {
+				PlayerVoteEvent voteEvent = new PlayerVoteEvent(
+						plugin.getVoteSiteManager().getVoteSite(plugin.getVoteSiteManager().getVoteSiteName(true, vote.getService()), true), vote.getName(),
+						vote.getService(), true);
+				voteEvent.setTime(vote.getTime());
+				try {
+					plugin.getServer().getPluginManager().callEvent(voteEvent);
+				} catch (RuntimeException failure) {
+					plugin.getLogger().warning("Unable to process queued time-change vote; retaining it for retry");
+					plugin.debug(failure);
+					scheduleRetry();
+					return;
+				}
+				completedAwaitingPersistence.add(vote);
+				if (voteEvent.isCancelled()) plugin.debug("Vote cancelled");
+			}
+
+			if (!persistWithout(vote)) {
 				scheduleRetry();
 				return;
 			}
-
 			getTimeChangeQueue().remove(vote);
-			persistQueueSnapshot();
-			if (voteEvent.isCancelled()) plugin.debug("Vote cancelled");
+			completedAwaitingPersistence.remove(vote);
 		}
 	}
 
@@ -139,5 +151,18 @@ public class TimeQueueHandler implements Listener {
 
 	private void persistQueueSnapshot() {
 		plugin.getServerData().replaceTimedVoteCache(new ArrayList<>(timeChangeQueue));
+	}
+
+	private boolean persistWithout(VoteTimeQueue completed) {
+		ArrayList<VoteTimeQueue> remaining = new ArrayList<>(timeChangeQueue);
+		remaining.remove(completed);
+		try {
+			plugin.getServerData().replaceTimedVoteCache(remaining);
+			return true;
+		} catch (RuntimeException failure) {
+			plugin.getLogger().warning("Unable to persist completed time-change vote retirement; retrying storage only");
+			plugin.debug(failure);
+			return false;
+		}
 	}
 }
