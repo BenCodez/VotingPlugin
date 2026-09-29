@@ -32,6 +32,7 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.data.ServerData;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.timequeue.TimeQueueHandler;
+import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 
 class TimeQueueHandlerRejectionTest {
 	private VotingPluginMain plugin;
@@ -76,6 +77,22 @@ class TimeQueueHandlerRejectionTest {
 		assertDoesNotThrow(() -> handler.postTimeChange((DateChangedEvent) null));
 		assertEquals(2, handler.getTimeChangeQueue().size());
 		verify(logger, org.mockito.Mockito.atLeastOnce()).warning(anyString());
+	}
+
+	@Test
+	void fullTimeQueueRejectsInsteadOfExpandingDurableStorage() {
+		TimeQueueHandler handler = new TimeQueueHandler(plugin);
+		handler.getTimeChangeQueue().clear();
+		for (int i = 0; i < 4096; i++) {
+			handler.getTimeChangeQueue().add(new VoteTimeQueue("Player" + i, "example.org", i + 1L));
+		}
+		org.mockito.Mockito.clearInvocations(serverData, logger);
+
+		handler.addVote("Overflow", "example.org");
+
+		assertEquals(4096, handler.getTimeChangeQueue().size());
+		verify(serverData, never()).replaceTimedVoteCache(any());
+		verify(logger).severe(org.mockito.ArgumentMatchers.contains("queue is full"));
 	}
 
 	@Test
