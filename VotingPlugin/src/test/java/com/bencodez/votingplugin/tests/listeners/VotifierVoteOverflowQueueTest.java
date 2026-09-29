@@ -135,6 +135,40 @@ class VotifierVoteOverflowQueueTest {
 	}
 
 	@Test
+	void retainsProcessorFailureAcrossQueueRestart(@TempDir Path dataFolder) throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+		ScheduledExecutorService voteTimer = Executors.newSingleThreadScheduledExecutor();
+		Logger logger = mock(Logger.class);
+		CountDownLatch processingAttempted = new CountDownLatch(1);
+		when(plugin.getDataFolder()).thenReturn(dataFolder.toFile());
+		when(plugin.getVoteTimer()).thenReturn(voteTimer);
+		when(plugin.getLogger()).thenReturn(logger);
+
+		VotifierVoteOverflowQueue queue = new VotifierVoteOverflowQueue(plugin, (site, user) -> {
+			processingAttempted.countDown();
+			throw new IllegalStateException("processing failed");
+		});
+		try {
+			assertTrue(queue.enqueue("Steve", "example.org"));
+			queue.start();
+			assertTrue(processingAttempted.await(2, TimeUnit.SECONDS));
+			verify(logger, timeout(2_000)).severe(org.mockito.ArgumentMatchers.contains(
+					"retaining it for restart recovery"));
+			assertEquals(1, queue.size());
+		} finally {
+			queue.close();
+			voteTimer.shutdownNow();
+		}
+
+		VotifierVoteOverflowQueue restarted = new VotifierVoteOverflowQueue(plugin, (site, user) -> { });
+		try {
+			assertEquals(1, restarted.size());
+		} finally {
+			restarted.close();
+		}
+	}
+
+	@Test
 	void retriesPersistenceAfterTransientWriteFailure(@TempDir Path temporaryDirectory) throws Exception {
 		Path dataFolder = temporaryDirectory.resolve("data");
 		Files.writeString(dataFolder, "temporarily blocking the data directory");
