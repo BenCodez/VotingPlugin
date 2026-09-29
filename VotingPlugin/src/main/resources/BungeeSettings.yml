@@ -101,7 +101,7 @@ MQTT:
   Prefix: ''
 
 # Enables more debug messages for communication between servers
-# Use /votingpluginbungee status for testing communication
+# Use /votingpluginproxy status for testing communication
 BungeeDebug: false
 
 # Authenticates ordinary Redis and MQTT envelopes with the shared secretkey.key.
