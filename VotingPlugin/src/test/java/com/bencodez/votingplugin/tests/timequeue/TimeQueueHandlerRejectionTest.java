@@ -10,6 +10,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.reset;
 
@@ -20,12 +21,15 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.Server;
+import org.bukkit.plugin.PluginManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.bencodez.advancedcore.api.time.events.DateChangedEvent;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.data.ServerData;
+import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.timequeue.TimeQueueHandler;
 
 class TimeQueueHandlerRejectionTest {
@@ -71,6 +75,57 @@ class TimeQueueHandlerRejectionTest {
 		assertDoesNotThrow(() -> handler.postTimeChange((DateChangedEvent) null));
 		assertEquals(2, handler.getTimeChangeQueue().size());
 		verify(logger, org.mockito.Mockito.atLeastOnce()).warning(anyString());
+	}
+
+	@Test
+	void newlyQueuedVoteIsPersistedImmediately() {
+		TimeQueueHandler handler = new TimeQueueHandler(plugin);
+		org.mockito.Mockito.clearInvocations(serverData);
+
+		handler.addVote("Alex", "example.org");
+
+		org.mockito.ArgumentCaptor<java.util.Collection<com.bencodez.votingplugin.timequeue.VoteTimeQueue>> snapshot =
+				org.mockito.ArgumentCaptor.forClass(java.util.Collection.class);
+		verify(serverData).replaceTimedVoteCache(snapshot.capture());
+		assertEquals(2, snapshot.getValue().size());
+	}
+
+	@Test
+	void processingFailureRetainsDurableQueueHead() {
+		TimeQueueHandler handler = new TimeQueueHandler(plugin);
+		Server server = mock(Server.class);
+		PluginManager manager = mock(PluginManager.class);
+		when(plugin.getServer()).thenReturn(server);
+		when(server.getPluginManager()).thenReturn(manager);
+		when(plugin.getVoteSiteManager().getVoteSiteName(true, "example.org")).thenReturn("example.org");
+		doThrow(new IllegalStateException("listener failed")).when(manager).callEvent(any(PlayerVoteEvent.class));
+		org.mockito.Mockito.clearInvocations(serverData);
+
+		handler.processQueue();
+
+		assertEquals(1, handler.getTimeChangeQueue().size());
+		verify(serverData, never()).replaceTimedVoteCache(any());
+	}
+
+	@Test
+	void cancelledVoteDoesNotStrandLaterQueuedVotes() {
+		TimeQueueHandler handler = new TimeQueueHandler(plugin);
+		handler.addVote("Alex", "second.example.org");
+		Server server = mock(Server.class);
+		PluginManager manager = mock(PluginManager.class);
+		when(plugin.getServer()).thenReturn(server);
+		when(server.getPluginManager()).thenReturn(manager);
+		when(plugin.getVoteSiteManager().getVoteSiteName(true, anyString())).thenAnswer(invocation -> invocation.getArgument(1));
+		doAnswer(invocation -> {
+			((PlayerVoteEvent) invocation.getArgument(0)).setCancelled(true);
+			return null;
+		}).when(manager).callEvent(any(PlayerVoteEvent.class));
+		org.mockito.Mockito.clearInvocations(serverData);
+
+		handler.processQueue();
+
+		assertEquals(0, handler.getTimeChangeQueue().size());
+		verify(manager, times(2)).callEvent(any(PlayerVoteEvent.class));
 	}
 
 	@Test
