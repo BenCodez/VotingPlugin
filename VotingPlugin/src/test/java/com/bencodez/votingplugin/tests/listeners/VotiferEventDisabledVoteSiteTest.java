@@ -1,5 +1,6 @@
 package com.bencodez.votingplugin.tests.listeners;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
@@ -142,6 +143,15 @@ public class VotiferEventDisabledVoteSiteTest {
 
 		verify(configVoteSites).tryAutoGenerateVoteSite(SERVICE_SITE);
 		verify(pluginManager).callEvent(any(PlayerVoteEvent.class));
+	}
+
+	@Test
+	public void testDurableOverflowProcessorPropagatesFailure() {
+		doThrow(new IllegalStateException("processing failed"))
+				.when(plugin.getServerData()).addServiceSite(SERVICE_SITE);
+
+		assertThrows(IllegalStateException.class,
+				() -> listener.processVoteDurably(SERVICE_SITE, "Steve"));
 	}
 
 	@Test
