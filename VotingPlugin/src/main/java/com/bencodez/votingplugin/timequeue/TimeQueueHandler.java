@@ -29,6 +29,7 @@ import lombok.Getter;
  */
 public class TimeQueueHandler implements Listener {
 	private static final long TICKS_PER_SECOND = 20L;
+	static final int MAX_QUEUED_VOTES = 4096;
 	@Getter
 	private Queue<VoteTimeQueue> timeChangeQueue = new ConcurrentLinkedQueue<>();
 
@@ -55,6 +56,10 @@ public class TimeQueueHandler implements Listener {
 	 * @param voteSiteName the vote site name
 	 */
 	public synchronized void addVote(String voteUsername, String voteSiteName) {
+		if (timeChangeQueue.size() >= MAX_QUEUED_VOTES) {
+			plugin.getLogger().severe("Time-change vote queue is full; rejecting vote instead of expanding durable storage");
+			return;
+		}
 		timeChangeQueue.add(new VoteTimeQueue(voteUsername, voteSiteName,
 				LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()));
 		persistQueueSnapshot();
@@ -64,10 +69,18 @@ public class TimeQueueHandler implements Listener {
 	 * Loads cached votes from server data and schedules queue processing.
 	 */
 	public void load() {
+		boolean truncated = false;
 		for (String str : plugin.getServerData().getTimedVoteCacheKeys()) {
+			if (timeChangeQueue.size() >= MAX_QUEUED_VOTES) {
+				truncated = true;
+				break;
+			}
 			ConfigurationSection data = plugin.getServerData().getTimedVoteCacheSection(str);
 			timeChangeQueue
 					.add(new VoteTimeQueue(data.getString("Name"), data.getString("Service"), data.getLong("Time")));
+		}
+		if (truncated) {
+			plugin.getLogger().severe("Timed vote recovery exceeded the bounded queue; excess persisted votes were not loaded");
 		}
 		scheduleQueueProcessing(120, TimeUnit.SECONDS);
 	}
