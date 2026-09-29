@@ -5,13 +5,16 @@ import java.io.DataInputStream;
 import java.io.File;
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.io.IOException;
 import java.net.URL;
 import java.security.CodeSource;
 import java.util.Collection;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map.Entry;
 import java.util.Queue;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -27,11 +30,13 @@ import com.bencodez.simpleapi.sql.mysql.config.MysqlConfigBungee;
 import com.bencodez.votingplugin.proxy.IncomingVoteRuntimeResult;
 import com.bencodez.votingplugin.proxy.PendingIncomingVote;
 import com.bencodez.votingplugin.proxy.PendingIncomingVoteQueue;
+import com.bencodez.votingplugin.proxy.PendingIncomingVoteJournal;
 import com.bencodez.votingplugin.proxy.ProxyRuntimeReplacementLifecycle;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy.VoteRetryException;
 import com.bencodez.votingplugin.util.MinecraftUsernameValidator;
+import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 
 import lombok.Getter;
 import net.md_5.bungee.api.ChatColor;
@@ -107,6 +112,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 	 */
 	private final Queue<QueuedPluginMessage> queuedPluginMessages = new ConcurrentLinkedQueue<>();
 	private final PendingIncomingVoteQueue pendingIncomingVotes = new PendingIncomingVoteQueue();
+	private PendingIncomingVoteJournal pendingIncomingVoteJournal;
 
 	/**
 	 * Logs debug output if enabled in config.
@@ -245,7 +251,10 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			reloading = false;
 			runtimeOperational = false;
 			runtimeInitialized = false;
-			persistPendingIncomingVotes(votingPluginProxy, "proxy shutdown");
+			if (!persistPendingIncomingVotes(votingPluginProxy, "proxy shutdown")) {
+				getLogger().severe("Proxy shutdown cannot safely continue because accepted votes could not be journaled");
+				return;
+			}
 
 			cancelPlatformTasks();
 
@@ -508,6 +517,9 @@ public class VotingPluginBungee extends Plugin implements Listener {
 							new File(getDataFolder(), "nonvotedplayerscache.json"));
 				}
 				votingPluginProxy.load(voteCacheFile, nonVotedPlayersCache);
+				if (!recoverEmergencyIncomingVotes(votingPluginProxy)) {
+					throw new IllegalStateException("Emergency pending votes could not be adopted");
+				}
 				votingPluginProxy.reload();
 				runtimeInitialized = true;
 			} catch (Throwable t) {
@@ -605,6 +617,11 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				return;
 			}
 			synchronized (reloadLock) {
+				if (!pendingIncomingVotes.isAccepting()) {
+					getLogger().severe("Vote received after VotingPlugin proxy shutdown began; vote was not accepted for "
+							+ MinecraftUsernameValidator.sanitizeForLog(player));
+					return;
+				}
 				pending = new PendingIncomingVote(UUID.randomUUID(), player, service, System.currentTimeMillis());
 				if (votingPluginProxy == null || !votingPluginProxy.retainIncomingVoteForRestart(pending)) {
 					getLogger().severe("Pending vote admission is full and durable overflow failed; vote was not accepted for "
@@ -691,16 +708,56 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 	private boolean persistPendingIncomingVotes(VotingPluginProxy runtime, String reason) {
 		boolean retained = true;
+		List<PendingIncomingVote> emergencyPending = new ArrayList<>();
+		List<VoteTimeQueue> emergencyVotes = new ArrayList<>();
 		for (PendingIncomingVote pending : pendingIncomingVotes.snapshot()) {
 			if (runtime != null && runtime.retainIncomingVoteForRestart(pending)) {
 				pendingIncomingVotes.complete(pending);
 			} else {
 				retained = false;
+				emergencyPending.add(pending);
+				VoteTimeQueue recovery = runtime == null
+						? new VoteTimeQueue(pending.getVoteId(), pending.getPlayer(), pending.getService(), pending.getAcceptedAt())
+						: runtime.snapshotIncomingVoteForRestart(pending);
+				if (recovery == null) recovery = new VoteTimeQueue(pending.getVoteId(), pending.getPlayer(),
+						pending.getService(), pending.getAcceptedAt());
+				emergencyVotes.add(recovery);
 				getLogger().severe("Unable to retain accepted vote during " + reason + " for "
 						+ MinecraftUsernameValidator.sanitizeForLog(pending.getPlayer()));
 			}
 		}
+		if (!emergencyVotes.isEmpty()) {
+			try {
+				pendingIncomingVoteJournal().merge(emergencyVotes);
+				for (PendingIncomingVote pending : emergencyPending) pendingIncomingVotes.complete(pending);
+				retained = true;
+				getLogger().warning("Accepted votes were preserved in the emergency lifecycle journal during " + reason);
+			} catch (IOException | RuntimeException journalFailure) {
+				getLogger().severe("Unable to write the emergency pending-vote journal: " + journalFailure.getMessage());
+			}
+		}
 		return retained;
+	}
+
+	private PendingIncomingVoteJournal pendingIncomingVoteJournal() {
+		if (pendingIncomingVoteJournal == null) {
+			pendingIncomingVoteJournal = new PendingIncomingVoteJournal(getDataFolder().toPath());
+		}
+		return pendingIncomingVoteJournal;
+	}
+
+	private boolean recoverEmergencyIncomingVotes(VotingPluginProxy runtime) {
+		try {
+			List<VoteTimeQueue> remaining = new ArrayList<>();
+			for (VoteTimeQueue vote : pendingIncomingVoteJournal().load()) {
+				if (!runtime.retainIncomingVoteForRestart(vote)) remaining.add(vote);
+			}
+			pendingIncomingVoteJournal().replace(remaining);
+			return remaining.isEmpty();
+		} catch (IOException failure) {
+			getLogger().severe("Unable to recover the emergency pending-vote journal: " + failure.getMessage());
+			return false;
+		}
 	}
 
 	private void retryPendingIncomingVotes() {

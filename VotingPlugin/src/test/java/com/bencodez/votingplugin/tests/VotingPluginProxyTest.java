@@ -2471,7 +2471,7 @@ public class VotingPluginProxyTest {
 		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
 		OfflineBungeeVote serverVote = new OfflineBungeeVote(java.util.UUID.randomUUID(), "Player", "uuid",
 				"Service", 100L, true, "totals");
-		serverVote.setHttpDeliveryId("Server1", "00000000-0000-0000-0000-000000000180");
+		serverVote.setHttpBroadcastDeliveryId("Server1", "00000000-0000-0000-0000-000000000180");
 		OfflineBungeeVote onlineVote = new OfflineBungeeVote(java.util.UUID.randomUUID(), "Player", "uuid",
 				"Service", 101L, true, "totals");
 		onlineVote.setHttpBroadcastDeliveryId("Server2", "00000000-0000-0000-0000-000000000181");
@@ -2881,7 +2881,7 @@ public class VotingPluginProxyTest {
 		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
 		OfflineBungeeVote serverVote = new OfflineBungeeVote(java.util.UUID.randomUUID(), "Player", "uuid",
 				"Service", 100L, true, "totals");
-		serverVote.setHttpDeliveryId("Server1", "00000000-0000-0000-0000-000000000180");
+		serverVote.setHttpBroadcastDeliveryId("Server1", "00000000-0000-0000-0000-000000000180");
 		Mockito.when(voteCache.getCachedVotesServers()).thenReturn(new String[] { "Server1" });
 		Mockito.when(voteCache.getVotes("Server1"))
 				.thenReturn(new java.util.ArrayList<>(java.util.List.of(serverVote)));

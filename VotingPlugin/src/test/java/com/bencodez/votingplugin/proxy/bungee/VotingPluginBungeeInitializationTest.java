@@ -16,10 +16,12 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import com.bencodez.votingplugin.proxy.IncomingVoteRuntimeResult;
 import com.bencodez.votingplugin.proxy.PendingIncomingVote;
 import com.bencodez.votingplugin.proxy.PendingIncomingVoteQueue;
+import com.bencodez.votingplugin.proxy.PendingIncomingVoteJournal;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 
 class VotingPluginBungeeInitializationTest {
@@ -215,7 +217,7 @@ class VotingPluginBungeeInitializationTest {
 	}
 
 	@Test
-	void failedDurableHandoffKeepsTheOnlyInMemoryVote() throws Exception {
+	void failedRuntimeHandoffUsesEmergencyJournal(@TempDir java.nio.file.Path dataDirectory) throws Exception {
 		VotingPluginBungee plugin = mock(VotingPluginBungee.class, CALLS_REAL_METHODS);
 		VotingPluginProxy runtime = mock(VotingPluginProxy.class);
 		net.md_5.bungee.api.ProxyServer proxy = mock(net.md_5.bungee.api.ProxyServer.class);
@@ -225,6 +227,7 @@ class VotingPluginBungeeInitializationTest {
 		setField(plugin, "pendingIncomingVotes", new PendingIncomingVoteQueue());
 		setField(plugin, "votingPluginProxy", runtime);
 		setField(plugin, "runtimeOperational", true);
+		setField(plugin, "pendingIncomingVoteJournal", new PendingIncomingVoteJournal(dataDirectory));
 		when(plugin.getProxy()).thenReturn(proxy);
 		when(proxy.getScheduler()).thenReturn(scheduler);
 		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getLogger("VotingPluginBungeeInitializationTest"));
@@ -237,8 +240,9 @@ class VotingPluginBungeeInitializationTest {
 				"persistPendingIncomingVotes", VotingPluginProxy.class, String.class);
 		persist.setAccessible(true);
 
-		assertFalse((Boolean) persist.invoke(plugin, runtime, "test shutdown"));
-		assertEquals(1, ((PendingIncomingVoteQueue) getField(plugin, "pendingIncomingVotes")).size());
+		assertTrue((Boolean) persist.invoke(plugin, runtime, "test shutdown"));
+		assertEquals(0, ((PendingIncomingVoteQueue) getField(plugin, "pendingIncomingVotes")).size());
+		assertEquals(1, new PendingIncomingVoteJournal(dataDirectory).load().size());
 	}
 
 	@Test

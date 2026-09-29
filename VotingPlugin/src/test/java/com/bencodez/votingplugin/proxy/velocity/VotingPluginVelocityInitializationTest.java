@@ -26,10 +26,34 @@ import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 import com.bencodez.votingplugin.proxy.IncomingVoteRuntimeResult;
 import com.bencodez.votingplugin.proxy.PendingIncomingVote;
 import com.bencodez.votingplugin.proxy.PendingIncomingVoteQueue;
+import com.bencodez.votingplugin.proxy.PendingIncomingVoteJournal;
 import com.velocitypowered.api.event.EventManager;
 import com.velocitypowered.api.proxy.ProxyServer;
 
 class VotingPluginVelocityInitializationTest {
+	@Test
+	void failedRuntimeHandoffUsesEmergencyJournal(@TempDir Path dataDirectory) throws Exception {
+		VotingPluginVelocity plugin = new VotingPluginVelocity(mock(ProxyServer.class), mock(Logger.class),
+				mock(Metrics.Factory.class), dataDirectory);
+		VotingPluginProxy runtime = mock(VotingPluginProxy.class);
+		java.util.concurrent.ScheduledExecutorService timer = mock(java.util.concurrent.ScheduledExecutorService.class);
+		plugin.getTimer().shutdownNow();
+		setField(plugin, "timer", timer);
+		setField(plugin, "votingPluginProxy", runtime);
+		setField(plugin, "runtimeOperational", true);
+		doThrow(new java.util.concurrent.RejectedExecutionException()).when(timer).execute(any(Runnable.class));
+		when(runtime.retainIncomingVoteForRestart(any(PendingIncomingVote.class))).thenReturn(false);
+
+		plugin.acceptIncomingVote("Player", "Service");
+		java.lang.reflect.Method persist = VotingPluginVelocity.class.getDeclaredMethod(
+				"persistPendingIncomingVotes", VotingPluginProxy.class, String.class);
+		persist.setAccessible(true);
+
+		assertTrue((Boolean) persist.invoke(plugin, runtime, "test shutdown"));
+		assertEquals(0, ((PendingIncomingVoteQueue) getField(plugin, "pendingIncomingVotes")).size());
+		assertEquals(1, new PendingIncomingVoteJournal(dataDirectory).load().size());
+	}
+
 	@Test
 	void freshInitializationDoesNotCreateADisposableRuntimeBeforeFullLoad(@TempDir Path dataDirectory) {
 		TestVelocity plugin = new TestVelocity(dataDirectory);

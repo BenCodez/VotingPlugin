@@ -14,10 +14,12 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.security.CodeSource;
 import java.util.Collection;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map.Entry;
 import java.util.Queue;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -41,11 +43,13 @@ import com.bencodez.simpleapi.sql.mysql.config.MysqlConfigVelocity;
 import com.bencodez.votingplugin.proxy.IncomingVoteRuntimeResult;
 import com.bencodez.votingplugin.proxy.PendingIncomingVote;
 import com.bencodez.votingplugin.proxy.PendingIncomingVoteQueue;
+import com.bencodez.votingplugin.proxy.PendingIncomingVoteJournal;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 import com.bencodez.votingplugin.proxy.ProxyRuntimeReplacementLifecycle;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy.VoteRetryException;
 import com.bencodez.votingplugin.util.MinecraftUsernameValidator;
+import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 import com.google.inject.Inject;
 import com.velocitypowered.api.command.CommandMeta;
 import com.velocitypowered.api.event.Subscribe;
@@ -142,6 +146,7 @@ public class VotingPluginVelocity {
 	 */
 	private final Queue<QueuedPluginMessage> queuedPluginMessages = new ConcurrentLinkedQueue<>();
 	private final PendingIncomingVoteQueue pendingIncomingVotes = new PendingIncomingVoteQueue();
+	private final PendingIncomingVoteJournal pendingIncomingVoteJournal;
 
 	@Inject
 	public VotingPluginVelocity(ProxyServer server, Logger logger, Metrics.Factory metricsFactory,
@@ -150,6 +155,7 @@ public class VotingPluginVelocity {
 		this.logger = logger;
 		this.dataDirectory = dataDirectory;
 		this.metricsFactory = metricsFactory;
+		this.pendingIncomingVoteJournal = new PendingIncomingVoteJournal(dataDirectory);
 		this.timer = Executors.newScheduledThreadPool(1);
 	}
 
@@ -310,7 +316,10 @@ public class VotingPluginVelocity {
 			reloading = false;
 			runtimeOperational = false;
 			runtimeInitialized = false;
-			persistPendingIncomingVotes(votingPluginProxy, "proxy shutdown");
+			if (!persistPendingIncomingVotes(votingPluginProxy, "proxy shutdown")) {
+				logger.error("Proxy shutdown cannot safely continue because accepted votes could not be journaled");
+				return;
+			}
 
 			cancelTasks();
 
@@ -469,6 +478,11 @@ public class VotingPluginVelocity {
 				return;
 			}
 			synchronized (reloadLock) {
+				if (!pendingIncomingVotes.isAccepting()) {
+					logger.error("Vote received after VotingPlugin proxy shutdown began; vote was not accepted for {}",
+							MinecraftUsernameValidator.sanitizeForLog(player));
+					return;
+				}
 				pending = new PendingIncomingVote(UUID.randomUUID(), player, service, System.currentTimeMillis());
 				if (votingPluginProxy == null || !votingPluginProxy.retainIncomingVoteForRestart(pending)) {
 					logger.error("Pending vote admission is full and durable overflow failed; vote was not accepted for {}",
@@ -545,16 +559,49 @@ public class VotingPluginVelocity {
 
 	private boolean persistPendingIncomingVotes(VotingPluginProxy runtime, String reason) {
 		boolean retained = true;
+		List<PendingIncomingVote> emergencyPending = new ArrayList<>();
+		List<VoteTimeQueue> emergencyVotes = new ArrayList<>();
 		for (PendingIncomingVote pending : pendingIncomingVotes.snapshot()) {
 			if (runtime != null && runtime.retainIncomingVoteForRestart(pending)) {
 				pendingIncomingVotes.complete(pending);
 			} else {
 				retained = false;
+				emergencyPending.add(pending);
+				VoteTimeQueue recovery = runtime == null
+						? new VoteTimeQueue(pending.getVoteId(), pending.getPlayer(), pending.getService(), pending.getAcceptedAt())
+						: runtime.snapshotIncomingVoteForRestart(pending);
+				if (recovery == null) recovery = new VoteTimeQueue(pending.getVoteId(), pending.getPlayer(),
+						pending.getService(), pending.getAcceptedAt());
+				emergencyVotes.add(recovery);
 				logger.error("Unable to retain accepted vote during {} for {}", reason,
 						MinecraftUsernameValidator.sanitizeForLog(pending.getPlayer()));
 			}
 		}
+		if (!emergencyVotes.isEmpty()) {
+			try {
+				pendingIncomingVoteJournal.merge(emergencyVotes);
+				for (PendingIncomingVote pending : emergencyPending) pendingIncomingVotes.complete(pending);
+				retained = true;
+				logger.warn("Accepted votes were preserved in the emergency lifecycle journal during {}", reason);
+			} catch (IOException journalFailure) {
+				logger.error("Unable to write the emergency pending-vote journal", journalFailure);
+			}
+		}
 		return retained;
+	}
+
+	private boolean recoverEmergencyIncomingVotes(VotingPluginProxy runtime) {
+		try {
+			List<VoteTimeQueue> remaining = new ArrayList<>();
+			for (VoteTimeQueue vote : pendingIncomingVoteJournal.load()) {
+				if (!runtime.retainIncomingVoteForRestart(vote)) remaining.add(vote);
+			}
+			pendingIncomingVoteJournal.replace(remaining);
+			return remaining.isEmpty();
+		} catch (IOException failure) {
+			logger.error("Unable to recover the emergency pending-vote journal", failure);
+			return false;
+		}
 	}
 
 	private void retryPendingIncomingVotes() {
@@ -735,6 +782,9 @@ public class VotingPluginVelocity {
 							new File(dataDirectory.toFile(), "nonvotedplayerscache.json"));
 					convertYamlCachesIfPresent();
 					votingPluginProxy.load(voteCacheFile, nonVotedPlayersCache);
+					if (!recoverEmergencyIncomingVotes(votingPluginProxy)) {
+						throw new IllegalStateException("Emergency pending votes could not be adopted");
+					}
 					votingPluginProxy.reload();
 					runtimeInitialized = true;
 				} catch (Throwable t) {

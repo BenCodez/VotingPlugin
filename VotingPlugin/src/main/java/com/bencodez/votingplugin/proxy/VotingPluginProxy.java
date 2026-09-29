@@ -4257,7 +4257,9 @@ public abstract class VotingPluginProxy {
 	private static boolean hasPendingHttpDelivery(Collection<OfflineBungeeVote> votes) {
 		if (votes == null) return false;
 		for (OfflineBungeeVote vote : votes) {
-			if (vote != null && vote.hasPendingHttpDeliveryIds()) return true;
+			// HttpDeliveryIds is also the legacy reward journal. Only the
+			// standalone HTTP broadcast map proves that HTTP owned this work.
+			if (vote != null && !vote.getHttpBroadcastDeliveryIds().isEmpty()) return true;
 		}
 		return false;
 	}
@@ -5762,28 +5764,64 @@ public abstract class VotingPluginProxy {
 		if (pending == null || pending.getVoteId() == null) return false;
 		VoteCacheHandler cache = getVoteCacheHandler();
 		if (cache == null) return false;
-		VoteTimeQueue queued = null;
-		for (VoteTimeQueue candidate : cache.getTimeChangeQueue()) {
-			if (pending.getVoteId().equals(candidate.getVoteId())) {
-				queued = candidate;
-				break;
-			}
-		}
-		if (queued == null) {
-			queued = new VoteTimeQueue(pending.getVoteId(), pending.getPlayer(), pending.getService(),
-					pending.getAcceptedAt());
-			if (!cache.addTimeVoteToCache(queued)) return false;
-		}
+		return retainIncomingVoteForRestart(snapshotIncomingVoteForRestart(pending));
+	}
+
+	/** Captures the stable identity and partial-effect fences without requiring storage. */
+	public synchronized VoteTimeQueue snapshotIncomingVoteForRestart(PendingIncomingVote pending) {
+		VoteTimeQueue queued = new VoteTimeQueue(pending.getVoteId(), pending.getPlayer(), pending.getService(),
+				pending.getAcceptedAt());
 		LiveVoteRetryState retry = liveVoteRetries.get(pending.getVoteId());
 		if (retry != null) {
 			queued.setUuid(retry.uuid == null ? "" : retry.uuid);
 			queued.setRealVote(retry.realVote);
 			queued.setWasOnline(retry.playerOnline);
+			queued.setVotePartyApplied(retry.votePartyApplied);
+			queued.setTotalsApplied(retry.totalsApplied);
+			queued.getBroadcastForwardedServers().addAll(retry.broadcastForwardedServers);
+			queued.setMultiProxyForwardingHandled(retry.multiProxyForwardingHandled);
+			if (retry.delayValidationKnown) queued.setDelayValidated(retry.delayValidated);
 			if (retry.totals != null) queued.setTotals(retry.totals.toString());
-			queued.setDeliveryStateDirty(true);
-			if (!cache.updateTimeVote(queued)) return false;
-			retry.queuedVote = queued;
 		}
+		return queued;
+	}
+
+	/** Imports a platform emergency-journal record into the normal durable cache. */
+	public synchronized boolean retainIncomingVoteForRestart(VoteTimeQueue recovery) {
+		if (recovery == null || recovery.getVoteId() == null) return false;
+		VoteCacheHandler cache = getVoteCacheHandler();
+		if (cache == null) return false;
+		VoteTimeQueue queued = null;
+		for (VoteTimeQueue candidate : cache.getTimeChangeQueue()) {
+			if (recovery.getVoteId().equals(candidate.getVoteId())) {
+				queued = candidate;
+				break;
+			}
+		}
+		if (queued == null) {
+			queued = recovery;
+			return cache.addTimeVoteToCache(queued);
+		}
+		LiveVoteRetryState retry = liveVoteRetries.get(recovery.getVoteId());
+		if (retry == null && !recovery.isVotePartyApplied() && !recovery.isTotalsApplied()
+				&& recovery.isRealVote() && !recovery.isWasOnlineKnown()
+				&& (recovery.getUuid() == null || recovery.getUuid().isEmpty())
+				&& (recovery.getTotals() == null || recovery.getTotals().isEmpty())) return true;
+		VoteTimeQueue state = retry == null ? recovery
+				: snapshotIncomingVoteForRestart(new PendingIncomingVote(recovery.getVoteId(), recovery.getName(),
+						recovery.getService(), recovery.getTime()));
+		queued.setUuid(state.getUuid());
+		queued.setRealVote(state.isRealVote());
+		if (state.isWasOnlineKnown()) queued.setWasOnline(state.isWasOnline());
+		queued.setVotePartyApplied(state.isVotePartyApplied());
+		queued.setTotalsApplied(state.isTotalsApplied());
+		queued.setTotals(state.getTotals());
+		queued.getBroadcastForwardedServers().addAll(state.getBroadcastForwardedServers());
+		queued.setMultiProxyForwardingHandled(state.isMultiProxyForwardingHandled());
+		if (state.isDelayValidationKnown()) queued.setDelayValidated(state.isDelayValidated());
+		queued.setDeliveryStateDirty(true);
+		if (!cache.updateTimeVote(queued)) return false;
+		if (retry != null) retry.queuedVote = queued;
 		return true;
 	}
 
@@ -6031,6 +6069,8 @@ public abstract class VotingPluginProxy {
 			if (queuedVote != null) {
 				retryState.queuedVote = queuedVote;
 				retryState.multiProxyForwardingHandled |= queuedVote.isMultiProxyForwardingHandled();
+				retryState.votePartyApplied |= queuedVote.isVotePartyApplied();
+				retryState.totalsApplied |= queuedVote.isTotalsApplied();
 			}
 			if (!retryState.votePartyApplied) {
 				// Fence the side effect before invoking it. If the call reports an
