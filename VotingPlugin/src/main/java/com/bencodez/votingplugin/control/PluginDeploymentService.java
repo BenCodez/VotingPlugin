@@ -122,9 +122,9 @@ public final class PluginDeploymentService {
 		if (!staging.compareAndSet(false, true)) return Result.failure("DEPLOYMENT_FAILED", "Another deployment is still staging");
 		try {
 			validate(task);
-			if (!credentialEndpointAllowed(endpoint, directLocalHosted)) {
+			if (!deploymentEndpointAllowed(endpoint)) {
 				return Result.failure("INSECURE_ENDPOINT",
-						"Verified update staging requires HTTPS unless Control is hosted directly on this node");
+						"Verified update staging requires an HTTP or HTTPS Control endpoint");
 			}
 			if (!active.getAsBoolean()) return Result.failure("CANCELLED", "Deployment was cancelled before download");
 			if (alreadyStaged(task)) return Result.restartRequired();
@@ -444,29 +444,27 @@ public final class PluginDeploymentService {
 		DurableFiles.forceDirectory(directory);
 	}
 
-	/** True when a deployment bearer credential may be sent to this Control endpoint. */
-	public static boolean credentialEndpointAllowed(URI endpoint, boolean directLocalHosted) {
+	/**
+	 * True when the configured Control transport can carry a deployment request.
+	 *
+	 * <p>HTTP remains supported for trusted private networks for compatibility with the
+	 * rest of the Control connector. Callers warn operators because HTTPS is strongly
+	 * recommended whenever traffic leaves the local process.</p>
+	 */
+	public static boolean deploymentEndpointAllowed(URI endpoint) {
 		if (endpoint == null) return false;
-		if ("https".equalsIgnoreCase(endpoint.getScheme())) return true;
-		return directLocalHosted && "http".equalsIgnoreCase(endpoint.getScheme())
-				&& isLoopbackHost(endpoint.getHost());
+		return "https".equalsIgnoreCase(endpoint.getScheme())
+				|| "http".equalsIgnoreCase(endpoint.getScheme());
 	}
 
-	private static boolean isLoopbackHost(String host) {
-		if (host == null) return false;
-		String normalized = host;
-		if (normalized.length() >= 2 && normalized.charAt(0) == '['
-				&& normalized.charAt(normalized.length() - 1) == ']') {
-			normalized = normalized.substring(1, normalized.length() - 1);
-		}
-		if ("localhost".equalsIgnoreCase(normalized) || "::1".equalsIgnoreCase(normalized)
-				|| "0:0:0:0:0:0:0:1".equalsIgnoreCase(normalized)) return true;
-		String[] octets = normalized.split("\\.", -1);
-		if (octets.length != 4 || !"127".equals(octets[0])) return false;
-		for (int index = 1; index < octets.length; index++) {
-			if (!octets[index].matches("[0-9]{1,3}") || Integer.parseInt(octets[index]) > 255) return false;
-		}
-		return true;
+	/** @deprecated Use {@link #deploymentEndpointAllowed(URI)}. */
+	@Deprecated
+	public static boolean credentialEndpointAllowed(URI endpoint, boolean directLocalHosted) {
+		return deploymentEndpointAllowed(endpoint);
+	}
+
+	public static boolean usesUnencryptedHttp(URI endpoint) {
+		return endpoint != null && "http".equalsIgnoreCase(endpoint.getScheme());
 	}
 
 	private static MessageDigest sha256() {

@@ -194,10 +194,11 @@ and never restarts a proxy or backend automatically. A node advertises it only w
 
 - the connector is the currently enabled Control route, not a recovery-only connector draining an older durable result;
 - a safe local staging target was prepared;
-- the Control endpoint is HTTPS, or it is the already-proven direct same-node hosted HTTP listener.
+- the Control endpoint uses HTTP or HTTPS.
 
-Arbitrary private-network HTTP does not qualify for deployment because the artifact request carries the node bearer
-credential. The shared staging service enforces the same transport rule again before sending that credential.
+HTTP remains supported for trusted private networks so deployment has the same transport compatibility as the rest of
+the connector. HTTPS is strongly recommended because the artifact request carries the node bearer credential and the
+plugin artifact in transit. Connectors log that recommendation at startup when staging is enabled over HTTP.
 
 Control leases deployment work separately from configuration operations:
 

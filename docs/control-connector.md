@@ -212,10 +212,10 @@ restart. This capability is deliberately separate from configuration control and
 VotingPlugin never hot-reloads itself and never restarts the server or proxy automatically.
 
 Deployment is available only on the currently enabled Control route. Recovery-only connectors that exist solely to
-acknowledge an older durable result never advertise or poll this capability. The node also requires a credential-safe
-artifact transport: HTTPS is accepted generally; HTTP is accepted only when the existing hosted-Control checks prove the
-endpoint is the direct same-node listener. A LAN/private HTTP endpoint may still be used for ordinary Control operations,
-but it is intentionally ineligible for credentialed plugin-JAR staging.
+acknowledge an older durable result never advertise or poll this capability. Both configured HTTP and HTTPS endpoints
+can stage artifacts so trusted private-network installations retain the same compatibility as ordinary Control
+operations. HTTPS is strongly recommended because the artifact request carries the node bearer credential and plugin
+artifact in transit; connectors emit a startup warning when verified staging is enabled over HTTP.
 
 Control leases deployment work through `POST /api/v1/nodes/{nodeId}/deployments`. The node downloads the artifact through
 the matching deployment artifact endpoint with its bearer credential plus exact session and attempt headers, then
