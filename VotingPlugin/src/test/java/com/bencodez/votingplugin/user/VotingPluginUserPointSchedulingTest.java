@@ -1,5 +1,6 @@
 package com.bencodez.votingplugin.user;
 
+import com.bencodez.votingplugin.util.EntityTaskResultTestCompat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -52,7 +53,6 @@ import com.bencodez.advancedcore.api.user.usercache.UserDataCache;
 import com.bencodez.simpleapi.sql.mysql.ConnectionManager;
 import com.bencodez.simpleapi.scheduler.BukkitScheduler;
 import com.bencodez.simpleapi.folialib.FoliaLib;
-import com.bencodez.simpleapi.folialib.enums.EntityTaskResult;
 import com.bencodez.simpleapi.folialib.impl.ServerImplementation;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerReceivePointsEvent;
@@ -803,7 +803,7 @@ class VotingPluginUserPointSchedulingTest {
 		when(fixture.connection.prepareStatement(anyString())).thenReturn(schema, schema, schema, schema, lookup,
 				claimInsert, releaseSelect, releaseDelete);
 		when(fixture.entityScheduler.runAtEntityWithFallback(eq(fixture.player), any(), any(Runnable.class)))
-				.thenReturn(CompletableFuture.completedFuture(EntityTaskResult.SCHEDULER_RETIRED));
+				.thenReturn(EntityTaskResultTestCompat.schedulerRetired());
 		doThrow(new RejectedExecutionException("stopping")).when(fixture.scheduler)
 				.runTask(eq(fixture.plugin), any(Runnable.class));
 		PluginManager pluginManager = mock(PluginManager.class);
@@ -829,7 +829,7 @@ class VotingPluginUserPointSchedulingTest {
 	@Test
 	void retiredEntitySchedulerQueuesUnstartedHookReleaseWithoutJdbcOnCompletionLane() throws Exception {
 		PointFixture fixture = pointFixture();
-		CompletableFuture<EntityTaskResult> entityCompletion = new CompletableFuture<>();
+		CompletableFuture entityCompletion = EntityTaskResultTestCompat.pending();
 		when(fixture.entityScheduler.runAtEntityWithFallback(eq(fixture.player), any(), any(Runnable.class)))
 				.thenReturn(entityCompletion);
 		PreparedStatement statement = fixture.statement;
@@ -866,7 +866,7 @@ class VotingPluginUserPointSchedulingTest {
 
 		com.bencodez.simpleapi.sql.mysql.ConnectionManager manager = fixture.sql.getConnectionManager();
 		org.mockito.Mockito.clearInvocations(fixture.persistence, manager, fixture.connection, statement);
-		entityCompletion.complete(EntityTaskResult.SCHEDULER_RETIRED);
+		EntityTaskResultTestCompat.completeSchedulerRetired(entityCompletion);
 
 		ArgumentCaptor<Runnable> releaseWork = ArgumentCaptor.forClass(Runnable.class);
 		verify(fixture.persistence).execute(releaseWork.capture());
@@ -883,7 +883,7 @@ class VotingPluginUserPointSchedulingTest {
 	@Test
 	void retiredEntitySchedulerRetainsClaimWhenNoDatabaseSafeReleaseWorkerAcceptsWork() throws Exception {
 		PointFixture fixture = pointFixture();
-		CompletableFuture<EntityTaskResult> entityCompletion = new CompletableFuture<>();
+		CompletableFuture entityCompletion = EntityTaskResultTestCompat.pending();
 		when(fixture.entityScheduler.runAtEntityWithFallback(eq(fixture.player), any(), any(Runnable.class)))
 				.thenReturn(entityCompletion);
 		PreparedStatement statement = fixture.statement;
@@ -923,7 +923,7 @@ class VotingPluginUserPointSchedulingTest {
 		doThrow(new RejectedExecutionException("stopping")).when(fixture.persistence).execute(any(Runnable.class));
 		doThrow(new RejectedExecutionException("disabling")).when(fixture.scheduler)
 				.runTaskAsynchronously(eq(fixture.plugin), any(Runnable.class));
-		entityCompletion.complete(EntityTaskResult.SCHEDULER_RETIRED);
+		EntityTaskResultTestCompat.completeSchedulerRetired(entityCompletion);
 
 		assertTrue(completion.isCompletedExceptionally());
 		verify(fixture.scheduler).runTaskAsynchronously(eq(fixture.plugin), any(Runnable.class));
@@ -1348,7 +1348,7 @@ class VotingPluginUserPointSchedulingTest {
 		SagaFixture fixture = sagaFixture(true);
 		configureRejectedSagaConnections(fixture);
 		when(fixture.entityScheduler.runAtEntityWithFallback(any(), any(), any(Runnable.class)))
-				.thenReturn(CompletableFuture.completedFuture(EntityTaskResult.SCHEDULER_RETIRED));
+				.thenReturn(EntityTaskResultTestCompat.schedulerRetired());
 		AtomicReference<Boolean> result = new AtomicReference<>();
 
 		fixture.user.transferPoints(fixture.target, 10, result::set);
@@ -1378,7 +1378,7 @@ class VotingPluginUserPointSchedulingTest {
 		SagaFixture fixture = sagaFixture(true);
 		configureRejectedSagaConnections(fixture);
 		when(fixture.entityScheduler.runAtEntityWithFallback(any(), any(), any(Runnable.class)))
-				.thenReturn(CompletableFuture.completedFuture(EntityTaskResult.SCHEDULER_RETIRED));
+				.thenReturn(EntityTaskResultTestCompat.schedulerRetired());
 		AtomicReference<Boolean> result = new AtomicReference<>();
 
 		fixture.user.transferPoints(fixture.target, 10, result::set);
@@ -1412,7 +1412,7 @@ class VotingPluginUserPointSchedulingTest {
 		when(fixture.plugin.getDataFolder()).thenReturn(temporaryDirectory.toFile());
 		configureRejectedSagaConnections(fixture);
 		when(fixture.entityScheduler.runAtEntityWithFallback(any(), any(), any(Runnable.class)))
-				.thenReturn(CompletableFuture.completedFuture(EntityTaskResult.SCHEDULER_RETIRED));
+				.thenReturn(EntityTaskResultTestCompat.schedulerRetired());
 		AtomicReference<Boolean> result = new AtomicReference<>();
 
 		fixture.user.transferPoints(fixture.target, 10, result::set);
@@ -1446,7 +1446,7 @@ class VotingPluginUserPointSchedulingTest {
 		when(fixture.plugin.getDataFolder()).thenReturn(temporaryDirectory.toFile());
 		configureRejectedSagaConnections(fixture);
 		when(fixture.entityScheduler.runAtEntityWithFallback(any(), any(), any(Runnable.class)))
-				.thenReturn(CompletableFuture.completedFuture(EntityTaskResult.SCHEDULER_RETIRED));
+				.thenReturn(EntityTaskResultTestCompat.schedulerRetired());
 
 		fixture.user.transferPoints(fixture.target, 10, ignored -> { });
 		ArgumentCaptor<Runnable> persistence = ArgumentCaptor.forClass(Runnable.class);
@@ -1968,7 +1968,7 @@ class VotingPluginUserPointSchedulingTest {
 		when(scheduler.getFoliaLib()).thenReturn(folia);
 		when(folia.getImpl()).thenReturn(entityScheduler);
 		when(entityScheduler.runAtEntityWithFallback(any(), any(), any(Runnable.class)))
-				.thenReturn(CompletableFuture.completedFuture(EntityTaskResult.SUCCESS));
+				.thenReturn(EntityTaskResultTestCompat.success());
 		return entityScheduler;
 	}
 
