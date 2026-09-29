@@ -51,7 +51,7 @@ public class ServiceSiteHandler {
 	static final int MAX_KEY_LENGTH = 128;
 	static final int MAX_VALUE_LENGTH = 2048;
 
-	private static final String PRIMARY_URL = "https://raw.githubusercontent.com/wiki/BenCodez/VotingPlugin/Minecraft-Server-Lists.md";
+	static final String PRIMARY_URL = "https://raw.githubusercontent.com/wiki/BenCodez/VotingPlugin/VotingPlugin/Minecraft-Server-Lists.md";
 	private static final String SECONDARY_URL = "https://wiki.bencodez.com/en/VotingPlugin/Minecraft-Server-Lists";
 	private static final String TERTIARY_URL = "https://wiki-backup.bencodez.com/VotingPlugin/Minecraft-Server-Lists/";
 
@@ -341,7 +341,8 @@ public class ServiceSiteHandler {
 
 	static boolean isSafeEntry(String key, String value) {
 		return key != null && value != null && !key.isEmpty() && !value.isEmpty()
-				&& key.length() <= MAX_KEY_LENGTH && value.length() <= MAX_VALUE_LENGTH;
+				&& key.length() <= MAX_KEY_LENGTH && value.length() <= MAX_VALUE_LENGTH
+				&& !(key.equalsIgnoreCase("Domain") && value.equalsIgnoreCase("Service site"));
 	}
 
 	private static boolean mapsEqual(Map<String, String> a, Map<String, String> b) {
