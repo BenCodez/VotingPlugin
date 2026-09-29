@@ -50,6 +50,14 @@ public class VoteTimeQueue {
 	@Getter
 	@Setter
 	private boolean processed;
+	/** Whether VoteParty was already advanced before this vote entered durable recovery. */
+	@Getter
+	@Setter
+	private boolean votePartyApplied;
+	/** Whether totals/points were already written before this vote entered durable recovery. */
+	@Getter
+	@Setter
+	private boolean totalsApplied;
 	/** Whether multi-proxy forwarding was durably handled for this queued vote. */
 	@Getter
 	@Setter

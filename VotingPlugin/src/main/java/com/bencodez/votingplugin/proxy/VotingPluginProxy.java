@@ -320,6 +320,12 @@ public abstract class VotingPluginProxy {
 	private boolean cachedVoteDeliveryRetryScheduled;
 	private boolean votePartyDeliveryRetryScheduled;
 	private boolean deferredHttpTransportReconciliation;
+	/**
+	 * Remembers that retained HTTP state could not be started in this runtime.
+	 * This prevents an undeletable retained-listener file from immediately
+	 * re-selecting HTTP on the next reload.
+	 */
+	private boolean retainedHttpUnstartable;
 	private boolean httpTransportReconciliationScheduled;
 	private boolean httpTransportReconciliationRunning;
 	private long httpTransportReconciliationGeneration;
@@ -1931,7 +1937,9 @@ public abstract class VotingPluginProxy {
 		} catch (IOException failure) {
 			throw new IllegalStateException("Unable to load durable proxy vote delivery outbox", failure);
 		}
-		method = retainHttpForPendingDeliveries(method);
+		synchronized (this) {
+			method = retainHttpForPendingDeliveries(method);
+		}
 
 		nonVotedPlayersCache = new NonVotedPlayersCache(getNonVotedCacheMySQLConfig(),
 				getConfig().getNonVotedCacheUseMySQL(), getConfig().getNonVotedCacheUseMainMySQL(),
@@ -2244,7 +2252,7 @@ public abstract class VotingPluginProxy {
 		// Open the listener last: backend callbacks can immediately reach routing,
 		// presence, vote-log, multi-proxy, and Control-adjacent runtime helpers.
 		if (method.equals(BungeeMethod.HTTP)) {
-			startHttpTransport();
+			startHttpTransportOrFallBack();
 		}
 		scheduleVotePartyDeliveryRetry();
 
@@ -2886,9 +2894,16 @@ public abstract class VotingPluginProxy {
 	}
 
 	private VoteTimeQueue findUnprocessedQueuedVote(UUID voteId) {
+		VoteTimeQueue queued = findQueuedVote(voteId);
+		return queued != null && !queued.isProcessed() ? queued : null;
+	}
+
+	private VoteTimeQueue findQueuedVote(UUID voteId) {
 		if (voteId == null) return null;
-		for (VoteTimeQueue queued : getVoteCacheHandler().getTimeChangeQueue()) {
-			if (voteId.equals(queued.getVoteId()) && !queued.isProcessed()) return queued;
+		VoteCacheHandler cache = getVoteCacheHandler();
+		if (cache == null || cache.getTimeChangeQueue() == null) return null;
+		for (VoteTimeQueue queued : cache.getTimeChangeQueue()) {
+			if (voteId.equals(queued.getVoteId())) return queued;
 		}
 		return null;
 	}
@@ -3881,9 +3896,22 @@ public abstract class VotingPluginProxy {
 	}
 
 	private void scheduleTimeVoteRetry() {
-		if (timeVoteRetryScheduled || getScheduler() == null) {
-			return;
-		}
+		scheduleTimeVoteRetry(5);
+	}
+
+	/**
+	 * Schedules durable queued-vote replay independently of global-data rollover.
+	 * Listener votes handed off during proxy lifecycle changes use this path.
+	 */
+	public synchronized boolean scheduleQueuedVoteReplay() {
+		VoteCacheHandler cache = getVoteCacheHandler();
+		if (cache == null || cache.getTimeChangeQueue() == null || cache.getTimeChangeQueue().isEmpty()) return true;
+		return scheduleTimeVoteRetry(0);
+	}
+
+	private boolean scheduleTimeVoteRetry(long delaySeconds) {
+		if (timeVoteRetryScheduled) return true;
+		if (getScheduler() == null) return false;
 		timeVoteRetryScheduled = true;
 		try {
 			getScheduler().schedule(() -> {
@@ -3891,10 +3919,12 @@ public abstract class VotingPluginProxy {
 					timeVoteRetryScheduled = false;
 				}
 				processQueue();
-			}, 5, TimeUnit.SECONDS);
+			}, delaySeconds, TimeUnit.SECONDS);
+			return true;
 		} catch (RuntimeException e) {
 			timeVoteRetryScheduled = false;
 			debug("Unable to schedule rollover vote retry: " + e.getMessage());
+			return false;
 		}
 	}
 
@@ -3917,7 +3947,9 @@ public abstract class VotingPluginProxy {
 		SharedTransportEnvelopeAuthenticator replacementAuthenticator = createSharedTransportAuthenticator(
 				configuredMethod);
 		TransportEnvelopeEncryption replacementEncryption = createCommunicationEncryption();
-		method = retainHttpForPendingDeliveries(configuredMethod);
+		synchronized (this) {
+			method = retainHttpForPendingDeliveries(configuredMethod);
+		}
 		installTransportSecurity(replacementAuthenticator, replacementEncryption);
 		sharedTransportAuthenticationFailureLogged.set(false);
 		sharedTransportCompatibilityWarningLogged.set(false);
@@ -3970,6 +4002,18 @@ public abstract class VotingPluginProxy {
 			return configuredMethod;
 		}
 		HttpProxyTransportServer transport = httpTransportServer;
+		// Cached delivery IDs are not proof that this proxy ever ran HTTP: the
+		// transport-independent reward journal historically stores its crash-durable
+		// IDs in the same map. A configured non-HTTP runtime may retain HTTP only when
+		// this process is already running HTTP, a live HTTP transport exists, or a
+		// valid retained listener snapshot proves HTTP previously ran here.
+		if (configuredMethod != BungeeMethod.HTTP && method != BungeeMethod.HTTP && transport == null
+				&& (retainedHttpUnstartable || !hasRetainedHttpListenerSettings())) {
+			deferredHttpTransportReconciliation = false;
+			retainedHttpStartupSettings = null;
+			logParkedHttpQueueIfPresent();
+			return configuredMethod;
+		}
 		if (transport != null && httpTransportHasPendingDeliveries(transport)) {
 			persistLiveHttpListenerSettings();
 			deferredHttpTransportReconciliation = true;
@@ -4024,6 +4068,34 @@ public abstract class VotingPluginProxy {
 
 	private Path retainedHttpListenerSettingsPath() {
 		return getDataFolderPlugin().toPath().resolve("http").resolve("retained-listener-v1.bin");
+	}
+
+	/**
+	 * Returns true only when the retained listener snapshot exists and is readable.
+	 * A corrupt snapshot must never force a configured non-HTTP proxy into HTTP.
+	 */
+	private boolean hasRetainedHttpListenerSettings() {
+		Path source = retainedHttpListenerSettingsPath();
+		if (!Files.isRegularFile(source)) return false;
+		try {
+			return loadRetainedHttpListenerSettings() != null;
+		} catch (IOException invalid) {
+			logSevere("Ignoring unreadable retained HTTP listener settings at " + source + " (" + invalid.getMessage()
+					+ "); delete or replace the file");
+			return false;
+		}
+	}
+
+	/** Warns when HTTP-only queue files remain parked while a non-HTTP transport runs. */
+	private void logParkedHttpQueueIfPresent() {
+		Path outgoing = getDataFolderPlugin().toPath().resolve("http").resolve("outgoing-v1");
+		try {
+			if (httpQueueHasPersistedDeliveries(outgoing)) {
+				logSevere("HTTP-only queued deliveries in http/outgoing-v1 stay parked until an HTTP transport starts again");
+			}
+		} catch (IOException unreadableQueue) {
+			logSevere("HTTP-only queued deliveries in http/outgoing-v1 could not be inspected and stay parked until an HTTP transport starts again");
+		}
 	}
 
 	private void persistLiveHttpListenerSettings() {
@@ -4087,10 +4159,15 @@ public abstract class VotingPluginProxy {
 
 	private void clearRetainedHttpListenerSettings() {
 		try {
-			DurableFiles.deleteIfExists(retainedHttpListenerSettingsPath());
+			deleteRetainedHttpListenerSettings(retainedHttpListenerSettingsPath());
 		} catch (IOException failure) {
 			logSevere("Unable to remove obsolete retained HTTP listener settings: " + failure.getMessage());
 		}
+	}
+
+	/** Filesystem seam used to verify that an undeletable retained snapshot stays fenced in memory. */
+	protected void deleteRetainedHttpListenerSettings(Path source) throws IOException {
+		DurableFiles.deleteIfExists(source);
 	}
 
 	private boolean hasChangedLiveHttpConfiguration() {
@@ -4180,7 +4257,9 @@ public abstract class VotingPluginProxy {
 	private static boolean hasPendingHttpDelivery(Collection<OfflineBungeeVote> votes) {
 		if (votes == null) return false;
 		for (OfflineBungeeVote vote : votes) {
-			if (vote != null && vote.hasPendingHttpDeliveryIds()) return true;
+			// HttpDeliveryIds is also the legacy reward journal. Only the
+			// standalone HTTP broadcast map proves that HTTP owned this work.
+			if (vote != null && !vote.getHttpBroadcastDeliveryIds().isEmpty()) return true;
 		}
 		return false;
 	}
@@ -4343,6 +4422,38 @@ public abstract class VotingPluginProxy {
 	protected synchronized boolean sendHttpEnvelope(String server, String deliveryId, JsonEnvelope envelope) {
 		HttpProxyTransportServer transport = httpTransportServer;
 		return transport != null && transport.send(server, deliveryId, envelope);
+	}
+
+	/**
+	 * Starts retained HTTP state, falling back only to PLUGINMESSAGING when the
+	 * retained listener cannot be reconstructed. Other configured transports need
+	 * their own initialization and therefore fail closed instead of pretending to
+	 * be operational.
+	 */
+	private void startHttpTransportOrFallBack() {
+		try {
+			startHttpTransport();
+			retainedHttpUnstartable = false;
+		} catch (IllegalStateException failure) {
+			BungeeMethod configuredMethod = BungeeMethod.getByName(getConfig().getBungeeMethod());
+			if (configuredMethod != BungeeMethod.PLUGINMESSAGING) throw failure;
+			Throwable cause = failure.getCause() != null ? failure.getCause() : failure;
+			String reason = cause.getMessage() != null ? cause.getMessage() : cause.toString();
+			logSevere("Retained HTTP transport could not start (" + reason
+					+ "); continuing with the configured PLUGINMESSAGING transport");
+			logParkedHttpQueueIfPresent();
+			synchronized (this) {
+				method = configuredMethod;
+				deferredHttpTransportReconciliation = false;
+				retainedHttpStartupSettings = null;
+				retainedHttpUnstartable = true;
+				clearRetainedHttpListenerSettings();
+			}
+			if (getConfig().getPluginMessageEncryption() && encryptionHandler == null) {
+				encryptionHandler = new EncryptionHandler("VotingPlugin",
+						new File(getDataFolderPlugin(), "secretkey.key"));
+			}
+		}
 	}
 
 	private void startHttpTransport() {
@@ -5630,7 +5741,8 @@ public abstract class VotingPluginProxy {
 
 	public synchronized void vote(String player, String service, boolean realVote, boolean timeQueue, long queueTime,
 			VoteTotalsSnapshot text, String uuid, UUID voteId) {
-		if (vote(player, service, realVote, timeQueue, queueTime, text, uuid, null, voteId) == QueuedVoteResult.RETRY) {
+		VoteTimeQueue retained = findQueuedVote(voteId);
+		if (vote(player, service, realVote, timeQueue, queueTime, text, uuid, retained, voteId) == QueuedVoteResult.RETRY) {
 			throw new VoteRetryException();
 		}
 	}
@@ -5638,6 +5750,79 @@ public abstract class VotingPluginProxy {
 	/** Releases retry-only state after the bounded event-listener retries are exhausted. */
 	public synchronized void abandonLiveVoteRetry(UUID voteId) {
 		if (voteId != null) liveVoteRetries.remove(voteId);
+	}
+
+	/**
+	 * Hands a platform-owned Votifier event to the existing durable timed-vote
+	 * journal before proxy teardown. The stable ID links any partially completed
+	 * live retry to this row, so shutdown settlement and restart replay share one
+	 * completion fence.
+	 *
+	 * @return true once the vote is durably recoverable
+	 */
+	public synchronized boolean retainIncomingVoteForRestart(PendingIncomingVote pending) {
+		if (pending == null || pending.getVoteId() == null) return false;
+		VoteCacheHandler cache = getVoteCacheHandler();
+		if (cache == null) return false;
+		return retainIncomingVoteForRestart(snapshotIncomingVoteForRestart(pending));
+	}
+
+	/** Captures the stable identity and partial-effect fences without requiring storage. */
+	public synchronized VoteTimeQueue snapshotIncomingVoteForRestart(PendingIncomingVote pending) {
+		VoteTimeQueue queued = new VoteTimeQueue(pending.getVoteId(), pending.getPlayer(), pending.getService(),
+				pending.getAcceptedAt());
+		LiveVoteRetryState retry = liveVoteRetries.get(pending.getVoteId());
+		if (retry != null) {
+			queued.setUuid(retry.uuid == null ? "" : retry.uuid);
+			queued.setRealVote(retry.realVote);
+			queued.setWasOnline(retry.playerOnline);
+			queued.setVotePartyApplied(retry.votePartyApplied);
+			queued.setTotalsApplied(retry.totalsApplied);
+			queued.getBroadcastForwardedServers().addAll(retry.broadcastForwardedServers);
+			queued.setMultiProxyForwardingHandled(retry.multiProxyForwardingHandled);
+			if (retry.delayValidationKnown) queued.setDelayValidated(retry.delayValidated);
+			if (retry.totals != null) queued.setTotals(retry.totals.toString());
+		}
+		return queued;
+	}
+
+	/** Imports a platform emergency-journal record into the normal durable cache. */
+	public synchronized boolean retainIncomingVoteForRestart(VoteTimeQueue recovery) {
+		if (recovery == null || recovery.getVoteId() == null) return false;
+		VoteCacheHandler cache = getVoteCacheHandler();
+		if (cache == null) return false;
+		VoteTimeQueue queued = null;
+		for (VoteTimeQueue candidate : cache.getTimeChangeQueue()) {
+			if (recovery.getVoteId().equals(candidate.getVoteId())) {
+				queued = candidate;
+				break;
+			}
+		}
+		if (queued == null) {
+			queued = recovery;
+			return cache.addTimeVoteToCache(queued);
+		}
+		LiveVoteRetryState retry = liveVoteRetries.get(recovery.getVoteId());
+		if (retry == null && !recovery.isVotePartyApplied() && !recovery.isTotalsApplied()
+				&& recovery.isRealVote() && !recovery.isWasOnlineKnown()
+				&& (recovery.getUuid() == null || recovery.getUuid().isEmpty())
+				&& (recovery.getTotals() == null || recovery.getTotals().isEmpty())) return true;
+		VoteTimeQueue state = retry == null ? recovery
+				: snapshotIncomingVoteForRestart(new PendingIncomingVote(recovery.getVoteId(), recovery.getName(),
+						recovery.getService(), recovery.getTime()));
+		queued.setUuid(state.getUuid());
+		queued.setRealVote(state.isRealVote());
+		if (state.isWasOnlineKnown()) queued.setWasOnline(state.isWasOnline());
+		queued.setVotePartyApplied(state.isVotePartyApplied());
+		queued.setTotalsApplied(state.isTotalsApplied());
+		queued.setTotals(state.getTotals());
+		queued.getBroadcastForwardedServers().addAll(state.getBroadcastForwardedServers());
+		queued.setMultiProxyForwardingHandled(state.isMultiProxyForwardingHandled());
+		if (state.isDelayValidationKnown()) queued.setDelayValidated(state.isDelayValidated());
+		queued.setDeliveryStateDirty(true);
+		if (!cache.updateTimeVote(queued)) return false;
+		if (retry != null) retry.queuedVote = queued;
+		return true;
 	}
 
 	enum QueuedVoteResult {
@@ -5884,6 +6069,8 @@ public abstract class VotingPluginProxy {
 			if (queuedVote != null) {
 				retryState.queuedVote = queuedVote;
 				retryState.multiProxyForwardingHandled |= queuedVote.isMultiProxyForwardingHandled();
+				retryState.votePartyApplied |= queuedVote.isVotePartyApplied();
+				retryState.totalsApplied |= queuedVote.isTotalsApplied();
 			}
 			if (!retryState.votePartyApplied) {
 				// Fence the side effect before invoking it. If the call reports an

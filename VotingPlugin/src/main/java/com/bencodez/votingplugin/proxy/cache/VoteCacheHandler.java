@@ -1311,6 +1311,8 @@ public abstract class VoteCacheHandler {
 				voteTimeQueue.setMultiProxyForwardingRequired(timedVoteRow.isMultiProxyForwardingRequired());
 				voteTimeQueue.setMultiProxyCapabilityDiscoveryPending(
 						timedVoteRow.isMultiProxyCapabilityDiscoveryPending());
+				voteTimeQueue.setVotePartyApplied(timedVoteRow.isVotePartyApplied());
+				voteTimeQueue.setTotalsApplied(timedVoteRow.isTotalsApplied());
 				voteTimeQueue.setRealVote(timedVoteRow.isRealVote());
 				if (timedVoteRow.isWasOnlineKnown()) voteTimeQueue.setWasOnline(timedVoteRow.isWasOnline());
 				if (timedVoteRow.getDelayValidation() >= 0) {
@@ -1576,6 +1578,8 @@ public abstract class VoteCacheHandler {
 		String broadcastTargets = data.has("BroadcastTargets") ? data.get("BroadcastTargets").asString() : "";
 		String totals = data.has("Totals") ? data.get("Totals").asString() : "";
 		boolean processed = data.has("Processed") && data.get("Processed").asBoolean();
+		boolean votePartyApplied = data.has("VotePartyApplied") && data.get("VotePartyApplied").asBoolean();
+		boolean totalsApplied = data.has("TotalsApplied") && data.get("TotalsApplied").asBoolean();
 		boolean multiProxyForwardingHandled = data.has("MultiProxyForwardingHandled")
 				&& data.get("MultiProxyForwardingHandled").asBoolean();
 		String httpBroadcastDeliveryIds = data.has("HttpBroadcastDeliveryIds")
@@ -1585,6 +1589,8 @@ public abstract class VoteCacheHandler {
 				VoteTimeQueue.decodeBroadcastForwardedServers(forwardedServers), totals, processed,
 				multiProxyForwardingHandled, uuid,
 				VoteTimeQueue.decodeHttpBroadcastDeliveryIds(httpBroadcastDeliveryIds));
+		queuedVote.setVotePartyApplied(votePartyApplied);
+		queuedVote.setTotalsApplied(totalsApplied);
 		queuedVote.setMultiProxyForwardingRequired(data.has("MultiProxyForwardingRequired")
 				&& data.get("MultiProxyForwardingRequired").asBoolean());
 		queuedVote.setMultiProxyCapabilityDiscoveryPending(data.has("MultiProxyCapabilityDiscoveryPending")
