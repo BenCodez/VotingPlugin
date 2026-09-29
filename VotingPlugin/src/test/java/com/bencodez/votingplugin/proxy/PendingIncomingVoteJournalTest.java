@@ -60,4 +60,13 @@ class PendingIncomingVoteJournalTest {
 
 		assertEquals(1, journal.load().size());
 	}
+
+	@Test
+	void supportedLongServiceIdentifierSurvivesRecovery() throws Exception {
+		PendingIncomingVoteJournal journal = new PendingIncomingVoteJournal(temporaryDirectory);
+		String service = "s".repeat(2048);
+		journal.merge(List.of(new VoteTimeQueue(UUID.randomUUID(), "Player", service, 1L)));
+
+		assertEquals(service, journal.load().get(0).getService());
+	}
 }

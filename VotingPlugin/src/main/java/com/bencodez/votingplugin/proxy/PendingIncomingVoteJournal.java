@@ -14,6 +14,7 @@ import java.util.UUID;
 
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 import com.bencodez.votingplugin.util.DurableFiles;
+import com.bencodez.votingplugin.util.ServiceSiteValidator;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -43,8 +44,10 @@ public final class PendingIncomingVoteJournal {
 			JsonObject value = element.getAsJsonObject();
 			try {
 				UUID voteId = UUID.fromString(required(value, "voteId", 36));
-				VoteTimeQueue vote = new VoteTimeQueue(voteId, required(value, "player", 100),
-						required(value, "service", 100), value.get("acceptedAt").getAsLong());
+				String service = required(value, "service", ServiceSiteValidator.MAX_LENGTH);
+				if (!ServiceSiteValidator.isValid(service)) throw new IOException("Invalid service");
+				VoteTimeQueue vote = new VoteTimeQueue(voteId, required(value, "player", 100), service,
+						value.get("acceptedAt").getAsLong());
 				vote.setUuid(optional(value, "uuid", 36));
 				vote.setRealVote(!value.has("realVote") || value.get("realVote").getAsBoolean());
 				if (value.has("wasOnlineKnown") && value.get("wasOnlineKnown").getAsBoolean()) {
