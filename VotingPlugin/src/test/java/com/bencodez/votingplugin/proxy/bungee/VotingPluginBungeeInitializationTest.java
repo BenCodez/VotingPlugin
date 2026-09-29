@@ -174,6 +174,23 @@ class VotingPluginBungeeInitializationTest {
 	}
 
 	@Test
+	void fullPendingAdmissionRejectsInsteadOfSpillingToDurableRecovery() throws Exception {
+		VotingPluginBungee plugin = mock(VotingPluginBungee.class, CALLS_REAL_METHODS);
+		VotingPluginProxy runtime = mock(VotingPluginProxy.class);
+		PendingIncomingVoteQueue queue = new PendingIncomingVoteQueue();
+		for (int i = 0; i < 4096; i++) assertTrue(queue.admit("Player" + i, "Service") != null);
+		setField(plugin, "pendingIncomingVotes", queue);
+		setField(plugin, "votingPluginProxy", runtime);
+		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getLogger("VotingPluginBungeeInitializationTest"));
+
+		plugin.acceptIncomingVote("Overflow", "Service");
+
+		assertEquals(4096, queue.size());
+		verify(runtime, never()).retainIncomingVoteForRestart(any(PendingIncomingVote.class));
+		verify(runtime, never()).scheduleQueuedVoteReplay();
+	}
+
+	@Test
 	void failedDurableHandoffSchedulesAnotherAttempt() throws Exception {
 		VotingPluginBungee plugin = mock(VotingPluginBungee.class, CALLS_REAL_METHODS);
 		VotingPluginProxy runtime = mock(VotingPluginProxy.class);
