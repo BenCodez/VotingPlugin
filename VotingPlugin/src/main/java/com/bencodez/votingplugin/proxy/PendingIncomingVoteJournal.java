@@ -31,6 +31,16 @@ public final class PendingIncomingVoteJournal {
 	}
 
 	public synchronized List<VoteTimeQueue> load() throws IOException {
+		try {
+			return loadValidated();
+		} catch (IOException failure) {
+			throw failure;
+		} catch (RuntimeException failure) {
+			throw new IOException("Pending vote journal contains malformed data", failure);
+		}
+	}
+
+	private List<VoteTimeQueue> loadValidated() throws IOException {
 		if (!Files.exists(file, LinkOption.NOFOLLOW_LINKS)) return new ArrayList<>();
 		if (Files.isSymbolicLink(file) || !Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)
 				|| Files.size(file) > MAX_BYTES) throw new IOException("Pending vote journal is invalid");

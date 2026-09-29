@@ -703,7 +703,32 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		}
 		getLogger().severe("Unable to durably retain accepted vote for "
 				+ MinecraftUsernameValidator.sanitizeForLog(pending.getPlayer())
-				+ "; keeping it in process memory for a later lifecycle retry");
+				+ "; keeping it in process memory and retrying the durable handoff");
+		schedulePendingDurableHandoff(pending, pending.nextDurableHandoffDelaySeconds());
+	}
+
+	private void schedulePendingDurableHandoff(PendingIncomingVote pending, long delaySeconds) {
+		if (!pendingIncomingVotes.contains(pending.getVoteId()) || !pending.beginScheduling()) return;
+		Runnable wakeup = () -> {
+			pending.endScheduling();
+			if (!pendingIncomingVotes.contains(pending.getVoteId()) || !pending.beginProcessing()) return;
+			try {
+				persistTerminalPendingVote(pending);
+			} finally {
+				pending.endProcessing();
+			}
+		};
+		try {
+			ScheduledTask accepted = getProxy().getScheduler().schedule(this, wakeup, delaySeconds,
+					TimeUnit.SECONDS);
+			if (accepted == null) {
+				pending.endScheduling();
+				getLogger().warning("Proxy scheduler declined durable vote-handoff retry; the vote remains owned for lifecycle recovery");
+			}
+		} catch (RuntimeException rejected) {
+			pending.endScheduling();
+			getLogger().warning("Unable to schedule durable vote-handoff retry; the vote remains owned for lifecycle recovery");
+		}
 	}
 
 	private boolean persistPendingIncomingVotes(VotingPluginProxy runtime, String reason) {

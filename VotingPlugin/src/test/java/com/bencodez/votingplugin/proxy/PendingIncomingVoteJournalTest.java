@@ -79,4 +79,12 @@ class PendingIncomingVoteJournalTest {
 		assertThrows(java.io.IOException.class, () -> journal.merge(List.of(invalid)));
 		assertFalse(Files.exists(temporaryDirectory.resolve("pending-incoming-votes-v1.json")));
 	}
+
+	@Test
+	void malformedJsonIsReportedAsCheckedRecoveryFailure() throws Exception {
+		PendingIncomingVoteJournal journal = new PendingIncomingVoteJournal(temporaryDirectory);
+		Files.writeString(temporaryDirectory.resolve("pending-incoming-votes-v1.json"), "[{broken]");
+
+		assertThrows(java.io.IOException.class, journal::load);
+	}
 }

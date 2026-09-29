@@ -232,6 +232,36 @@ class VotingPluginVelocityInitializationTest {
 	}
 
 	@Test
+	void failedDurableHandoffSchedulesAnotherAttempt(@TempDir Path dataDirectory) throws Exception {
+		VotingPluginVelocity plugin = new VotingPluginVelocity(mock(ProxyServer.class), mock(Logger.class),
+				mock(Metrics.Factory.class), dataDirectory);
+		VotingPluginProxy runtime = mock(VotingPluginProxy.class);
+		java.util.concurrent.ScheduledExecutorService timer = mock(java.util.concurrent.ScheduledExecutorService.class);
+		PendingIncomingVoteQueue queue = (PendingIncomingVoteQueue) getField(plugin, "pendingIncomingVotes");
+		PendingIncomingVote pending = queue.admit("Player", "Service");
+		java.util.concurrent.atomic.AtomicReference<Runnable> retry = new java.util.concurrent.atomic.AtomicReference<>();
+		plugin.getTimer().shutdownNow();
+		setField(plugin, "timer", timer);
+		setField(plugin, "votingPluginProxy", runtime);
+		when(runtime.retainIncomingVoteForRestart(pending)).thenReturn(false, true);
+		doAnswer(invocation -> {
+			retry.set(invocation.getArgument(0));
+			return mock(java.util.concurrent.ScheduledFuture.class);
+		}).when(timer).schedule(any(Runnable.class), eq(5L), eq(java.util.concurrent.TimeUnit.SECONDS));
+		java.lang.reflect.Method persist = VotingPluginVelocity.class.getDeclaredMethod(
+				"persistTerminalPendingVote", PendingIncomingVote.class);
+		persist.setAccessible(true);
+
+		persist.invoke(plugin, pending);
+
+		assertEquals(1, queue.size());
+		assertTrue(retry.get() != null);
+		retry.get().run();
+		assertEquals(0, queue.size());
+		verify(runtime, org.mockito.Mockito.times(2)).retainIncomingVoteForRestart(pending);
+	}
+
+	@Test
 	void voteIsOwnedBeforeAFullReloadReleasesTheLifecycleLock(@TempDir Path dataDirectory) throws Exception {
 		VotingPluginVelocity plugin = new VotingPluginVelocity(mock(ProxyServer.class), mock(Logger.class),
 				mock(Metrics.Factory.class), dataDirectory);

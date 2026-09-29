@@ -23,6 +23,7 @@ public final class PendingIncomingVote {
 	private final AtomicBoolean scheduled = new AtomicBoolean();
 	@Getter
 	private int storageAttempts;
+	private int durableHandoffAttempts;
 
 	public PendingIncomingVote(UUID voteId, String player, String service, long acceptedAt) {
 		this.voteId = voteId;
@@ -50,5 +51,11 @@ public final class PendingIncomingVote {
 
 	public int incrementStorageAttempts() {
 		return ++storageAttempts;
+	}
+
+	/** Returns a capped backoff for retrying transfer into durable ownership. */
+	public long nextDurableHandoffDelaySeconds() {
+		long delay = 5L << Math.min(durableHandoffAttempts++, 4);
+		return Math.min(delay, 60L);
 	}
 }

@@ -553,8 +553,28 @@ public class VotingPluginVelocity {
 				return;
 			}
 		}
-		logger.error("Unable to durably retain accepted vote for {}; keeping it in process memory for a later lifecycle retry",
+		logger.error("Unable to durably retain accepted vote for {}; keeping it in process memory and retrying the durable handoff",
 				MinecraftUsernameValidator.sanitizeForLog(pending.getPlayer()));
+		schedulePendingDurableHandoff(pending, pending.nextDurableHandoffDelaySeconds());
+	}
+
+	private void schedulePendingDurableHandoff(PendingIncomingVote pending, long delaySeconds) {
+		if (!pendingIncomingVotes.contains(pending.getVoteId()) || !pending.beginScheduling()) return;
+		Runnable wakeup = () -> {
+			pending.endScheduling();
+			if (!pendingIncomingVotes.contains(pending.getVoteId()) || !pending.beginProcessing()) return;
+			try {
+				persistTerminalPendingVote(pending);
+			} finally {
+				pending.endProcessing();
+			}
+		};
+		try {
+			timer.schedule(wakeup, delaySeconds, TimeUnit.SECONDS);
+		} catch (RejectedExecutionException rejected) {
+			pending.endScheduling();
+			logger.warn("Unable to schedule durable vote-handoff retry; the vote remains owned for lifecycle recovery");
+		}
 	}
 
 	private boolean persistPendingIncomingVotes(VotingPluginProxy runtime, String reason) {

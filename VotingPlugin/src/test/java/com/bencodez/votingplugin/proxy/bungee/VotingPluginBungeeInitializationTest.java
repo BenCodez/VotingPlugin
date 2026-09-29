@@ -174,6 +174,41 @@ class VotingPluginBungeeInitializationTest {
 	}
 
 	@Test
+	void failedDurableHandoffSchedulesAnotherAttempt() throws Exception {
+		VotingPluginBungee plugin = mock(VotingPluginBungee.class, CALLS_REAL_METHODS);
+		VotingPluginProxy runtime = mock(VotingPluginProxy.class);
+		net.md_5.bungee.api.ProxyServer proxy = mock(net.md_5.bungee.api.ProxyServer.class);
+		net.md_5.bungee.api.scheduler.TaskScheduler scheduler =
+				mock(net.md_5.bungee.api.scheduler.TaskScheduler.class);
+		PendingIncomingVoteQueue queue = new PendingIncomingVoteQueue();
+		PendingIncomingVote pending = queue.admit("Player", "Service");
+		java.util.concurrent.atomic.AtomicReference<Runnable> retry = new java.util.concurrent.atomic.AtomicReference<>();
+		setField(plugin, "reloadLock", new Object());
+		setField(plugin, "pendingIncomingVotes", queue);
+		setField(plugin, "votingPluginProxy", runtime);
+		when(plugin.getProxy()).thenReturn(proxy);
+		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getLogger("VotingPluginBungeeInitializationTest"));
+		when(runtime.retainIncomingVoteForRestart(pending)).thenReturn(false, true);
+		doAnswer(invocation -> {
+			retry.set(invocation.getArgument(1));
+			return mock(net.md_5.bungee.api.scheduler.ScheduledTask.class);
+		}).when(scheduler).schedule(eq(plugin), any(Runnable.class), eq(5L),
+				eq(java.util.concurrent.TimeUnit.SECONDS));
+		when(proxy.getScheduler()).thenReturn(scheduler);
+		java.lang.reflect.Method persist = VotingPluginBungee.class.getDeclaredMethod(
+				"persistTerminalPendingVote", PendingIncomingVote.class);
+		persist.setAccessible(true);
+
+		persist.invoke(plugin, pending);
+
+		assertEquals(1, queue.size());
+		assertTrue(retry.get() != null);
+		retry.get().run();
+		assertEquals(0, queue.size());
+		verify(runtime, org.mockito.Mockito.times(2)).retainIncomingVoteForRestart(pending);
+	}
+
+	@Test
 	void voteIsOwnedBeforeAFullReloadReleasesTheLifecycleLock() throws Exception {
 		VotingPluginBungee plugin = mock(VotingPluginBungee.class, CALLS_REAL_METHODS);
 		VotingPluginProxy runtime = mock(VotingPluginProxy.class);
