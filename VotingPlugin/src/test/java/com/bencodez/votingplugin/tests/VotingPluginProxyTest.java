@@ -3411,6 +3411,31 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
+	void pluginMessagingCapabilityProbeSkipsServersWithoutPlayerCarrier() throws Exception {
+		votingPluginProxy.setMethod(BungeeMethod.PLUGINMESSAGING);
+		votingPluginProxy.setAvailableServers("Server1", "Server2");
+		com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler messageHandler = Mockito
+				.mock(com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler.class);
+		votingPluginProxy.setGlobalMessageProxyHandlerForTest(messageHandler);
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(false).when(spyProxy).isSomeoneOnlineServer("Server1");
+		Mockito.doReturn(true).when(spyProxy).isSomeoneOnlineServer("Server2");
+
+		java.lang.reflect.Method probe = VotingPluginProxy.class
+				.getDeclaredMethod("probeReliableVoteDeliveryCapabilities");
+		probe.setAccessible(true);
+		probe.invoke(spyProxy);
+
+		org.mockito.ArgumentCaptor<String> target = org.mockito.ArgumentCaptor.forClass(String.class);
+		org.mockito.ArgumentCaptor<JsonEnvelope> envelope = org.mockito.ArgumentCaptor.forClass(JsonEnvelope.class);
+		verify(messageHandler).sendMessage(target.capture(), Mockito.eq(1), envelope.capture());
+		assertEquals("Server2", target.getValue());
+		assertEquals(VotingPluginWire.SUB_STATUS, envelope.getValue().getSubChannel());
+		assertEquals("Server2", envelope.getValue().getFields().get(VotingPluginWire.K_SERVER));
+		Mockito.verifyNoMoreInteractions(messageHandler);
+	}
+
+	@Test
 	void standaloneMysqlBroadcastReportsTransportFailure() throws Exception {
 		MySqlMessenger messenger = Mockito.mock(MySqlMessenger.class);
 		Mockito.doThrow(new java.sql.SQLException("send failed")).when(messenger)
