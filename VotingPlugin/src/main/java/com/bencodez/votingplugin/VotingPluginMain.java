@@ -2035,7 +2035,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		pm.registerEvents(new PlayerJoinEvent(this), this);
 		if (isVotifierLoaded()) {
 			VotiferEvent votifierEvent = new VotiferEvent(this);
-			votifierVoteOverflowQueue = new VotifierVoteOverflowQueue(this, votifierEvent::processVote);
+			votifierVoteOverflowQueue = new VotifierVoteOverflowQueue(this, votifierEvent::processVoteDurably);
 			pm.registerEvents(votifierEvent, this);
 		}
 		pm.registerEvents(new PlayerVoteListener(this), this);
