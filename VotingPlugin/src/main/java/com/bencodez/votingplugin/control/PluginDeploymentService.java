@@ -120,12 +120,17 @@ public final class PluginDeploymentService {
 
 	public Result deploy(Task task, URI endpoint, boolean directLocalHosted, String nodeId, UUID sessionId,
 			String credential, HttpClient http, Duration timeout, BooleanSupplier active) {
+		return deploy(task, endpoint, directLocalHosted, false, nodeId, sessionId, credential, http, timeout, active);
+	}
+
+	public Result deploy(Task task, URI endpoint, boolean directLocalHosted, boolean allowInsecurePrivateHttp,
+			String nodeId, UUID sessionId, String credential, HttpClient http, Duration timeout, BooleanSupplier active) {
 		if (!staging.compareAndSet(false, true)) return Result.failure("DEPLOYMENT_FAILED", "Another deployment is still staging");
 		try {
 			validate(task);
-			if (!deploymentEndpointAllowed(endpoint, directLocalHosted)) {
+			if (!deploymentEndpointAllowed(endpoint, directLocalHosted, allowInsecurePrivateHttp)) {
 				return Result.failure("INSECURE_ENDPOINT",
-						"Verified update staging requires HTTPS, a literal private-network HTTP endpoint, or proven same-node localhost hosting");
+						"Plugin staging requires HTTPS, local HTTP, or explicit opt-in for literal private-network HTTP");
 			}
 			if (!active.getAsBoolean()) return Result.failure("CANCELLED", "Deployment was cancelled before download");
 			if (alreadyStaged(task)) return Result.restartRequired();
@@ -448,22 +453,61 @@ public final class PluginDeploymentService {
 	/**
 	 * True when the configured Control transport can carry a deployment request.
 	 *
-	 * <p>HTTP remains supported for literal loopback, link-local, and private network
-	 * addresses. The overload also permits {@code localhost} when direct local hosting
+	 * <p>HTTP remains supported for literal loopback. Non-loopback link-local and private network
+	 * addresses require an explicit insecure-deployment opt-in unless direct same-node hosting is proven.
+	 * The overload also permits {@code localhost} when direct local hosting
 	 * is confirmed. Public addresses and other hostnames require HTTPS. Callers warn
 	 * operators because HTTPS is strongly recommended whenever traffic leaves the
 	 * local process.</p>
 	 */
 	public static boolean deploymentEndpointAllowed(URI endpoint) {
-		return deploymentEndpointAllowed(endpoint, false);
+		return deploymentEndpointAllowed(endpoint, false, false);
 	}
 
 	public static boolean deploymentEndpointAllowed(URI endpoint, boolean directLocalHosted) {
-		if (endpoint == null) return false;
-		return "https".equalsIgnoreCase(endpoint.getScheme())
-				|| "http".equalsIgnoreCase(endpoint.getScheme())
-				&& (isLocalNetworkAddress(endpoint.getHost())
-						|| directLocalHosted && "localhost".equalsIgnoreCase(endpoint.getHost()));
+		return deploymentEndpointAllowed(endpoint, directLocalHosted, false);
+	}
+
+	public static boolean deploymentEndpointAllowed(URI endpoint, boolean directLocalHosted,
+			boolean allowInsecurePrivateHttp) {
+		return deploymentEndpointPolicy(endpoint, directLocalHosted, allowInsecurePrivateHttp).allowed();
+	}
+
+	/** No DNS-based private-host relaxation; local-host proof never authorizes arbitrary hostnames. */
+	public static DeploymentEndpointPolicy deploymentEndpointPolicy(URI endpoint, boolean directLocalHosted,
+			boolean allowInsecurePrivateHttp) {
+		if (endpoint == null) return DeploymentEndpointPolicy.UNSUPPORTED;
+		if ("https".equalsIgnoreCase(endpoint.getScheme())) return DeploymentEndpointPolicy.HTTPS;
+		if (!usesUnencryptedHttp(endpoint)) return DeploymentEndpointPolicy.UNSUPPORTED;
+		String host = endpoint.getHost();
+		InetAddress localAddress = localNetworkAddress(host);
+		if (localAddress != null) {
+			if (localAddress.isLoopbackAddress() || directLocalHosted) return DeploymentEndpointPolicy.LOCAL_HTTP;
+			return allowInsecurePrivateHttp ? DeploymentEndpointPolicy.PRIVATE_HTTP_OPT_IN
+					: DeploymentEndpointPolicy.PRIVATE_HTTP_DISABLED;
+		}
+		if (directLocalHosted && "localhost".equalsIgnoreCase(host)) return DeploymentEndpointPolicy.LOCAL_HTTP;
+		return DeploymentEndpointPolicy.UNSUPPORTED;
+	}
+
+	public enum DeploymentEndpointPolicy {
+		HTTPS(true), LOCAL_HTTP(true), PRIVATE_HTTP_OPT_IN(true), PRIVATE_HTTP_DISABLED(false), UNSUPPORTED(false);
+
+		private final boolean allowed;
+		DeploymentEndpointPolicy(boolean allowed) { this.allowed = allowed; }
+		public boolean allowed() { return allowed; }
+		public String initializationMessage() {
+			return switch (this) {
+				case PRIVATE_HTTP_DISABLED -> "Plugin deployment over private-network HTTP is disabled. "
+						+ "Use HTTPS or explicitly enable Control.AllowInsecureHttpPluginDeployment.";
+				case PRIVATE_HTTP_OPT_IN -> "WARNING: Executable plugin deployment and node credentials cross an "
+						+ "unauthenticated plaintext HTTP connection. Deployment metadata and artifacts can both be "
+						+ "substituted by a network attacker. HTTPS is strongly recommended.";
+				case UNSUPPORTED -> "Plugin deployment requires HTTPS, local HTTP, or opted-in literal private-network HTTP; "
+						+ "public HTTP and arbitrary HTTP hostnames are prohibited.";
+				default -> null;
+			};
+		}
 	}
 
 	/** @deprecated Retained for credential transport callers; use {@link #deploymentEndpointAllowed(URI, boolean)} only for deployment staging. */
@@ -479,23 +523,23 @@ public final class PluginDeploymentService {
 		return endpoint != null && "http".equalsIgnoreCase(endpoint.getScheme());
 	}
 
-	private static boolean isLocalNetworkAddress(String host) {
-		if (host == null || host.isBlank()) return false;
+	private static InetAddress localNetworkAddress(String host) {
+		if (host == null || host.isBlank()) return null;
 		String literal = host;
 		if (literal.length() >= 2 && literal.charAt(0) == '[' && literal.charAt(literal.length() - 1) == ']') {
 			literal = literal.substring(1, literal.length() - 1);
 		}
 		int zone = literal.indexOf('%');
 		if (zone >= 0) literal = literal.substring(0, zone);
-		if (!(literal.indexOf(':') >= 0 || literal.matches("[0-9]{1,3}(\\.[0-9]{1,3}){3}"))) return false;
+		if (!(literal.indexOf(':') >= 0 || literal.matches("[0-9]{1,3}(\\.[0-9]{1,3}){3}"))) return null;
 		try {
 			InetAddress address = InetAddress.getByName(literal);
 			byte[] bytes = address.getAddress();
 			boolean uniqueLocalV6 = bytes.length == 16 && (bytes[0] & 0xfe) == 0xfc;
 			return address.isLoopbackAddress() || address.isSiteLocalAddress()
-					|| address.isLinkLocalAddress() || uniqueLocalV6;
+					|| address.isLinkLocalAddress() || uniqueLocalV6 ? address : null;
 		} catch (Exception invalid) {
-			return false;
+			return null;
 		}
 	}
 

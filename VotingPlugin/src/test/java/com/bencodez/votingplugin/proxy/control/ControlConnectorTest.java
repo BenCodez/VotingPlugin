@@ -102,6 +102,45 @@ class ControlConnectorTest {
 		assertEquals(1, secondSnapshot.get("sequence").getAsLong());
 	}
 
+	@Test void bungeeDeploymentSettingDefaultsOffAndReadsExplicitTrue() {
+		com.bencodez.votingplugin.proxy.bungee.BungeeConfig config = mock(
+				com.bencodez.votingplugin.proxy.bungee.BungeeConfig.class, CALLS_REAL_METHODS);
+		net.md_5.bungee.config.Configuration data = new net.md_5.bungee.config.Configuration();
+		when(config.getData()).thenReturn(data);
+		assertFalse(config.getControlAllowInsecureHttpPluginDeployment());
+		data.set("Control.AllowInsecureHttpPluginDeployment", true);
+		assertTrue(config.getControlAllowInsecureHttpPluginDeployment());
+	}
+
+	@Test void privateHttpWithoutOptInDoesNotPrepareOrAdvertiseProxyDeployment() throws Exception {
+		com.bencodez.votingplugin.proxy.VotingPluginProxy proxy = mock(com.bencodez.votingplugin.proxy.VotingPluginProxy.class);
+		com.bencodez.votingplugin.proxy.VotingPluginProxyConfig config = mock(com.bencodez.votingplugin.proxy.VotingPluginProxyConfig.class, CALLS_REAL_METHODS);
+		when(proxy.getDataFolderPlugin()).thenReturn(dataDirectory.toFile());
+		when(proxy.getConfig()).thenReturn(config);
+		when(proxy.getScheduler()).thenReturn(scheduler);
+		when(proxy.getProxyPlatform()).thenReturn("VELOCITY");
+		when(proxy.getPluginVersion()).thenReturn("7.1.2");
+		when(config.getControlEnabled()).thenReturn(true);
+		when(config.getControlNodeId()).thenReturn("proxy-a");
+		when(config.getControlEndpoint()).thenReturn("http://192.168.0.50:2150");
+		when(config.getControlCredentialFile()).thenReturn("test-credential.txt");
+		Files.writeString(dataDirectory.resolve("test-credential.txt"), "test-credential");
+		try (ControlConnector privateHttp = ControlConnector.create(proxy)) {
+			Field field = ControlConnector.class.getDeclaredField("deployments");
+			field.setAccessible(true);
+			assertNull(field.get(privateHttp));
+			JsonObject body = new JsonObject();
+			ControlConnector.addCapabilities(body, true, true, true, true, field.get(privateHttp) != null);
+			assertFalse(body.getAsJsonArray("capabilities").asList().stream()
+					.anyMatch(value -> PluginDeploymentService.CAPABILITY.equals(value.getAsString())));
+			verify(proxy).log(contains("Plugin deployment over private-network HTTP is disabled"));
+			verify(proxy, never()).log(contains("staging is unavailable"));
+			Field executor = ControlConnector.class.getDeclaredField("deploymentExecutor");
+			executor.setAccessible(true);
+			assertNull(executor.get(privateHttp), "disabled deployment never allocates its worker");
+		}
+	}
+
 	@Test void deploymentCapabilityIsAdvertisedOnlyWhenProxyStagingIsReady() {
 		JsonObject unavailable = new JsonObject();
 		ControlConnector.addCapabilities(unavailable, true, true, true, true, false);
@@ -1011,11 +1050,11 @@ class ControlConnectorTest {
 				LongSupplier.class, ProxyRoutingConfigurationService.class, Path.class, ProxyControlResultStore.Route.class,
 				boolean.class, Runnable.class, Function.class, ProxyMethodConfigurationService.class, Runnable.class,
 				ProxyConfigurationFileService.class, PluginDeploymentService.class, HttpClient.class, String.class,
-				boolean.class);
+				boolean.class, boolean.class);
 		constructor.setAccessible(true);
 		return constructor.newInstance(settings(), scheduler, transport, (Supplier<List<ObservedBackend>>) List::of,
 				(Consumer<String>) logs::add, UUID.randomUUID(), (LongSupplier) () -> 0L, null, null, null, false,
-				null, null, null, null, null, deployments, HttpClient.newHttpClient(), "credential", false);
+				null, null, null, null, null, deployments, HttpClient.newHttpClient(), "credential", false, false);
 	}
 
 	private void setConnectorField(String name, Object value) throws Exception {

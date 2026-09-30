@@ -75,6 +75,11 @@ public interface VotingPluginProxyConfig {
 		return "http://127.0.0.1:8080";
 	}
 
+	/** Explicit permission for executable deployment over private-network plaintext HTTP. */
+	default boolean getControlAllowInsecureHttpPluginDeployment() {
+		return false;
+	}
+
 	/** Stable enrolled identity; blank reuses ProxyServerName. */
 	default String getControlNodeId() {
 		return "";

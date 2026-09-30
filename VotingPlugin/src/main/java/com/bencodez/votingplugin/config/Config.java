@@ -25,6 +25,11 @@ import lombok.Getter;
 
 public class Config extends YMLFile {
 
+	/** Explicit permission for executable deployment over private-network plaintext HTTP. */
+	public boolean getControlAllowInsecureHttpPluginDeployment() {
+		return getData().getBoolean("Control.AllowInsecureHttpPluginDeployment", false);
+	}
+
 	@ConfigDataBoolean(path = "AddCustomCommands")
 	@Getter
 	private boolean addCustomCommands = false;

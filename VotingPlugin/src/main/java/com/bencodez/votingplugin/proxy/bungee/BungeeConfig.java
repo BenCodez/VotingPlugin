@@ -57,6 +57,11 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 	}
 
 	@Override
+	public boolean getControlAllowInsecureHttpPluginDeployment() {
+		return getData().getBoolean("Control.AllowInsecureHttpPluginDeployment", false);
+	}
+
+	@Override
 	public String getControlNodeId() {
 		return getData().getString("Control.NodeId", "");
 	}

@@ -72,6 +72,7 @@ public final class BackendControlConnector implements AutoCloseable {
 	private final ControlInspectionService inspections;
 	private final PluginDeploymentService deployments;
 	private final boolean directLocalDeploymentEndpoint;
+	private final boolean allowInsecureHttpPluginDeployment;
 	private final UUID sessionId = UUID.randomUUID();
 	private final Map<UUID, StoredResult> completed = new LinkedHashMap<>();
 	private final boolean recovering;
@@ -142,8 +143,13 @@ public final class BackendControlConnector implements AutoCloseable {
 		directLocalDeploymentEndpoint = HostedControlManager.isDirectLocalEndpoint(
 				settings.endpoint().toString(), hostedConfiguration);
 		PluginDeploymentService prepared = null;
-		boolean deploymentEndpointAllowed = PluginDeploymentService.deploymentEndpointAllowed(
-				settings.endpoint(), directLocalDeploymentEndpoint);
+		allowInsecureHttpPluginDeployment = plugin.getConfigFile().getControlAllowInsecureHttpPluginDeployment();
+		PluginDeploymentService.DeploymentEndpointPolicy deploymentPolicy = PluginDeploymentService.deploymentEndpointPolicy(
+				settings.endpoint(), directLocalDeploymentEndpoint, allowInsecureHttpPluginDeployment);
+		boolean deploymentEndpointAllowed = deploymentPolicy.allowed();
+		if (!recovering && deploymentPolicy.initializationMessage() != null) {
+			plugin.getLogger().warning("[Control] " + deploymentPolicy.initializationMessage());
+		}
 		if (!recovering && deploymentEndpointAllowed) {
 			try {
 				prepared = PluginDeploymentService.backend(plugin.getServer().getUpdateFolderFile().toPath(),
@@ -151,12 +157,6 @@ public final class BackendControlConnector implements AutoCloseable {
 			} catch (Exception failure) {
 				plugin.getLogger().warning("[Control] Plugin deployment staging is unavailable; capability not advertised");
 			}
-		} else if (!recovering && !deploymentEndpointAllowed) {
-			plugin.getLogger().warning("[Control] Plugin deployment staging requires HTTPS or a literal private-network HTTP endpoint");
-		}
-		if (prepared != null && PluginDeploymentService.usesUnencryptedHttp(settings.endpoint())) {
-			plugin.getLogger().warning("[Control] Verified plugin staging is enabled over unencrypted HTTP. "
-					+ "HTTPS is strongly recommended because node credentials and plugin artifacts cross this connection");
 		}
 		deployments = prepared;
 	}
@@ -488,7 +488,7 @@ public final class BackendControlConnector implements AutoCloseable {
 		if (response.status() == 204 || closed) return;
 		JsonObject claimed = requireObject(response, 200);
 		PluginDeploymentService.Task task = deploymentTask(claimed);
-		PluginDeploymentService.Result result = deployments.deploy(task, settings.endpoint(), directLocalDeploymentEndpoint,
+		PluginDeploymentService.Result result = deployments.deploy(task, settings.endpoint(), directLocalDeploymentEndpoint, allowInsecureHttpPluginDeployment,
 				settings.nodeId(), sessionId, credential, http, Duration.ofMillis(settings.requestTimeoutMillis()),
 				() -> !closed);
 		if (closed) return;

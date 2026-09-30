@@ -1174,6 +1174,10 @@ Webhooks:
 ###########################################
 
 Control:
+  # Allows executable VotingPlugin updates over a literal private-network HTTP Control endpoint.
+  # Credentials, deployment metadata, and artifacts can be intercepted or modified on that network path.
+  # Prefer HTTPS. Normal Control communication does not require this option.
+  AllowInsecureHttpPluginDeployment: false
   # Optionally let this Bukkit/Paper backend provision and supervise VotingPlugin Control as a separate JVM.
   # Enable this on only one proxy or backend in the network.
   Hosted:
@@ -1197,8 +1201,8 @@ Control:
     Enabled: false
     # Blank reuses BungeeSettings.Server, which must be unique for every backend.
     NodeId: ''
-    # For a proxy-hosted Control, use the proxy VM/private IP. HTTP staging also accepts literal local/private IPs
-    # and localhost only when direct hosting on this same node is confirmed.
+    # For a proxy-hosted Control, use the proxy VM/private IP for normal Control communication.
+    # Executable staging over private HTTP requires AllowInsecureHttpPluginDeployment above.
     # HTTPS is strongly recommended because connector credentials and staged plugin artifacts cross this connection.
     Endpoint: 'http://127.0.0.1:8080'
     # VotingPlugin automatically generates this local credential only after confirming it can enroll through

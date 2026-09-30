@@ -20,6 +20,17 @@ import com.bencodez.votingplugin.util.DurableFiles;
 class VelocityConfigControlTest {
 	@TempDir Path directory;
 
+	@Test void insecureDeploymentOptInDefaultsOffAndReadsExplicitTrue() throws Exception {
+		Path file = directory.resolve("velocity.yml");
+		Files.writeString(file, "Control:\n  Enabled: true\n");
+		VelocityConfig config = new VelocityConfig(file.toFile());
+		config.loadControlConfiguration();
+		assertFalse(config.getControlAllowInsecureHttpPluginDeployment());
+		Files.writeString(file, "Control:\n  AllowInsecureHttpPluginDeployment: true\n");
+		config.loadControlConfiguration();
+		assertTrue(config.getControlAllowInsecureHttpPluginDeployment());
+	}
+
 	@Test
 	void omittedSendVotesSettingUsesRuntimeDefaultDuringRevisionCheck() throws Exception {
 		Path file = directory.resolve("velocity.yml");
