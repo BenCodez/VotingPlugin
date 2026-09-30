@@ -1,6 +1,5 @@
 package com.bencodez.votingplugin.commands;
 
-import java.io.IOException;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -84,7 +83,6 @@ import com.bencodez.votingplugin.commands.gui.player.VoteURLVoteSite;
 import com.bencodez.votingplugin.commands.tabcompleter.AliasesTabCompleter;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.events.PlayerVoteSiteCoolDownEndEvent;
-import com.bencodez.votingplugin.presets.VoteSitePreset;
 import com.bencodez.votingplugin.presets.VoteSitePresetSetupHandler;
 import com.bencodez.votingplugin.specialrewards.votemilestones.VoteMilestonesManager;
 import com.bencodez.votingplugin.specialrewards.votestreak.VoteStreakDefinition;
@@ -2760,6 +2758,7 @@ public class CommandLoader {
 					plugin.setPresetHandler(new VoteSitePresetSetupHandler(plugin));
 				}
 
+				// CommandHandler.runCommand already executes this callback asynchronously.
 				plugin.getPresetHandler().startSetup((Player) sender);
 
 			}
@@ -2774,19 +2773,8 @@ public class CommandLoader {
 					plugin.setPresetHandler(new VoteSitePresetSetupHandler(plugin));
 				}
 
-				try {
-					VoteSitePreset preset = plugin.getPresetHandler().getLoader().findVoteSitePresetForURL(args[1]);
-
-					if (preset == null) {
-						sender.sendMessage("No vote preset matches that URL.");
-						return;
-					}
-
-					plugin.getPresetHandler().promptPlaceholders((Player) sender, preset);
-				} catch (IOException | InterruptedException e) {
-					plugin.getLogger().warning("Failed to search presets: " + e.getMessage());
-					sender.sendMessage("Could not determine a preset for that URL.");
-				}
+				// CommandHandler.runCommand already executes this callback asynchronously.
+				plugin.getPresetHandler().findPresetForURL((Player) sender, args[1]);
 
 			}
 		});
