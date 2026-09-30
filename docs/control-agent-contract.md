@@ -194,12 +194,17 @@ and never restarts a proxy or backend automatically. A node advertises it only w
 
 - the connector is the currently enabled Control route, not a recovery-only connector draining an older durable result;
 - a safe local staging target was prepared;
-- the Control endpoint uses HTTPS, HTTP with a literal loopback/link-local/private-network address, or
-  `http://localhost` with confirmed direct local hosting on the same node.
+- the Control endpoint uses HTTPS, literal loopback HTTP, or proven direct same-node HTTP; otherwise, a
+  non-loopback literal private-network/link-local HTTP endpoint requires the node to explicitly set
+  `Control.AllowInsecureHttpPluginDeployment: true` (missing defaults to `false`).
 
-HTTP remains supported for directly addressed trusted private networks. Other hostnames and public IP addresses require HTTPS,
-which is strongly recommended because the artifact request carries the node bearer credential and plugin artifact in
-transit. Connectors log that recommendation at startup when staging is enabled over HTTP.
+Normal private-network HTTP Control communication remains supported without that opt-in. Only executable
+`plugin.deploy.v1` preparation, advertising, and polling are disabled by default on those routes. Public HTTP and
+arbitrary HTTP hostnames remain prohibited even with the opt-in; `localhost` still requires proven direct local hosting.
+An opted-in connector emits a startup warning: node credentials, deployment metadata, and executable artifacts cross
+unauthenticated plaintext HTTP. SHA-256 checks detect mismatched bytes, but cannot authenticate the source when an
+attacker can substitute both the task digest and matching artifact. HTTPS is recommended. The separate credential-endpoint
+policy remains HTTPS or proven same-node loopback HTTP; this opt-in does not relax that contract.
 
 Control leases deployment work separately from configuration operations:
 

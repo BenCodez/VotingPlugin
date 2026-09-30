@@ -510,8 +510,12 @@ MultiProxyServers:
     Port: 1235
 # Optional local-first VotingPlugin Control discovery. Missing keys preserve the disabled default.
 Control:
+  # Allows executable VotingPlugin updates over a literal private-network HTTP Control endpoint.
+  # Credentials, deployment metadata, and artifacts can be intercepted or modified on that network path.
+  # Prefer HTTPS. Normal Control communication does not require this option.
+  AllowInsecureHttpPluginDeployment: false
   Enabled: false
-  # HTTP staging accepts literal local/private IPs, or localhost when direct hosting on this same node is confirmed.
+  # HTTP staging accepts loopback or proven same-node localhost; private HTTP requires the opt-in above.
   # HTTPS is strongly recommended because connector credentials
   # and staged plugin artifacts cross this connection.
   Endpoint: 'http://127.0.0.1:8080'

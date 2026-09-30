@@ -133,45 +133,50 @@ class PluginDeploymentServiceTest {
 				"a deleted or quarantined update must be staged again before restart");
 	}
 
-	@Test void credentialedDeploymentAllowsHttpsAndLiteralPrivateNetworkHttp() {
-		assertTrue(PluginDeploymentService.deploymentEndpointAllowed(
-				java.net.URI.create("https://control.example.test")));
-		assertTrue(PluginDeploymentService.deploymentEndpointAllowed(
-				java.net.URI.create("http://192.168.0.50:8080")));
-		assertTrue(PluginDeploymentService.deploymentEndpointAllowed(
-				java.net.URI.create("http://10.20.30.40:8080")));
-		assertTrue(PluginDeploymentService.deploymentEndpointAllowed(
-				java.net.URI.create("http://172.31.4.5:8080")));
-		assertTrue(PluginDeploymentService.deploymentEndpointAllowed(
-				java.net.URI.create("http://127.0.0.1:8080")));
-		assertTrue(PluginDeploymentService.deploymentEndpointAllowed(
-				java.net.URI.create("http://[::1]:8080")));
-		assertTrue(PluginDeploymentService.deploymentEndpointAllowed(
-				java.net.URI.create("http://[fd00::50]:8080")));
-		assertFalse(PluginDeploymentService.deploymentEndpointAllowed(
-				java.net.URI.create("http://192.0.2.10:8080")));
-		assertFalse(PluginDeploymentService.deploymentEndpointAllowed(
-				java.net.URI.create("http://8.8.8.8:8080")));
-		assertFalse(PluginDeploymentService.deploymentEndpointAllowed(
-				java.net.URI.create("http://localhost:8080")));
-		assertTrue(PluginDeploymentService.deploymentEndpointAllowed(
-				java.net.URI.create("http://localhost:8080"), true));
-		assertFalse(PluginDeploymentService.deploymentEndpointAllowed(
-				java.net.URI.create("http://localhost:8080"), false));
-		assertFalse(PluginDeploymentService.deploymentEndpointAllowed(
-				java.net.URI.create("http://control.example.test:8080")));
-		assertFalse(PluginDeploymentService.deploymentEndpointAllowed(
-				java.net.URI.create("ftp://control.example.test")));
-		assertFalse(PluginDeploymentService.deploymentEndpointAllowed(null));
-		assertTrue(PluginDeploymentService.usesUnencryptedHttp(
-				java.net.URI.create("http://192.168.0.50:8080")));
-		assertFalse(PluginDeploymentService.usesUnencryptedHttp(
-				java.net.URI.create("https://control.example.test")));
+	@Test void deploymentTransportPolicyRequiresExplicitPrivateHttpOptIn() {
+		for (boolean optIn : new boolean[] {false, true}) {
+			for (String endpoint : new String[] {"https://control.example.test", "http://127.0.0.1:8080",
+					"http://127.0.0.2", "http://[::1]:8080", "http://[0:0:0:0:0:0:0:1]",
+					"http://[::ffff:127.0.0.1]"}) {
+				assertTrue(PluginDeploymentService.deploymentEndpointAllowed(java.net.URI.create(endpoint), false, optIn), endpoint);
+			}
+			assertTrue(PluginDeploymentService.deploymentEndpointAllowed(java.net.URI.create("http://localhost:8080"), true, optIn));
+			for (String endpoint : new String[] {"http://192.168.0.50:8080", "http://10.20.30.40:8080",
+					"http://172.16.0.1", "http://172.31.4.5:8080", "http://[fd00::50]:8080", "http://[fc00::1]",
+					"http://169.254.1.2", "http://[fe80::1]"}) {
+				assertEquals(optIn, PluginDeploymentService.deploymentEndpointAllowed(java.net.URI.create(endpoint), false, optIn), endpoint);
+				assertTrue(PluginDeploymentService.deploymentEndpointAllowed(java.net.URI.create(endpoint), true, optIn), "proven same-node: " + endpoint);
+				assertFalse(PluginDeploymentService.deploymentEndpointAllowed(java.net.URI.create(endpoint)), "missing opt-in: " + endpoint);
+			}
+		}
+	}
+
+	@Test void insecureOptInNeverAuthorizesPublicHttpOrArbitraryHostnames() {
+		for (boolean localProof : new boolean[] {false, true}) {
+			for (String endpoint : new String[] {"http://192.0.2.10", "http://8.8.8.8", "http://172.15.0.1",
+					"http://172.32.0.1", "http://[2001:4860:4860::8888]", "http://control.example.test",
+					"http://private.internal", "ftp://127.0.0.1", "ftp://192.168.0.50"}) {
+				assertFalse(PluginDeploymentService.deploymentEndpointAllowed(java.net.URI.create(endpoint), localProof, true), endpoint);
+			}
+		}
+		assertFalse(PluginDeploymentService.deploymentEndpointAllowed(java.net.URI.create("http://localhost"), false, true));
+		assertFalse(PluginDeploymentService.deploymentEndpointAllowed(null, true, true));
+	}
+
+	@Test void disabledPrivateHttpDeploymentStopsBeforeArtifactNetworkAccess() throws Exception {
+		PluginDeploymentService service = PluginDeploymentService.backend(directory.resolve("update"), Path.of("VotingPlugin.jar"));
+		java.net.http.HttpClient http = org.mockito.Mockito.mock(java.net.http.HttpClient.class);
+		PluginDeploymentService.Result result = service.deploy(task(jar("name: VotingPlugin\n")),
+				java.net.URI.create("http://192.168.0.50:8080"), false, false, "backend-a", UUID.randomUUID(),
+				"test-credential", http, java.time.Duration.ofSeconds(1), () -> true);
+		assertEquals("INSECURE_ENDPOINT", result.code());
+		org.mockito.Mockito.verifyNoInteractions(http);
+		assertFalse(Files.exists(directory.resolve("update/VotingPlugin.jar")));
 	}
 
 	@Test void credentialEndpointRetainsTheOriginalHttpsOrProvenLoopbackRule() {
 		assertTrue(PluginDeploymentService.deploymentEndpointAllowed(
-				java.net.URI.create("http://192.168.0.50:8080"), false));
+				java.net.URI.create("http://192.168.0.50:8080"), false, true));
 		assertFalse(PluginDeploymentService.credentialEndpointAllowed(
 				java.net.URI.create("http://192.168.0.50:8080"), false));
 		assertFalse(PluginDeploymentService.credentialEndpointAllowed(

@@ -212,11 +212,24 @@ restart. This capability is deliberately separate from configuration control and
 VotingPlugin never hot-reloads itself and never restarts the server or proxy automatically.
 
 Deployment is available only on the currently enabled Control route. Recovery-only connectors that exist solely to
-acknowledge an older durable result never advertise or poll this capability. HTTPS endpoints can stage generally. HTTP
-staging is limited to literal loopback, link-local, and private-network endpoint addresses, plus `localhost` when direct
-local hosting on the same node is confirmed. Other hostnames and public IPs do not qualify. HTTPS is strongly recommended
-because the artifact request carries the node bearer credential and plugin artifact in transit; connectors emit a startup
-warning when verified staging is enabled over HTTP.
+acknowledge an older durable result never advertise or poll this capability. HTTPS, literal loopback HTTP, and
+proven direct same-node HTTP staging remain eligible by default. Other literal private-network/link-local HTTP addresses
+require an explicit node setting in `Config.yml` (backend) or `bungeeconfig.yml` (Bungee/Velocity):
+
+```yaml
+Control:
+  AllowInsecureHttpPluginDeployment: false
+```
+
+Set this to `true` only when deliberately accepting plaintext executable-deployment risk. Missing values default to
+`false`. Normal Control configuration, inspection, and presence communication over private HTTP remains available without
+this option. Public HTTP and arbitrary HTTP hostnames remain ineligible even with it; `localhost` requires direct same-node
+hosting proof. No configuration migration or rewrite is required. Restart/recreate the connector after changing the policy.
+
+When private HTTP deployment is opted in, the connector warns during initialization that node credentials, deployment
+metadata, and plugin artifacts cross an unauthenticated plaintext connection. A network attacker can replace both the task
+SHA-256 and its matching JAR, so checksum verification alone does not authenticate a deployment. Use HTTPS where possible.
+The separate credential-endpoint safety policy is unchanged.
 
 Control leases deployment work through `POST /api/v1/nodes/{nodeId}/deployments`. The node downloads the artifact through
 the matching deployment artifact endpoint with its bearer credential plus exact session and attempt headers, then

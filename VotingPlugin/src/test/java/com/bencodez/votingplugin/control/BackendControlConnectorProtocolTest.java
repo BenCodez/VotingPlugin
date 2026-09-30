@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -29,6 +30,43 @@ import com.google.gson.JsonParser;
 
 class BackendControlConnectorProtocolTest {
 	@TempDir Path directory;
+	@Test void backendDeploymentSettingDefaultsOffAndReadsExplicitTrue() {
+		com.bencodez.votingplugin.config.Config config = org.mockito.Mockito.mock(
+				com.bencodez.votingplugin.config.Config.class, org.mockito.Mockito.CALLS_REAL_METHODS);
+		org.bukkit.configuration.file.YamlConfiguration yaml = new org.bukkit.configuration.file.YamlConfiguration();
+		org.mockito.Mockito.when(config.getData()).thenReturn(yaml);
+		assertFalse(config.getControlAllowInsecureHttpPluginDeployment());
+		yaml.set("Control.AllowInsecureHttpPluginDeployment", true);
+		assertTrue(config.getControlAllowInsecureHttpPluginDeployment());
+	}
+
+	@Test void privateHttpWithoutOptInDoesNotPrepareOrAdvertiseBackendDeployment() throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = org.mockito.Mockito.mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		com.bencodez.votingplugin.config.Config config = org.mockito.Mockito.mock(com.bencodez.votingplugin.config.Config.class);
+		org.bukkit.configuration.file.YamlConfiguration yaml = new org.bukkit.configuration.file.YamlConfiguration();
+		yaml.set("Control.Backend.Enabled", true);
+		yaml.set("Control.Backend.NodeId", "backend-a");
+		yaml.set("Control.Backend.Endpoint", "http://192.168.0.50:2150");
+		yaml.set("Control.Backend.CredentialFile", "test-credential.txt");
+		Files.writeString(directory.resolve("test-credential.txt"), "test-credential");
+		org.mockito.Mockito.when(plugin.getDataFolder()).thenReturn(directory.toFile());
+		org.mockito.Mockito.when(plugin.getConfigFile()).thenReturn(config);
+		org.mockito.Mockito.when(config.getData()).thenReturn(yaml);
+		org.mockito.Mockito.when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getAnonymousLogger());
+		try (BackendControlConnector connector = BackendControlConnector.create(plugin)) {
+			assertNotNull(connector);
+			java.lang.reflect.Field field = BackendControlConnector.class.getDeclaredField("deployments");
+			field.setAccessible(true);
+			assertNull(field.get(connector));
+			JsonObject body = new JsonObject();
+			BackendControlConnector.addCapabilities(body, false, field.get(connector) != null);
+			assertFalse(body.getAsJsonArray("capabilities").asList().stream()
+					.anyMatch(value -> PluginDeploymentService.CAPABILITY.equals(value.getAsString())));
+			org.mockito.Mockito.verify(plugin, org.mockito.Mockito.never()).getServer();
+			org.mockito.Mockito.verify(plugin, org.mockito.Mockito.never()).getLoadedPluginJarFile();
+		}
+	}
+
 	@Test void onlyTheLeaseExpiryConflictRequestsAResultReclaim() {
 		assertTrue(BackendControlConnector.taskLeaseExpired(new BackendControlConnector.Response(409,
 				"{\"error\":{\"code\":\"TASK_LEASE_EXPIRED\"}}")));

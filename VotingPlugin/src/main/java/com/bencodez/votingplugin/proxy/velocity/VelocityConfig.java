@@ -225,6 +225,11 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 	}
 
 	@Override
+	public boolean getControlAllowInsecureHttpPluginDeployment() {
+		return getBoolean(getNode("Control", "AllowInsecureHttpPluginDeployment"), false);
+	}
+
+	@Override
 	public String getControlNodeId() {
 		return getString(getNode("Control", "NodeId"), "");
 	}

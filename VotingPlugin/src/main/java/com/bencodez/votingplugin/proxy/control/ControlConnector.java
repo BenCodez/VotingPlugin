@@ -89,6 +89,7 @@ public final class ControlConnector implements AutoCloseable {
 	private final HttpClient deploymentHttp;
 	private final String deploymentCredential;
 	private final boolean directLocalDeploymentEndpoint;
+	private final boolean allowInsecureHttpPluginDeployment;
 	private final ExecutorService deploymentExecutor;
 	private final Function<String, CompletableFuture<VotingPluginProxy.CommunicationTestResult>> communicationTest;
 	private final Runnable runtimeReplacement;
@@ -150,7 +151,7 @@ public final class ControlConnector implements AutoCloseable {
 			ProxyConfigurationFileService fileConfigurationService) {
 		this(settings, scheduler, transport, snapshotSource, logger, sessionId, jitterSource, configurationService,
 				dataDirectory, route, recovering, recoveryComplete, communicationTest, methodConfigurationService,
-				runtimeReplacement, fileConfigurationService, null, null, null, false);
+				runtimeReplacement, fileConfigurationService, null, null, null, false, false);
 	}
 
 	private ControlConnector(Settings settings, ScheduledExecutorService scheduler, Transport transport,
@@ -160,7 +161,8 @@ public final class ControlConnector implements AutoCloseable {
 			Function<String, CompletableFuture<VotingPluginProxy.CommunicationTestResult>> communicationTest,
 			ProxyMethodConfigurationService methodConfigurationService, Runnable runtimeReplacement,
 			ProxyConfigurationFileService fileConfigurationService, PluginDeploymentService deployments,
-			HttpClient deploymentHttp, String deploymentCredential, boolean directLocalDeploymentEndpoint) {
+			HttpClient deploymentHttp, String deploymentCredential, boolean directLocalDeploymentEndpoint,
+			boolean allowInsecureHttpPluginDeployment) {
 		this.settings = Objects.requireNonNull(settings, "settings");
 		this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
 		this.transport = Objects.requireNonNull(transport, "transport");
@@ -177,6 +179,7 @@ public final class ControlConnector implements AutoCloseable {
 		this.deploymentHttp = deploymentHttp;
 		this.deploymentCredential = deploymentCredential;
 		this.directLocalDeploymentEndpoint = directLocalDeploymentEndpoint;
+		this.allowInsecureHttpPluginDeployment = allowInsecureHttpPluginDeployment;
 		this.deploymentExecutor = deployments == null ? null : Executors.newSingleThreadExecutor(runnable -> {
 			Thread thread = new Thread(runnable, "votingplugin-control-proxy-deployment");
 			thread.setDaemon(true);
@@ -259,16 +262,14 @@ public final class ControlConnector implements AutoCloseable {
 				config.getControlHostedStartupTimeoutSeconds(), config.getControlHostedDownloadTimeoutSeconds());
 		boolean directLocalDeploymentEndpoint = HostedControlManager.isDirectLocalEndpoint(
 				settings.endpoint().toString(), hosted);
-		boolean deploymentEndpointAllowed = PluginDeploymentService.deploymentEndpointAllowed(
-				settings.endpoint(), directLocalDeploymentEndpoint);
+		boolean allowInsecureHttpPluginDeployment = config.getControlAllowInsecureHttpPluginDeployment();
+		PluginDeploymentService.DeploymentEndpointPolicy deploymentPolicy = PluginDeploymentService.deploymentEndpointPolicy(
+				settings.endpoint(), directLocalDeploymentEndpoint, allowInsecureHttpPluginDeployment);
+		boolean deploymentEndpointAllowed = deploymentPolicy.allowed();
 		PluginDeploymentService deployments = deploymentRouteCurrent && deploymentEndpointAllowed
 				? prepareDeployment(proxy) : null;
-		if (deploymentRouteCurrent && !deploymentEndpointAllowed) {
-			proxy.log("[Control] Plugin deployment staging requires HTTPS or a literal private-network HTTP endpoint");
-		}
-		if (deployments != null && PluginDeploymentService.usesUnencryptedHttp(settings.endpoint())) {
-			proxy.log("[Control] Verified plugin staging is enabled over unencrypted HTTP. "
-					+ "HTTPS is strongly recommended because node credentials and plugin artifacts cross this connection");
+		if (deploymentRouteCurrent && deploymentPolicy.initializationMessage() != null) {
+			proxy.log("[Control] " + deploymentPolicy.initializationMessage());
 		}
 		HttpClient deploymentHttp = deployments == null ? null : HttpClient.newBuilder()
 				.connectTimeout(Duration.ofMillis(settings.connectTimeoutMillis()))
@@ -279,7 +280,7 @@ public final class ControlConnector implements AutoCloseable {
 				route, recovering, proxy::restartControlServicesAfterRecovery,
 				server -> proxy.testBackendCommunication(server, 5000L), new ProxyMethodConfigurationService(proxy),
 				() -> proxy.reloadCore(true), new ProxyConfigurationFileService(proxy),
-				deployments, deploymentHttp, credential, directLocalDeploymentEndpoint);
+				deployments, deploymentHttp, credential, directLocalDeploymentEndpoint, allowInsecureHttpPluginDeployment);
 		if (recovered != null) connector.completedTasks.putAll(recovered.results());
 		return connector;
 	}
@@ -350,7 +351,7 @@ public final class ControlConnector implements AutoCloseable {
 		synchronized (operationLifecycle) {
 			if (closed) return CompletableFuture.completedFuture(null);
 			deploymentWork = CompletableFuture.supplyAsync(() -> deployments.deploy(task, settings.endpoint(),
-					directLocalDeploymentEndpoint, settings.nodeId(), sessionId, deploymentCredential, deploymentHttp,
+					directLocalDeploymentEndpoint, allowInsecureHttpPluginDeployment, settings.nodeId(), sessionId, deploymentCredential, deploymentHttp,
 					Duration.ofMillis(settings.requestTimeoutMillis()), () -> !closed), deploymentExecutor);
 			activeDeploymentWork = deploymentWork;
 		}
