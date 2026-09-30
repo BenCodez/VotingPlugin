@@ -8,6 +8,10 @@ import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.function.Consumer;
 import java.util.zip.ZipFile;
 
@@ -22,6 +26,11 @@ final class VelocityDatabaseDriverInstaller {
     static final String MYSQL = "com.mysql.cj.jdbc.Driver";
     static final String MARIADB = "org.mariadb.jdbc.Driver";
     static final String POSTGRESQL = "org.postgresql.Driver";
+    // Approved official Jenkins build 13. Trust is rooted in the VotingPlugin release,
+    // never in a checksum/manifest supplied by the artifact download endpoint.
+    // Review a new MySQLDriver build before adding its exact digest here.
+    private static final Set<String> APPROVED_SHA256 = Set.of(
+            "7f99d1fc1299f3e95f5c20ea646637e1c31711748c7df723f6e50843cc17b2ee");
     private static final long MAX_JAR = 32L * 1024 * 1024;
 
     interface DriverProbe { boolean available(String driver); }
@@ -29,10 +38,16 @@ final class VelocityDatabaseDriverInstaller {
 
     private final DriverProbe probe;
     private final Downloader downloader;
+    private final Set<String> approvedDigests;
 
     VelocityDatabaseDriverInstaller(DriverProbe probe, Downloader downloader) {
+        this(probe, downloader, APPROVED_SHA256);
+    }
+
+    VelocityDatabaseDriverInstaller(DriverProbe probe, Downloader downloader, Set<String> approvedDigests) {
         this.probe = probe;
         this.downloader = downloader;
+        this.approvedDigests = Set.copyOf(approvedDigests);
     }
 
     boolean ready(List<MysqlConfig> configurations, boolean automatic, Path dataDirectory,
@@ -68,6 +83,10 @@ final class VelocityDatabaseDriverInstaller {
             }
             stage = Files.createTempFile(plugins, ".mysqldriver-", ".tmp");
             downloader.download(stage);
+            if (Files.size(stage) == 0 || Files.size(stage) > MAX_JAR)
+                throw new IOException("Invalid artifact size");
+            if (!approvedDigests.contains(sha256(stage)))
+                throw new IOException("Downloaded MySQLDriver is not an approved build; automatic installation refused. Update VotingPlugin for a newly approved driver build");
             validate(stage, missing);
             // Atomic no-clobber publication on the same filesystem. Unlike ATOMIC_MOVE,
             // createLink cannot replace a concurrently installed administrator-owned JAR.
@@ -119,6 +138,20 @@ final class VelocityDatabaseDriverInstaller {
             }
         }
         return false;
+    }
+
+    static String sha256(Path file) throws IOException {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            try (InputStream in = Files.newInputStream(file)) {
+                byte[] buffer = new byte[8192];
+                int n;
+                while ((n = in.read(buffer)) != -1) digest.update(buffer, 0, n);
+            }
+            return HexFormat.of().formatHex(digest.digest());
+        } catch (NoSuchAlgorithmException unavailable) {
+            throw new IllegalStateException("SHA-256 unavailable", unavailable);
+        }
     }
 
     static void validate(Path jar, String requiredDriver) throws IOException {
