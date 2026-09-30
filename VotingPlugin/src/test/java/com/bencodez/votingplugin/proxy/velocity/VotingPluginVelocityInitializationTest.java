@@ -32,6 +32,22 @@ import com.velocitypowered.api.proxy.ProxyServer;
 
 class VotingPluginVelocityInitializationTest {
 	@Test
+	void missingDatabaseDriverStopsBeforeRuntimeOrListenerInitialization(@TempDir Path plugins) throws Exception {
+		VotingPluginVelocity plugin = spy(new VotingPluginVelocity(mock(ProxyServer.class), mock(Logger.class),
+				mock(Metrics.Factory.class), plugins.resolve("votingplugin")));
+		org.mockito.Mockito.doReturn(false).when(plugin).prepareDatabaseDriver();
+		try {
+			com.velocitypowered.api.event.EventTask task = plugin.onProxyInitialization(null);
+			assertTrue(task.requiresAsync());
+			assertNull(plugin.getConfig()); // Work has not run before the asynchronous lifecycle task.
+			task.execute(mock(com.velocitypowered.api.event.Continuation.class));
+			verify(plugin, never()).initializeFirstRuntime();
+			assertFalse(plugin.isRuntimeOperational());
+			assertNull(plugin.getVotingPluginProxy());
+		} finally { plugin.getTimer().shutdownNow(); }
+	}
+
+	@Test
 	void reloadAbortDrainSchedulesDurableVoteReplay(@TempDir Path dataDirectory) throws Exception {
 		VotingPluginVelocity plugin = new VotingPluginVelocity(mock(ProxyServer.class), mock(Logger.class),
 				mock(Metrics.Factory.class), dataDirectory);

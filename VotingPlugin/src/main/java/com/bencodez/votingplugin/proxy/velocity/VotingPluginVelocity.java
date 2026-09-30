@@ -83,7 +83,7 @@ import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
  * 
  */
 @Plugin(id = "votingplugin", name = "VotingPlugin", version = "1.0", url = "https://www.spigotmc.org/resources/votingplugin.15358/", description = "VotingPlugin Velocity Version", authors = {
-		"BenCodez" }, dependencies = { @Dependency(id = "nuvotifier", optional = true) })
+		"BenCodez" }, dependencies = { @Dependency(id = "nuvotifier", optional = true), @Dependency(id = "mysqldriver", optional = true) })
 public class VotingPluginVelocity {
 
 	/**
@@ -358,7 +358,12 @@ public class VotingPluginVelocity {
 	}
 
 	@Subscribe
-	public void onProxyInitialization(ProxyInitializeEvent event) {
+	public com.velocitypowered.api.event.EventTask onProxyInitialization(ProxyInitializeEvent event) {
+		// Velocity waits for this async lifecycle task: SQL cannot race ahead of provisioning.
+		return com.velocitypowered.api.event.EventTask.async(this::initializeProxy);
+	}
+
+	private void initializeProxy() {
 		File configFile = new File(dataDirectory.toFile(), "bungeeconfig.yml");
 		configFile.getParentFile().mkdirs();
 		if (!configFile.exists()) {
@@ -384,6 +389,10 @@ public class VotingPluginVelocity {
 		}
 
 		config = new VelocityConfig(configFile);
+		if (!prepareDatabaseDriver()) {
+			logger.error("VotingPlugin cannot initialize SQL; votes are NOT being processed. Restart after installing the required JDBC driver.");
+			return;
+		}
 		ensureCommunicationSecret();
 
 		channel = buildChannelIdentifier(config.getPluginMessageChannel());
@@ -426,6 +435,27 @@ public class VotingPluginVelocity {
 		if (!"NOTSET".equals(buildNumber)) {
 			logger.info("Detected using dev build number: " + buildNumber);
 		}
+	}
+
+	boolean prepareDatabaseDriver() {
+		if (!config.hasDatabaseConfigured()) return true;
+		List<MysqlConfig> connections = new ArrayList<>();
+		connections.add(getMysqlConfig());
+		if (config.getGlobalDataEnabled() && !config.getGlobalDataUseMainMySQL())
+			connections.add(getGlobalDataMysqlConfig());
+		if (config.getVoteCacheUseMySQL() && !config.getVoteCacheUseMainMySQL())
+			connections.add(new MysqlConfigVelocity("VoteCache", config));
+		if (config.getNonVotedCacheUseMySQL() && !config.getNonVotedCacheUseMainMySQL())
+			connections.add(new MysqlConfigVelocity("NonVotedCache", config));
+		if (config.getVoteLoggingEnabled() && !config.getVoteLoggingUseMainMySQL())
+			connections.add(new MysqlConfigVelocity("VoteLogging", config));
+		return new VelocityDatabaseDriverInstaller(driver -> {
+			try {
+				Class.forName(driver, true, com.bencodez.simpleapi.sql.mysql.ConnectionManager.class.getClassLoader());
+				return true;
+			} catch (ClassNotFoundException missing) { return false; }
+		}, VelocityDatabaseDriverInstaller::downloadLatest).ready(connections,
+				config.getAutoDownloadMissingDatabaseDriver(), dataDirectory, logger::info, logger::warn);
 	}
 
 	private void ensureCommunicationSecret() {
