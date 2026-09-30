@@ -15,6 +15,7 @@ import com.bencodez.simpleapi.valuerequest.MultiValueResult;
 import com.bencodez.simpleapi.valuerequest.StringListener;
 import com.bencodez.simpleapi.valuerequest.ValueRequest;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.util.BukkitCompletionScheduler;
 
 import lombok.Getter;
 
@@ -42,12 +43,19 @@ public class VoteSitePresetSetupHandler {
 	 * @param plugin plugin instance
 	 */
 	public VoteSitePresetSetupHandler(VotingPluginMain plugin) {
+		this(plugin, new GitHubVoteSitePresetLoader("BenCodez", "VotingPlugin-Presets", "main"));
+	}
+
+	VoteSitePresetSetupHandler(VotingPluginMain plugin, GitHubVoteSitePresetLoader loader) {
 		this.plugin = Objects.requireNonNull(plugin, "plugin must not be null");
-		this.loader = new GitHubVoteSitePresetLoader("BenCodez", "VotingPlugin-Presets", "main");
+		this.loader = Objects.requireNonNull(loader, "loader must not be null");
 	}
 
 	/**
 	 * Starts the preset setup process.
+	 *
+	 * Command handlers already execute asynchronously, so only the player/UI work
+	 * is handed back to the player's scheduler lane.
 	 *
 	 * @param player player running setup
 	 */
@@ -56,12 +64,44 @@ public class VoteSitePresetSetupHandler {
 
 		try {
 			presets = loader.listAllVoteSitePresets();
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			runForPlayer(player, () -> player.sendMessage("§cUnable to load vote site presets."));
+			return;
 		} catch (Exception e) {
-			player.sendMessage("§cUnable to load vote site presets.");
 			plugin.getLogger().warning("Failed to load vote site presets: " + e.getMessage());
+			runForPlayer(player, () -> player.sendMessage("§cUnable to load vote site presets."));
 			return;
 		}
 
+		runForPlayer(player, () -> openPresetSelection(player, presets));
+	}
+
+	public void findPresetForURL(Player player, String voteURL) {
+		try {
+			VoteSitePreset preset = loader.findVoteSitePresetForURL(voteURL);
+			runForPlayer(player, () -> {
+				if (preset == null) {
+					player.sendMessage("No vote preset matches that URL.");
+					return;
+				}
+				promptPlaceholders(player, preset);
+			});
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			runForPlayer(player, () -> player.sendMessage("Could not determine a preset for that URL."));
+		} catch (Exception e) {
+			plugin.getLogger().warning("Failed to search presets: " + e.getMessage());
+			runForPlayer(player, () -> player.sendMessage("Could not determine a preset for that URL."));
+		}
+	}
+
+	private void runForPlayer(Player player, Runnable task) {
+		BukkitCompletionScheduler.run(plugin, player, task, () -> { },
+				() -> plugin.getLogger().warning("Unable to schedule vote preset UI"));
+	}
+
+	private void openPresetSelection(Player player, List<VoteSitePreset> presets) {
 		if (presets == null || presets.isEmpty()) {
 			player.sendMessage("§cNo vote site presets are available.");
 			return;
