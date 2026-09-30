@@ -263,6 +263,31 @@ public final class NeoForgeDeferredVoteStore {
         return result;
     }
 
+    private synchronized FenceResult setExternalEffectFence(Claim claim, boolean fenced) {
+        Objects.requireNonNull(claim, "claim");
+        if (claim.owner != this || claim.closed || !activeClaims.contains(claim.key)) {
+            throw new IllegalStateException("Deferred vote claim is no longer active");
+        }
+        return backend.user(claim.key.playerId()).transaction(backend.storageType(), Map.of(), scope -> {
+            Map<String, DataValue> row = row(scope.readRow());
+            if (containsReceipt(parseCompleted(value(row, COMPLETED_DEFERRED_VOTES)), claim.key.voteId())) {
+                return FenceResult.ALREADY_COMPLETED;
+            }
+            List<NeoForgeDeferredVote> pending = parsePending(value(row, DEFERRED_VOTES), claim.key.playerId());
+            for (int index = 0; index < pending.size(); index++) {
+                NeoForgeDeferredVote vote = pending.get(index);
+                if (!vote.voteId().equals(claim.key.voteId())) continue;
+                if (vote.quarantined() == fenced) {
+                    return fenced ? FenceResult.ALREADY_FENCED : FenceResult.ALREADY_REPLAYABLE;
+                }
+                pending.set(index, fenced ? vote.quarantinedCopy() : vote.replayableCopy());
+                scope.writeValues(Map.of(DEFERRED_VOTES, new DataValueString(serializePending(pending))));
+                return fenced ? FenceResult.FENCED : FenceResult.REPLAYABLE;
+            }
+            return FenceResult.NOT_PENDING;
+        });
+    }
+
     private synchronized CompletionOutcome complete(Claim claim, NeoForgeVoteAccountingStore accounting,
             NeoForgeVoteSite site, boolean currentlyOnline, String currentPlayerName) {
         Objects.requireNonNull(claim, "claim");
@@ -736,6 +761,7 @@ public final class NeoForgeDeferredVoteStore {
 
     public enum OccurrenceState { UNKNOWN, PENDING, COMPLETED }
     enum QuarantineResult { QUARANTINED, ALREADY_QUARANTINED, ALREADY_COMPLETED, NOT_PENDING }
+    enum FenceResult { FENCED, ALREADY_FENCED, REPLAYABLE, ALREADY_REPLAYABLE, ALREADY_COMPLETED, NOT_PENDING }
     enum Status { RETAINED, ALREADY_RETAINED, ALREADY_COMPLETED, CAPACITY_REACHED }
     public enum CompletionResult { COMPLETED, ALREADY_COMPLETED, NOT_PENDING, RECEIPT_CAPACITY_REACHED }
     enum ReleaseResult { RELEASED, ALREADY_RELEASED, NOT_COMPLETED, RELEASE_CAPACITY_REACHED }
@@ -767,6 +793,8 @@ public final class NeoForgeDeferredVoteStore {
         }
 
         public NeoForgeDeferredVote vote() { return vote; }
+        FenceResult fenceExternalEffects() { return owner.setExternalEffectFence(this, true); }
+        FenceResult makeReplayable() { return owner.setExternalEffectFence(this, false); }
         public CompletionResult complete() {
             return owner.complete(this, null, null, vote.wasOnline(), vote.playerName()).result();
         }

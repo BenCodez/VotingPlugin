@@ -14,6 +14,7 @@ import com.bencodez.votingplugin.util.ServiceSiteValidator;
 final class NeoForgeRewardConfiguration {
     private static final Pattern UNRESOLVED_PLACEHOLDER = Pattern.compile("%[^%\\p{Cf}]+%");
     private static final Pattern LEGACY_COLOR = Pattern.compile("(?i)(?:&[0-9A-FK-ORX]|&#[0-9A-F]{6}|\\u00A7)");
+    private static final Pattern RICH_MESSAGE = Pattern.compile("\\[Text=\\\"");
     private final ConfigurationNode config;
     private final ConfigurationNode voteSites;
     private final ConfigurationNode specialRewards;
@@ -73,8 +74,11 @@ final class NeoForgeRewardConfiguration {
             NeoForgeDeferredVote vote, NeoForgeVoteSite site) {
         String serviceSite = action.type() == NeoForgeRewardPlan.ActionType.PLAYER_MESSAGE
                 ? ServiceSiteValidator.inertForFormatting(vote.serviceSite()) : vote.serviceSite();
+        String siteName = action.type() == NeoForgeRewardPlan.ActionType.PLAYER_MESSAGE
+                && site.displayNameFallback()
+                        ? ServiceSiteValidator.inertForFormatting(site.displayName()) : site.displayName();
         return new NeoForgeRewardPlan.Action(action.type(), action.value()
-                .replace("%SiteName%", site.displayName()).replace("%sitename%", site.displayName())
+                .replace("%SiteName%", siteName).replace("%sitename%", siteName)
                 .replace("%ServiceSite%", serviceSite).replace("%servicesite%", serviceSite));
     }
 
@@ -186,7 +190,7 @@ final class NeoForgeRewardConfiguration {
         if (UNRESOLVED_PLACEHOLDER.matcher(knownRemoved).find()
                 || knownRemoved.toLowerCase(java.util.Locale.ROOT).contains("[javascript")) return false;
         return type != NeoForgeRewardPlan.ActionType.PLAYER_MESSAGE
-                || !LEGACY_COLOR.matcher(value).find();
+                || (!LEGACY_COLOR.matcher(value).find() && !RICH_MESSAGE.matcher(value).find());
     }
 
     private boolean hasEnabledChild(ConfigurationNode parent) {

@@ -152,6 +152,25 @@ class NeoForgeProxySocketServiceTest {
     }
 
     @Test
+    void proxyBroadcastVoteIsNeitherRetainedNorAcknowledged() throws IOException {
+        UUID playerId = UUID.randomUUID();
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            CopyOnWriteArrayList<JsonEnvelope> sent = new CopyOnWriteArrayList<>();
+            try (NeoForgeProxySocketService service = service(runtime, sent)) {
+                UUID voteId = UUID.randomUUID();
+                service.receive(fromProxy(vote(voteId, playerId, false, true)));
+                service.receive(fromProxy(VotingPluginWire.requestVoteDeliveryAcknowledgement(
+                        VotingPluginWire.voteOnline("Alex", playerId.toString(), "Service", 100L,
+                                true, true, "", UUID.randomUUID(), false, true, 1, 1))));
+                assertTrue(runtime.deferredVotes().pending(playerId).isEmpty());
+                assertTrue(runtime.accounting().load(playerId).isEmpty());
+                assertTrue(sent.stream().noneMatch(message ->
+                        VotingPluginWire.SUB_VOTE_DELIVERY_ACK.equals(message.getSubChannel())));
+            }
+        }
+    }
+
+    @Test
     void completedRetryAcknowledgesWithoutRepeatingAdmissionAndReleaseKeepsTombstone() throws IOException {
         UUID playerId = UUID.randomUUID();
         UUID voteId = UUID.randomUUID();
@@ -614,14 +633,23 @@ class NeoForgeProxySocketServiceTest {
     }
 
     private static JsonEnvelope vote(UUID voteId, UUID playerId, boolean manageTotals) {
-        return vote(voteId, playerId, manageTotals, 1, 1);
+        return vote(voteId, playerId, manageTotals, false, 1, 1);
     }
 
     private static JsonEnvelope vote(UUID voteId, UUID playerId, boolean manageTotals,
             int num, int numberOfVotes) {
+        return vote(voteId, playerId, manageTotals, false, num, numberOfVotes);
+    }
+
+    private static JsonEnvelope vote(UUID voteId, UUID playerId, boolean manageTotals, boolean broadcast) {
+        return vote(voteId, playerId, manageTotals, broadcast, 1, 1);
+    }
+
+    private static JsonEnvelope vote(UUID voteId, UUID playerId, boolean manageTotals, boolean broadcast,
+            int num, int numberOfVotes) {
         return VotingPluginWire.requestVoteDeliveryAcknowledgement(VotingPluginWire.vote(
                 "Alex", playerId.toString(), "Service", 100L, true, true, "", voteId,
-                manageTotals, false, num, numberOfVotes));
+                manageTotals, broadcast, num, numberOfVotes));
     }
 
     private static JsonEnvelope only(List<JsonEnvelope> sent) {

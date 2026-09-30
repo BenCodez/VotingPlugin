@@ -54,6 +54,7 @@ public final class NeoForgeProxySocketService implements AutoCloseable {
     private final Map<UUID, BackendPlayerPresenceSession> sessions = new ConcurrentHashMap<>();
     private final AtomicBoolean open = new AtomicBoolean(true);
     private final AtomicBoolean presenceDirty = new AtomicBoolean();
+    private final AtomicBoolean broadcastWarningLogged = new AtomicBoolean();
     private final Object presenceLock = new Object();
     private final Object sendLock = new Object();
     private final Object timestampLock = new Object();
@@ -205,6 +206,16 @@ public final class NeoForgeProxySocketService implements AutoCloseable {
         VotingPluginWire.Vote vote = VotingPluginWire.readVote(envelope);
         if (vote.voteId == null || vote.player.isBlank() || vote.player.length() > 64
                 || !ServiceSiteValidator.isValid(vote.service)) return;
+        // Backend broadcast delivery is not supported by the NeoForge replay
+        // boundary. Leave the occurrence unacknowledged in the proxy durable
+        // outbox instead of silently completing an omitted side effect.
+        if (vote.broadcast) {
+            if (broadcastWarningLogged.compareAndSet(false, true)) {
+                LOGGER.warning("NeoForge cannot execute delegated vote broadcasts; deliveries remain unacknowledged. "
+                        + "Exclude this backend from proxy broadcast routing for new votes.");
+            }
+            return;
+        }
         UUID playerId;
         try {
             playerId = UUID.fromString(vote.uuid);

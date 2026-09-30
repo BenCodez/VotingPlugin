@@ -66,12 +66,13 @@ public final class NeoForgeVoteConfiguration {
             String key = String.valueOf(entry.getKey());
             if (key.equalsIgnoreCase("null")) continue;
             ConfigurationNode site = entry.getValue();
-            String displayName = node(site, ignoreCase, "Name").getString(key);
-            if (displayName == null || displayName.isEmpty()) displayName = key;
+            String displayName = node(site, ignoreCase, "Name").getString();
+            boolean displayNameFallback = displayName == null || displayName.isEmpty();
+            if (displayNameFallback) displayName = key;
             String serviceSite = node(site, ignoreCase, "ServiceSite").getString();
             boolean enabled = node(site, ignoreCase, "Enabled").getBoolean(false);
             boolean loadable = enabled && serviceSite != null && !serviceSite.isEmpty();
-            parsedSites.add(new NeoForgeVoteSite(key, displayName, serviceSite,
+            parsedSites.add(new NeoForgeVoteSite(key, displayName, displayNameFallback, serviceSite,
                     node(site, ignoreCase, "Priority").getInt(0),
                     loadable ? readVoteDelayMillis(site, ignoreCase) : 0,
                     enabled, node(site, ignoreCase, "WaitUntilVoteDelay").getBoolean(false),
