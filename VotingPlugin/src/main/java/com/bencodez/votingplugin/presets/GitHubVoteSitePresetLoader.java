@@ -1,8 +1,6 @@
 package com.bencodez.votingplugin.presets;
 
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.Reader;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpClient.Redirect;
@@ -14,7 +12,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.regex.Pattern;
 
+import com.bencodez.votingplugin.util.BoundedHttpBodyHandler;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -25,6 +25,13 @@ import com.google.gson.JsonParser;
  * Utility class for loading vote site presets from GitHub.
  */
 public class GitHubVoteSitePresetLoader {
+
+	static final int MAX_LIST_RESPONSE_BYTES = 256 * 1024;
+	static final int MAX_PRESET_RESPONSE_BYTES = 64 * 1024;
+	static final int MAX_PRESET_COUNT = 64;
+	private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(7);
+	private static final Pattern PRESET_PATH = Pattern.compile(
+			"^presets/votesites/[A-Za-z0-9][A-Za-z0-9._-]{0,127}\\.meta\\.json$");
 
 	private final String owner;
 	private final String repository;
@@ -60,45 +67,28 @@ public class GitHubVoteSitePresetLoader {
 		HttpRequest.Builder builder = HttpRequest.newBuilder()
 				.uri(URI.create(apiUrl))
 				.GET()
-				.timeout(Duration.ofSeconds(7))
+				.timeout(REQUEST_TIMEOUT)
 				.header("User-Agent", "VotingPlugin-PresetLoader");
 
 		if (token != null && !token.isEmpty()) {
 			builder.header("Authorization", "token " + token);
 		}
 
-		HttpResponse<String> response = httpClient.send(builder.build(),
-				HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+		HttpResponse<byte[]> response = httpClient.send(builder.build(),
+				new BoundedHttpBodyHandler(MAX_LIST_RESPONSE_BYTES, REQUEST_TIMEOUT));
 
 		if (response.statusCode() != 200) {
 			return Collections.emptyList();
 		}
 
-		JsonElement root = JsonParser.parseString(response.body());
-		if (!root.isJsonArray()) {
-			return Collections.emptyList();
-		}
-
-		JsonArray array = root.getAsJsonArray();
-		List<String> paths = new ArrayList<>();
-
-		for (JsonElement element : array) {
-			if (!element.isJsonObject()) continue;
-
-			JsonObject obj = element.getAsJsonObject();
-			String type = obj.has("type") ? obj.get("type").getAsString() : null;
-			String path = obj.has("path") ? obj.get("path").getAsString() : null;
-
-			if ("file".equals(type) && path != null && path.endsWith(".meta.json")) {
-				paths.add(path);
-			}
-		}
-
-		return paths;
+		return parsePresetPaths(response.body());
 	}
 
 	public VoteSitePreset loadPreset(String path) throws IOException, InterruptedException {
 		Objects.requireNonNull(path, "path must not be null");
+		if (!isPresetPathAllowed(path)) {
+			throw new IOException("Invalid vote site preset path");
+		}
 
 		String rawUrl = String.format(
 				"https://raw.githubusercontent.com/%s/%s/%s/%s",
@@ -107,25 +97,21 @@ public class GitHubVoteSitePresetLoader {
 		HttpRequest.Builder builder = HttpRequest.newBuilder()
 				.uri(URI.create(rawUrl))
 				.GET()
-				.timeout(Duration.ofSeconds(7))
+				.timeout(REQUEST_TIMEOUT)
 				.header("User-Agent", "VotingPlugin-PresetLoader");
 
 		if (token != null && !token.isEmpty()) {
 			builder.header("Authorization", "token " + token);
 		}
 
-		HttpResponse<String> response = httpClient.send(builder.build(),
-				HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+		HttpResponse<byte[]> response = httpClient.send(builder.build(),
+				new BoundedHttpBodyHandler(MAX_PRESET_RESPONSE_BYTES, REQUEST_TIMEOUT));
 
 		if (response.statusCode() != 200) {
 			return null;
 		}
 
-		try (Reader reader = new InputStreamReader(
-				new java.io.ByteArrayInputStream(response.body().getBytes(StandardCharsets.UTF_8)),
-				StandardCharsets.UTF_8)) {
-			return gson.fromJson(reader, VoteSitePreset.class);
-		}
+		return gson.fromJson(new String(response.body(), StandardCharsets.UTF_8), VoteSitePreset.class);
 	}
 
 	public List<VoteSitePreset> listAllVoteSitePresets() throws IOException, InterruptedException {
@@ -195,5 +181,36 @@ public class GitHubVoteSitePresetLoader {
 		}
 
 		return null;
+	}
+
+	static List<String> parsePresetPaths(byte[] body) throws IOException {
+		JsonElement root = JsonParser.parseString(new String(body, StandardCharsets.UTF_8));
+		if (!root.isJsonArray()) {
+			return Collections.emptyList();
+		}
+
+		JsonArray array = root.getAsJsonArray();
+		List<String> paths = new ArrayList<>();
+
+		for (JsonElement element : array) {
+			if (!element.isJsonObject()) continue;
+
+			JsonObject obj = element.getAsJsonObject();
+			String type = obj.has("type") ? obj.get("type").getAsString() : null;
+			String path = obj.has("path") ? obj.get("path").getAsString() : null;
+
+			if ("file".equals(type) && isPresetPathAllowed(path)) {
+				if (paths.size() >= MAX_PRESET_COUNT) {
+					throw new IOException("GitHub returned too many vote site presets");
+				}
+				paths.add(path);
+			}
+		}
+
+		return paths;
+	}
+
+	static boolean isPresetPathAllowed(String path) {
+		return path != null && PRESET_PATH.matcher(path).matches();
 	}
 }
