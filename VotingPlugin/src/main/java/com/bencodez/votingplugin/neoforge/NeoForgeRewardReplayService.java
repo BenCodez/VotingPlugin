@@ -177,14 +177,24 @@ public final class NeoForgeRewardReplayService implements AutoCloseable {
                 result(vote, Status.NOT_CLAIMED, "Vote claim was not admitted: " + attempt.status()));
         CompletableFuture<ReplayResult> completion = new CompletableFuture<>();
         CompletionStage<Void> action;
+        boolean externalEffects = !plan.actions().isEmpty();
         try {
-            action = plan.actions().isEmpty()
+            if (externalEffects) {
+                NeoForgeDeferredVoteStore.FenceResult fenced = claim.fenceExternalEffects();
+                if (fenced != NeoForgeDeferredVoteStore.FenceResult.FENCED
+                        && fenced != NeoForgeDeferredVoteStore.FenceResult.ALREADY_FENCED) {
+                    claim.close();
+                    return CompletableFuture.completedFuture(result(vote, Status.NOT_CLAIMED,
+                            "External-effect fence was not admitted: " + fenced));
+                }
+            }
+            action = !externalEffects
                     ? CompletableFuture.completedFuture(null) : actions.execute(effectiveVote, plan);
         } catch (RuntimeException failure) {
-            claim.close();
-            return CompletableFuture.completedFuture(rewardFailure(vote, failure));
+            return CompletableFuture.completedFuture(actionFailure(claim, vote, failure, externalEffects));
         }
-        action.whenComplete((ignored, failure) -> dispatchCompletion(claim, effectiveVote, site, failure, completion));
+        action.whenComplete((ignored, failure) -> dispatchCompletion(
+                claim, effectiveVote, site, failure, externalEffects, completion));
         return completion;
     }
 
@@ -196,11 +206,11 @@ public final class NeoForgeRewardReplayService implements AutoCloseable {
     }
 
     private void dispatchCompletion(NeoForgeDeferredVoteStore.Claim claim, NeoForgeDeferredVote vote,
-            NeoForgeVoteSite site, Throwable failure, CompletableFuture<ReplayResult> completion) {
+            NeoForgeVoteSite site, Throwable failure, boolean externalEffects,
+            CompletableFuture<ReplayResult> completion) {
         Runnable finish = () -> {
             if (failure != null) {
-                claim.close();
-                completion.complete(rewardFailure(vote, failure));
+                completion.complete(actionFailure(claim, vote, failure, externalEffects));
                 return;
             }
             try {
@@ -221,8 +231,16 @@ public final class NeoForgeRewardReplayService implements AutoCloseable {
                             "Completion result: " + outcome.result()));
                 }
             } catch (Throwable completionFailure) {
-                completion.complete(quarantine(vote, Status.COMPLETION_UNCERTAIN,
-                        safeFailure(completionFailure)));
+                if (externalEffects) {
+                    retryAfter.put(vote.voteId(), Long.MAX_VALUE);
+                    LOGGER.severe("Unable to finalize NeoForge deferred vote " + vote.voteId()
+                            + "; its durable external-effect fence prevents automatic replay");
+                    completion.complete(result(vote, Status.COMPLETION_UNCERTAIN,
+                            safeFailure(completionFailure) + "; durable external-effect fence retained"));
+                } else {
+                    completion.complete(quarantine(vote, Status.COMPLETION_UNCERTAIN,
+                            safeFailure(completionFailure)));
+                }
             }
         };
         try {
@@ -230,6 +248,35 @@ public final class NeoForgeRewardReplayService implements AutoCloseable {
         } catch (RuntimeException stopped) {
             claim.close();
             completion.completeExceptionally(stopped);
+        }
+    }
+
+    private ReplayResult actionFailure(NeoForgeDeferredVoteStore.Claim claim,
+            NeoForgeDeferredVote vote, Throwable failure, boolean externalEffects) {
+        if (!externalEffects) {
+            claim.close();
+            return rewardFailure(vote, failure);
+        }
+        if (containsUncertainOutcome(failure)) {
+            claim.close();
+            return quarantine(vote, Status.REWARD_UNCERTAIN, safeFailure(failure));
+        }
+        try {
+            NeoForgeDeferredVoteStore.FenceResult replayable = claim.makeReplayable();
+            claim.close();
+            if (replayable == NeoForgeDeferredVoteStore.FenceResult.REPLAYABLE
+                    || replayable == NeoForgeDeferredVoteStore.FenceResult.ALREADY_REPLAYABLE) {
+                return delayed(vote, Status.REWARD_FAILED, safeFailure(failure), 5);
+            }
+            return quarantine(vote, Status.REWARD_UNCERTAIN,
+                    safeFailure(failure) + "; fence-clear=" + replayable);
+        } catch (Throwable fenceFailure) {
+            claim.close();
+            retryAfter.put(vote.voteId(), Long.MAX_VALUE);
+            LOGGER.severe("Failed to clear the durable external-effect fence for NeoForge deferred vote "
+                    + vote.voteId() + "; automatic replay remains stopped");
+            return result(vote, Status.REWARD_UNCERTAIN,
+                    safeFailure(failure) + "; fence-clear=" + safeFailure(fenceFailure));
         }
     }
 

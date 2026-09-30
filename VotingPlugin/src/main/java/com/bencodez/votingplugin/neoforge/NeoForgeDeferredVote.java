@@ -43,4 +43,10 @@ public record NeoForgeDeferredVote(UUID voteId, UUID playerId, String playerName
         return new NeoForgeDeferredVote(voteId, playerId, playerName, serviceSite, siteKey,
                 voteTime, realVote, addTotals, wasOnline, accountingDecision, true);
     }
+
+    NeoForgeDeferredVote replayableCopy() {
+        if (!quarantined) return this;
+        return new NeoForgeDeferredVote(voteId, playerId, playerName, serviceSite, siteKey,
+                voteTime, realVote, addTotals, wasOnline, accountingDecision, false);
+    }
 }
