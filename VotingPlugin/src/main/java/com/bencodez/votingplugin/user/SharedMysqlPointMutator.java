@@ -115,6 +115,10 @@ final class SharedMysqlPointMutator {
 	}
 
 	int add(VotingPluginUser user, int amount, boolean async) {
+		return add(user, amount, async, false);
+	}
+
+	int add(VotingPluginUser user, int amount, boolean async, boolean failOnRejectedAdmission) {
 		if (async) {
 			String pointsColumn = user.getPointsPath();
 			int previousTotal = cachedPoints(user, pointsColumn);
@@ -122,6 +126,7 @@ final class SharedMysqlPointMutator {
 			cachePredictedPoints(user, predictedTotal, pointsColumn);
 			if (!run(() -> update(user, amount, false, pointsColumn), true)) {
 				discardOptimisticPoints(user, pointsColumn);
+				if (failOnRejectedAdmission) throw new IllegalStateException("Point mutation storage worker is unavailable");
 				return previousTotal;
 			}
 			// The mutation has not happened yet, so the historical asynchronous API
@@ -319,9 +324,9 @@ final class SharedMysqlPointMutator {
 		}
 	}
 
-	void set(VotingPluginUser user, int value, boolean async) {
+	boolean set(VotingPluginUser user, int value, boolean async) {
 		String pointsColumn = user.getPointsPath();
-		run(() -> setAbsolute(user, value, pointsColumn), async);
+		return run(() -> setAbsolute(user, value, pointsColumn), async);
 	}
 
 	boolean setCommitted(VotingPluginUser user, int value) {

@@ -1113,6 +1113,77 @@ class VotingPluginUserPointSchedulingTest {
 	}
 
 	@Test
+	void platformThreadLegacyAddQueuesMysqlAndPublishesOnWorker() throws Exception {
+		PointFixture fixture = pointFixture();
+		var manager = fixture.plugin.getUserManager().getDataManager();
+		when(manager.mustDeferSharedStorageAccess()).thenReturn(true);
+		UUID uuid = UUID.fromString(fixture.user.getUUID());
+		UserDataCache cache = new UserDataCache(null, uuid);
+		cache.updateCache(new HashMap<>(java.util.Map.of("Points", new com.bencodez.simpleapi.sql.data.DataValueInt(10))));
+		doReturn(cache).when(fixture.user).getCache();
+		doReturn(true).when(fixture.user).isCached();
+		when(manager.getUserDataCache()).thenReturn(new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(uuid, cache)));
+		doAnswer(call -> {
+			assertFalse(manager.mustDeferSharedStorageAccess());
+			cache.updateSharedSnapshot(new HashMap<>(java.util.Map.of("Points", new com.bencodez.simpleapi.sql.data.DataValueInt(15))), cache.getSharedSnapshotVersion());
+			return null;
+		}).when(manager).cacheUser(uuid, null);
+		when(fixture.statement.executeUpdate()).thenReturn(1);
+		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+			bukkit.when(Bukkit::getPluginManager).thenReturn(mock(PluginManager.class));
+			assertEquals(15, fixture.user.addPoints(5));
+		}
+		verify(fixture.sql.getConnectionManager(), never()).getConnection();
+		assertTrue(cache.hasPublishedStorageSnapshot());
+		ArgumentCaptor<Runnable> worker = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.persistence).execute(worker.capture());
+		when(manager.mustDeferSharedStorageAccess()).thenReturn(false);
+		worker.getValue().run();
+		verify(fixture.statement).executeUpdate();
+		assertEquals(15, cache.snapshotIfPublished().get("Points").getInt());
+	}
+
+	@Test
+	void platformThreadLegacySetOverloadsQueueMysqlBeforeAnyInvalidation() throws Exception {
+		for (boolean explicitAsyncArgument : new boolean[] { false, true }) {
+			PointFixture fixture = pointFixture();
+			when(fixture.plugin.getUserManager().getDataManager().mustDeferSharedStorageAccess()).thenReturn(true);
+			if (explicitAsyncArgument) fixture.user.setPoints(42, false);
+			else fixture.user.setPoints(42);
+			verify(fixture.sql.getConnectionManager(), never()).getConnection();
+			verify(fixture.plugin.getUserManager().getDataManager(), never()).cacheUser(any(UUID.class), org.mockito.ArgumentMatchers.isNull());
+			ArgumentCaptor<Runnable> worker = ArgumentCaptor.forClass(Runnable.class);
+			verify(fixture.persistence).execute(worker.capture());
+			when(fixture.plugin.getUserManager().getDataManager().mustDeferSharedStorageAccess()).thenReturn(false);
+			worker.getValue().run();
+			verify(fixture.statement).setInt(1, 42);
+			verify(fixture.statement).executeUpdate();
+		}
+	}
+
+	@Test
+	void platformThreadLegacyMutationsReportRejectedStorageAdmission() throws Exception {
+		for (int operation = 0; operation < 3; operation++) {
+			PointFixture fixture = pointFixture();
+			when(fixture.plugin.getUserManager().getDataManager().mustDeferSharedStorageAccess()).thenReturn(true);
+			doThrow(new RejectedExecutionException()).when(fixture.persistence).execute(any(Runnable.class));
+			UserData data = mock(UserData.class);
+			doReturn(data).when(fixture.user).getUserData();
+			when(data.getInt("Points", UserDataFetchMode.TEMP_ONLY)).thenReturn(10);
+			int selected = operation;
+			try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+				bukkit.when(Bukkit::getPluginManager).thenReturn(mock(PluginManager.class));
+				org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class, () -> {
+					if (selected == 0) fixture.user.addPoints(5);
+					else if (selected == 1) fixture.user.setPoints(42);
+					else fixture.user.setPoints(42, false);
+				});
+			}
+			verify(fixture.sql.getConnectionManager(), never()).getConnection();
+		}
+	}
+
+	@Test
 	void sharedAbsoluteSetUsesTheDirectMysqlMutator() throws Exception {
 		PointFixture fixture = pointFixture();
 		UserData userData = mock(UserData.class);

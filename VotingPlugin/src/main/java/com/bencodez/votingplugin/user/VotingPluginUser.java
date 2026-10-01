@@ -235,6 +235,10 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	/**
 	 * Adds the specified number of points to the user, optionally asynchronously.
+	 * MySQL mutations from platform-owned threads are always deferred; the return
+	 * value is predicted in that case. Use the storage-aware completion API for
+	 * a confirmed committed balance. Worker-thread synchronous calls still wait
+	 * for the mutation and authoritative cache refill.
 	 *
 	 * @param value the number of points to add
 	 * @param async whether to add the points asynchronously
@@ -249,7 +253,10 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		}
 		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
 		if (sharedPoints.usesMysqlPointMutations()) {
-			return sharedPoints.add(this, event.getPoints(), async);
+			// Platform-owned callers use the existing asynchronous contract; JDBC and
+			// authoritative snapshot publication must finish on the storage worker.
+			boolean defer = deferMysqlPointMutation();
+			return sharedPoints.add(this, event.getPoints(), async || defer, !async && defer);
 		}
 		int newTotal = getPoints() + event.getPoints();
 		setPoints(newTotal, async);
@@ -2409,15 +2416,21 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		getUserData().setStringList("OfflineVotes", offlineVotes);
 	}
 
+	private boolean deferMysqlPointMutation() {
+		return plugin.getUserManager().getDataManager().mustDeferSharedStorageAccess();
+	}
+
 	/**
-	 * Sets the points of the user.
-	 *
+	 * Sets points, deferring MySQL writes from platform-owned threads. Use the
+	 * storage-aware completion API when a confirmed balance is required.
 	 * @param value the number of points
 	 */
 	public void setPoints(int value) {
 		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
 		if (sharedPoints.usesMysqlPointMutations()) {
-			sharedPoints.set(this, value, false);
+			if (!sharedPoints.set(this, value, deferMysqlPointMutation())) {
+				throw new IllegalStateException("Point mutation storage worker is unavailable");
+			}
 		} else {
 			getUserData().setInt(getPointsPath(), value, false);
 		}
@@ -2432,7 +2445,9 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	public void setPoints(int value, boolean async) {
 		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
 		if (sharedPoints.usesMysqlPointMutations()) {
-			sharedPoints.set(this, value, async);
+			if (!sharedPoints.set(this, value, async || deferMysqlPointMutation())) {
+				throw new IllegalStateException("Point mutation storage worker is unavailable");
+			}
 		} else {
 			getUserData().setInt(getPointsPath(), value, false, async);
 		}
