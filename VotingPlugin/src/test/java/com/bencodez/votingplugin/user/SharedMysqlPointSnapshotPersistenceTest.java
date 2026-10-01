@@ -71,6 +71,7 @@ class SharedMysqlPointSnapshotPersistenceTest {
                     () -> data.getInt(UserStorage.MYSQL, "Points", 0, UserDataFetchMode.DEFAULT));
 
             doAnswer(invocation -> {
+                long expectedVersion = cache.getSharedSnapshotVersion();
                 int balance;
                 try (Connection connection = DriverManager.getConnection(url);
                         PreparedStatement select = connection.prepareStatement("SELECT balance FROM points WHERE uuid = ?")) {
@@ -81,7 +82,7 @@ class SharedMysqlPointSnapshotPersistenceTest {
                     }
                 }
                 HashMap<String, DataValue> values = new HashMap<>(Map.of("Points", new DataValueInt(balance)));
-                cache.updateSharedSnapshot(values, cache.getSharedSnapshotVersion());
+                cache.updateSharedSnapshot(values, expectedVersion);
                 return null;
             }).when(manager).cacheUser(uuid, null);
             try (var workers = java.util.concurrent.Executors.newFixedThreadPool(2)) {
@@ -117,12 +118,13 @@ class SharedMysqlPointSnapshotPersistenceTest {
             UserDataCache restartedCache = new UserDataCache(null, uuid);
             when(manager.getUserDataCache()).thenReturn(new java.util.concurrent.ConcurrentHashMap<>(Map.of(uuid, restartedCache)));
             doAnswer(invocation -> {
+                long expectedVersion = restartedCache.getSharedSnapshotVersion();
                 try (Connection connection = DriverManager.getConnection(url);
                         var select = connection.prepareStatement("SELECT balance FROM points WHERE uuid = ?")) {
                     select.setString(1, uuid.toString());
                     try (var row = select.executeQuery()) {
                         row.next();
-                        restartedCache.updateSharedSnapshot(new HashMap<>(Map.of("Points", new DataValueInt(row.getInt(1)))), restartedCache.getSharedSnapshotVersion());
+                        restartedCache.updateSharedSnapshot(new HashMap<>(Map.of("Points", new DataValueInt(row.getInt(1)))), expectedVersion);
                     }
                 }
                 return null;
