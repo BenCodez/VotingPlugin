@@ -2052,13 +2052,16 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	/**
 	 * Removes points from the user.
+	 * MySQL calls on platform-owned threads are queued in storage-worker order.
+	 * Their boolean result is a cached prediction, not proof of a committed debit;
+	 * use the completion overload for a confirmed result.
 	 *
 	 * @param points the number of points to remove
-	 * @return true if the points were removed, false otherwise
+	 * @return committed success for synchronous worker calls, otherwise a cached prediction
 	 */
 	public boolean removePoints(int points) {
 		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
-		if (sharedPoints.usesMysqlPointMutations()) return sharedPoints.remove(this, points);
+		if (sharedPoints.usesMysqlPointMutations()) return sharedPoints.remove(this, points, deferMysqlPointMutation());
 		if (getPoints() >= points) {
 			setPoints(getPoints() - points);
 			return true;
@@ -2068,14 +2071,16 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	/**
 	 * Removes points from the user asynchronously.
+	 * Platform-owned MySQL callers always defer, even when async is false.
+	 * A deferred call returns a cached prediction; use completion for confirmation.
 	 *
 	 * @param points the number of points to remove
 	 * @param async  whether to remove the points asynchronously
-	 * @return true if the points were removed, false otherwise
+	 * @return committed success for synchronous worker calls, otherwise a cached prediction
 	 */
 	public boolean removePoints(int points, boolean async) {
 		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
-		if (sharedPoints.usesMysqlPointMutations()) return sharedPoints.remove(this, points, async);
+		if (sharedPoints.usesMysqlPointMutations()) return sharedPoints.remove(this, points, async || deferMysqlPointMutation());
 		if (getPoints() >= points) {
 			setPoints(getPoints() - points, async);
 			return true;

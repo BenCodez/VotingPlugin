@@ -1184,6 +1184,59 @@ class VotingPluginUserPointSchedulingTest {
 	}
 
 	@Test
+	void platformSetThenLegacyRemovePreservesStorageWorkerOrder() throws Exception {
+		for (boolean explicitAsyncArgument : new boolean[] { false, true }) {
+			PointFixture fixture = pointFixture();
+			var manager = fixture.plugin.getUserManager().getDataManager();
+			when(manager.mustDeferSharedStorageAccess()).thenReturn(true);
+			UserData data = mock(UserData.class);
+			doReturn(data).when(fixture.user).getUserData();
+			when(data.getInt("Points", UserDataFetchMode.TEMP_ONLY)).thenReturn(50);
+			java.util.List<Runnable> queued = new java.util.ArrayList<>();
+			doAnswer(call -> { queued.add(call.getArgument(0)); return null; })
+					.when(fixture.persistence).execute(any(Runnable.class));
+			java.util.concurrent.atomic.AtomicInteger balance = new java.util.concurrent.atomic.AtomicInteger(50);
+			java.util.concurrent.atomic.AtomicInteger amount = new java.util.concurrent.atomic.AtomicInteger();
+			AtomicReference<String> sql = new AtomicReference<>();
+			when(fixture.connection.prepareStatement(anyString())).thenAnswer(call -> {
+				sql.set(call.getArgument(0)); return fixture.statement;
+			});
+			doAnswer(call -> { amount.set(call.getArgument(1)); return null; })
+					.when(fixture.statement).setInt(eq(1), anyInt());
+			when(fixture.statement.executeUpdate()).thenAnswer(call -> {
+				if (sql.get().contains("COALESCE")) balance.addAndGet(amount.get());
+				else balance.set(amount.get());
+				return 1;
+			});
+			fixture.user.setPoints(100);
+			boolean predicted = explicitAsyncArgument
+					? fixture.user.removePoints(10, false) : fixture.user.removePoints(10);
+			assertTrue(predicted, "legacy deferred result is only a cached prediction");
+			assertEquals(50, balance.get(), "neither mutation may overtake the blocked worker");
+			assertEquals(2, queued.size());
+			verify(fixture.sql.getConnectionManager(), never()).getConnection();
+			when(manager.mustDeferSharedStorageAccess()).thenReturn(false);
+			queued.get(0).run();
+			assertEquals(100, balance.get());
+			queued.get(1).run();
+			assertEquals(90, balance.get());
+		}
+	}
+
+	@Test
+	void platformLegacyRemoveDoesNotReportAcceptanceWhenWorkerRejects() throws Exception {
+		PointFixture fixture = pointFixture();
+		when(fixture.plugin.getUserManager().getDataManager().mustDeferSharedStorageAccess()).thenReturn(true);
+		UserData data = mock(UserData.class);
+		doReturn(data).when(fixture.user).getUserData();
+		when(data.getInt("Points", UserDataFetchMode.TEMP_ONLY)).thenReturn(50);
+		doThrow(new RejectedExecutionException()).when(fixture.persistence).execute(any(Runnable.class));
+		assertFalse(fixture.user.removePoints(10));
+		assertFalse(fixture.user.removePoints(10, false));
+		verify(fixture.sql.getConnectionManager(), never()).getConnection();
+	}
+
+	@Test
 	void sharedAbsoluteSetUsesTheDirectMysqlMutator() throws Exception {
 		PointFixture fixture = pointFixture();
 		UserData userData = mock(UserData.class);
