@@ -117,6 +117,33 @@ class NeoForgeProxySocketServiceTest {
     }
 
     @Test
+    void offlinePendingReceiptReleaseAcknowledgesAndPersistsReleaseIntentAcrossRestart() throws IOException {
+        UUID playerId = UUID.randomUUID();
+        UUID voteId = UUID.randomUUID();
+        JsonEnvelope vote = vote(voteId, playerId, false);
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            CopyOnWriteArrayList<JsonEnvelope> sent = new CopyOnWriteArrayList<>();
+            try (NeoForgeProxySocketService service = service(runtime, sent)) {
+                service.receive(fromProxy(vote));
+                assertEquals(1, runtime.deferredVotes().pending(playerId).size());
+                sent.clear();
+                service.receive(fromProxy(VotingPluginWire.voteDeliveryReceiptRelease(
+                        "neoforge", voteId, VotingPluginWire.SUB_VOTE, playerId.toString())));
+                assertEquals(VotingPluginWire.SUB_VOTE_DELIVERY_RECEIPT_RELEASE_ACK,
+                        only(sent).getSubChannel());
+                assertTrue(runtime.deferredVotes().pending(playerId).get(0).releaseRequested());
+                assertEquals(NeoForgeDeferredVoteStore.ReleaseResult.ALREADY_RELEASED,
+                        runtime.deferredVotes().release(playerId, voteId));
+            }
+        }
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            assertTrue(runtime.deferredVotes().pending(playerId).get(0).releaseRequested());
+            assertEquals(NeoForgeDeferredVoteStore.OccurrenceState.PENDING,
+                    runtime.deferredVotes().state(playerId, voteId));
+        }
+    }
+
+    @Test
     void cachedVoteBatchRetainsEachStableOccurrence() throws IOException {
         UUID playerId = UUID.randomUUID();
         UUID firstVoteId = UUID.randomUUID();

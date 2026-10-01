@@ -71,3 +71,22 @@ Before a supported external action is dispatched, replay durably fences the pend
 `SharedVoteProcessor.Operations` was reviewed operation by operation. NeoForge can currently implement its configuration, identity, site, delay, timestamp, and accounting operations. Logging and proxy-only identity fields have no processing effect at this internal non-proxy boundary. Reward delivery, offline queuing, vote party, broadcast, inventory/effects, streak, milestone, cooldown, post-event, and placeholder operations require future platform services. The adapter therefore reuses `SharedVoteIdentity`, `SharedVoteInput`, `SharedVotePolicy`, and `SharedVoteAccounting` without implementing the broad Bukkit production interface with false no-ops.
 
 Validation for this step covers unit startup/shutdown, isolated classloader startup/shutdown from the packaged JAR, and a NeoForge 21.1.211 dedicated server smoke run. The server reached its ready state, initialized the bootstrap, and exited cleanly after `stop`. This does not verify player joins, vote receipt, or rewards.
+
+### Proxy receipt release before deferred completion
+
+A reliable proxy may retire its outbox entry once NeoForge durably owns the
+pending occurrence. Receipt release is therefore acknowledged while a vote is
+still pending: the inbox transaction records a release-request flag, without
+claiming rewards or accounting completed. Pending payloads and their stable IDs
+remain durable, bounded and duplicate-fenced across restart. Quarantine and
+replay-context changes preserve this flag.
+
+Replay reserves bounded released-receipt capacity before external actions.
+Completion atomically writes accounting, a released completion tombstone and
+pending removal. The seven-day released-tombstone retention begins at completion,
+not at the earlier release request; pending occurrences never expire on that
+timer. Capacity exhaustion retains pending work and prevents effect execution.
+A release racing an active claim is retried after that claim completes or closes.
+Existing pending v1/v2/v3 rows remain readable; release-requested rows use v4
+within the existing storage column. No configuration or SQL schema change is
+required. The external-action uncertainty/quarantine boundary remains unchanged.

@@ -146,6 +146,111 @@ class NeoForgeDeferredVoteStoreTest {
     }
 
     @Test
+    void pendingReleaseSurvivesRestartAndCompletesAsReleasedReceiptOnce() throws IOException {
+        writeConfiguration();
+        UUID playerId = UUID.randomUUID();
+        UUID voteId = UUID.randomUUID();
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            runtime.players().joined(new SharedVoteIdentity(playerId, "Alex", true));
+            assertEquals(NeoForgeVoteResult.Status.DEFERRED,
+                    runtime.voteProcessor().process(complete(voteId, playerId, 100L)).status());
+            assertEquals(NeoForgeDeferredVoteStore.ReleaseResult.RELEASED,
+                    runtime.deferredVotes().release(playerId, voteId));
+            assertTrue(runtime.deferredVotes().pending(playerId).get(0).releaseRequested());
+            assertEquals(NeoForgeDeferredVoteStore.ReleaseResult.ALREADY_RELEASED,
+                    runtime.deferredVotes().release(playerId, voteId));
+        }
+
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            NeoForgeDeferredVoteStore store = runtime.deferredVotes();
+            assertTrue(store.pending(playerId).get(0).releaseRequested());
+            try (NeoForgeDeferredVoteStore.Claim claim = store.claim(playerId, voteId).orElseThrow()) {
+                assertEquals(NeoForgeDeferredVoteStore.CompletionResult.COMPLETED, claim.complete());
+            }
+            assertTrue(store.pending(playerId).isEmpty());
+            assertEquals(NeoForgeDeferredVoteStore.ReleaseResult.ALREADY_RELEASED,
+                    store.release(playerId, voteId));
+            assertNoAccounting(runtime.accounting().load(playerId).orElseThrow());
+        }
+    }
+
+    @Test
+    void pendingReleaseIsPreservedByFenceAndQuarantineAndActiveClaimRefusesRelease() throws IOException {
+        writeConfiguration();
+        UUID playerId = UUID.randomUUID();
+        UUID voteId = UUID.randomUUID();
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            runtime.players().joined(new SharedVoteIdentity(playerId, "Alex", true));
+            runtime.voteProcessor().process(complete(voteId, playerId, 100L));
+            assertEquals(NeoForgeDeferredVoteStore.ReleaseResult.RELEASED,
+                    runtime.deferredVotes().release(playerId, voteId));
+            try (NeoForgeDeferredVoteStore.Claim claim = runtime.deferredVotes().claim(playerId, voteId).orElseThrow()) {
+                assertEquals(NeoForgeDeferredVoteStore.ReleaseResult.NOT_COMPLETED,
+                        runtime.deferredVotes().release(playerId, voteId));
+                assertEquals(NeoForgeDeferredVoteStore.FenceResult.FENCED, claim.fenceExternalEffects());
+            }
+            assertTrue(runtime.deferredVotes().pending(playerId).get(0).releaseRequested());
+            assertTrue(runtime.deferredVotes().pending(playerId).get(0).quarantined());
+            assertEquals(NeoForgeDeferredVoteStore.ReleaseResult.ALREADY_RELEASED,
+                    runtime.deferredVotes().release(playerId, voteId));
+        }
+    }
+
+    @Test
+    void releasedPendingCapacityBlocksClaimBeforeAccountingEffects() throws IOException {
+        writeConfiguration();
+        UUID playerId = UUID.randomUUID();
+        UUID firstVote = UUID.randomUUID();
+        UUID secondVote = UUID.randomUUID();
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            runtime.players().joined(new SharedVoteIdentity(playerId, "Alex", true));
+            NeoForgeDeferredVoteStore bounded = new NeoForgeDeferredVoteStore(
+                    runtime.storage(), 2, 2, 2, 2, 1);
+            NeoForgeVoteProcessor processor = new NeoForgeVoteProcessor(runtime.voteConfiguration(),
+                    runtime.accounting(), bounded, runtime.players(), Clock.systemUTC());
+            processor.process(complete(firstVote, playerId, 100L));
+            processor.process(complete(secondVote, playerId, 200L));
+            assertEquals(NeoForgeDeferredVoteStore.ReleaseResult.RELEASED,
+                    bounded.release(playerId, firstVote));
+            assertEquals(NeoForgeDeferredVoteStore.ReleaseResult.RELEASED,
+                    bounded.release(playerId, secondVote));
+            try (NeoForgeDeferredVoteStore.Claim claim = bounded.claim(playerId, firstVote).orElseThrow()) {
+                assertTrue(bounded.claim(playerId, secondVote).isEmpty());
+                // The released receipt reservation blocks the second effect before accounting.
+            }
+            assertNoAccounting(runtime.accounting().load(playerId).orElseThrow());
+        }
+    }
+
+    @Test
+    void releasedClaimReservationUsesGlobalCapacityAcrossUsers() throws IOException {
+        writeConfiguration();
+        UUID firstPlayer = UUID.randomUUID();
+        UUID secondPlayer = UUID.randomUUID();
+        UUID firstVote = UUID.randomUUID();
+        UUID secondVote = UUID.randomUUID();
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            runtime.players().joined(new SharedVoteIdentity(firstPlayer, "First", true));
+            runtime.players().joined(new SharedVoteIdentity(secondPlayer, "Second", true));
+            NeoForgeDeferredVoteStore bounded = new NeoForgeDeferredVoteStore(
+                    runtime.storage(), 2, 2, 2, 2, 1, 1);
+            NeoForgeVoteProcessor processor = new NeoForgeVoteProcessor(runtime.voteConfiguration(),
+                    runtime.accounting(), bounded, runtime.players(), Clock.systemUTC());
+            processor.process(complete(firstVote, firstPlayer, "First", 100L));
+            processor.process(complete(secondVote, secondPlayer, "Second", 200L));
+            assertEquals(NeoForgeDeferredVoteStore.ReleaseResult.RELEASED,
+                    bounded.release(firstPlayer, firstVote));
+            assertEquals(NeoForgeDeferredVoteStore.ReleaseResult.RELEASED,
+                    bounded.release(secondPlayer, secondVote));
+            try (NeoForgeDeferredVoteStore.Claim claim = bounded.claim(firstPlayer, firstVote).orElseThrow()) {
+                assertTrue(bounded.claim(secondPlayer, secondVote).isEmpty());
+            }
+            assertNoAccounting(runtime.accounting().load(firstPlayer).orElseThrow());
+            assertNoAccounting(runtime.accounting().load(secondPlayer).orElseThrow());
+        }
+    }
+
+    @Test
     void quarantinedVoteRemainsFencedAcrossRestart() throws IOException {
         writeConfiguration();
         UUID playerId = UUID.randomUUID();
