@@ -58,6 +58,14 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerReceivePointsEvent;
 
 class VotingPluginUserPointSchedulingTest {
+	private static void stubSnapshotInvalidation(UserDataCache cache,
+			HashMap<String, com.bencodez.simpleapi.sql.data.DataValue> values) {
+		org.mockito.Mockito.doAnswer(call -> {
+			for (String key : (String[]) call.getRawArguments()[0]) values.remove(key);
+			return null;
+		}).when(cache).invalidateStorageSnapshot(org.mockito.ArgumentMatchers.any(String[].class));
+	}
+
 	@Test
 	void bulkPointOperationIdsAreDeterministicDistinctAndFitTheJournalSchema() {
 		String first = VotingPluginUser.bulkPointOperationId("admin-bulk-points/", "batch", "player-a");
@@ -366,6 +374,7 @@ class VotingPluginUserPointSchedulingTest {
 		doReturn(true).when(fixture.user).isCached();
 		doReturn(cache).when(fixture.user).getCache();
 		when(cache.getCache()).thenReturn(values);
+		stubSnapshotInvalidation(cache, values);
 		java.util.UUID userUuid = java.util.UUID.fromString("00000000-0000-0000-0000-000000000001");
 		when(fixture.plugin.getUserManager().getDataManager().getUserDataCache()).thenReturn(
 				new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(userUuid, cache)));
@@ -964,6 +973,7 @@ class VotingPluginUserPointSchedulingTest {
 		doReturn(cache).when(fixture.user).getCache();
 		doReturn(true).when(fixture.user).isCached();
 		when(cache.getCache()).thenReturn(values);
+		stubSnapshotInvalidation(cache, values);
 
 		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
 			bukkit.when(Bukkit::getPluginManager).thenReturn(mock(PluginManager.class));
@@ -1003,6 +1013,7 @@ class VotingPluginUserPointSchedulingTest {
 		doReturn(true).when(fixture.user).isCached();
 		doReturn(cache).when(fixture.user).getCache();
 		when(cache.getCache()).thenReturn(values);
+		stubSnapshotInvalidation(cache, values);
 		when(fixture.plugin.getUserManager().getDataManager().getUserDataCache()).thenReturn(
 				new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(
 						java.util.UUID.fromString("00000000-0000-0000-0000-000000000001"), cache)));
@@ -1141,6 +1152,7 @@ class VotingPluginUserPointSchedulingTest {
 		values.put("Points", mock(com.bencodez.simpleapi.sql.data.DataValue.class));
 		values.put("VoteStreak", mock(com.bencodez.simpleapi.sql.data.DataValue.class));
 		when(recreatedCache.getCache()).thenReturn(values);
+		stubSnapshotInvalidation(recreatedCache, values);
 		doReturn(false, true).when(fixture.user).isCached();
 		doReturn(recreatedCache).when(fixture.user).getCache();
 		java.util.UUID userUuid = java.util.UUID.fromString(fixture.user.getUUID());
@@ -1768,6 +1780,7 @@ class VotingPluginUserPointSchedulingTest {
 		recreatedValues.put("Points", mock(com.bencodez.simpleapi.sql.data.DataValue.class));
 		recreatedValues.put("DailyTotal", mock(com.bencodez.simpleapi.sql.data.DataValue.class));
 		when(recreatedCache.getCache()).thenReturn(recreatedValues);
+		stubSnapshotInvalidation(recreatedCache, recreatedValues);
 		var dataManager = fixture.plugin.getUserManager().getDataManager();
 		when(dataManager.getUserDataCache()).thenReturn(
 				new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(
@@ -1813,7 +1826,7 @@ class VotingPluginUserPointSchedulingTest {
 		order.verify(dataManager).removeCache(
 				java.util.UUID.fromString("00000000-0000-0000-0000-000000000002"), null);
 		order.verify(fixture.settlement).commit();
-		order.verify(recreatedCache).getCache();
+		order.verify(recreatedCache).invalidateStorageSnapshot("Points");
 		assertFalse(recreatedValues.containsKey("Points"));
 		assertTrue(recreatedValues.containsKey("DailyTotal"),
 				"settlement must preserve unrelated changes in a concurrently recreated cache");

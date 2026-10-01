@@ -110,7 +110,7 @@ final class SharedMysqlPointMutator {
 			throws SQLException {
 		retryPendingCompensationMarkers(plugin, journal);
 		for (SharedPointTransferJournal.RefundedTransfer refund : journal.recoverAndCleanup(System.currentTimeMillis())) {
-			SharedMysqlCacheReconciler.invalidate(plugin, refund.uuid(), refund.pointsColumn());
+			SharedMysqlCacheReconciler.invalidateAndRefreshOnWorker(plugin, refund.uuid(), refund.pointsColumn());
 		}
 	}
 
@@ -1101,7 +1101,7 @@ final class SharedMysqlPointMutator {
 	}
 
 	private void discardPointsCache(VotingPluginUser user, String pointsColumn) {
-		SharedMysqlCacheReconciler.invalidate(plugin, user.getUUID(), pointsColumn);
+		SharedMysqlCacheReconciler.invalidateAndRefreshOnWorker(plugin, user.getUUID(), pointsColumn);
 	}
 
 	private void completeOnBukkit(org.bukkit.entity.Player sourcePlayer, Consumer<PointTransferResult> completion,

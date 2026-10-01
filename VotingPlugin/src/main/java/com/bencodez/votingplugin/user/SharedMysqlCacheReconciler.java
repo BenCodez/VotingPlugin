@@ -86,13 +86,7 @@ public final class SharedMysqlCacheReconciler {
 		}
 		UserDataCache cache = plugin.getUserManager().getDataManager().getUserDataCache().get(playerUuid);
 		if (cache == null) return;
-		synchronized (cache) {
-			var values = cache.getCache();
-			if (values == null) return;
-			for (String column : columns) {
-				if (column != null) values.remove(column);
-			}
-		}
+		cache.invalidateStorageSnapshot(columns);
 	}
 
 	/** Invalidates changed fields and schedules a nonblocking authoritative refill. */
@@ -102,6 +96,22 @@ public final class SharedMysqlCacheReconciler {
 		try {
 			plugin.getVotingPluginUserManager().getVotingPluginUser(UUID.fromString(uuid), false).cacheAsync();
 		} catch (RuntimeException refreshFailure) {
+			plugin.debug(refreshFailure);
+		}
+	}
+
+	/**
+	 * Complete a direct SQL mutation's cache repair on its existing storage worker.
+	 * No cache monitor is held while entering shared-runtime admission or JDBC.
+	 * A failed refill leaves the snapshot explicitly unavailable, not false zero.
+	 */
+	public static void invalidateAndRefreshOnWorker(VotingPluginMain plugin, String uuid, String... columns) {
+		invalidate(plugin, uuid, columns);
+		if (plugin == null || uuid == null) return;
+		try {
+			plugin.getUserManager().getDataManager().cacheUser(UUID.fromString(uuid), null);
+		} catch (RuntimeException refreshFailure) {
+			plugin.getLogger().warning("Shared MySQL cache refresh is unavailable after mutation; stale data was not published.");
 			plugin.debug(refreshFailure);
 		}
 	}
@@ -152,7 +162,7 @@ public final class SharedMysqlCacheReconciler {
 		if (cache == null) return;
 		synchronized (cache) {
 			var values = cache.getCache();
-			if (values != null) values.remove(column);
+			if (values != null) cache.invalidateStorageSnapshot(column);
 		}
 	}
 }
