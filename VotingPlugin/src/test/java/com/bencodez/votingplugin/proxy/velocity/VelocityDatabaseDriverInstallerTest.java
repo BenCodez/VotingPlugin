@@ -169,4 +169,98 @@ class VelocityDatabaseDriverInstallerTest {
         assertTrue(messages.stream().anyMatch(s -> s.contains("not an approved build")));
     }
 
+    private com.google.gson.JsonObject release(String tag, String url) {
+        var release = new com.google.gson.JsonObject();
+        release.addProperty("draft", false);
+        release.addProperty("prerelease", false);
+        var asset = new com.google.gson.JsonObject();
+        asset.addProperty("name", "MySQLDriver-" + tag + ".jar");
+        asset.addProperty("browser_download_url", url);
+        var assets = new com.google.gson.JsonArray(); assets.add(asset);
+        release.add("assets", assets);
+        return release;
+    }
+
+    @Test void latestReleaseSelectionIsNotPinnedToVersionOne() throws Exception {
+        for (String version : List.of("1.0", "2.0")) {
+            String url = "https://github.com/BenCodez/MySQLDriver/releases/download/v" + version
+                    + "/MySQLDriver-" + version + ".jar";
+            assertEquals(java.net.URI.create(url), VelocityDatabaseDriverInstaller.releaseArtifact(release(version, url)));
+        }
+    }
+
+    @Test void releaseMetadataCannotRedirectToUnrelatedArtifacts() {
+        for (String url : List.of("http://github.com/BenCodez/MySQLDriver/releases/download/v1.0/MySQLDriver-1.0.jar",
+                "https://example.com/MySQLDriver-1.0.jar",
+                "https://github.com/attacker/MySQLDriver/releases/download/v1.0/MySQLDriver-1.0.jar")) {
+            assertThrows(IOException.class, () -> VelocityDatabaseDriverInstaller.releaseArtifact(release("1.0", url)));
+        }
+    }
+
+    @Test void missingAmbiguousAndUnpublishedReleaseAssetsFailClosed() {
+        String url = "https://github.com/BenCodez/MySQLDriver/releases/download/v1.0/MySQLDriver-1.0.jar";
+        var metadata = release("1.0", url);
+        metadata.getAsJsonArray("assets").add(metadata.getAsJsonArray("assets").get(0).deepCopy());
+        assertThrows(IOException.class, () -> VelocityDatabaseDriverInstaller.releaseArtifact(metadata));
+        metadata.getAsJsonArray("assets").remove(1);
+        metadata.addProperty("prerelease", true);
+        assertThrows(IOException.class, () -> VelocityDatabaseDriverInstaller.releaseArtifact(metadata));
+        metadata.addProperty("prerelease", false); metadata.addProperty("draft", true);
+        assertThrows(IOException.class, () -> VelocityDatabaseDriverInstaller.releaseArtifact(metadata));
+        metadata.addProperty("draft", false); metadata.getAsJsonArray("assets").remove(0);
+        assertThrows(IOException.class, () -> VelocityDatabaseDriverInstaller.releaseArtifact(metadata));
+    }
+
+    private static class Response extends java.net.HttpURLConnection {
+        final int status; final String location; boolean disconnected;
+        Response(java.net.URI uri, int status, String location) throws Exception {
+            super(uri.toURL()); this.status = status; this.location = location;
+        }
+        @Override public int getResponseCode() { return status; }
+        @Override public String getHeaderField(String name) { return "Location".equals(name) ? location : null; }
+        @Override public java.io.InputStream getInputStream() { return new java.io.ByteArrayInputStream(new byte[]{42}); }
+        @Override public void disconnect() { disconnected = true; }
+        @Override public boolean usingProxy() { return false; }
+        @Override public void connect() { }
+    }
+
+    @Test void githubHttpsAssetRedirectIsFollowedAndConnectionsClosed() throws Exception {
+        var start = java.net.URI.create("https://github.com/BenCodez/MySQLDriver/releases/download/v1.0/MySQLDriver-1.0.jar");
+        var asset = java.net.URI.create("https://release-assets.githubusercontent.com/github-production-release-asset/test?signature=test");
+        Response first = new Response(start, 302, asset.toString());
+        Response second = new Response(asset, 200, null);
+        try (var in = VelocityDatabaseDriverInstaller.request(start, uri -> uri.equals(start) ? first : second)) {
+            assertEquals(42, in.read());
+        }
+        assertTrue(first.disconnected); assertTrue(second.disconnected);
+    }
+
+    @Test void redirectDowngradeUnapprovedHostsAndCredentialsFailBeforeConnection() throws Exception {
+        var start = java.net.URI.create("https://github.com/BenCodez/MySQLDriver/releases/download/v1.0/MySQLDriver-1.0.jar");
+        for (String target : List.of("http://release-assets.githubusercontent.com/artifact", "https://evil.example/artifact",
+                "https://github.com.evil.example/artifact", "https://user:password@github.com/artifact",
+                "https://github.com:8443/artifact")) {
+            Response first = new Response(start, 302, target);
+            AtomicInteger attempts = new AtomicInteger();
+            assertThrows(IOException.class, () -> VelocityDatabaseDriverInstaller.request(start, uri -> {
+                assertEquals(start, uri); attempts.incrementAndGet(); return first;
+            }));
+            assertEquals(1, attempts.get()); assertTrue(first.disconnected);
+        }
+    }
+
+    @Test void redirectLoopsMissingLocationAndHttpFailureAreBounded() throws Exception {
+        var uri = VelocityDatabaseDriverInstaller.LATEST_RELEASE;
+        Response loop = new Response(uri, 302, uri.toString());
+        AtomicInteger attempts = new AtomicInteger();
+        assertThrows(IOException.class, () -> VelocityDatabaseDriverInstaller.request(uri, ignored -> {
+            attempts.incrementAndGet(); return loop;
+        }));
+        assertEquals(4, attempts.get()); assertTrue(loop.disconnected);
+        for (int status : List.of(302, 404, 503)) {
+            Response response = new Response(uri, status, null);
+            assertThrows(IOException.class, () -> VelocityDatabaseDriverInstaller.request(uri, ignored -> response));
+            assertTrue(response.disconnected);
+        }
+    }
 }

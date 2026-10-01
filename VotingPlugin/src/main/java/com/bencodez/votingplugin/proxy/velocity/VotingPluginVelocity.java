@@ -454,7 +454,7 @@ public class VotingPluginVelocity {
 				Class.forName(driver, true, com.bencodez.simpleapi.sql.mysql.ConnectionManager.class.getClassLoader());
 				return true;
 			} catch (ClassNotFoundException missing) { return false; }
-		}, VelocityDatabaseDriverInstaller::downloadLatest).ready(connections,
+		}, VelocityDatabaseDriverInstaller::downloadLatestRelease).ready(connections,
 				config.getAutoDownloadMissingDatabaseDriver(), dataDirectory, logger::info, logger::warn);
 	}
 
