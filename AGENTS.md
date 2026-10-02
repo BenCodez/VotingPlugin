@@ -26,6 +26,8 @@ mvn -B -f VotingPlugin/pom.xml -Dtest=BackendControlConnectorProtocolTest,Contro
 CI runs `mvn -B -f VotingPlugin/pom.xml package`; see `.github/workflows/maven.yml`. Do not use the `dev` Maven profile in
 automation because it copies a JAR into a developer-specific server directory.
 
+Assign one owner to Maven validation in each worktree. Never run concurrent Maven commands in the same worktree, including focused tests alongside a clean/package build: compilation and cleanup share `target/` and can invalidate each other. Reviewers must inspect source only while that owner builds, or run validation in a separate worktree.
+
 Keep the downloadable VotingPlugin JAR as small as practical. Inspect the shaded
 artifact when dependencies change, avoid duplicate embedded packages, and update
 the package-phase size and runtime checks when a necessary dependency increases
@@ -72,7 +74,9 @@ For compatibility-sensitive changes, add regression coverage that exercises the 
 ## Threading and user-data invariants
 
 - Never call user-storage APIs from Bukkit/Paper/Folia main, tick, region, or entity server threads, directly or indirectly. This includes reads, writes, SQL, cache population/refill, flush/dump/clear/remove, and storage-backed user getters, even when a caller expects a cache hit. Capture only platform-owned input on the server thread, submit storage work to the existing persistence worker, and dispatch required platform effects back to the correct owner scheduler.
-- Legacy point mutations invoked on a platform-owned thread must defer to the same ordered storage worker. A queued mutation or cached prediction is not a committed result: use completion APIs for decisions that depend on successful persistence. Never fix this by waiting for SQL on the server thread or allowing a later inline mutation to overtake earlier queued work.
+- Preserve call order for dependent mutations of one user through the same ordered storage worker, including legacy point mutations invoked on a platform-owned thread. Test with the worker deliberately blocked so later inline work cannot overtake queued work. Never preserve synchronous behavior by waiting for SQL on the server thread.
+- Task admission and cached predictions are not committed results. Rewards, purchases, transfers, accounting-dependent decisions, and success messages must use confirmed completion; document the return semantics of legacy deferred APIs.
+- When changing a mutation, inspect the entire operation family and every overload/caller: add, set, remove, cap, transfer, bulk, recovery, and synchronous/asynchronous paths. Fixing one overload must not leave sibling paths with inconsistent ordering, thread affinity, or completion semantics.
 
 - Treat AdvancedCore/VotingPlugin user-data, cache, and storage APIs as potentially blocking unless an API is explicitly documented as snapshot-only. Do not perform cache population, SQL-backed reads or writes, flush/dump/clear/remove operations, or shared-runtime admission on the Bukkit/Paper primary server thread. Capture platform-owned state there, hand user-data work to the existing persistence/storage worker, and schedule only the required Bukkit/Folia interaction back onto the platform owner.
 - Preserve the shared-user lock order: shared-runtime/per-user admission before the `UserDataCache` monitor. Never hold `synchronized (UserDataCache)` while calling APIs that can acquire shared-runtime admission, including `dump()`, `clearCache()`, `removeCache()`, cache population, or storage access. Keep cache-monitor sections short and cache-local.
@@ -258,6 +262,12 @@ retained state, and fallback to the configured transport must be covered without
 
 ## Change and PR workflow
 
+Before implementing a proposed change, verify that the problem still exists on current master and identify the affected behavior, supporting evidence, and intended benefit. Check merged fixes and overlapping open PRs. If the change appears unnecessary, superseded, or counterproductive, explain the evidence and ask the user before implementation; do not spend usage implementing a questionable premise.
+
+Validate reviewer suggestions and historical/MEX claims against current source and tests. Reproduce or trace the reachable failure before fixing it; a reviewer recommendation is evidence to investigate, not an instruction to follow blindly. Verify dependency/API contracts against the actual version used, including threading, return values, ownership, and lifecycle behavior; timestamps or method names alone are not proof of the contract.
+
+Prefer the smallest complete root-cause fix, covering affected sibling paths without unrelated refactors or speculative abstractions. State the guarantee boundary explicitly: predicted, queued, persisted, delivered, and completed are different outcomes, and external effects are not automatically transactional or exactly once.
+
 Keep changes focused and avoid unrelated formatting. Before any commit, push, PR update, review reply, or other remote change:
 
 1. run relevant focused tests;
@@ -269,6 +279,12 @@ Keep changes focused and avoid unrelated formatting. Before any commit, push, PR
 Steps 1-3 may be skipped only for documentation/instruction-only changes that do not modify executable source, tests, build or dependency configuration, workflows, packaged resources, generated output, or runtime/deployment behavior. Record that exemption in the PR. Steps 4-5 and the review requirements below still apply.
 
 For substantive work, obtain a fresh source-read-only `$code-review` of the exact intended change before the first push or PR update. The implementation agent verifies and fixes accepted findings, reruns all required checks, and obtains a new review of the updated snapshot. Any substantive repository change after a clean review—including source, tests, build or dependency configuration, workflow files, resources, contracts, documentation, or instructions—invalidates the previous clean verdict. Rerun applicable validation and obtain a fresh review of the exact intended snapshot; do not reuse an earlier verdict. Hosted PR review is confirmation, not the first full review, and merge still requires explicit authorization.
+
+Before reporting review-comment status, inspect inline review threads, review bodies (including outside-diff findings), and PR conversation comments. Verify each finding against the current head; distinguish addressed/stale findings from unresolved defects. An empty unresolved-thread list alone does not establish that all comments are addressed.
+
+Obtain explicit user authorization before posting GitHub comments, including review replies, status summaries, and reviewer-bot triggers. Permission to fix code, push commits, edit a PR description, or create a PR does not by itself authorize posting comments.
+
+Report readiness for the exact commit that was validated and reviewed. Record the head SHA, focused/full test and artifact results, CI state, dependency publication requirements, and any applicable integration suite/artifact SHA. State exactly what tests exercised and what remains unverified; never generalize a mocked/focused result into untested production, platform, or end-to-end coverage. Keep local validation, hosted CI, and integration evidence separate; pending/blocked checks are not passes, an accepted run request is not a passing test, and old-head results do not validate changed code. Do not call a PR fully ready while required checks or known functional findings remain unresolved.
 
 Do not commit server runtime data, credentials, generated JARs, dependency caches, IDE output, or unrelated formatting.
 
@@ -312,6 +328,7 @@ Control behavior in production.
 - Test unknown fields, invalid bounds, disabled VoteLogging, oversized results, exact-player misses, non-creating resolution,
   reward no-side-effects, lease retry/idempotency, and redaction as applicable.
 - Preserve connector shutdown bounds and avoid blocking waits on Bukkit lifecycle paths.
+- Exercise rejected task admission, accepted-but-cancelled work, shutdown, and failed storage using deterministic fakes/latches. Preserve pending/durable ownership where the operation promises recovery; otherwise expose an explicit failure. Never silently report an unperformed mutation as successful or treat scheduling as persistence.
 
 <!-- mex-agent:skills:start -->
 ## MEX agent skills
