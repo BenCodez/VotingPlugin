@@ -35,8 +35,10 @@ JVM properties. Extracted natives use a unique load directory so a replacement
 plugin classloader never reuses the prior classloader's JNI path; stale copies
 are removed on a best-effort basis.
 
-The test caps the downloadable artifact at 10 MiB so dependency growth must be
-reviewed explicitly. Release/deployment profiles
+The package-phase test reports a prominent warning when the downloadable artifact
+exceeds the 10 MiB size target. Size alone does not fail the build; dependency
+growth should still be reviewed. Required runtime resources, duplicate libraries,
+linkage, and other packaging-safety checks remain build failures. Release/deployment profiles
 reuse this Shade setup; the artifact check follows their configured JAR name.
 
 Keep the downloadable VotingPlugin JAR as small as practical. Before adding a

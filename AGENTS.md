@@ -28,7 +28,9 @@ automation because it copies a JAR into a developer-specific server directory.
 
 Assign one owner to Maven validation in each worktree. Never run concurrent Maven commands in the same worktree, including focused tests alongside a clean/package build: compilation and cleanup share `target/` and can invalidate each other. Reviewers must inspect source only while that owner builds, or run validation in a separate worktree.
 
-Keep the downloadable VotingPlugin JAR as small as practical. Inspect the shaded
+Keep the downloadable VotingPlugin JAR as small as practical. The 10 MiB size target is advisory:
+report a prominent package/build warning when exceeded, never fail a build solely for artifact size.
+Keep required-resource, linkage, and packaging-safety checks enforced. Inspect the shaded
 artifact when dependencies change, avoid duplicate embedded packages, and update
 the package-phase size and runtime checks when a necessary dependency increases
 the artifact budget.
