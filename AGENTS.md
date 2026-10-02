@@ -262,6 +262,12 @@ retained state, and fallback to the configured transport must be covered without
 
 ## Change and PR workflow
 
+Before implementing a proposed change, verify that the problem still exists on current master and identify the affected behavior, supporting evidence, and intended benefit. Check merged fixes and overlapping open PRs. If the change appears unnecessary, superseded, or counterproductive, explain the evidence and ask the user before implementation; do not spend usage implementing a questionable premise.
+
+Validate reviewer suggestions and historical/MEX claims against current source and tests. Reproduce or trace the reachable failure before fixing it; a reviewer recommendation is evidence to investigate, not an instruction to follow blindly. Verify dependency/API contracts against the actual version used, including threading, return values, ownership, and lifecycle behavior; timestamps or method names alone are not proof of the contract.
+
+Prefer the smallest complete root-cause fix, covering affected sibling paths without unrelated refactors or speculative abstractions. State the guarantee boundary explicitly: predicted, queued, persisted, delivered, and completed are different outcomes, and external effects are not automatically transactional or exactly once.
+
 Keep changes focused and avoid unrelated formatting. Before any commit, push, PR update, review reply, or other remote change:
 
 1. run relevant focused tests;
@@ -278,7 +284,7 @@ Before reporting review-comment status, inspect inline review threads, review bo
 
 Obtain explicit user authorization before posting GitHub comments, including review replies, status summaries, and reviewer-bot triggers. Permission to fix code, push commits, edit a PR description, or create a PR does not by itself authorize posting comments.
 
-Report readiness for the exact commit that was validated and reviewed. Record the head SHA, focused/full test and artifact results, CI state, dependency publication requirements, and any applicable integration suite/artifact SHA. Keep local validation, hosted CI, and integration evidence separate; pending/blocked checks are not passes, an accepted run request is not a passing test, and old-head results do not validate changed code. Do not call a PR fully ready while required checks or known functional findings remain unresolved.
+Report readiness for the exact commit that was validated and reviewed. Record the head SHA, focused/full test and artifact results, CI state, dependency publication requirements, and any applicable integration suite/artifact SHA. State exactly what tests exercised and what remains unverified; never generalize a mocked/focused result into untested production, platform, or end-to-end coverage. Keep local validation, hosted CI, and integration evidence separate; pending/blocked checks are not passes, an accepted run request is not a passing test, and old-head results do not validate changed code. Do not call a PR fully ready while required checks or known functional findings remain unresolved.
 
 Do not commit server runtime data, credentials, generated JARs, dependency caches, IDE output, or unrelated formatting.
 
