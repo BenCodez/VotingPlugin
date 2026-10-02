@@ -1,7 +1,9 @@
 package com.bencodez.votingplugin.proxy.velocity;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.channels.Channels;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Files;
@@ -203,9 +205,23 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 		}
 	}
 
+	/** Normal reload must never publish defaults after a failed replacement load. */
+	@Override
+	public synchronized void reload() {
+		try {
+			loadControlConfiguration();
+		} catch (IOException failure) {
+			throw new UncheckedIOException("Velocity configuration reload failed; previous configuration remains active", failure);
+		}
+	}
+
 	/** Loads the active file without the superclass's empty-config fallback. */
 	public synchronized void loadControlConfiguration() throws IOException {
-		ConfigurationNode loaded = YamlConfigurationLoader.builder().path(configurationFile.toPath()).build().load();
+		ConfigurationNode loaded;
+		// Open first so Configurate cannot substitute an empty root for a missing file.
+		try (BufferedReader reader = Files.newBufferedReader(configurationFile.toPath())) {
+			loaded = YamlConfigurationLoader.builder().source(() -> reader).build().load();
+		}
 		setConf(loaded);
 	}
 

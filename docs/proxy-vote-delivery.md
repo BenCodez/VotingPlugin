@@ -52,3 +52,12 @@ HTTP retains its existing request recovery and also uses the completion outbox
 after capability discovery. The generic outbox covers plugin messaging, Redis,
 MQTT, MySQL, sockets, and HTTP. No reward data model or Bukkit vote ordering
 changes.
+
+## Velocity configuration reload failures
+
+Normal Velocity soft/full reload validates `bungeeconfig.yml` before changing
+channels, cancelling tasks, or replacing the proxy runtime. If the file is
+missing, unreadable, or malformed, reload logs a failure and keeps the previous
+active configuration and runtime. It does not rewrite the invalid file or
+substitute default transport settings. Repair the file and reload again.
+This preservation contract is distinct from initial startup default handling.
