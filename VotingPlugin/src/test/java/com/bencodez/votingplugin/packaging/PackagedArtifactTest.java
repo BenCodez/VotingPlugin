@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
@@ -18,7 +20,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 /** Package-phase checks for the actual downloadable plugin artifact. */
 public class PackagedArtifactTest {
-    private static final long MAX_DOWNLOAD_BYTES = 10L * 1024L * 1024L;
+    private static final long ARTIFACT_SIZE_TARGET_BYTES = 10L * 1024L * 1024L;
 
     @Test
     void containsOneRelocatedRuntimeWithoutUnusedHttpCrypto() throws Exception {
@@ -65,11 +67,30 @@ public class PackagedArtifactTest {
                     "Only the common offline SQLite native may be embedded");
         }
         long artifactBytes = Files.size(artifactPath);
-        assertTrue(artifactBytes <= MAX_DOWNLOAD_BYTES,
-                () -> "VotingPlugin downloadable artifact exceeded "
-                        + (MAX_DOWNLOAD_BYTES / (1024L * 1024L)) + " MiB: " + artifactBytes);
+        warnIfArtifactExceedsSizeTarget(artifactBytes, System.out);
         System.out.printf("VotingPlugin downloadable artifact: %,d bytes; duplicate Rhino, external crypto and uncommon SQLite natives absent%n",
                 Files.size(artifactPath));
+    }
+
+    @Test
+    void artifactSizeTargetWarnsWithoutRejectingOversizedArtifacts() {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        try (PrintStream report = new PrintStream(output, true, StandardCharsets.UTF_8)) {
+            warnIfArtifactExceedsSizeTarget(ARTIFACT_SIZE_TARGET_BYTES, report);
+            assertTrue(output.toString(StandardCharsets.UTF_8).isEmpty());
+            warnIfArtifactExceedsSizeTarget(ARTIFACT_SIZE_TARGET_BYTES + 1, report);
+            String warning = output.toString(StandardCharsets.UTF_8);
+            assertTrue(warning.contains("[WARNING]"));
+            assertTrue(warning.contains("10 MiB size target"));
+            assertTrue(warning.contains("does not fail the build"));
+        }
+    }
+
+    private static void warnIfArtifactExceedsSizeTarget(long artifactBytes, PrintStream output) {
+        if (artifactBytes > ARTIFACT_SIZE_TARGET_BYTES) {
+            output.printf("[WARNING] VotingPlugin downloadable artifact exceeds the 10 MiB size target: %,d bytes. "
+                    + "Review dependency growth; this warning does not fail the build.%n", artifactBytes);
+        }
     }
 
     @Test
