@@ -45,6 +45,11 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 		configurationFile = file;
 	}
 
+	/** Manual opt-out; deliberately absent from generated/default configuration. */
+	public boolean getAutoDownloadMissingDatabaseDriver() {
+		return getBoolean(getNode("AutoDownloadMissingDatabaseDriver"), true);
+	}
+
 	@Override
 	public synchronized void persistControlProxyRouting(boolean sendVotesToAllServers, List<String> blockedServers,
 			String expectedRevision) throws IOException {
