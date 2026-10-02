@@ -71,6 +71,9 @@ For compatibility-sensitive changes, add regression coverage that exercises the 
 
 ## Threading and user-data invariants
 
+- Never call user-storage APIs from Bukkit/Paper/Folia main, tick, region, or entity server threads, directly or indirectly. This includes reads, writes, SQL, cache population/refill, flush/dump/clear/remove, and storage-backed user getters, even when a caller expects a cache hit. Capture only platform-owned input on the server thread, submit storage work to the existing persistence worker, and dispatch required platform effects back to the correct owner scheduler.
+- Legacy point mutations invoked on a platform-owned thread must defer to the same ordered storage worker. A queued mutation or cached prediction is not a committed result: use completion APIs for decisions that depend on successful persistence. Never fix this by waiting for SQL on the server thread or allowing a later inline mutation to overtake earlier queued work.
+
 - Treat AdvancedCore/VotingPlugin user-data, cache, and storage APIs as potentially blocking unless an API is explicitly documented as snapshot-only. Do not perform cache population, SQL-backed reads or writes, flush/dump/clear/remove operations, or shared-runtime admission on the Bukkit/Paper primary server thread. Capture platform-owned state there, hand user-data work to the existing persistence/storage worker, and schedule only the required Bukkit/Folia interaction back onto the platform owner.
 - Preserve the shared-user lock order: shared-runtime/per-user admission before the `UserDataCache` monitor. Never hold `synchronized (UserDataCache)` while calling APIs that can acquire shared-runtime admission, including `dump()`, `clearCache()`, `removeCache()`, cache population, or storage access. Keep cache-monitor sections short and cache-local.
 

@@ -41,6 +41,15 @@ import com.bencodez.simpleapi.sql.data.DataValueInt;
 import com.bencodez.votingplugin.VotingPluginMain;
 
 class SharedMysqlPointMutatorTest {
+	// These existing mutation tests use a cache mock; snapshot publication itself
+	// is exercised using real UserDataCache instances in the reconciler tests.
+	private static void stubSnapshotInvalidation(UserDataCache cache, HashMap<String, DataValue> values) {
+		doAnswer(call -> {
+			for (String key : (String[]) call.getRawArguments()[0]) values.remove(key);
+			return null;
+		}).when(cache).invalidateStorageSnapshot(any(String[].class));
+	}
+
 	@Test
 	void transferApprovalUsesLegacyEntitySchedulerWhenFoliaIsUnavailable() throws Exception {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
@@ -213,6 +222,7 @@ class SharedMysqlPointMutatorTest {
 		recreatedValues.put("Points", new DataValueInt(20));
 		recreatedValues.put("DailyTotal", new DataValueInt(4));
 		when(recreatedCache.getCache()).thenReturn(recreatedValues);
+		stubSnapshotInvalidation(recreatedCache, recreatedValues);
 		when(plugin.getUserManager().getDataManager().getUserDataCache()).thenReturn(
 				new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(UUID.fromString(sourceUuid), recreatedCache)));
 		AtomicReference<PointTransferResult> result = new AtomicReference<>();
@@ -245,6 +255,7 @@ class SharedMysqlPointMutatorTest {
 		HashMap<String, DataValue> values = new HashMap<>();
 		values.put("Points", new DataValueInt(10));
 		when(cache.getCache()).thenReturn(values);
+		stubSnapshotInvalidation(cache, values);
 		when(plugin.getUserManager().getDataManager().getUserDataCache()).thenReturn(
 				new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(
 						java.util.UUID.fromString(sourceUuid), cache)));
@@ -272,6 +283,7 @@ class SharedMysqlPointMutatorTest {
 				.thenReturn(new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(
 						java.util.UUID.fromString("00000000-0000-0000-0000-000000000001"), cache)));
 		when(cache.getCache()).thenReturn(values);
+		stubSnapshotInvalidation(cache, values);
 
 		SharedMysqlCacheReconciler.invalidate(plugin, "00000000-0000-0000-0000-000000000001", "Points",
 				"VoteShopLimitdaily");
@@ -488,6 +500,7 @@ class SharedMysqlPointMutatorTest {
 		when(user.getCache()).thenReturn(cache);
 		when(user.isCached()).thenReturn(true);
 		when(cache.getCache()).thenReturn(values);
+		stubSnapshotInvalidation(cache, values);
 		when(points.isInt()).thenReturn(true);
 		when(points.getInt()).thenReturn(20);
 		when(user.getPointsPath()).thenReturn("Points");
@@ -528,6 +541,7 @@ class SharedMysqlPointMutatorTest {
 		values.put("DailyTotal", new DataValueInt(4));
 		when(user.getCache()).thenReturn(cache);
 		when(cache.getCache()).thenReturn(values);
+		stubSnapshotInvalidation(cache, values);
 		UUID uuid = UUID.fromString("00000000-0000-0000-0000-000000000001");
 		var dataManager = plugin.getUserManager().getDataManager();
 		doAnswer(invocation -> {
@@ -559,6 +573,7 @@ class SharedMysqlPointMutatorTest {
 		when(user.getCache()).thenReturn(cache);
 		when(user.getPointsPath()).thenReturn("Points");
 		when(cache.getCache()).thenReturn(values);
+		stubSnapshotInvalidation(cache, values);
 		doCallRealMethod().when(user).clearCache();
 		doAnswer(invocation -> {
 			assertFalse(values.containsKey("Points"),
@@ -733,6 +748,7 @@ class SharedMysqlPointMutatorTest {
 		when(user.isCached()).thenReturn(true);
 		when(user.getCache()).thenReturn(cache);
 		when(cache.getCache()).thenReturn(values);
+		stubSnapshotInvalidation(cache, values);
 		UUID uuid = UUID.fromString("00000000-0000-0000-0000-000000000001");
 		var dataManager = plugin.getUserManager().getDataManager();
 		when(dataManager.getUserDataCache()).thenReturn(
@@ -823,6 +839,7 @@ class SharedMysqlPointMutatorTest {
 		when(user.isCached()).thenReturn(true);
 		when(user.getCache()).thenReturn(cache);
 		when(cache.getCache()).thenReturn(values);
+		stubSnapshotInvalidation(cache, values);
 		UUID uuid = UUID.fromString("00000000-0000-0000-0000-000000000001");
 		when(plugin.getUserManager().getDataManager().getUserDataCache()).thenReturn(
 				new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(uuid, cache)));

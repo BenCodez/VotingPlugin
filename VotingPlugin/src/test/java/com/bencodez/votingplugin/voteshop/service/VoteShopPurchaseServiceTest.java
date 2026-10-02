@@ -62,6 +62,14 @@ import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.voteshop.shop.VoteShopItem;
 
 class VoteShopPurchaseServiceTest {
+	private static void stubSnapshotInvalidation(UserDataCache cache,
+			HashMap<String, com.bencodez.simpleapi.sql.data.DataValue> values) {
+		org.mockito.Mockito.doAnswer(call -> {
+			for (String key : (String[]) call.getRawArguments()[0]) values.remove(key);
+			return null;
+		}).when(cache).invalidateStorageSnapshot(org.mockito.ArgumentMatchers.any(String[].class));
+	}
+
 	@Test
 	void purchaseRecoveryEligibilityIgnoresCurrentPerServerPointsSetting() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
@@ -216,7 +224,9 @@ class VoteShopPurchaseServiceTest {
 		when(markerSelect.executeQuery()).thenReturn(epoch);
 		when(advance.executeUpdate()).thenReturn(1);
 		when(initialCache.getCache()).thenReturn(initialValues);
+		stubSnapshotInvalidation(initialCache, initialValues);
 		when(recreatedCache.getCache()).thenReturn(recreatedValues);
+		stubSnapshotInvalidation(recreatedCache, recreatedValues);
 		doAnswer(invocation -> {
 			liveCaches.put(cachedUuid, recreatedCache);
 			return 1;
@@ -778,6 +788,7 @@ class VoteShopPurchaseServiceTest {
 		values.put("Points", mock(DataValue.class));
 		values.put("VoteShopLimit-item", mock(DataValue.class));
 		when(cache.getCache()).thenReturn(values);
+		stubSnapshotInvalidation(cache, values);
 		when(plugin.getUserManager().getDataManager().getUserDataCache()).thenReturn(
 				new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(UUID.fromString(uuid), cache)));
 		SharedMysqlPurchaseJournal journal = mock(SharedMysqlPurchaseJournal.class);
@@ -1282,6 +1293,7 @@ class VoteShopPurchaseServiceTest {
 		when(user.isCached()).thenReturn(true, false);
 		when(user.getCache()).thenReturn(cache);
 		when(cache.getCache()).thenReturn(values);
+		stubSnapshotInvalidation(cache, values);
 		java.lang.reflect.Method record = SharedMysqlCacheReconciler.class.getDeclaredMethod(
 				"recordOptimisticPoint", UserDataCache.class, String.class, DataValue.class);
 		record.setAccessible(true);
@@ -1326,6 +1338,7 @@ class VoteShopPurchaseServiceTest {
 		when(plugin.getUserManager().getDataManager().getUserDataCache()).thenReturn(
 				new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(userUuid, cache)));
 		when(cache.getCache()).thenReturn(cachedValues);
+		stubSnapshotInvalidation(cache, cachedValues);
 		VoteShopItem item = mock(VoteShopItem.class);
 		when(item.getCost()).thenReturn(10);
 		when(item.getLimit()).thenReturn(0);
@@ -1335,7 +1348,7 @@ class VoteShopPurchaseServiceTest {
 
 		InOrder closeBeforeRefresh = inOrder(connection, cache);
 		closeBeforeRefresh.verify(connection).close();
-		closeBeforeRefresh.verify(cache).getCache();
+		closeBeforeRefresh.verify(cache).invalidateStorageSnapshot(org.mockito.ArgumentMatchers.any(String[].class));
 		assertFalse(cachedValues.containsKey("Points"));
 		verify(cache, never()).addChange(any(), org.mockito.ArgumentMatchers.anyBoolean());
 	}
@@ -1419,6 +1432,7 @@ class VoteShopPurchaseServiceTest {
 		recreatedValues.put("VoteShopLimititem", mock(DataValue.class));
 		recreatedValues.put("DailyTotal", mock(DataValue.class));
 		when(recreatedCache.getCache()).thenReturn(recreatedValues);
+		stubSnapshotInvalidation(recreatedCache, recreatedValues);
 		when(plugin.getUserManager().getDataManager().getUserDataCache()).thenReturn(
 				new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(uuid, recreatedCache)));
 		org.bukkit.entity.Player player = mock(org.bukkit.entity.Player.class);

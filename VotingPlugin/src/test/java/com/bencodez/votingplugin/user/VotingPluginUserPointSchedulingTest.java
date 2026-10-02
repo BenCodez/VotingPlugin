@@ -58,6 +58,14 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerReceivePointsEvent;
 
 class VotingPluginUserPointSchedulingTest {
+	private static void stubSnapshotInvalidation(UserDataCache cache,
+			HashMap<String, com.bencodez.simpleapi.sql.data.DataValue> values) {
+		org.mockito.Mockito.doAnswer(call -> {
+			for (String key : (String[]) call.getRawArguments()[0]) values.remove(key);
+			return null;
+		}).when(cache).invalidateStorageSnapshot(org.mockito.ArgumentMatchers.any(String[].class));
+	}
+
 	@Test
 	void bulkPointOperationIdsAreDeterministicDistinctAndFitTheJournalSchema() {
 		String first = VotingPluginUser.bulkPointOperationId("admin-bulk-points/", "batch", "player-a");
@@ -366,6 +374,7 @@ class VotingPluginUserPointSchedulingTest {
 		doReturn(true).when(fixture.user).isCached();
 		doReturn(cache).when(fixture.user).getCache();
 		when(cache.getCache()).thenReturn(values);
+		stubSnapshotInvalidation(cache, values);
 		java.util.UUID userUuid = java.util.UUID.fromString("00000000-0000-0000-0000-000000000001");
 		when(fixture.plugin.getUserManager().getDataManager().getUserDataCache()).thenReturn(
 				new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(userUuid, cache)));
@@ -964,6 +973,7 @@ class VotingPluginUserPointSchedulingTest {
 		doReturn(cache).when(fixture.user).getCache();
 		doReturn(true).when(fixture.user).isCached();
 		when(cache.getCache()).thenReturn(values);
+		stubSnapshotInvalidation(cache, values);
 
 		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
 			bukkit.when(Bukkit::getPluginManager).thenReturn(mock(PluginManager.class));
@@ -1003,6 +1013,7 @@ class VotingPluginUserPointSchedulingTest {
 		doReturn(true).when(fixture.user).isCached();
 		doReturn(cache).when(fixture.user).getCache();
 		when(cache.getCache()).thenReturn(values);
+		stubSnapshotInvalidation(cache, values);
 		when(fixture.plugin.getUserManager().getDataManager().getUserDataCache()).thenReturn(
 				new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(
 						java.util.UUID.fromString("00000000-0000-0000-0000-000000000001"), cache)));
@@ -1102,6 +1113,130 @@ class VotingPluginUserPointSchedulingTest {
 	}
 
 	@Test
+	void platformThreadLegacyAddQueuesMysqlAndPublishesOnWorker() throws Exception {
+		PointFixture fixture = pointFixture();
+		var manager = fixture.plugin.getUserManager().getDataManager();
+		when(manager.mustDeferSharedStorageAccess()).thenReturn(true);
+		UUID uuid = UUID.fromString(fixture.user.getUUID());
+		UserDataCache cache = new UserDataCache(null, uuid);
+		cache.updateCache(new HashMap<>(java.util.Map.of("Points", new com.bencodez.simpleapi.sql.data.DataValueInt(10))));
+		doReturn(cache).when(fixture.user).getCache();
+		doReturn(true).when(fixture.user).isCached();
+		when(manager.getUserDataCache()).thenReturn(new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(uuid, cache)));
+		doAnswer(call -> {
+			assertFalse(manager.mustDeferSharedStorageAccess());
+			cache.updateSharedSnapshot(new HashMap<>(java.util.Map.of("Points", new com.bencodez.simpleapi.sql.data.DataValueInt(15))), cache.getSharedSnapshotVersion());
+			return null;
+		}).when(manager).cacheUser(uuid, null);
+		when(fixture.statement.executeUpdate()).thenReturn(1);
+		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+			bukkit.when(Bukkit::getPluginManager).thenReturn(mock(PluginManager.class));
+			assertEquals(15, fixture.user.addPoints(5));
+		}
+		verify(fixture.sql.getConnectionManager(), never()).getConnection();
+		assertTrue(cache.hasPublishedStorageSnapshot());
+		ArgumentCaptor<Runnable> worker = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.persistence).execute(worker.capture());
+		when(manager.mustDeferSharedStorageAccess()).thenReturn(false);
+		worker.getValue().run();
+		verify(fixture.statement).executeUpdate();
+		assertEquals(15, cache.snapshotIfPublished().get("Points").getInt());
+	}
+
+	@Test
+	void platformThreadLegacySetOverloadsQueueMysqlBeforeAnyInvalidation() throws Exception {
+		for (boolean explicitAsyncArgument : new boolean[] { false, true }) {
+			PointFixture fixture = pointFixture();
+			when(fixture.plugin.getUserManager().getDataManager().mustDeferSharedStorageAccess()).thenReturn(true);
+			if (explicitAsyncArgument) fixture.user.setPoints(42, false);
+			else fixture.user.setPoints(42);
+			verify(fixture.sql.getConnectionManager(), never()).getConnection();
+			verify(fixture.plugin.getUserManager().getDataManager(), never()).cacheUser(any(UUID.class), org.mockito.ArgumentMatchers.isNull());
+			ArgumentCaptor<Runnable> worker = ArgumentCaptor.forClass(Runnable.class);
+			verify(fixture.persistence).execute(worker.capture());
+			when(fixture.plugin.getUserManager().getDataManager().mustDeferSharedStorageAccess()).thenReturn(false);
+			worker.getValue().run();
+			verify(fixture.statement).setInt(1, 42);
+			verify(fixture.statement).executeUpdate();
+		}
+	}
+
+	@Test
+	void platformThreadLegacyMutationsReportRejectedStorageAdmission() throws Exception {
+		for (int operation = 0; operation < 3; operation++) {
+			PointFixture fixture = pointFixture();
+			when(fixture.plugin.getUserManager().getDataManager().mustDeferSharedStorageAccess()).thenReturn(true);
+			doThrow(new RejectedExecutionException()).when(fixture.persistence).execute(any(Runnable.class));
+			UserData data = mock(UserData.class);
+			doReturn(data).when(fixture.user).getUserData();
+			when(data.getInt("Points", UserDataFetchMode.TEMP_ONLY)).thenReturn(10);
+			int selected = operation;
+			try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+				bukkit.when(Bukkit::getPluginManager).thenReturn(mock(PluginManager.class));
+				org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class, () -> {
+					if (selected == 0) fixture.user.addPoints(5);
+					else if (selected == 1) fixture.user.setPoints(42);
+					else fixture.user.setPoints(42, false);
+				});
+			}
+			verify(fixture.sql.getConnectionManager(), never()).getConnection();
+		}
+	}
+
+	@Test
+	void platformSetThenLegacyRemovePreservesStorageWorkerOrder() throws Exception {
+		for (boolean explicitAsyncArgument : new boolean[] { false, true }) {
+			PointFixture fixture = pointFixture();
+			var manager = fixture.plugin.getUserManager().getDataManager();
+			when(manager.mustDeferSharedStorageAccess()).thenReturn(true);
+			UserData data = mock(UserData.class);
+			doReturn(data).when(fixture.user).getUserData();
+			when(data.getInt("Points", UserDataFetchMode.TEMP_ONLY)).thenReturn(50);
+			java.util.List<Runnable> queued = new java.util.ArrayList<>();
+			doAnswer(call -> { queued.add(call.getArgument(0)); return null; })
+					.when(fixture.persistence).execute(any(Runnable.class));
+			java.util.concurrent.atomic.AtomicInteger balance = new java.util.concurrent.atomic.AtomicInteger(50);
+			java.util.concurrent.atomic.AtomicInteger amount = new java.util.concurrent.atomic.AtomicInteger();
+			AtomicReference<String> sql = new AtomicReference<>();
+			when(fixture.connection.prepareStatement(anyString())).thenAnswer(call -> {
+				sql.set(call.getArgument(0)); return fixture.statement;
+			});
+			doAnswer(call -> { amount.set(call.getArgument(1)); return null; })
+					.when(fixture.statement).setInt(eq(1), anyInt());
+			when(fixture.statement.executeUpdate()).thenAnswer(call -> {
+				if (sql.get().contains("COALESCE")) balance.addAndGet(amount.get());
+				else balance.set(amount.get());
+				return 1;
+			});
+			fixture.user.setPoints(100);
+			boolean predicted = explicitAsyncArgument
+					? fixture.user.removePoints(10, false) : fixture.user.removePoints(10);
+			assertTrue(predicted, "legacy deferred result is only a cached prediction");
+			assertEquals(50, balance.get(), "neither mutation may overtake the blocked worker");
+			assertEquals(2, queued.size());
+			verify(fixture.sql.getConnectionManager(), never()).getConnection();
+			when(manager.mustDeferSharedStorageAccess()).thenReturn(false);
+			queued.get(0).run();
+			assertEquals(100, balance.get());
+			queued.get(1).run();
+			assertEquals(90, balance.get());
+		}
+	}
+
+	@Test
+	void platformLegacyRemoveDoesNotReportAcceptanceWhenWorkerRejects() throws Exception {
+		PointFixture fixture = pointFixture();
+		when(fixture.plugin.getUserManager().getDataManager().mustDeferSharedStorageAccess()).thenReturn(true);
+		UserData data = mock(UserData.class);
+		doReturn(data).when(fixture.user).getUserData();
+		when(data.getInt("Points", UserDataFetchMode.TEMP_ONLY)).thenReturn(50);
+		doThrow(new RejectedExecutionException()).when(fixture.persistence).execute(any(Runnable.class));
+		assertFalse(fixture.user.removePoints(10));
+		assertFalse(fixture.user.removePoints(10, false));
+		verify(fixture.sql.getConnectionManager(), never()).getConnection();
+	}
+
+	@Test
 	void sharedAbsoluteSetUsesTheDirectMysqlMutator() throws Exception {
 		PointFixture fixture = pointFixture();
 		UserData userData = mock(UserData.class);
@@ -1141,6 +1276,7 @@ class VotingPluginUserPointSchedulingTest {
 		values.put("Points", mock(com.bencodez.simpleapi.sql.data.DataValue.class));
 		values.put("VoteStreak", mock(com.bencodez.simpleapi.sql.data.DataValue.class));
 		when(recreatedCache.getCache()).thenReturn(values);
+		stubSnapshotInvalidation(recreatedCache, values);
 		doReturn(false, true).when(fixture.user).isCached();
 		doReturn(recreatedCache).when(fixture.user).getCache();
 		java.util.UUID userUuid = java.util.UUID.fromString(fixture.user.getUUID());
@@ -1768,6 +1904,7 @@ class VotingPluginUserPointSchedulingTest {
 		recreatedValues.put("Points", mock(com.bencodez.simpleapi.sql.data.DataValue.class));
 		recreatedValues.put("DailyTotal", mock(com.bencodez.simpleapi.sql.data.DataValue.class));
 		when(recreatedCache.getCache()).thenReturn(recreatedValues);
+		stubSnapshotInvalidation(recreatedCache, recreatedValues);
 		var dataManager = fixture.plugin.getUserManager().getDataManager();
 		when(dataManager.getUserDataCache()).thenReturn(
 				new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(
@@ -1813,7 +1950,7 @@ class VotingPluginUserPointSchedulingTest {
 		order.verify(dataManager).removeCache(
 				java.util.UUID.fromString("00000000-0000-0000-0000-000000000002"), null);
 		order.verify(fixture.settlement).commit();
-		order.verify(recreatedCache).getCache();
+		order.verify(recreatedCache).invalidateStorageSnapshot("Points");
 		assertFalse(recreatedValues.containsKey("Points"));
 		assertTrue(recreatedValues.containsKey("DailyTotal"),
 				"settlement must preserve unrelated changes in a concurrently recreated cache");
