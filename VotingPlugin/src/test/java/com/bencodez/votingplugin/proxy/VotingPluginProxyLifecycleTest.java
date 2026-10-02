@@ -2,7 +2,9 @@ package com.bencodez.votingplugin.proxy;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -21,6 +23,7 @@ import java.nio.file.Path;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
@@ -47,6 +50,35 @@ import com.bencodez.votingplugin.tests.VotingPluginProxyTestImpl;
 
 class VotingPluginProxyLifecycleTest {
 	@Test
+	void authenticatedSocketRequiresAuthenticatedReliableDeliveryCapability(@TempDir Path dataDirectory)
+			throws Exception {
+		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
+		proxy.setMethod(BungeeMethod.SOCKETS);
+		Path keyFile = dataDirectory.resolve("secretkey.key");
+		Files.writeString(keyFile, Base64.getEncoder().encodeToString(
+				"0123456789abcdef0123456789abcdef".getBytes(StandardCharsets.US_ASCII)));
+		SharedTransportEnvelopeAuthenticator authenticator = SharedTransportEnvelopeAuthenticator.load(
+				keyFile, Mode.REQUIRED);
+		setField(proxy, "socketAuthenticators", Map.of("backend-a", authenticator));
+		Method update = VotingPluginProxy.class.getDeclaredMethod(
+				"updateReliableVoteDeliveryCapability", String.class, JsonEnvelope.class);
+		update.setAccessible(true);
+
+		update.invoke(proxy, "backend-a", VotingPluginWire.statusOkay("backend-a"));
+		@SuppressWarnings("unchecked")
+		Set<String> reliable = (Set<String>) field(proxy, "reliableVoteDeliveryServers");
+		assertFalse(reliable.contains("backend-a"));
+
+		update.invoke(proxy, "backend-a", VotingPluginWire.authenticatedSocketVoteDeliveryCapability(
+				VotingPluginWire.statusOkay("backend-a")));
+		assertTrue(reliable.contains("backend-a"));
+
+		setField(proxy, "socketAuthenticators", Map.of());
+		update.invoke(proxy, "legacy-backend", VotingPluginWire.statusOkay("legacy-backend"));
+		assertTrue(reliable.contains("legacy-backend"));
+	}
+
+	@Test
 	void standaloneSocketPathUsesCommunicationEnvelopeEncryption(@TempDir Path dataDirectory) throws Exception {
 		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
 		proxy.setMethod(BungeeMethod.SOCKETS);
@@ -72,6 +104,59 @@ class VotingPluginProxyLifecycleTest {
 		assertTrue(decrypted.accepted());
 		assertEquals(original.getSubChannel(), decrypted.envelope().getSubChannel());
 		assertEquals(original.getFields(), decrypted.envelope().getFields());
+	}
+
+	@Test
+	void authenticatedEncryptedSocketReplyUsesDecryptedBackendIdentity(@TempDir Path dataDirectory) throws Exception {
+		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
+		Path keyFile = dataDirectory.resolve("secretkey.key");
+		Files.writeString(keyFile, Base64.getEncoder().encodeToString(
+				"0123456789abcdef0123456789abcdef".getBytes(StandardCharsets.US_ASCII)));
+		SharedTransportEnvelopeAuthenticator authenticator = SharedTransportEnvelopeAuthenticator.load(
+				keyFile, Mode.REQUIRED);
+		TransportEnvelopeEncryption encryption = TransportEnvelopeEncryption.load(keyFile,
+				TransportEnvelopeEncryption.Domain.PROXY_BACKEND, true);
+		when(proxy.getConfig().getProxyServerName()).thenReturn("proxy1");
+		setField(proxy, "communicationEncryption", encryption);
+		setField(proxy, "socketAuthenticators", Map.of("backend-a", authenticator));
+		GlobalMessageProxyHandler messages = mock(GlobalMessageProxyHandler.class);
+		setField(proxy, "globalMessageProxyHandler", messages);
+		Method accept = VotingPluginProxy.class.getDeclaredMethod("acceptSocketEnvelope", JsonEnvelope.class);
+		accept.setAccessible(true);
+
+		JsonEnvelope valid = authenticator.sign(encryption.encrypt(VotingPluginWire.statusOkay("backend-a")),
+				Domain.SOCKET_PROXY_BACKEND, "backend-a", "proxy1");
+		accept.invoke(proxy, valid);
+		ArgumentCaptor<JsonEnvelope> delivered = ArgumentCaptor.forClass(JsonEnvelope.class);
+		verify(messages).onMessage(delivered.capture());
+		assertEquals("backend-a", delivered.getValue().getFields().get(VotingPluginWire.K_SERVER));
+
+		JsonEnvelope wrongIdentity = authenticator.sign(encryption.encrypt(VotingPluginWire.statusOkay("backend-b")),
+				Domain.SOCKET_PROXY_BACKEND, "backend-a", "proxy1");
+		accept.invoke(proxy, wrongIdentity);
+		verify(messages).onMessage(org.mockito.ArgumentMatchers.any(JsonEnvelope.class));
+	}
+
+	@Test
+	void encryptedUnsignedReplyCannotImpersonateAuthenticatedBackend(@TempDir Path dataDirectory) throws Exception {
+		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
+		Path keyFile = dataDirectory.resolve("secretkey.key");
+		Files.writeString(keyFile, Base64.getEncoder().encodeToString(
+				"0123456789abcdef0123456789abcdef".getBytes(StandardCharsets.US_ASCII)));
+		SharedTransportEnvelopeAuthenticator authenticator = SharedTransportEnvelopeAuthenticator.load(
+				keyFile, Mode.REQUIRED);
+		TransportEnvelopeEncryption encryption = TransportEnvelopeEncryption.load(keyFile,
+				TransportEnvelopeEncryption.Domain.PROXY_BACKEND, true);
+		setField(proxy, "communicationEncryption", encryption);
+		setField(proxy, "socketAuthenticators", Map.of("backend-a", authenticator));
+		GlobalMessageProxyHandler messages = mock(GlobalMessageProxyHandler.class);
+		setField(proxy, "globalMessageProxyHandler", messages);
+		Method accept = VotingPluginProxy.class.getDeclaredMethod("acceptSocketEnvelope", JsonEnvelope.class);
+		accept.setAccessible(true);
+
+		accept.invoke(proxy, encryption.encrypt(VotingPluginWire.statusOkay("backend-a")));
+
+		verifyNoInteractions(messages);
 	}
 
 	@Test
@@ -216,13 +301,50 @@ class VotingPluginProxyLifecycleTest {
 	}
 
 	@Test
+	void ordinarySocketReloadRebuildsPerBackendAuthenticationKeys(@TempDir Path dataDirectory) throws Exception {
+		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
+		proxy.setDataFolder(dataDirectory.toFile());
+		Path oldKeyFile = dataDirectory.resolve("old-auth.key");
+		Path newKeyFile = dataDirectory.resolve("new-auth.key");
+		Files.writeString(oldKeyFile, Base64.getEncoder().encodeToString(
+				"0123456789abcdef0123456789abcdef".getBytes(StandardCharsets.US_ASCII)));
+		Files.writeString(newKeyFile, Base64.getEncoder().encodeToString(
+				"abcdef0123456789abcdef0123456789".getBytes(StandardCharsets.US_ASCII)));
+		when(proxy.getConfig().getBungeeMethod()).thenReturn("SOCKETS");
+		when(proxy.getConfig().getCommunicationEncryption()).thenReturn(false);
+		when(proxy.getConfig().getBlockedServers()).thenReturn(List.of());
+		when(proxy.getConfig().getSpigotServers()).thenReturn(List.of("backend-a"));
+		when(proxy.getConfig().getSpigotServerConfiguration("backend-a")).thenReturn(Map.of(
+				"Host", "127.0.0.1", "Port", 1298, "AuthenticationKeyFile", "new-auth.key"));
+		SharedTransportEnvelopeAuthenticator oldAuthenticator = SharedTransportEnvelopeAuthenticator.load(
+				oldKeyFile, Mode.REQUIRED);
+		setField(proxy, "socketAuthenticators", Map.of("backend-a", oldAuthenticator));
+
+		proxy.reload();
+
+		@SuppressWarnings("unchecked")
+		Map<String, SharedTransportEnvelopeAuthenticator> authenticators =
+				(Map<String, SharedTransportEnvelopeAuthenticator>) field(proxy, "socketAuthenticators");
+		SharedTransportEnvelopeAuthenticator reloaded = authenticators.get("backend-a");
+		assertNotNull(reloaded);
+		JsonEnvelope status = VotingPluginWire.statusOkay("backend-a");
+		JsonEnvelope signedWithNewKey = SharedTransportEnvelopeAuthenticator.load(newKeyFile, Mode.REQUIRED)
+				.sign(status, Domain.SOCKET_PROXY_BACKEND, "backend-a", "proxy1");
+		JsonEnvelope signedWithOldKey = oldAuthenticator.sign(status,
+				Domain.SOCKET_PROXY_BACKEND, "backend-a", "proxy1");
+		assertTrue(reloaded.verify(signedWithNewKey, Domain.SOCKET_PROXY_BACKEND, "proxy1").accepted());
+		assertFalse(reloaded.verify(signedWithOldKey, Domain.SOCKET_PROXY_BACKEND, "proxy1").accepted());
+	}
+
+	@Test
 	void completionAckTransitionsThroughDurableReceiptRelease(@TempDir Path directory) throws Exception {
 		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
 		GlobalMessageProxyHandler messages = mock(GlobalMessageProxyHandler.class);
 		UUID voteId = UUID.randomUUID();
+		UUID playerId = UUID.randomUUID();
 		ReliableVoteDeliveryOutbox outbox = new ReliableVoteDeliveryOutbox(directory.resolve("outbox.dat"));
 		org.junit.jupiter.api.Assertions.assertTrue(outbox.offer("survival", VotingPluginWire.vote(
-				"Player", UUID.randomUUID().toString(), "site", 10L, true, true, "", voteId,
+				"Player", playerId.toString(), "site", 10L, true, true, "", voteId,
 				false, false, 1, 1)));
 		setField(proxy, "reliableVoteDeliveryOutbox", outbox);
 		setField(proxy, "globalMessageProxyHandler", messages);
@@ -242,6 +364,7 @@ class VotingPluginProxyLifecycleTest {
 				org.mockito.ArgumentMatchers.eq(1), release.capture());
 		assertEquals(VotingPluginWire.SUB_VOTE_DELIVERY_RECEIPT_RELEASE,
 				release.getValue().getSubChannel());
+		assertEquals(playerId.toString(), release.getValue().getFields().get(VotingPluginWire.K_UUID));
 
 		Method released = VotingPluginProxy.class.getDeclaredMethod(
 				"handleVoteDeliveryReceiptReleaseAcknowledgement", JsonEnvelope.class);

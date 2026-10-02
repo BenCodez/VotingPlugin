@@ -117,9 +117,12 @@ public final class VotingPluginWire {
 	public static final String K_DELAY_VALIDATED = "delayValidated";
 	public static final String K_QUEUED_DELIVERY = "queuedDelivery";
 	public static final String K_VOTE_DELIVERY_ACK_VERSION = "voteDeliveryAckVersion";
+	public static final String K_AUTHENTICATED_SOCKET_VOTE_DELIVERY_VERSION =
+			"authenticatedSocketVoteDeliveryVersion";
 	public static final String K_VOTE_DELAY_REJECTION_ACK_VERSION = "voteDelayRejectionAckVersion";
 	public static final String K_VOTE_DELIVERY_SUBCHANNEL = "voteDeliverySubchannel";
 	public static final int VOTE_DELIVERY_ACK_VERSION = 2;
+	public static final int AUTHENTICATED_SOCKET_VOTE_DELIVERY_VERSION = 1;
 	public static final int VOTE_DELAY_REJECTION_ACK_VERSION = 1;
 	/** Origin and receiving proxy names for reliable multi-proxy delivery. */
 	public static final String K_MULTI_PROXY_ORIGIN = "multiProxyOrigin";
@@ -302,6 +305,26 @@ public final class VotingPluginWire {
 		return requestsVoteDeliveryAcknowledgement(envelope);
 	}
 
+	/**
+	 * Advertises reliable delivery that is usable only after SOCKETS envelope
+	 * authentication has been configured and verified by the proxy.
+	 */
+	public static JsonEnvelope authenticatedSocketVoteDeliveryCapability(JsonEnvelope envelope) {
+		JsonEnvelope.Builder builder = JsonEnvelope.builder(envelope.getSubChannel()).schema(envelope.getSchema());
+		for (Map.Entry<String, String> field : envelope.getFields().entrySet()) {
+			if (!K_VOTE_DELIVERY_ACK_VERSION.equals(field.getKey())) {
+				builder.put(field.getKey(), field.getValue());
+			}
+		}
+		return builder.put(K_AUTHENTICATED_SOCKET_VOTE_DELIVERY_VERSION,
+				AUTHENTICATED_SOCKET_VOTE_DELIVERY_VERSION).build();
+	}
+
+	public static boolean advertisesAuthenticatedSocketVoteDelivery(JsonEnvelope envelope) {
+		return readInt(envelope.getFields(), K_AUTHENTICATED_SOCKET_VOTE_DELIVERY_VERSION, 0)
+				>= AUTHENTICATED_SOCKET_VOTE_DELIVERY_VERSION;
+	}
+
 	public static boolean advertisesVoteDelayRejectionAcknowledgement(JsonEnvelope envelope) {
 		return readInt(envelope.getFields(), K_VOTE_DELAY_REJECTION_ACK_VERSION, 0)
 				>= VOTE_DELAY_REJECTION_ACK_VERSION;
@@ -316,9 +339,16 @@ public final class VotingPluginWire {
 
 	/** Confirms durable proxy outbox completion so the backend can retire its receipt. */
 	public static JsonEnvelope voteDeliveryReceiptRelease(String server, UUID voteId, String voteSubchannel) {
+		return voteDeliveryReceiptRelease(server, voteId, voteSubchannel, "");
+	}
+
+	/** Confirms durable proxy outbox completion and identifies the receipt owner. */
+	public static JsonEnvelope voteDeliveryReceiptRelease(String server, UUID voteId, String voteSubchannel,
+			String playerUuid) {
 		return base(SUB_VOTE_DELIVERY_RECEIPT_RELEASE).put(K_SERVER, safe(server))
 				.put(K_VOTE_ID, voteId == null ? "" : voteId.toString())
 				.put(K_VOTE_DELIVERY_SUBCHANNEL, safe(voteSubchannel))
+				.put(K_UUID, safe(playerUuid))
 				.put(K_VOTE_DELIVERY_ACK_VERSION, VOTE_DELIVERY_ACK_VERSION).build();
 	}
 

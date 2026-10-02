@@ -244,6 +244,7 @@ public abstract class VotingPluginProxy {
 	private EncryptionHandler encryptionHandler;
 
 	private HashMap<String, ClientHandler> clientHandles;
+	private volatile Map<String, SharedTransportEnvelopeAuthenticator> socketAuthenticators = Map.of();
 
 	private SocketHandler socketHandler;
 	private HttpProxyTransportServer httpTransportServer;
@@ -951,7 +952,11 @@ public abstract class VotingPluginProxy {
 	private void updateReliableVoteDeliveryCapability(String server, JsonEnvelope message) {
 		if (server == null || server.isBlank() || !isServerValid(server)) return;
 		String key = server.trim().toLowerCase(Locale.ROOT);
-		if (VotingPluginWire.advertisesVoteDeliveryAcknowledgement(message)) {
+		boolean authenticatedSocket = method == BungeeMethod.SOCKETS && socketAuthenticators.containsKey(key);
+		boolean supportsReliableDelivery = authenticatedSocket
+				? VotingPluginWire.advertisesAuthenticatedSocketVoteDelivery(message)
+				: VotingPluginWire.advertisesVoteDeliveryAcknowledgement(message);
+		if (supportsReliableDelivery) {
 			legacyVoteDeliveryServers.remove(key);
 			reliableVoteDeliveryServers.add(key);
 		} else {
@@ -984,7 +989,8 @@ public abstract class VotingPluginProxy {
 				if (entry.awaitingReceiptRelease()) {
 					if (supportsReliableVoteDelivery(entry.server(), entry.envelope().getSubChannel())) {
 						JsonEnvelope release = VotingPluginWire.voteDeliveryReceiptRelease(
-								entry.server(), parsedVoteId, entry.envelope().getSubChannel());
+								entry.server(), parsedVoteId, entry.envelope().getSubChannel(),
+								entry.envelope().getFields().get(VotingPluginWire.K_UUID));
 						if (sendReliableVoteDelivery(entry.server(), delay, "release", parsedVoteId,
 								entry.envelope().getSubChannel(), release)) delay++;
 					} else if (isLegacyVoteDelivery(entry.server(), entry.envelope().getSubChannel())
@@ -1095,8 +1101,11 @@ public abstract class VotingPluginProxy {
 				debug("Ignored unmatched or unpersisted vote delivery acknowledgement from " + server);
 			} else if (outbox != null) {
 				try {
+					ReliableVoteDeliveryOutbox.Entry completed = outbox.find(
+							server, parsedVoteId, subChannel).orElse(null);
 					JsonEnvelope release = VotingPluginWire.voteDeliveryReceiptRelease(
-							server, parsedVoteId, subChannel);
+							server, parsedVoteId, subChannel, completed == null ? ""
+									: completed.envelope().getFields().get(VotingPluginWire.K_UUID));
 					if (!sendReliableVoteDelivery(server, 1, "release", parsedVoteId, subChannel, release)) {
 						debug("Vote receipt release remains queued after the immediate send was rejected for " + server);
 					}
@@ -2019,7 +2028,7 @@ public abstract class VotingPluginProxy {
 			socketHandler.add(new SocketReceiver() {
 				@Override
 				public void onReceiveEnvelope(JsonEnvelope envelope) {
-					globalMessageProxyHandler.onMessage(envelope);
+					acceptSocketEnvelope(envelope);
 				}
 			});
 
@@ -3960,7 +3969,7 @@ public abstract class VotingPluginProxy {
 		warnIfSharedTransportCompatibilityMode(replacementAuthenticator);
 		scheduleDeferredHttpTransportReconciliation();
 		warnUnsupportedDedicatedVotingProxyMode();
-		if (!restartControlServices && method == BungeeMethod.SOCKETS) {
+		if (method == BungeeMethod.SOCKETS) {
 			rebuildSocketClients();
 		}
 
@@ -4270,6 +4279,7 @@ public abstract class VotingPluginProxy {
 
 	private synchronized void rebuildSocketClients() {
 		HashMap<String, ClientHandler> rebuilt = new HashMap<>();
+		HashMap<String, SharedTransportEnvelopeAuthenticator> rebuiltAuthenticators = new HashMap<>();
 		try {
 			List<String> blocked = getConfig().getBlockedServers();
 			for (String server : getConfig().getSpigotServers()) {
@@ -4278,6 +4288,20 @@ public abstract class VotingPluginProxy {
 				String host = data.containsKey("Host") ? (String) data.get("Host") : "";
 				int port = data.containsKey("Port") ? (int) data.get("Port") : 1298;
 				rebuilt.put(server, new ClientHandler(host, port, encryptionHandler, getConfig().getDebug()));
+				Object configuredKey = data.get("AuthenticationKeyFile");
+				if (configuredKey instanceof String keyFile && !keyFile.isBlank()) {
+					Path root = getDataFolderPlugin().toPath().toAbsolutePath().normalize();
+					Path resolved = root.resolve(keyFile.trim()).normalize();
+					if (!resolved.startsWith(root)) throw new IllegalArgumentException(
+							"SpigotServers." + server + ".AuthenticationKeyFile leaves the plugin directory");
+					try {
+						rebuiltAuthenticators.put(socketServerKey(server), SharedTransportEnvelopeAuthenticator.load(
+								resolved, Mode.REQUIRED));
+					} catch (IOException unavailable) {
+						throw new IllegalStateException("Socket authentication key is unavailable for " + server,
+								unavailable);
+					}
+				}
 			}
 		} catch (RuntimeException failure) {
 			stopSocketClients(rebuilt);
@@ -4285,7 +4309,55 @@ public abstract class VotingPluginProxy {
 		}
 		HashMap<String, ClientHandler> previous = clientHandles;
 		clientHandles = rebuilt;
+		socketAuthenticators = Map.copyOf(rebuiltAuthenticators);
 		stopSocketClients(previous);
+	}
+
+	private void acceptSocketEnvelope(JsonEnvelope envelope) {
+		if (envelope == null) return;
+		String sender = envelope.getFields().getOrDefault(SharedTransportEnvelopeAuthenticator.K_SENDER, "");
+		String claimedServer = envelope.getFields().getOrDefault(VotingPluginWire.K_SERVER, "");
+		SharedTransportEnvelopeAuthenticator authenticator = socketAuthenticators.get(
+				socketServerKey(sender.isBlank() ? claimedServer : sender));
+		if (authenticator == null) {
+			if (socketAuthenticators.containsKey(socketServerKey(claimedServer)) || !sender.isBlank()) {
+				log("Rejected unauthenticated socket message for " + safeServerName(claimedServer));
+				return;
+			}
+			JsonEnvelope legacy = decryptCommunicationEnvelope(envelope);
+			if (legacy == null) return;
+			String legacyServer = legacy.getFields().getOrDefault(VotingPluginWire.K_SERVER, "");
+			if (socketAuthenticators.containsKey(socketServerKey(legacyServer))) {
+				log("Rejected unauthenticated socket message for " + safeServerName(legacyServer));
+				return;
+			}
+			dispatchDecryptedGlobalMessage(legacy);
+			return;
+		}
+		SharedTransportEnvelopeAuthenticator.Verification verification = authenticator.verify(envelope,
+				Domain.SOCKET_PROXY_BACKEND, getConfig().getProxyServerName());
+		if (!verification.accepted()) {
+			log("Rejected socket message with invalid backend authentication");
+			return;
+		}
+		JsonEnvelope decrypted = decryptCommunicationEnvelope(verification.envelope());
+		String authenticatedServer = decrypted == null ? ""
+				: decrypted.getFields().getOrDefault(VotingPluginWire.K_SERVER, "");
+		if (decrypted == null || !sender.equalsIgnoreCase(authenticatedServer)) {
+			log("Rejected socket message with invalid backend authentication");
+			return;
+		}
+		dispatchDecryptedGlobalMessage(decrypted);
+	}
+
+	private static String socketServerKey(String server) {
+		return server == null ? "" : server.toLowerCase(Locale.ROOT);
+	}
+
+	private static String safeServerName(String server) {
+		if (server == null) return "unknown";
+		String safe = server.replaceAll("[^A-Za-z0-9._-]", "?");
+		return safe.substring(0, Math.min(safe.length(), 64));
 	}
 
 	private boolean sendMysqlEnvelopeServer(String server, JsonEnvelope envelope) {
@@ -4309,7 +4381,11 @@ public abstract class VotingPluginProxy {
 		ClientHandler socketClient = clientHandles == null ? null : clientHandles.get(server);
 		if (socketClient == null) return false;
 		try {
-			socketClient.sendEnvelope(encryptCommunicationEnvelope(envelope));
+			JsonEnvelope outgoing = encryptCommunicationEnvelope(envelope);
+			SharedTransportEnvelopeAuthenticator authenticator = socketAuthenticators.get(socketServerKey(server));
+			if (authenticator != null) outgoing = authenticator.sign(outgoing, Domain.SOCKET_PROXY_BACKEND,
+					getConfig().getProxyServerName(), server);
+			socketClient.sendEnvelope(outgoing);
 			return true;
 		} catch (RuntimeException e) {
 			debug(e.getMessage());
@@ -4773,6 +4849,7 @@ public abstract class VotingPluginProxy {
 	private synchronized void closeSocketClients() {
 		HashMap<String, ClientHandler> clients = clientHandles;
 		clientHandles = null;
+		socketAuthenticators = Map.of();
 		stopSocketClients(clients);
 	}
 
