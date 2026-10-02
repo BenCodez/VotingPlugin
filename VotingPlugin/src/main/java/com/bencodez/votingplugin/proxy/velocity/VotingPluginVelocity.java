@@ -699,15 +699,17 @@ public class VotingPluginVelocity {
 	 */
 	public void reloadAllInternal(boolean loadMysql) {
 		synchronized (reloadLock) {
-			final boolean retainedRuntimeWasOperational = runtimeOperational;
-			reloading = true;
-			cancelTasks();
-
+			// Reject an invalid replacement before fencing votes or retiring runtime services.
 			try {
 				config.reload();
 			} catch (Exception e) {
-				logger.error("Failed to reload bungeeconfig.yml", e);
+				// Parser exceptions may contain administrator secrets from the source YAML.
+				logger.error("Failed to reload bungeeconfig.yml; the previous configuration and runtime remain active.");
+				return;
 			}
+			final boolean retainedRuntimeWasOperational = runtimeOperational;
+			reloading = true;
+			cancelTasks();
 
 			try {
 				ChannelIdentifier old = channel;
