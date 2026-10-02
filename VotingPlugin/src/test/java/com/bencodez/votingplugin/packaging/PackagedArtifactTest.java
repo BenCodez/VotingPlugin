@@ -33,6 +33,8 @@ public class PackagedArtifactTest {
             assertFalse(modMetadata.contains("${"), "NeoForge metadata must have a resolved version");
             assertNotNull(artifact.getEntry("com/bencodez/votingplugin/neoforge/NeoForgeVotingPlugin.class"));
             assertNotNull(artifact.getEntry("org/sqlite/JDBC.class"));
+            assertNotNull(artifact.getEntry("META-INF/maven/org.xerial/sqlite-jdbc/VERSION"),
+                    "sqlite-jdbc must retain its runtime version fallback");
             assertNull(artifact.getEntry("net/neoforged/neoforge/common/NeoForge.class"));
             assertFalse(artifact.stream().anyMatch(entry -> entry.getName().startsWith("org/checkerframework/")));
             assertNull(artifact.getEntry("org/slf4j/Logger.class"));

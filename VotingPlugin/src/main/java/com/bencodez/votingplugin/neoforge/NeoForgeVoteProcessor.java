@@ -6,6 +6,7 @@ import java.util.Optional;
 
 import com.bencodez.votingplugin.core.vote.SharedVoteIdentity;
 import com.bencodez.votingplugin.core.vote.SharedVoteInput;
+import com.bencodez.votingplugin.util.MinecraftUsernameValidator;
 
 /**
  * Internal accepted-vote boundary for the subset NeoForge can currently finish:
@@ -59,6 +60,9 @@ public final class NeoForgeVoteProcessor {
         }
         String name = online.map(SharedVoteIdentity::playerName)
                 .orElseGet(() -> stored.map(NeoForgeVoteAccount::playerName).orElse(request.playerName()));
+        if (!MinecraftUsernameValidator.isValid(name, configuration.bedrockPlayerPrefix())) {
+            return result(NeoForgeVoteResult.Status.UNKNOWN_PLAYER, "Player identity has an invalid name");
+        }
         SharedVoteIdentity identity = new SharedVoteIdentity(request.playerId(), name,
                 online.isPresent());
         Optional<NeoForgeVoteSite> resolved = configuration.resolveEnabledSite(request.serviceSite());
@@ -71,7 +75,10 @@ public final class NeoForgeVoteProcessor {
                 .normalizedVoteTime(now);
         NeoForgeVoteSite site = resolved.get();
         if (request.scope() == NeoForgeVoteRequest.Scope.COMPLETE) {
-            NeoForgeDeferredVoteStore.DeferralResult deferred = deferredVotes.defer(identity, input, site);
+            NeoForgeVoteAccountingDecision decision = NeoForgeVoteAccountingDecision.capture(input,
+                    configuration.policyFor(site), identity.online(), configuration.pointsOnVote(),
+                    configuration.limitVotePoints());
+            NeoForgeDeferredVoteStore.DeferralResult deferred = deferredVotes.defer(identity, input, site, decision);
             if (deferred.status() == NeoForgeDeferredVoteStore.Status.CAPACITY_REACHED) {
                 return result(NeoForgeVoteResult.Status.DEFERRED_CAPACITY_REACHED,
                         "NeoForge deferred-vote capacity is exhausted; the caller must not acknowledge this vote");

@@ -3,16 +3,23 @@ package com.bencodez.votingplugin.neoforge;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -30,6 +37,59 @@ import com.bencodez.votingplugin.core.vote.SharedVoteInput;
 
 class NeoForgeDeferredVoteStoreTest {
     @TempDir Path directory;
+
+    @Test
+    void restartDiscoveryIncludesOnlyRowsWithDeferredPayloads() throws IOException {
+        writeConfiguration();
+        UUID historical = UUID.randomUUID();
+        UUID pending = UUID.randomUUID();
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            runtime.storage().user(historical).write(UserStorage.SQLITE,
+                    NeoForgeVoteAccountingStore.PLAYER_NAME, new DataValueString("Historical"));
+            runtime.players().joined(new SharedVoteIdentity(pending, "Pending", true));
+            runtime.voteProcessor().process(complete(UUID.randomUUID(), pending, 100L));
+        }
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            assertEquals(List.of(pending), runtime.deferredVotes().users());
+        }
+    }
+
+    @Test
+    void restartDiscoveryIncludesEveryPendingRowEvenAboveCurrentAdmissionLimit() throws IOException {
+        writeConfiguration();
+        UUID first = new UUID(0L, 1L);
+        UUID second = new UUID(0L, 2L);
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            runtime.players().joined(new SharedVoteIdentity(first, "First", true));
+            runtime.players().joined(new SharedVoteIdentity(second, "Second", true));
+            runtime.voteProcessor().process(complete(UUID.randomUUID(), first, "First", 100L));
+            runtime.voteProcessor().process(complete(UUID.randomUUID(), second, "Second", 100L));
+
+            NeoForgeDeferredVoteStore bounded = new NeoForgeDeferredVoteStore(runtime.storage(), 1, 1);
+            assertEquals(Set.of(first, second), Set.copyOf(bounded.users()));
+        }
+    }
+
+    @Test
+    void restartDiscoveryDoesNotOpenEveryHistoricalAccountingRow() throws Exception {
+        writeConfiguration();
+        UUID pending = UUID.randomUUID();
+        Path database;
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            runtime.rewardReplay().ifPresent(NeoForgeRewardReplayService::stopAdmission);
+            runtime.players().joined(new SharedVoteIdentity(pending, "Pending", true));
+            runtime.voteProcessor().process(complete(UUID.randomUUID(), pending, 100L));
+            database = ((com.bencodez.advancedcore.core.user.storage.sql.SqliteUserBackend)
+                    runtime.storage()).databaseFile();
+        }
+        insertHistoricalUsers(database, 5_000);
+
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            runtime.rewardReplay().ifPresent(NeoForgeRewardReplayService::stopAdmission);
+            assertTimeoutPreemptively(Duration.ofSeconds(2),
+                    () -> assertEquals(List.of(pending), runtime.deferredVotes().users()));
+        }
+    }
 
     @Test
     void completionAtomicallyReplacesPendingVoteWithRestartSafeReceipt() throws IOException {
@@ -86,6 +146,54 @@ class NeoForgeDeferredVoteStoreTest {
     }
 
     @Test
+    void quarantinedVoteRemainsFencedAcrossRestart() throws IOException {
+        writeConfiguration();
+        UUID playerId = UUID.randomUUID();
+        UUID voteId = UUID.randomUUID();
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            runtime.players().joined(new SharedVoteIdentity(playerId, "Alex", true));
+            runtime.storage().user(playerId).write(UserStorage.SQLITE,
+                    NeoForgeDeferredVoteStore.DEFERRED_VOTES,
+                    new DataValueString("v1|" + voteId
+                            + "|QWxleA|ZXhhbXBsZS50ZXN0|RXhhbXBsZQ|100|true|true|true"));
+            assertEquals(NeoForgeDeferredVoteStore.QuarantineResult.QUARANTINED,
+                    runtime.deferredVotes().quarantine(playerId, voteId));
+            assertTrue(runtime.deferredVotes().pending(playerId).get(0).quarantined());
+            assertTrue(runtime.deferredVotes().claim(playerId, voteId).isEmpty());
+        }
+
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            NeoForgeDeferredVote vote = runtime.deferredVotes().pending(playerId).get(0);
+            assertEquals(voteId, vote.voteId());
+            assertTrue(vote.quarantined());
+            assertTrue(runtime.deferredVotes().claim(playerId, voteId).isEmpty());
+        }
+    }
+
+    @Test
+    void legacyAccountingWithoutAcceptedSnapshotFailsClosed() throws IOException {
+        writeConfiguration();
+        Files.writeString(directory.resolve("Config.yml"), Files.readString(directory.resolve("Config.yml"))
+                .replace("AddTotalsOffline: true", "AddTotalsOffline: false"));
+        UUID playerId = UUID.randomUUID();
+        UUID voteId = UUID.randomUUID();
+        String legacy = "v1|" + voteId
+                + "|QWxleA|ZXhhbXBsZS50ZXN0|RXhhbXBsZQ|100|true|true|false";
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            runtime.storage().user(playerId).write(UserStorage.SQLITE,
+                    NeoForgeDeferredVoteStore.DEFERRED_VOTES, new DataValueString(legacy));
+            NeoForgeVoteSite site = runtime.voteConfiguration().configuredSite("Example").orElseThrow();
+            try (NeoForgeDeferredVoteStore.Claim claim = runtime.deferredVotes()
+                    .claim(playerId, voteId).orElseThrow()) {
+                assertThrows(IllegalStateException.class,
+                        () -> claim.completeWithAccounting(runtime.accounting(), site, true));
+            }
+            assertEquals(0, runtime.accounting().load(playerId).orElseThrow().allTimeTotal());
+            assertEquals(1, runtime.deferredVotes().pending(playerId).size());
+        }
+    }
+
+    @Test
     void completedReceiptReconcilesStalePendingPayload() throws IOException {
         writeConfiguration();
         UUID playerId = UUID.randomUUID();
@@ -135,7 +243,8 @@ class NeoForgeDeferredVoteStoreTest {
                     store.state(playerId, completedVote));
             assertTrue(store.claim(playerId, completedVote).isEmpty());
             assertEquals(NeoForgeDeferredVoteStore.Status.ALREADY_COMPLETED,
-                    store.defer(identity, input(completedVote), site).status());
+                    store.defer(identity, input(completedVote), site,
+                            accountingDecision(runtime, input(completedVote), site)).status());
             assertEquals(NeoForgeVoteResult.Status.ALREADY_COMPLETED,
                     runtime.voteProcessor().process(complete(completedVote, playerId, 200L)).status());
             assertEquals(malformedPending, storedPending(runtime, playerId));
@@ -143,7 +252,8 @@ class NeoForgeDeferredVoteStoreTest {
             assertThrows(IllegalStateException.class, () -> store.pending(playerId));
             assertThrows(IllegalStateException.class, () -> store.state(playerId, otherVote));
             assertThrows(IllegalStateException.class, () -> store.claim(playerId, otherVote));
-            assertThrows(IllegalStateException.class, () -> store.defer(identity, input(otherVote), site));
+            assertThrows(IllegalStateException.class, () -> store.defer(identity, input(otherVote), site,
+                    accountingDecision(runtime, input(otherVote), site)));
             assertEquals(malformedPending, storedPending(runtime, playerId));
         }
     }
@@ -212,6 +322,8 @@ class NeoForgeDeferredVoteStoreTest {
             assertEquals(NeoForgeVoteResult.Status.DEFERRED,
                     processor.process(complete(secondId, playerId, 200L)).status());
             assertTrue(bounded.claim(playerId, secondId).isEmpty());
+            assertEquals(NeoForgeDeferredVoteStore.ClaimStatus.RECEIPT_CAPACITY_REACHED,
+                    bounded.claimForReplay(playerId, secondId).status());
 
             assertEquals(List.of(secondId), bounded.pending(playerId).stream()
                     .map(NeoForgeDeferredVote::voteId).toList());
@@ -613,6 +725,22 @@ class NeoForgeDeferredVoteStoreTest {
                 """);
     }
 
+    private static void insertHistoricalUsers(Path database, int count) throws SQLException {
+        String sql = "INSERT INTO `" + NeoForgeRuntime.USER_TABLE_NAME
+                + "` (`UUID`, `PlayerName`) VALUES (?, ?)";
+        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + database.toAbsolutePath());
+                PreparedStatement statement = connection.prepareStatement(sql)) {
+            connection.setAutoCommit(false);
+            for (int index = 0; index < count; index++) {
+                statement.setString(1, new UUID(1L, index + 1L).toString());
+                statement.setString(2, "Historical" + index);
+                statement.addBatch();
+            }
+            statement.executeBatch();
+            connection.commit();
+        }
+    }
+
     private static NeoForgeVoteRequest complete(UUID voteId, UUID playerId, long voteTime) {
         return complete(voteId, playerId, "Alex", voteTime);
     }
@@ -620,6 +748,12 @@ class NeoForgeDeferredVoteStoreTest {
     private static SharedVoteInput input(UUID voteId) {
         return new SharedVoteInput(voteId, "Alex", "example.test", 100L,
                 true, true, false, false, true);
+    }
+
+    private static NeoForgeVoteAccountingDecision accountingDecision(NeoForgeRuntime runtime,
+            SharedVoteInput input, NeoForgeVoteSite site) {
+        return NeoForgeVoteAccountingDecision.capture(input, runtime.voteConfiguration().policyFor(site),
+                true, runtime.voteConfiguration().pointsOnVote(), runtime.voteConfiguration().limitVotePoints());
     }
 
     private static String storedPending(NeoForgeRuntime runtime, UUID playerId) {

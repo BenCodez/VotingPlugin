@@ -11,15 +11,24 @@ import com.bencodez.votingplugin.core.vote.SharedVoteIdentity;
 
 /** Tracks identity and online state from NeoForge player lifecycle events. */
 public final class NeoForgePlayerDirectory {
-    private final Map<UUID, SharedVoteIdentity> online = new ConcurrentHashMap<>();
+    private final Map<UUID, OnlinePlayer> online = new ConcurrentHashMap<>();
+    private final Map<UUID, String> latestNames = new ConcurrentHashMap<>();
 
     public void joined(Object player) {
-        joined(identity(player));
+        joinedIdentity(player);
+    }
+
+    SharedVoteIdentity joinedIdentity(Object player) {
+        SharedVoteIdentity identity = identity(player);
+        latestNames.put(identity.uuid(), identity.playerName());
+        online.put(identity.uuid(), new OnlinePlayer(identity, player));
+        return identity;
     }
 
     void joined(SharedVoteIdentity identity) {
         Objects.requireNonNull(identity, "identity");
-        online.put(identity.uuid(), identity);
+        latestNames.put(identity.uuid(), identity.playerName());
+        online.put(identity.uuid(), new OnlinePlayer(identity, null));
     }
 
     public void left(Object player) {
@@ -27,11 +36,21 @@ public final class NeoForgePlayerDirectory {
     }
 
     public Optional<SharedVoteIdentity> online(UUID uuid) {
-        return Optional.ofNullable(online.get(uuid));
+        return Optional.ofNullable(online.get(uuid)).map(OnlinePlayer::identity);
+    }
+
+    /** Latest UUID-bound name observed during this runtime, including after logout. */
+    Optional<String> latestName(UUID uuid) {
+        return Optional.ofNullable(latestNames.get(uuid));
+    }
+
+    Optional<Object> nativePlayer(UUID uuid) {
+        return Optional.ofNullable(online.get(uuid)).map(OnlinePlayer::player);
     }
 
     public void clear() {
         online.clear();
+        latestNames.clear();
     }
 
     /** NeoForge's universal API omits Minecraft classes on Maven's compile path. */
@@ -53,4 +72,6 @@ public final class NeoForgePlayerDirectory {
             throw new IllegalStateException("NeoForge player bridge cannot call " + method, cause);
         }
     }
+
+    private record OnlinePlayer(SharedVoteIdentity identity, Object player) { }
 }

@@ -35,6 +35,7 @@ public final class NeoForgeVoteConfiguration {
     private final int offlineVoteLimitAmount;
     private final int timeHourOffset;
     private final String timeZone;
+    private final String bedrockPlayerPrefix;
     private final List<NeoForgeVoteSite> voteSites;
 
     private NeoForgeVoteConfiguration(ConfigurationNode config, boolean ignoreCase,
@@ -51,6 +52,7 @@ public final class NeoForgeVoteConfiguration {
         offlineVoteLimitAmount = node(config, ignoreCase, "OfflineVotesLimit", "Amount").getInt(5);
         timeHourOffset = node(config, ignoreCase, "TimeHourOffSet").getInt(0);
         timeZone = node(config, ignoreCase, "TimeZone").getString("");
+        bedrockPlayerPrefix = node(config, ignoreCase, "BedrockPlayerPrefix").getString(".");
         this.voteSites = List.copyOf(voteSites);
     }
 
@@ -64,12 +66,13 @@ public final class NeoForgeVoteConfiguration {
             String key = String.valueOf(entry.getKey());
             if (key.equalsIgnoreCase("null")) continue;
             ConfigurationNode site = entry.getValue();
-            String displayName = node(site, ignoreCase, "Name").getString(key);
-            if (displayName == null || displayName.isEmpty()) displayName = key;
+            String displayName = node(site, ignoreCase, "Name").getString();
+            boolean displayNameFallback = displayName == null || displayName.isEmpty();
+            if (displayNameFallback) displayName = key;
             String serviceSite = node(site, ignoreCase, "ServiceSite").getString();
             boolean enabled = node(site, ignoreCase, "Enabled").getBoolean(false);
             boolean loadable = enabled && serviceSite != null && !serviceSite.isEmpty();
-            parsedSites.add(new NeoForgeVoteSite(key, displayName, serviceSite,
+            parsedSites.add(new NeoForgeVoteSite(key, displayName, displayNameFallback, serviceSite,
                     node(site, ignoreCase, "Priority").getInt(0),
                     loadable ? readVoteDelayMillis(site, ignoreCase) : 0,
                     enabled, node(site, ignoreCase, "WaitUntilVoteDelay").getBoolean(false),
@@ -123,6 +126,12 @@ public final class NeoForgeVoteConfiguration {
                 .anyMatch(site -> site.key().equalsIgnoreCase(key));
     }
 
+    Optional<NeoForgeVoteSite> configuredSite(String key) {
+        if (key == null) return Optional.empty();
+        return voteSites.stream().filter(NeoForgeVoteSite::canResolveIncomingVote)
+                .filter(site -> site.key().equalsIgnoreCase(key)).findFirst();
+    }
+
     public SharedVotePolicy policyFor(NeoForgeVoteSite site) {
         Objects.requireNonNull(site, "site");
         return new SharedVotePolicy(countFakeVotes, addTotals, addTotalsOffline,
@@ -140,6 +149,7 @@ public final class NeoForgeVoteConfiguration {
     public boolean offlineVoteLimitEnabled() { return offlineVoteLimitEnabled; }
     public int offlineVoteLimitAmount() { return offlineVoteLimitAmount; }
     public int timeHourOffset() { return timeHourOffset; }
+    String bedrockPlayerPrefix() { return bedrockPlayerPrefix; }
     LocalDateTime currentTime(Clock clock) {
         try {
             return TimeCalculation.currentTime(clock, timeZone, timeHourOffset);

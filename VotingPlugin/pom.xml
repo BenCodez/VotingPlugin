@@ -250,7 +250,9 @@
                                         <exclude>org/slf4j/**</exclude>
                                         <exclude>org/checkerframework/**</exclude>
                                         <exclude>META-INF/services/org.slf4j.spi.SLF4JServiceProvider</exclude>
-                                        <exclude>META-INF/maven/org.slf4j/**</exclude>
+                                        <!-- Keep non-POM runtime metadata such as sqlite-jdbc's VERSION fallback. -->
+                                        <exclude>META-INF/maven/**/pom.xml</exclude>
+                                        <exclude>META-INF/maven/**/pom.properties</exclude>
                                         <exclude>META-INF/*.SF</exclude>
                                         <exclude>META-INF/*.DSA</exclude>
                                         <exclude>META-INF/*.RSA</exclude>

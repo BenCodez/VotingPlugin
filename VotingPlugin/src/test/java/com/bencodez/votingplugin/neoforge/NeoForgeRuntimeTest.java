@@ -82,6 +82,20 @@ class NeoForgeRuntimeTest {
         assertEquals(player, NeoForgePlayerDirectory.playerFromEvent(new FakeEvent(player)));
         players.left(player);
         assertTrue(players.online(uuid).isEmpty());
+        assertEquals("Ben", players.latestName(uuid).orElseThrow());
+        players.clear();
+        assertTrue(players.latestName(uuid).isEmpty());
+    }
+
+    @Test
+    void runtimePlayerJoinPersistsUuidBoundIdentityAcrossRestart() throws IOException {
+        UUID uuid = UUID.randomUUID();
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory, new Object())) {
+            runtime.playerJoined(new FakePlayer(uuid, "CurrentName"));
+        }
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            assertEquals("CurrentName", runtime.accounting().load(uuid).orElseThrow().playerName());
+        }
     }
 
     @Test
