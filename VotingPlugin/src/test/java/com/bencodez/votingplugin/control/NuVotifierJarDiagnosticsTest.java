@@ -64,6 +64,23 @@ class NuVotifierJarDiagnosticsTest {
                         assertFalse(facts(provider).get("votifierForwardingEnabled").getAsBoolean());
                         filter.set(pm, filterCtor.newInstance(List.of("backend-a"), false));
                         assertFalse(facts(provider).get("votifierForwardingEnabled").getAsBoolean());
+                        if (sourceName.startsWith("OnlineForward")) {
+                            Field fallback = pm.getClass().getDeclaredField("fallbackServer"); fallback.setAccessible(true);
+                            when(proxyApi.getMethod("getServer", String.class).invoke(provider, "backend-a"))
+                                    .thenReturn(Optional.of(backend));
+                            fallback.set(pm, "backend-a");
+                            // Both an empty whitelist and a rejecting blacklist still allow the fallback.
+                            for (boolean whitelist : List.of(true, false)) {
+                                filter.set(pm, filterCtor.newInstance(whitelist ? List.of() : List.of("backend-a"), whitelist));
+                                assertTrue(facts(provider).get("votifierForwardingEnabled").getAsBoolean());
+                                assertEquals("backend-a", facts(provider).getAsJsonArray("forwardingDestinations").get(0).getAsString());
+                            }
+                            when(proxyApi.getMethod("getServer", String.class).invoke(provider, "backend-a"))
+                                    .thenReturn(Optional.empty());
+                            assertFalse(facts(provider).get("votifierForwardingEnabled").getAsBoolean());
+                            fallback.set(pm, "bad\nname"); assertUnknown(provider);
+                            fallback.set(pm, null);
+                        }
                         filter.set(pm, null); assertUnknown(provider);
                     }
                 }

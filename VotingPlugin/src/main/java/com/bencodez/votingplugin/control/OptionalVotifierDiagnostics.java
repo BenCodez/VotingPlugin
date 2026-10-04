@@ -104,6 +104,26 @@ public final class OptionalVotifierDiagnostics {
                         || name.codePoints().anyMatch(Character::isISOControl) || !seen.add(name)) return true;
                 if (Boolean.TRUE.equals(allowed.invoke(filter, name))) names.add(name);
             }
+            // Online forwarding deliberately bypasses serverFilter for its fallback path.
+            if (sourceType.endsWith(".OnlineForwardPluginMessagingForwardingSource")) {
+                var fallbackField = source.getClass().getDeclaredField("fallbackServer");
+                fallbackField.setAccessible(true);
+                Object rawFallback = fallbackField.get(source);
+                if (rawFallback != null) {
+                    if (!(rawFallback instanceof String fallback) || fallback.isBlank() || fallback.length() > 80
+                            || fallback.codePoints().anyMatch(Character::isISOControl)) return true;
+                    Object resolved = Class.forName("com.vexsoftware.votifier.platform.ProxyVotifierPlugin", false,
+                            candidate.getClass().getClassLoader()).getMethod("getServer", String.class).invoke(plugin, fallback);
+                    if (!(resolved instanceof Optional<?> target)) return true;
+                    if (target.isPresent()) {
+                        Object rawName = serverName.invoke(target.get());
+                        if (!(rawName instanceof String name) || !seen.contains(name)) return true;
+                        boolean listed = false;
+                        for (var value : names) listed |= value.getAsString().equals(name);
+                        if (!listed) names.add(name);
+                    }
+                }
+            }
             out.addProperty("votifierForwardingEnabled", names.size() > 0);
             out.addProperty("votifierForwardingKnown", true);
             out.add("forwardingDestinations", names);
