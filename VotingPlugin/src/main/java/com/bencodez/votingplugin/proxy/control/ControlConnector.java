@@ -389,7 +389,8 @@ public final class ControlConnector implements AutoCloseable {
 		result.addProperty("onlineMode", proxy.getConfig().getOnlineMode());
 		result.addProperty("encryption", proxy.getConfig().getCommunicationEncryption());
 		String auth = proxy.getConfig().getSharedTransportAuthentication();
-        result.addProperty("sharedAuthentication", "REQUIRED".equalsIgnoreCase(auth) ? "REQUIRED" : auth == null || auth.isBlank() || "COMPATIBILITY".equalsIgnoreCase(auth) ? "COMPATIBILITY" : "INVALID");
+        try { result.addProperty("sharedAuthentication", com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.Mode.parse(auth).name()); }
+        catch (IllegalArgumentException invalid) { result.addProperty("sharedAuthentication", "INVALID"); }
 		com.bencodez.votingplugin.control.NetworkHealthStorageFacts.add(result, proxy.getProxyMySQL() == null || proxy.getProxyMySQL().getMysql() == null ? null : proxy.getProxyMySQL().getMysql().getConnectionManager());
         result.addProperty("bungeeManageTotals", proxy.getConfig().getBungeeManageTotals());
 		result.addProperty("dedicatedVotingProxy", proxy.getConfig().getDedicatedVotingProxy());
@@ -410,6 +411,7 @@ public final class ControlConnector implements AutoCloseable {
         result.addProperty("votePartyEnabled", proxy.getConfig().getVotePartyEnabled());
         result.addProperty("votePartyVotesRequired", Math.max(0, proxy.getConfig().getVotePartyVotesRequired()));
         if (!proxy.getConfig().getVotePartyBungeeCommands().isEmpty()) result.addProperty("votePartyEffectiveReward", true);
+        result.addProperty("votePartyServersApplicable", proxy.getConfig().getVotePartyEnabled() && !proxy.getConfig().getVotePartySendToAllServers());
         addNames(result, "votePartyServers", proxy.getConfig().getVotePartyServersToSend());
         addSafeString(result, "bedrockPlayerPrefix", proxy.getConfig().getBedrockPlayerPrefix());
         if ("REDIS".equals(methodValue(settingsMethod()))) { addSafeString(result, "transportNamespace", proxy.getConfig().getRedisPrefix()); result.addProperty("redisSsl", proxy.getConfig().getRedisSsl()); }
@@ -422,9 +424,10 @@ public final class ControlConnector implements AutoCloseable {
         addNames(result, "socketProxyServers", new ArrayList<>(proxy.getConfig().getMultiProxyServers()));
 		addNames(result, "blockedServers", proxy.getConfig().getBlockedServers());
 		addNames(result, "whitelistedServers", proxy.getConfig().getWhiteListedServers());
-		String scope = proxy.getConfig().getProxyBroadcastScopeMode();
-        result.addProperty("broadcastServersApplicable", proxy.getConfig().getProxyBroadcastEnabled() && ("SERVERS".equalsIgnoreCase(scope) || "ALL_EXCEPT".equalsIgnoreCase(scope)));
-        result.addProperty("offlineForwardServersApplicable", proxy.getConfig().getProxyBroadcastEnabled() && "PLAYER_SERVER".equalsIgnoreCase(scope) && "FORWARD".equalsIgnoreCase(proxy.getConfig().getProxyBroadcastOfflineMode()));
+        var scope = com.bencodez.votingplugin.proxy.broadcast.ScopeMode.parse(proxy.getConfig().getProxyBroadcastScopeMode());
+        var offline = com.bencodez.votingplugin.proxy.broadcast.OfflineMode.parse(proxy.getConfig().getProxyBroadcastOfflineMode(), com.bencodez.votingplugin.proxy.broadcast.OfflineMode.QUEUE);
+        result.addProperty("broadcastServersApplicable", proxy.getConfig().getProxyBroadcastEnabled() && (scope == com.bencodez.votingplugin.proxy.broadcast.ScopeMode.SERVERS || scope == com.bencodez.votingplugin.proxy.broadcast.ScopeMode.ALL_EXCEPT));
+        result.addProperty("offlineForwardServersApplicable", proxy.getConfig().getProxyBroadcastEnabled() && scope == com.bencodez.votingplugin.proxy.broadcast.ScopeMode.PLAYER_SERVER && offline == com.bencodez.votingplugin.proxy.broadcast.OfflineMode.FORWARD);
         addNames(result, "broadcastServers", proxy.getConfig().getProxyBroadcastScopeServers());
 		addNames(result, "offlineForwardServers", proxy.getConfig().getProxyBroadcastOfflineForwardServers());
 		java.util.Set<String> backendNames = proxy.getAllConfiguredServers();
@@ -1256,7 +1259,20 @@ public final class ControlConnector implements AutoCloseable {
 			else if ("PREVIEW".equals(type) || "APPLY".equals(type))
 				allowedFields = Set.of("domain", "fileName", "content");
 			else return completed(TaskResult.failure("UNSUPPORTED_TASK", "Task type is unsupported"));
-			if (!allowedFields.equals(requested.keySet())) throw new MalformedResponseException();
+			// Control serializes its configuration union with neutral members from other domains.
+			// Accept that canonical envelope as well as older compact claims, but never
+			// accept a populated foreign member or an unknown field.
+			JsonObject fileFields = requested.deepCopy();
+			for (String field : List.of("sendVotesToAllServers", "preset")) {
+				if (fileFields.has(field) && fileFields.get(field).isJsonNull()) fileFields.remove(field);
+			}
+			if (fileFields.has("blockedServers") && fileFields.get("blockedServers").isJsonArray()
+					&& fileFields.getAsJsonArray("blockedServers").isEmpty()) fileFields.remove("blockedServers");
+			if (fileFields.has("options") && fileFields.get("options").isJsonObject()
+					&& fileFields.getAsJsonObject("options").isEmpty()) fileFields.remove("options");
+			if ("READ".equals(type) && fileFields.has("content") && fileFields.get("content").isJsonNull())
+				fileFields.remove("content");
+			if (!allowedFields.equals(fileFields.keySet())) throw new MalformedResponseException();
 			String fileName = requireString(requested, "fileName");
 			if ("READ".equals(type)) {
 				return completed(TaskResult.file(fileConfigurationService.read(fileName), List.of(), false, false));

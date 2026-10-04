@@ -514,7 +514,8 @@ public final class ControlInspectionService {
 		result.addProperty("pluginMessageChannel", safe(plugin.getBungeeSettings().getPluginMessagingChannel(), 160));
 		result.addProperty("encryption", plugin.getBungeeSettings().isCommunicationEncryption());
 		String auth = plugin.getBungeeSettings().getSharedTransportAuthentication();
-        result.addProperty("sharedAuthentication", "REQUIRED".equalsIgnoreCase(auth) ? "REQUIRED" : auth == null || auth.isBlank() || "COMPATIBILITY".equalsIgnoreCase(auth) ? "COMPATIBILITY" : "INVALID");
+        try { result.addProperty("sharedAuthentication", com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.Mode.parse(auth).name()); }
+        catch (IllegalArgumentException invalid) { result.addProperty("sharedAuthentication", "INVALID"); }
 		result.addProperty("triggerVotifierEvent", plugin.getBungeeSettings().isTriggerVotifierEvent());
 		result.addProperty("votifierProviderPresent", plugin.isVotifierLoaded());
 		OptionalVotifierDiagnostics.add(result, java.util.Arrays.asList(plugin.getServer().getPluginManager().getPlugins()));

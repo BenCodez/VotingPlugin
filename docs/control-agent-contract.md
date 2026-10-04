@@ -121,7 +121,10 @@ The operation is carried in the normal authenticated node operation queue. Contr
 }
 ```
 
-`content` is omitted for READ. The node submits the result through the normal operation-result endpoint; a result has
+`content` is omitted or null for READ. The shared Control configuration union may also serialize
+`sendVotesToAllServers: null`, `blockedServers: []`, `preset: null`, and `options: {}`. Proxy file tasks accept
+those neutral members as well as compact envelopes; populated foreign members and unknown fields remain invalid.
+The node submits the result through the normal operation-result endpoint; a result has
 `success`, `code`, `message`, `revision` (on success), `configuration` (on success), `changes`, `reloaded`, and
 `rolledBack`, and includes the claimed `attemptId`. A successful configuration object contains `domain`, `fileName`,
 and masked `content`. `changes` is a deterministic, lexicographically ordered list of at most 20 flattened YAML paths,

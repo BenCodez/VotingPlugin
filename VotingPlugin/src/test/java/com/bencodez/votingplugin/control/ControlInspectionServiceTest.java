@@ -39,6 +39,26 @@ import com.google.gson.JsonParser;
 class ControlInspectionServiceTest {
 	@TempDir Path directory;
 
+    @Test void backendHealthUsesRuntimeAuthenticationNormalization() throws Exception {
+        VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+        var config = new org.bukkit.configuration.file.YamlConfiguration();
+        var sites = new org.bukkit.configuration.file.YamlConfiguration();
+        when(plugin.getConfigFile().getData()).thenReturn(config);
+        when(plugin.getBungeeSettings().getData()).thenReturn(config);
+        when(plugin.getConfigVoteSites().getData()).thenReturn(sites);
+        when(plugin.getBungeeSettings().getSharedTransportAuthentication()).thenReturn(" REQUIRED ");
+        when(plugin.getBungeeSettings().getBungeeMethod()).thenReturn("REDIS");
+        when(plugin.getBackendProxyHandler()).thenReturn(null);
+        when(plugin.getServer().getPluginManager().getPlugins()).thenReturn(new org.bukkit.plugin.Plugin[0]);
+        JsonObject result = new ControlInspectionService(plugin).inspect(JsonParser.parseString("{\"kind\":\"network-health\",\"filters\":{}}").getAsJsonObject()).getAsJsonObject("result");
+        assertEquals("REQUIRED", result.get("sharedAuthentication").getAsString());
+        String fixtureDir = System.getProperty("network.health.fixture.dir");
+        if (fixtureDir != null) {
+            Path folder = Path.of(fixtureDir); Files.createDirectories(folder);
+            Files.writeString(folder.resolve("BUKKIT.json"), result.toString());
+        }
+    }
+
 	@Test void rewardFileInventoryReturnsOnlySafeLogicalNames() throws Exception {
 		Path rewards = Files.createDirectories(directory.resolve("Rewards"));
 		Files.writeString(rewards.resolve("Daily.yml"), "Commands: []\n");

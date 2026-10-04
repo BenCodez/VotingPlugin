@@ -67,6 +67,30 @@ class ControlNetworkHealthTest {
             } finally { executor.shutdownNow(); }
         }
     }
+    @Test void producerUsesRuntimeAliasesAndVotePartyListApplicability() throws Exception {
+        var executor = Executors.newSingleThreadScheduledExecutor();
+        try (var connector = connector("VELOCITY", request -> CompletableFuture.completedFuture(new ControlConnector.Response(204, "")), executor)) {
+            var proxyField = ControlConnector.class.getDeclaredField("proxy"); proxyField.setAccessible(true);
+            var config = ((VotingPluginProxy)proxyField.get(connector)).getConfig();
+            when(config.getSharedTransportAuthentication()).thenReturn(" REQUIRED ");
+            when(config.getProxyBroadcastEnabled()).thenReturn(true);
+            when(config.getProxyBroadcastScopeMode()).thenReturn(" PLAYER ");
+            when(config.getProxyBroadcastOfflineMode()).thenReturn(" FORWARD ");
+            when(config.getVotePartyEnabled()).thenReturn(true); when(config.getVotePartySendToAllServers()).thenReturn(true);
+            var method = ControlConnector.class.getDeclaredMethod("proxyNetworkHealth"); method.setAccessible(true);
+            var data = (JsonObject)method.invoke(connector);
+            assertEquals("REQUIRED", data.get("sharedAuthentication").getAsString());
+            assertTrue(data.get("offlineForwardServersApplicable").getAsBoolean());
+            assertFalse(data.get("broadcastServersApplicable").getAsBoolean());
+            assertFalse(data.get("votePartyServersApplicable").getAsBoolean());
+            when(config.getProxyBroadcastScopeMode()).thenReturn(" SERVERS ");
+            when(config.getVotePartySendToAllServers()).thenReturn(false);
+            data = (JsonObject)method.invoke(connector);
+            assertTrue(data.get("broadcastServersApplicable").getAsBoolean());
+            assertFalse(data.get("offlineForwardServersApplicable").getAsBoolean());
+            assertTrue(data.get("votePartyServersApplicable").getAsBoolean());
+        } finally { executor.shutdownNow(); }
+    }
     @Test void oldControlCannotActivateHealthPollingAndFiltersAreRejected() throws Exception {
         var executor = Executors.newSingleThreadScheduledExecutor(); List<ControlConnector.Request> requests = new ArrayList<>();
         try (var connector = connector("VELOCITY", request -> { requests.add(request); return CompletableFuture.completedFuture(new ControlConnector.Response(200, task("network-health", "{\"path\":\"secret\"}"))); }, executor)) {
