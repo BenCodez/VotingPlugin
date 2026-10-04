@@ -48,6 +48,7 @@ class ControlInspectionServiceTest {
         when(plugin.getConfigVoteSites().getData()).thenReturn(sites);
         when(plugin.getBungeeSettings().getSharedTransportAuthentication()).thenReturn(" REQUIRED ");
         when(plugin.getBungeeSettings().getBungeeMethod()).thenReturn("REDIS");
+        when(plugin.getStorageType()).thenReturn(UserStorage.SQLITE);
         when(plugin.getBackendProxyHandler()).thenReturn(null);
         when(plugin.getServer().getPluginManager().getPlugins()).thenReturn(new org.bukkit.plugin.Plugin[0]);
         JsonObject result = new ControlInspectionService(plugin).inspect(JsonParser.parseString("{\"kind\":\"network-health\",\"filters\":{}}").getAsJsonObject()).getAsJsonObject("result");
