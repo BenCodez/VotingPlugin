@@ -55,6 +55,16 @@ download, size/hash, invalid artifact, staging/write, cancellation, and lost cap
 dedicated background worker. Disable/reload marks the worker inactive, interrupts it, and prevents a stale completion
 from submitting success. Mixed-version nodes that do not negotiate `plugin.deploy.v1` remain connected but are excluded
 from deployment targets.
+## Network-health fact availability
+
+The current producers expose only facts backed by stable, bounded APIs. Both producers expose role and supported
+transport/configuration facts; the backend additionally exposes observational `detectedServices` from persisted
+`GottenServiceSites` without filtering configured or disabled sites. The proxy producer exposes `waitForUserOnline` and the
+vote-cache/non-voted-cache MySQL mode booleans through its proxy config getters. Backend nodes do not currently expose
+those proxy-only cache or wait settings, and neither producer resolves named reward references or reads reward files for
+network health; consumers must render omitted fields as `UNKNOWN`. Named reward file names are available only through the
+separate bounded `reward-file-inventory` inspection when its capability is accepted.
+
 ## Named reward files (`config.reward-files.v1`)
 
 This additive Bukkit capability manages only existing `Rewards/<name>.yml` files directly under VotingPlugin's Rewards
@@ -490,6 +500,16 @@ credential, secret, raw payload, SQL metadata, or arbitrary storage key is expos
   reward executor.
 - Capability negotiation is authoritative. An older Control that does not accept `data.inspect.v1` must not receive
   inspection polling.
+
+## Network health inspection
+
+Nodes may advertise the additive `data.network-health.v1` capability. A negotiated
+`network-health` inspection is read-only and returns bounded typed facts. Unsupported
+or unavailable facts are omitted and therefore mean `UNKNOWN` to Control; they are
+never represented as healthy defaults. Votifier diagnostics use only the optional
+`getNetworkHealthSnapshot` API and never expose keys, tokens, endpoints, raw config,
+or logs. Proxy polling is independently failure-isolated from vote and configuration
+work, and older peers continue using existing capabilities unchanged.
 
 ## VoteLog interpretation
 

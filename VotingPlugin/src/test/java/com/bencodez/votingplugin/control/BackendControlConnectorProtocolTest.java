@@ -274,6 +274,8 @@ class BackendControlConnectorProtocolTest {
 				.anyMatch(value -> "config.reward-files.v1".equals(value.getAsString())));
 		assertTrue(advertised.asList().stream()
 				.anyMatch(value -> "data.inspect.v1".equals(value.getAsString())));
+		assertTrue(advertised.asList().stream()
+				.anyMatch(value -> "data.network-health.v1".equals(value.getAsString())));
 		JsonArray required = registration.getAsJsonArray("requiredCapabilities");
 		assertTrue(required.asList().stream()
 				.anyMatch(value -> "config.files.v1".equals(value.getAsString())));
@@ -421,6 +423,11 @@ class BackendControlConnectorProtocolTest {
 		assertEquals("Configuration file is unavailable or unreadable",
 				BackendControlConnector.operationFailureMessage("READ", new IOException("/srv/private/Config.yml")));
 	}
+
+    @Test void networkHealthRequiresItsExplicitCapability() {
+        BackendControlConnector connector = org.mockito.Mockito.mock(BackendControlConnector.class, org.mockito.Mockito.CALLS_REAL_METHODS);
+        assertEquals("UNAVAILABLE", connector.executeInspection(JsonParser.parseString("{\"kind\":\"network-health\",\"filters\":{}}").getAsJsonObject()).code());
+    }
 
 	@Test void namedRewardInventoryRequiresItsExplicitCapability() {
 		assertTrue(ControlInspectionService.rewardFileInventoryQuery(JsonParser.parseString(

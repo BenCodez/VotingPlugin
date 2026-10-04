@@ -114,6 +114,14 @@ public final class SharedTransportEnvelopeAuthenticator {
 		this.maxReplayEntries = maxReplayEntries;
 	}
 
+    /** A diagnostic equality hint for the loaded key; never returns key material. */
+    public String diagnosticKeyFingerprint() {
+        byte[] key = domainKeys.get(Domain.REDIS_PROXY_BACKEND);
+        if (key == null) return null;
+        try { return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(key)); }
+        catch (java.security.NoSuchAlgorithmException impossible) { throw new IllegalStateException(impossible); }
+    }
+
 	public static SharedTransportEnvelopeAuthenticator load(Path keyFile, Mode mode) throws IOException {
 		if (!Files.isRegularFile(keyFile)) {
 			if (mode == Mode.COMPATIBILITY)

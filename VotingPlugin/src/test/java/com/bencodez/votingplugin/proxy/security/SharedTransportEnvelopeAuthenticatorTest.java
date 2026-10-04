@@ -27,6 +27,14 @@ class SharedTransportEnvelopeAuthenticatorTest {
 	private static final byte[] KEY = "0123456789abcdef0123456789abcdef".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
 	private static final Clock CLOCK = Clock.fixed(Instant.ofEpochMilli(1_800_000_000_000L), ZoneOffset.UTC);
 
+    @Test void diagnosticFingerprintIsBoundedAndDoesNotReturnTheSecret() {
+        SharedTransportEnvelopeAuthenticator first = SharedTransportEnvelopeAuthenticator.forTesting(KEY, Mode.REQUIRED, CLOCK);
+        SharedTransportEnvelopeAuthenticator same = SharedTransportEnvelopeAuthenticator.forTesting(KEY, Mode.COMPATIBILITY, CLOCK);
+        assertTrue(first.diagnosticKeyFingerprint().matches("[a-f0-9]{64}"));
+        assertEquals(first.diagnosticKeyFingerprint(), same.diagnosticKeyFingerprint());
+        org.junit.jupiter.api.Assertions.assertNotEquals(java.util.HexFormat.of().formatHex(KEY), first.diagnosticKeyFingerprint());
+    }
+
 	@Test
 	void missingSettingDefaultsToUpgradeSafeCompatibility() {
 		assertEquals(Mode.COMPATIBILITY, Mode.parse(null));

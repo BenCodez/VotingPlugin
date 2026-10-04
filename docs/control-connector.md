@@ -340,7 +340,11 @@ entries and per-value/content bounds; unavailable storage returns an empty colum
 serialized payloads, credentials, secrets, and arbitrary keys. See [the exact-player storage schema](control-agent-contract.md#exact-player-storage-fields-schema-version-1)
 for the static/dynamic names and value-type rules.
 
-Inspection filters are string values on the wire and are parsed by the selected kind's strict schema. The connector runs
+Inspection filters are string values on the wire and are parsed by the selected kind's strict schema. The optional
+`data.network-health.v1` lane returns bounded typed facts; omitted evidence is UNKNOWN,
+never PASS. Proxy polling has independent retry backoff and shutdown cancellation,
+and optional VotifierPlus diagnostics are reflective so older providers remain compatible.
+The connector runs
 the handlers, including bounded VoteLog/player storage reads, on the dedicated inspection daemon rather than Bukkit's
 primary thread or the configuration executor. VoteLog statements use a 10-second JDBC timeout. Reward and vote-site
 inspections are dry runs: they do not call reward execution or auto-creating resolution paths.

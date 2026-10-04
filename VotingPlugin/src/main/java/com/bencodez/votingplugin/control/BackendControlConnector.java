@@ -56,7 +56,9 @@ public final class BackendControlConnector implements AutoCloseable {
 	private static final Pattern NODE_ID = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]{0,63}");
 	private static final Set<String> CAPABILITIES = Set.of("config.files.v1", "config.file-comments.v1",
 			"config.quick-setup.v1", "config.quick-setup.v2", "config.vote-sites-sync.v1",
-			"config.proxy-method.v1", "config.proxy-method.v2", "config.reward-files.v1", "data.inspect.v1");
+			"config.proxy-method.v1", "config.proxy-method.v2", "config.reward-files.v1", "data.inspect.v1",
+			"data.network-health.v1");
+	private static final String NETWORK_HEALTH_CAPABILITY = "data.network-health.v1";
 	private static final Set<String> DEPLOYMENT_TASK_FIELDS = Set.of("deploymentId", "artifactId", "sha256", "size", "attemptId");
 
 	private final VotingPluginMain plugin;
@@ -88,6 +90,7 @@ public final class BackendControlConnector implements AutoCloseable {
 	private volatile boolean proxyMethodV2Accepted;
 	private volatile boolean votePartySetupsAccepted;
 	private volatile boolean voteSitesSyncAccepted;
+	private volatile boolean networkHealthAccepted;
 	private volatile boolean rewardFilesAccepted;
 	private volatile boolean inspectionsAccepted;
 	private volatile boolean deploymentsAccepted;
@@ -559,6 +562,10 @@ public final class BackendControlConnector implements AutoCloseable {
 
 	InspectionTaskResult executeInspection(JsonObject query) {
 		try {
+			if (query != null && query.has("kind") && "network-health".equals(query.get("kind").getAsString())
+					&& !networkHealthAccepted) {
+				return InspectionTaskResult.failure("UNAVAILABLE", "Network health was not negotiated");
+			}
 			if (ControlInspectionService.rewardFileInventoryQuery(query) && !rewardFilesAccepted) {
 				return InspectionTaskResult.failure("UNAVAILABLE",
 						"Named reward files were not negotiated");
@@ -636,6 +643,7 @@ public final class BackendControlConnector implements AutoCloseable {
 			voteSitesSyncAccepted = negotiatedCapability(node, "config.vote-sites-sync.v1", voteSitesSyncAccepted);
 			rewardFilesAccepted = configurations.supportsNamedRewardFiles()
 					&& negotiatedCapability(node, "config.reward-files.v1", rewardFilesAccepted);
+			networkHealthAccepted = negotiatedCapability(node, NETWORK_HEALTH_CAPABILITY, networkHealthAccepted);
 			boolean inspectionsWereAccepted = inspectionsAccepted;
 			inspectionsAccepted = negotiatedCapability(node, "data.inspect.v1", inspectionsAccepted);
 			deploymentsAccepted = deployments != null
@@ -691,6 +699,7 @@ public final class BackendControlConnector implements AutoCloseable {
 		votePartySetupsAccepted = false;
 		voteSitesSyncAccepted = false;
 		rewardFilesAccepted = false;
+        networkHealthAccepted = false;
 		inspectionsAccepted = false;
 		deploymentsAccepted = false;
 		JsonObject body = sessionBody();

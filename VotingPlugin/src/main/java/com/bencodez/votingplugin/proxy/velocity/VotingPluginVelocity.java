@@ -978,6 +978,19 @@ public class VotingPluginVelocity {
 			}
 
 			@Override
+			public Collection<String> getInstalledPluginNames() {
+				return server.getPluginManager().getPlugins().stream()
+						.map(plugin -> plugin.getDescription().getName().orElse(plugin.getInstance().map(Object::getClass)
+								.map(Class::getSimpleName).orElse("unknown")))
+						.filter(name -> name != null && !name.isBlank()).limit(128).toList();
+			}
+
+			@Override
+			public Collection<Object> getDiagnosticProviders() {
+				return new ArrayList<>(server.getPluginManager().getPlugins());
+			}
+
+			@Override
 			public String getCurrentPlayerServer(String player) {
 				if (server.getPlayer(player).isPresent()) {
 					Player p = server.getPlayer(player).get();

@@ -1683,6 +1683,12 @@ public abstract class VotingPluginProxy {
 		return parseUUIDFromString(uuidAsString);
 	}
 
+    /** Reads the already loaded authenticator; does not initialize a transport. */
+    public String diagnosticSharedKeyFingerprint() {
+        SharedTransportEnvelopeAuthenticator current = sharedTransportAuthenticator;
+        return current == null ? null : current.diagnosticKeyFingerprint();
+    }
+
 	public abstract Set<String> getAllAvailableServers();
 
 	/** Complete platform server set before whitelist/blocked routing filters. */
@@ -4876,6 +4882,16 @@ public abstract class VotingPluginProxy {
 
 	/** Platform name used only for the transport-neutral Control discovery contract. */
 	public abstract String getProxyPlatform();
+
+	/** Bounded plugin inventory used only by optional Control diagnostics. */
+	public Collection<String> getInstalledPluginNames() {
+		return List.of();
+	}
+
+	/** Optional platform plugin objects used for reflective management diagnostics. */
+	public Collection<Object> getDiagnosticProviders() {
+		return List.of();
+	}
 
 	public abstract void runConsoleCommand(String command);
 

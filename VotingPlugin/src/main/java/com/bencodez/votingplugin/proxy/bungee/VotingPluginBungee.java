@@ -898,6 +898,18 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			}
 
 			@Override
+			public Collection<String> getInstalledPluginNames() {
+				return getProxy().getPluginManager().getPlugins().stream()
+						.map(plugin -> plugin.getDescription().getName())
+						.filter(name -> name != null && !name.isBlank()).limit(128).toList();
+			}
+
+			@Override
+			public Collection<Object> getDiagnosticProviders() {
+				return new ArrayList<>(getProxy().getPluginManager().getPlugins());
+			}
+
+			@Override
 			public String getCurrentPlayerServer(String player) {
 				ProxiedPlayer p = getProxy().getPlayer(player);
 				if (p != null && p.getServer() != null) {

@@ -67,6 +67,7 @@ public final class ControlConnector implements AutoCloseable {
 	private static final String PROXY_METHOD_CAPABILITY = "config.proxy-method.v1";
 	private static final String PROXY_METHOD_HTTP_CAPABILITY = "config.proxy-method.v2";
 	private static final String PROXY_FILE_CAPABILITY = "config.proxy-files.v1";
+	private static final String NETWORK_HEALTH_CAPABILITY = "data.network-health.v1";
 	private static final String PROXY_METHOD_PRESET = "proxy-method";
 	private static final String INTERNAL_OPERATION_TYPE = "_controlOperationType";
 	private static final String INTERNAL_REQUIRED_CAPABILITY = "_controlRequiredCapability";
@@ -76,6 +77,7 @@ public final class ControlConnector implements AutoCloseable {
 	private static final long OPERATION_SHUTDOWN_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(65);
 
 	private final Settings settings;
+	private VotingPluginProxy proxy;
 	private final ScheduledExecutorService scheduler;
 	private final Transport transport;
 	private final Supplier<List<ObservedBackend>> snapshotSource;
@@ -100,6 +102,8 @@ public final class ControlConnector implements AutoCloseable {
 	private final Map<UUID, StoredResult> completedTasks = new LinkedHashMap<>();
 	private final Object operationLifecycle = new Object();
 	private final AtomicBoolean inFlight = new AtomicBoolean();
+	private final AtomicBoolean inspectionInFlight = new AtomicBoolean();
+    private final Object inspectionLifecycle = new Object();
 	private final AtomicBoolean recoveryCompleted = new AtomicBoolean();
 	private Runnable deferredReplacement;
 	private volatile boolean closed;
@@ -112,6 +116,10 @@ public final class ControlConnector implements AutoCloseable {
 	private volatile ScheduledFuture<?> scheduled;
 	private volatile ScheduledFuture<?> operationPolling;
 	private volatile ScheduledFuture<?> deploymentPolling;
+	private volatile ScheduledFuture<?> inspectionPolling;
+	private volatile int inspectionFailures;
+	private volatile long inspectionRetryAtNanos;
+	private volatile CompletableFuture<?> activeInspection;
 	private volatile CompletableFuture<?> activeRequest;
 	/* The deployment executor may discard queued AsyncSupply work during shutdown.
 	 * Retain its future so close() can complete the dependent operation chain. */
@@ -281,6 +289,7 @@ public final class ControlConnector implements AutoCloseable {
 				server -> proxy.testBackendCommunication(server, 5000L), new ProxyMethodConfigurationService(proxy),
 				() -> proxy.reloadCore(true), new ProxyConfigurationFileService(proxy),
 				deployments, deploymentHttp, credential, directLocalDeploymentEndpoint, allowInsecureHttpPluginDeployment);
+		connector.proxy = proxy;
 		if (recovered != null) connector.completedTasks.putAll(recovered.results());
 		return connector;
 	}
@@ -297,6 +306,168 @@ public final class ControlConnector implements AutoCloseable {
 			deploymentPolling = scheduler.scheduleWithFixedDelay(this::pollDeployments,
 					OPERATION_POLL_MILLIS, OPERATION_POLL_MILLIS, TimeUnit.MILLISECONDS);
 		}
+		inspectionPolling = scheduler.scheduleWithFixedDelay(this::pollNetworkHealth, 5000, 5000,
+				TimeUnit.MILLISECONDS);
+	}
+
+	private void pollNetworkHealth() {
+		if (closed || !registered || status != Status.CONNECTED || !acceptedCapabilities.contains(NETWORK_HEALTH_CAPABILITY)
+                || !acceptedCapabilities.contains("data.inspect.v1")
+				|| System.nanoTime() < inspectionRetryAtNanos
+				|| !inspectionInFlight.compareAndSet(false, true)) return;
+		try {
+			JsonObject claim = new JsonObject();
+			claim.addProperty("sessionId", sessionId.toString());
+			CompletableFuture<Response> inspectionRequest = sendInspectionRequest(new Request("POST", "/api/v1/nodes/" + settings.nodeId() + "/inspections", claim.toString()));
+			inspectionRequest
+					.thenCompose(response -> {
+						if (closed || response.statusCode == 204) return CompletableFuture.completedFuture(null);
+						requireSuccess(response);
+						JsonObject task = parseObject(response.body);
+                        if (!task.keySet().equals(Set.of("inspectionId", "attemptId", "query"))) throw new ProtocolException();
+                        String id = requireString(task, "inspectionId"), attempt = requireString(task, "attemptId");
+                        if (!UUID.fromString(id).toString().equals(id) || !UUID.fromString(attempt).toString().equals(attempt)) throw new ProtocolException();
+                        JsonObject query = task.getAsJsonObject("query");
+                        if (query == null || !query.keySet().equals(Set.of("kind", "filters"))
+                                || !query.get("filters").isJsonObject() || !query.getAsJsonObject("filters").keySet().isEmpty()) throw new ProtocolException();
+                        String kind = requireString(query, "kind");
+                        JsonObject result;
+                        if ("network-health".equals(kind)) result = networkHealthResult();
+                        else { result = new JsonObject(); result.addProperty("success", false); result.addProperty("code", "UNSUPPORTED"); result.addProperty("message", "Proxy inspection kind is unsupported"); }
+						result.addProperty("sessionId", sessionId.toString());
+						result.addProperty("attemptId", task.get("attemptId").getAsString());
+						return sendInspectionRequest(new Request("POST", "/api/v1/nodes/" + settings.nodeId() + "/inspections/"
+								+ task.get("inspectionId").getAsString() + "/result", result.toString()))
+							.thenAccept(ControlConnector::requireSuccess);
+					})
+					.whenComplete((ignored, failure) -> {
+						if (failure == null) { inspectionFailures = 0; inspectionRetryAtNanos = 0; }
+						else { inspectionFailures = Math.min(30, inspectionFailures + 1); inspectionRetryAtNanos = System.nanoTime() +
+								TimeUnit.MILLISECONDS.toNanos(Math.min(MAX_BACKOFF_MILLIS, 1000L << Math.min(inspectionFailures - 1, 8))); }
+						inspectionInFlight.set(false);
+					});
+		} catch (RuntimeException failure) {
+			inspectionFailures = Math.min(30, inspectionFailures + 1);
+			inspectionRetryAtNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(1000L << Math.min(inspectionFailures - 1, 8));
+			inspectionInFlight.set(false);
+		}
+	}
+
+    private CompletableFuture<Response> sendInspectionRequest(Request request) {
+        synchronized (inspectionLifecycle) {
+            if (closed) return CompletableFuture.failedFuture(new IllegalStateException("Connector closed"));
+            CompletableFuture<Response> future = transport.send(request);
+            activeInspection = future;
+            return future;
+        }
+    }
+
+	private JsonObject networkHealthResult() {
+		JsonObject result = new JsonObject();
+		result.addProperty("success", true);
+		result.addProperty("code", "OK");
+		result.addProperty("message", "Network health inspection completed");
+		JsonObject envelope = new JsonObject();
+		envelope.addProperty("schemaVersion", 1);
+		envelope.addProperty("kind", "network-health");
+		envelope.addProperty("generatedAt", java.time.Instant.now().toString());
+		envelope.add("result", proxyNetworkHealth());
+		result.add("data", envelope);
+		return result;
+	}
+
+	private JsonObject proxyNetworkHealth() {
+		JsonObject result = new JsonObject();
+		result.addProperty("schemaVersion", 1);
+		result.addProperty("role", "PROXY");
+        if (proxy == null) return result;
+		result.addProperty("configuredMethod", methodValue(settingsMethod()));
+        if (proxy.getMethod() != null) result.addProperty("activeMethod", proxy.getMethod().name());
+        if (proxy.getMqttHandler() != null && proxy.getMethod() == com.bencodez.votingplugin.proxy.BungeeMethod.MQTT)
+            result.addProperty("transportInitialized", proxy.getMqttHandler().isConnected());
+		addSafeString(result, "pluginMessageChannel", proxy.getConfig().getPluginMessageChannel());
+		result.addProperty("onlineMode", proxy.getConfig().getOnlineMode());
+		result.addProperty("encryption", proxy.getConfig().getCommunicationEncryption());
+		String auth = proxy.getConfig().getSharedTransportAuthentication();
+        result.addProperty("sharedAuthentication", "REQUIRED".equalsIgnoreCase(auth) ? "REQUIRED" : auth == null || auth.isBlank() || "COMPATIBILITY".equalsIgnoreCase(auth) ? "COMPATIBILITY" : "INVALID");
+		com.bencodez.votingplugin.control.NetworkHealthStorageFacts.add(result, proxy.getProxyMySQL() == null || proxy.getProxyMySQL().getMysql() == null ? null : proxy.getProxyMySQL().getMysql().getConnectionManager());
+        result.addProperty("bungeeManageTotals", proxy.getConfig().getBungeeManageTotals());
+		result.addProperty("dedicatedVotingProxy", proxy.getConfig().getDedicatedVotingProxy());
+		result.addProperty("multiProxySupport", proxy.getConfig().getMultiProxySupport());
+		String multiMethod = proxy.getConfig().getMultiProxyMethod();
+        result.addProperty("multiProxyMethod", "SOCKET".equalsIgnoreCase(multiMethod) ? "SOCKET" : "REDIS".equalsIgnoreCase(multiMethod) ? "REDIS" : "INVALID");
+        result.addProperty("primaryServer", proxy.getConfig().getPrimaryServer());
+        result.addProperty("timeHourOffset", proxy.getConfig().getTimeHourOffSet());
+        result.addProperty("monthDateTotals", proxy.getConfig().getUseMonthDateTotalsAsPrimaryTotal());
+        result.addProperty("allowUnjoined", proxy.getConfig().getAllowUnJoined());
+        result.addProperty("waitForUserOnline", proxy.getConfig().getWaitForUserOnline());
+        result.addProperty("voteCacheMysql", proxy.getConfig().getVoteCacheUseMySQL());
+        result.addProperty("voteCacheMainMysql", proxy.getConfig().getVoteCacheUseMainMySQL());
+        result.addProperty("nonVotedCacheMysql", proxy.getConfig().getNonVotedCacheUseMySQL());
+        result.addProperty("nonVotedCacheMainMysql", proxy.getConfig().getNonVotedCacheUseMainMySQL());
+        result.addProperty("globalDataEnabled", proxy.getConfig().getGlobalDataEnabled());
+        result.addProperty("globalDataUseMainMysql", proxy.getConfig().getGlobalDataUseMainMySQL());
+        result.addProperty("votePartyEnabled", proxy.getConfig().getVotePartyEnabled());
+        result.addProperty("votePartyVotesRequired", Math.max(0, proxy.getConfig().getVotePartyVotesRequired()));
+        if (!proxy.getConfig().getVotePartyBungeeCommands().isEmpty()) result.addProperty("votePartyEffectiveReward", true);
+        addNames(result, "votePartyServers", proxy.getConfig().getVotePartyServersToSend());
+        addSafeString(result, "bedrockPlayerPrefix", proxy.getConfig().getBedrockPlayerPrefix());
+        if ("REDIS".equals(methodValue(settingsMethod()))) { addSafeString(result, "transportNamespace", proxy.getConfig().getRedisPrefix()); result.addProperty("redisSsl", proxy.getConfig().getRedisSsl()); }
+        if ("MQTT".equals(methodValue(settingsMethod()))) { addSafeString(result, "transportNamespace", proxy.getConfig().getMqttPrefix()); addSafeString(result, "mqttClientId", proxy.getConfig().getMqttClientID()); }
+        if ("HTTP".equals(methodValue(settingsMethod()))) result.addProperty("httpPublicEndpointConfigured", proxy.getConfig().getHttpPublicEndpoint() != null && !proxy.getConfig().getHttpPublicEndpoint().isBlank());
+		result.addProperty("multiProxyOneGlobalReward", proxy.getConfig().getMultiProxyOneGlobalReward());
+		result.addProperty("sendVotesToAllServers", proxy.getConfig().getSendVotesToAllServers());
+		addSafeString(result, "proxyServerName", proxy.getConfig().getProxyServerName());
+		addNames(result, "proxyServers", proxy.getConfig().getProxyServers());
+		addNames(result, "blockedServers", proxy.getConfig().getBlockedServers());
+		addNames(result, "whitelistedServers", proxy.getConfig().getWhiteListedServers());
+		addNames(result, "broadcastServers", proxy.getConfig().getProxyBroadcastScopeServers());
+		addNames(result, "offlineForwardServers", proxy.getConfig().getProxyBroadcastOfflineForwardServers());
+		java.util.Set<String> backendNames = proxy.getAllConfiguredServers();
+        addNames(result, "backendNames", new ArrayList<>(backendNames));
+        result.addProperty("topologyComplete", result.has("backendNames"));
+		addVotifierDiagnostics(result);
+		result.addProperty("transportProbeState", "UNKNOWN");
+        String fingerprint = proxy.diagnosticSharedKeyFingerprint();
+        if (fingerprint != null && Set.of("REDIS", "MQTT").contains(methodValue(settingsMethod()))) result.addProperty("sharedKeyFingerprint", fingerprint);
+        if (fingerprint != null && "REDIS".equalsIgnoreCase(proxy.getConfig().getMultiProxyMethod())) result.addProperty("multiProxyKeyFingerprint", fingerprint);
+		JsonArray plugins = new JsonArray();
+		proxyPluginNames().stream().distinct().sorted(String.CASE_INSENSITIVE_ORDER).limit(100)
+				.forEach(name -> plugins.add(bounded(name, 80)));
+		result.add("detectedPlugins", plugins);
+		return result;
+	}
+
+	private static void addNames(JsonObject result, String field, List<String> values) {
+		if (values == null || values.size() > 100) return;
+		JsonArray names = new JsonArray();
+		for (String value : values) {
+			if (value == null || value.isBlank() || value.length() > 80) return;
+			if (value.codePoints().anyMatch(Character::isISOControl) || names.asList().stream().anyMatch(v -> v.getAsString().equals(value))) return;
+            names.add(value);
+		}
+		result.add(field, names);
+	}
+
+    private void addVotifierDiagnostics(JsonObject result) {
+        List<String> names = proxyPluginNames();
+        if (names.size() <= 100) result.addProperty("votifierProviderPresent", names.stream()
+                .anyMatch(name -> Set.of("votifier", "votifierplus", "nuvotifier").contains(name.toLowerCase(java.util.Locale.ROOT))));
+        com.bencodez.votingplugin.control.OptionalVotifierDiagnostics.add(result, proxy.getDiagnosticProviders());
+    }
+    private static String methodValue(String value) {
+        String normalized = value == null ? "" : value.trim().toUpperCase(java.util.Locale.ROOT);
+        return Set.of("PLUGINMESSAGING", "HTTP", "REDIS", "MQTT", "SOCKETS", "MYSQL").contains(normalized) ? normalized : "INVALID";
+    }
+    private static void addSafeString(JsonObject result, String field, String value) {
+        if (value != null && value.length() <= 160 && value.codePoints().noneMatch(Character::isISOControl)) result.addProperty(field, value);
+    }
+
+	private String settingsMethod() { return proxy.getConfig().getBungeeMethod(); }
+	private static String bounded(String value, int max) {
+		if (value == null) return "";
+		String clean = value.replaceAll("\\p{Cntrl}", "").trim();
+		return clean.length() <= max ? clean : clean.substring(0, max);
 	}
 
 	/** Keeps large artifact transfer and disk staging off proxy event threads and serializes it with operations. */
@@ -676,8 +847,16 @@ public final class ControlConnector implements AutoCloseable {
 		body.addProperty("displayName", settings.displayName());
 		body.addProperty("platform", settings.platform());
 		body.addProperty("pluginVersion", settings.pluginVersion());
+		JsonArray detectedPlugins = new JsonArray();
+		proxyPluginNames().stream().distinct().sorted(String.CASE_INSENSITIVE_ORDER).limit(128)
+				.forEach(detectedPlugins::add);
+		body.add("detectedPlugins", detectedPlugins);
 		addCapabilities(body);
 		return new Request("POST", "/api/v1/nodes/register", body.toString());
+	}
+
+	private List<String> proxyPluginNames() {
+		return proxy == null ? List.of() : List.copyOf(proxy.getInstalledPluginNames());
 	}
 
 	private Request heartbeatRequest() {
@@ -1289,6 +1468,8 @@ public final class ControlConnector implements AutoCloseable {
 		}
 		if (fileReady) advertised.add(PROXY_FILE_CAPABILITY);
 		if (deploymentReady) advertised.add(PluginDeploymentService.CAPABILITY);
+		advertised.add(NETWORK_HEALTH_CAPABILITY);
+        advertised.add("data.inspect.v1");
 		body.add("capabilities", advertised);
 		JsonArray required = new JsonArray();
 		required.add("presence.snapshot");
@@ -1330,6 +1511,8 @@ public final class ControlConnector implements AutoCloseable {
 		if (polling != null) polling.cancel(false);
 		ScheduledFuture<?> deployment = deploymentPolling;
 		if (deployment != null) deployment.cancel(false);
+		ScheduledFuture<?> inspection = inspectionPolling;
+		if (inspection != null) inspection.cancel(false);
 		if (deployments != null) deployments.cancel();
 		CompletableFuture<?> deploymentWork = activeDeploymentWork;
 		if (deploymentWork != null) deploymentWork.cancel(true);
@@ -1338,6 +1521,10 @@ public final class ControlConnector implements AutoCloseable {
 		if (request != null) {
 			request.cancel(true);
 		}
+		synchronized (inspectionLifecycle) {
+            CompletableFuture<?> inspectionRequest = activeInspection;
+            if (inspectionRequest != null) inspectionRequest.cancel(true);
+        }
 		CompletableFuture<Void> operation = activeOperation;
 		if (operation != null) {
 			try {

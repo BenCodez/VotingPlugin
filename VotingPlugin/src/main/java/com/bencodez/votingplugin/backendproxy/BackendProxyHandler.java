@@ -1040,6 +1040,8 @@ public class BackendProxyHandler implements Listener {
 		return transportManager.getBackendMysqlMessenger();
 	}
 
+    public String diagnosticSharedKeyFingerprint() { return transportManager.diagnosticSharedKeyFingerprint(); }
+
 	public MqttHandler getMqttHandler() {
 		return transportManager.getMqttHandler();
 	}

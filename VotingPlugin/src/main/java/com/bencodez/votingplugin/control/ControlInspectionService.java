@@ -55,7 +55,7 @@ public final class ControlInspectionService {
 	private static final Pattern SERVICE_NAME = Pattern.compile("[^\\p{Cntrl}]{1,64}");
 	private static final Set<String> KINDS = Set.of("overview", "vote-site-health", "player",
 			"vote-log-summary", "vote-log-search", "vote-trace", "vote-site-resolution",
-			"reward-simulation", "reward-file-inventory", "diagnostics");
+			"reward-simulation", "reward-file-inventory", "diagnostics", "network-health");
 
 	private final VotingPluginMain plugin;
 
@@ -86,6 +86,7 @@ public final class ControlInspectionService {
 		case "reward-simulation" -> rewardSimulation(filters);
 		case "reward-file-inventory" -> rewardFileInventory(filters);
 		case "diagnostics" -> diagnostics(filters);
+		case "network-health" -> networkHealth(filters);
 		default -> throw new IllegalArgumentException("inspection kind is unsupported");
 		};
 		JsonObject envelope = new JsonObject();
@@ -129,6 +130,9 @@ public final class ControlInspectionService {
 		result.addProperty("enabledVoteSites", loadedVoteSites().stream().filter(VoteSite::isEnabled).count());
 		result.addProperty("autoCreateVoteSites", plugin.getConfigFile().isAutoCreateVoteSites());
 		result.addProperty("processRewards", plugin.getConfigFile().getData().getBoolean("ProcessRewards", true));
+		result.addProperty("allowUnjoined", plugin.getConfigFile().isAllowUnjoined());
+		result.addProperty("extraAllSitesCheck", plugin.getConfigFile().isExtraAllSitesCheck());
+		result.addProperty("monthDateTotals", plugin.getConfigFile().isStoreMonthTotalsWithDate());
 		result.addProperty("dataStorage", safe(plugin.getConfigFile().getData().getString("DataStorage", ""), 32));
 		result.addProperty("voteLoggingEnabled", voteLoggingEnabled);
 		result.addProperty("voteLogAvailable", voteLogAvailable);
@@ -490,6 +494,130 @@ public final class ControlInspectionService {
 				.forEach(redacted::add);
 		result.add("omittedSensitiveData", redacted);
 		return result;
+	}
+
+	/**
+	 * Bounded, read-only configuration/runtime facts for Network Doctor.  This
+	 * deliberately omits values which are not available through a stable API;
+	 * Control must treat omitted fields as UNKNOWN rather than inferred healthy.
+	 */
+	private JsonObject networkHealth(JsonObject filters) {
+		rejectUnknown(filters, Set.of(), "network health filters");
+		JsonObject result = new JsonObject();
+		result.addProperty("schemaVersion", 1);
+		result.addProperty("role", "BACKEND");
+		result.addProperty("serverName", safe(plugin.getBungeeSettings().getServer(), 160));
+		if (plugin.getBackendProxyHandler() != null && plugin.getBackendProxyHandler().getMethod() != null)
+			result.addProperty("activeMethod", plugin.getBackendProxyHandler().getMethod().name());
+		result.addProperty("configuredMethod", networkMethod(plugin.getBungeeSettings().getBungeeMethod()));
+		result.addProperty("proxyMode", plugin.getBungeeSettings().isUseBungeecoord());
+		result.addProperty("pluginMessageChannel", safe(plugin.getBungeeSettings().getPluginMessagingChannel(), 160));
+		result.addProperty("encryption", plugin.getBungeeSettings().isCommunicationEncryption());
+		String auth = plugin.getBungeeSettings().getSharedTransportAuthentication();
+        result.addProperty("sharedAuthentication", "REQUIRED".equalsIgnoreCase(auth) ? "REQUIRED" : auth == null || auth.isBlank() || "COMPATIBILITY".equalsIgnoreCase(auth) ? "COMPATIBILITY" : "INVALID");
+		result.addProperty("triggerVotifierEvent", plugin.getBungeeSettings().isTriggerVotifierEvent());
+		result.addProperty("votifierProviderPresent", plugin.isVotifierLoaded());
+		OptionalVotifierDiagnostics.add(result, java.util.Arrays.asList(plugin.getServer().getPluginManager().getPlugins()));
+		result.addProperty("configurationHealthy", !plugin.isYmlError());
+		NetworkHealthConfigFacts.addBackend(result, plugin.getConfigFile().getData());
+		NetworkHealthConfigFacts.addGlobal(result, plugin.getBungeeSettings().getData());
+		result.addProperty("processRewards", plugin.getConfigFile().getData().getBoolean("ProcessRewards", true));
+		result.addProperty("autoCreateVoteSites", plugin.getConfigFile().isAutoCreateVoteSites());
+		result.addProperty("voteLoggingEnabled", plugin.getConfigFile().isVoteLoggingEnabled());
+		result.addProperty("voteLogReadable", plugin.getConfigFile().isVoteLoggingEnabled()
+				&& plugin.getVoteLogMysqlTable() != null && plugin.getVoteLogMysqlTable().isReadable());
+		result.addProperty("globalDataEnabled", plugin.getBungeeSettings().isGloblalDataEnabled());
+		result.addProperty("globalDataUseMainMysql", plugin.getBungeeSettings().isGloblalDataUseMainMySQL());
+		result.addProperty("perServerRewards", plugin.getBungeeSettings().isPerServerRewards());
+		result.addProperty("perServerPoints", plugin.getBungeeSettings().isPerServerPoints());
+		result.addProperty("giveExtraAllSitesRewards", plugin.getBungeeSettings().isGiveExtraAllSitesRewards());
+		result.addProperty("transportProbeState", "UNKNOWN");
+        if (plugin.getBackendProxyHandler() != null) {
+            String fingerprint = plugin.getBackendProxyHandler().diagnosticSharedKeyFingerprint();
+            if (fingerprint != null) result.addProperty("sharedKeyFingerprint", fingerprint);
+        }
+        if (plugin.getBackendProxyHandler() != null && plugin.getBackendProxyHandler().getMqttHandler() != null)
+            result.addProperty("transportInitialized", plugin.getBackendProxyHandler().getMqttHandler().isConnected());
+        if (plugin.getStorageType() != null) result.addProperty("databaseType", plugin.getStorageType().name());
+        if (plugin.getStorageType() == com.bencodez.advancedcore.api.user.UserStorage.MYSQL)
+            NetworkHealthStorageFacts.add(result, plugin.getMysql() == null || plugin.getMysql().getMysql() == null ? null : plugin.getMysql().getMysql().getConnectionManager());
+        if ("REDIS".equals(networkMethod(plugin.getBungeeSettings().getBungeeMethod()))) {
+            NetworkHealthConfigFacts.addString(result, plugin.getBungeeSettings().getData(), "transportNamespace", "Redis.Prefix", 160);
+            result.addProperty("redisSsl", plugin.getBungeeSettings().isRedisSsl());
+        }
+        if ("MQTT".equals(networkMethod(plugin.getBungeeSettings().getBungeeMethod()))) {
+            NetworkHealthConfigFacts.addString(result, plugin.getBungeeSettings().getData(), "transportNamespace", "MQTT.Prefix", 160);
+            NetworkHealthConfigFacts.addString(result, plugin.getBungeeSettings().getData(), "mqttClientId", "MQTT.ClientID", 160);
+        }
+        NetworkHealthConfigFacts.addString(result, plugin.getConfigFile().getData(), "databasePrefix", "Database.Prefix", 160);
+		JsonArray sites = new JsonArray();
+        boolean siteComplete = allConfiguredVoteSiteNames().size() <= MAX_ROWS;
+		ConfigurationSection root = plugin.getConfigVoteSites().getData().getConfigurationSection("VoteSites");
+		if (root != null) {
+			for (String name : allConfiguredVoteSiteNames().stream().limit(MAX_ROWS).toList()) {
+				ConfigurationSection site = root.getConfigurationSection(name);
+				if (site == null) continue;
+				JsonObject item = new JsonObject();
+                if (name.length() > 80 || name.codePoints().anyMatch(Character::isISOControl)) { siteComplete = false; continue; }
+                item.addProperty("name", name);
+				String service = site.getString("ServiceSite", "");
+                if (service.length() <= 160 && service.codePoints().noneMatch(Character::isISOControl)) item.addProperty("serviceSite", service);
+                else siteComplete = false;
+				item.addProperty("enabled", site.getBoolean("Enabled", true));
+				item.addProperty("autoCreated", site.getBoolean("AutoCreated", false));
+				item.addProperty("hasRewards", hasRewardConfiguration(site));
+                Object rawDelay = site.get("VoteDelay");
+                try {
+                    boolean typed = rawDelay == null || rawDelay instanceof String || rawDelay instanceof Number;
+                    Object rawMinutes = site.get("VoteDelayMin");
+                    typed &= rawMinutes == null || rawMinutes instanceof Number;
+                    long millis = plugin.getConfigVoteSites().getVoteDelay(name).getMillis();
+                    boolean nonnegative = !(rawDelay instanceof Number number) || Double.isFinite(number.doubleValue()) && number.doubleValue() >= 0;
+                    nonnegative &= !(rawMinutes instanceof Number number) || Double.isFinite(number.doubleValue()) && number.doubleValue() >= 0;
+                    item.addProperty("delayValid", typed && nonnegative);
+					if (typed && nonnegative && millis >= 0) {
+						long hours = millis == 0 ? 0 : (millis - 1) / 3_600_000L + 1;
+						if (hours <= 1_000_000L) item.addProperty("delayHours", (int) hours);
+					}
+                } catch (IllegalArgumentException failure) { item.addProperty("delayValid", false); }
+                String url = site.getString("VoteURL", "");
+				item.addProperty("voteUrlState", url.isBlank() ? "BLANK"
+						: url.toLowerCase(Locale.ROOT).contains("example") ? "EXAMPLE" : validVoteUrl(url) ? "VALID" : "INVALID");
+				sites.add(item);
+			}
+		}
+		result.add("voteSites", sites);
+        result.addProperty("voteSitesComplete", siteComplete);
+		JsonArray detectedServices = new JsonArray();
+		java.util.TreeMap<String, String> observedServices = new java.util.TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+		for (String observed : plugin.getServerData().getServiceSitesReadOnly()) {
+			if (observed == null || observed.isBlank() || observed.length() > 80
+					|| observed.codePoints().anyMatch(Character::isISOControl)) { observedServices.clear(); break; }
+			observedServices.putIfAbsent(observed, observed);
+		}
+		if (observedServices.size() <= MAX_ROWS) {
+			observedServices.values().forEach(value -> detectedServices.add(value));
+			result.add("detectedServices", detectedServices);
+		}
+		JsonArray plugins = new JsonArray();
+		java.util.Arrays.stream(plugin.getServer().getPluginManager().getPlugins())
+				.map(Plugin::getName).filter(name -> name != null && !name.isBlank()).distinct()
+				.sorted(String.CASE_INSENSITIVE_ORDER.thenComparing(Comparator.naturalOrder())).limit(MAX_ROWS)
+				.forEach(name -> plugins.add(safe(name, 80)));
+		result.add("detectedPlugins", plugins);
+		return result;
+	}
+
+    private static boolean validVoteUrl(String value) {
+        try { java.net.URI uri = java.net.URI.create(value); return ("https".equalsIgnoreCase(uri.getScheme()) || "http".equalsIgnoreCase(uri.getScheme())) && uri.getHost() != null; }
+        catch (IllegalArgumentException failure) { return false; }
+    }
+
+	private static String networkMethod(String value) {
+		if (value == null) return "INVALID";
+		String normalized = value.trim().toUpperCase(Locale.ROOT);
+		return Set.of("PLUGINMESSAGING", "HTTP", "REDIS", "MQTT", "SOCKETS", "MYSQL").contains(normalized)
+				? normalized : "INVALID";
 	}
 
 	private List<String> allConfiguredVoteSiteNames() {
