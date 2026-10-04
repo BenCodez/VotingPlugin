@@ -231,10 +231,12 @@ public class VoteCacheHandlerVoteIdTest {
 
 		assertFalse(handler.addServerVoteDurably("server", pending));
 		assertTrue(handler.retainServerVoteForPersistenceRetry("server", pending));
+        assertEquals(1, handler.diagnosticPendingPersistenceVoteCount());
 		assertTrue(handler.getVotes("server").isEmpty());
 
 		assertTrue(handler.retryPendingVotePersistence());
 		assertEquals(List.of(pending), handler.getVotes("server"));
+        assertEquals(0, handler.diagnosticPendingPersistenceVoteCount());
 	}
 
 	@Test
@@ -260,6 +262,7 @@ public class VoteCacheHandlerVoteIdTest {
 
 		assertFalse(handler.retainOnlineVoteForPersistenceRetry("another-player", vote(UUID.randomUUID(), 1025L)));
 		assertTrue(handler.retainServerVoteForPersistenceRetry("server", first));
+        assertEquals(1024, handler.diagnosticPendingPersistenceVoteCount());
 	}
 
 	@Test

@@ -503,6 +503,15 @@ credential, secret, raw payload, SQL metadata, or arbitrary storage key is expos
 
 ## Network health inspection
 
+Redis multi-proxy peers use `proxyServers`; socket multi-proxy peers use `socketProxyServers`. Neither list is
+inferred from backend topology. `broadcastServersApplicable` and `offlineForwardServersApplicable` describe whether
+persisted routing lists participate in the current configured broadcast mode. Shared transport authentication
+comparisons apply to Redis/MQTT backend transport and Redis multi-proxy transport, not socket multi-proxy traffic.
+
+Proxy `parkedVotes` is the existing bounded count of server/online cache entries retained for persistence retry.
+It does not count every delivery queue, imply lost votes, or expose players or payloads. Other queue/age counters remain
+unreported when no bounded snapshot API exists.
+
 Nodes may advertise the additive `data.network-health.v1` capability. A negotiated
 `network-health` inspection is read-only and returns bounded typed facts. Unsupported
 or unavailable facts are omitted and therefore mean `UNKNOWN` to Control; they are

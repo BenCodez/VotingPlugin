@@ -419,22 +419,24 @@ public final class ControlConnector implements AutoCloseable {
 		result.addProperty("sendVotesToAllServers", proxy.getConfig().getSendVotesToAllServers());
 		addSafeString(result, "proxyServerName", proxy.getConfig().getProxyServerName());
 		addNames(result, "proxyServers", proxy.getConfig().getProxyServers());
+        addNames(result, "socketProxyServers", new ArrayList<>(proxy.getConfig().getMultiProxyServers()));
 		addNames(result, "blockedServers", proxy.getConfig().getBlockedServers());
 		addNames(result, "whitelistedServers", proxy.getConfig().getWhiteListedServers());
-		addNames(result, "broadcastServers", proxy.getConfig().getProxyBroadcastScopeServers());
+		String scope = proxy.getConfig().getProxyBroadcastScopeMode();
+        result.addProperty("broadcastServersApplicable", proxy.getConfig().getProxyBroadcastEnabled() && ("SERVERS".equalsIgnoreCase(scope) || "ALL_EXCEPT".equalsIgnoreCase(scope)));
+        result.addProperty("offlineForwardServersApplicable", proxy.getConfig().getProxyBroadcastEnabled() && "PLAYER_SERVER".equalsIgnoreCase(scope) && "FORWARD".equalsIgnoreCase(proxy.getConfig().getProxyBroadcastOfflineMode()));
+        addNames(result, "broadcastServers", proxy.getConfig().getProxyBroadcastScopeServers());
 		addNames(result, "offlineForwardServers", proxy.getConfig().getProxyBroadcastOfflineForwardServers());
 		java.util.Set<String> backendNames = proxy.getAllConfiguredServers();
         addNames(result, "backendNames", new ArrayList<>(backendNames));
         result.addProperty("topologyComplete", result.has("backendNames"));
+        if (proxy.getVoteCacheHandler() != null) result.addProperty("parkedVotes", proxy.getVoteCacheHandler().diagnosticPendingPersistenceVoteCount());
 		addVotifierDiagnostics(result);
 		result.addProperty("transportProbeState", "UNKNOWN");
         String fingerprint = proxy.diagnosticSharedKeyFingerprint();
         if (fingerprint != null && Set.of("REDIS", "MQTT").contains(methodValue(settingsMethod()))) result.addProperty("sharedKeyFingerprint", fingerprint);
         if (fingerprint != null && "REDIS".equalsIgnoreCase(proxy.getConfig().getMultiProxyMethod())) result.addProperty("multiProxyKeyFingerprint", fingerprint);
-		JsonArray plugins = new JsonArray();
-		proxyPluginNames().stream().distinct().sorted(String.CASE_INSENSITIVE_ORDER).limit(100)
-				.forEach(name -> plugins.add(bounded(name, 80)));
-		result.add("detectedPlugins", plugins);
+        addNames(result, "detectedPlugins", proxyPluginNames());
 		return result;
 	}
 
@@ -464,11 +466,6 @@ public final class ControlConnector implements AutoCloseable {
     }
 
 	private String settingsMethod() { return proxy.getConfig().getBungeeMethod(); }
-	private static String bounded(String value, int max) {
-		if (value == null) return "";
-		String clean = value.replaceAll("\\p{Cntrl}", "").trim();
-		return clean.length() <= max ? clean : clean.substring(0, max);
-	}
 
 	/** Keeps large artifact transfer and disk staging off proxy event threads and serializes it with operations. */
 	private void pollDeployments() {
@@ -848,7 +845,7 @@ public final class ControlConnector implements AutoCloseable {
 		body.addProperty("platform", settings.platform());
 		body.addProperty("pluginVersion", settings.pluginVersion());
 		JsonArray detectedPlugins = new JsonArray();
-		proxyPluginNames().stream().distinct().sorted(String.CASE_INSENSITIVE_ORDER).limit(128)
+		proxyPluginNames().stream().filter(name -> name.length() <= 100 && name.codePoints().noneMatch(Character::isISOControl)).distinct().sorted(String.CASE_INSENSITIVE_ORDER).limit(128)
 				.forEach(detectedPlugins::add);
 		body.add("detectedPlugins", detectedPlugins);
 		addCapabilities(body);

@@ -50,4 +50,29 @@ class NetworkHealthConfigFactsTest {
         NetworkHealthConfigFacts.addBackend(out, yaml);
         assertFalse(out.has("timeHourOffset"));
     }
+    @Test void delayParserEmptyResultCannotProveMalformedTextValid() {
+        for (String text : java.util.List.of("abc", "-5h", "")) {
+            JsonObject out = new JsonObject();
+            NetworkHealthConfigFacts.addDelay(out, text, null, com.bencodez.simpleapi.time.ParsedDuration.parse(text, java.util.concurrent.TimeUnit.HOURS));
+            assertFalse(out.get("delayValid").getAsBoolean());
+        }
+        JsonObject halfHour = new JsonObject();
+        NetworkHealthConfigFacts.addDelay(halfHour, "30m", null, com.bencodez.simpleapi.time.ParsedDuration.parse("30m"));
+        assertTrue(halfHour.get("delayValid").getAsBoolean()); assertEquals(1, halfHour.get("delayHours").getAsInt());
+        JsonObject zero = new JsonObject();
+        NetworkHealthConfigFacts.addDelay(zero, "0", null, com.bencodez.simpleapi.time.ParsedDuration.empty());
+        assertTrue(zero.get("delayValid").getAsBoolean()); assertEquals(0, zero.get("delayHours").getAsInt());
+    }
+    @Test void incompleteServiceObservationsAreOmittedInsteadOfEmpty() {
+        JsonObject invalid = new JsonObject();
+        NetworkHealthConfigFacts.addObservedServices(invalid, java.util.List.of("unmatched", "s".repeat(81)));
+        assertFalse(invalid.has("detectedServices"));
+        JsonObject large = new JsonObject();
+        NetworkHealthConfigFacts.addObservedServices(large, java.util.stream.IntStream.range(0, 101).mapToObj(i -> "site" + i).toList());
+        assertFalse(large.has("detectedServices"));
+        JsonObject valid = new JsonObject();
+        NetworkHealthConfigFacts.addObservedServices(valid, java.util.List.of("site", "SITE", "other"));
+        assertEquals(2, valid.getAsJsonArray("detectedServices").size());
+    }
+
 }

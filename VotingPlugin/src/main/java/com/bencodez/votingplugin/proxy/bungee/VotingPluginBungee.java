@@ -67,6 +67,11 @@ import net.md_5.bungee.event.EventHandler;
  */
 public class VotingPluginBungee extends Plugin implements Listener {
 
+    static Collection<String> installedPluginNames(Collection<Plugin> plugins) {
+        return plugins.stream().map(plugin -> plugin.getDescription().getName())
+                .filter(name -> name != null && !name.isBlank()).limit(128).toList();
+    }
+
 	@Getter
 	private BungeeConfig config;
 
@@ -899,9 +904,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 			@Override
 			public Collection<String> getInstalledPluginNames() {
-				return getProxy().getPluginManager().getPlugins().stream()
-						.map(plugin -> plugin.getDescription().getName())
-						.filter(name -> name != null && !name.isBlank()).limit(128).toList();
+				return installedPluginNames(getProxy().getPluginManager().getPlugins());
 			}
 
 			@Override

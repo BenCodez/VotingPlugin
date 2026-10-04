@@ -563,22 +563,13 @@ public final class ControlInspectionService {
 				String service = site.getString("ServiceSite", "");
                 if (service.length() <= 160 && service.codePoints().noneMatch(Character::isISOControl)) item.addProperty("serviceSite", service);
                 else siteComplete = false;
-				item.addProperty("enabled", site.getBoolean("Enabled", true));
-				item.addProperty("autoCreated", site.getBoolean("AutoCreated", false));
+				if (!site.contains("Enabled") || site.isBoolean("Enabled")) item.addProperty("enabled", plugin.getConfigVoteSites().getVoteSiteEnabled(name));
+                else { siteComplete = false; NetworkHealthConfigFacts.invalid(result, "VoteSites.Enabled"); }
+                if (site.isBoolean("AutoCreated")) item.addProperty("autoCreated", site.getBoolean("AutoCreated"));
 				item.addProperty("hasRewards", hasRewardConfiguration(site));
-                Object rawDelay = site.get("VoteDelay");
                 try {
-                    boolean typed = rawDelay == null || rawDelay instanceof String || rawDelay instanceof Number;
-                    Object rawMinutes = site.get("VoteDelayMin");
-                    typed &= rawMinutes == null || rawMinutes instanceof Number;
-                    long millis = plugin.getConfigVoteSites().getVoteDelay(name).getMillis();
-                    boolean nonnegative = !(rawDelay instanceof Number number) || Double.isFinite(number.doubleValue()) && number.doubleValue() >= 0;
-                    nonnegative &= !(rawMinutes instanceof Number number) || Double.isFinite(number.doubleValue()) && number.doubleValue() >= 0;
-                    item.addProperty("delayValid", typed && nonnegative);
-					if (typed && nonnegative && millis >= 0) {
-						long hours = millis == 0 ? 0 : (millis - 1) / 3_600_000L + 1;
-						if (hours <= 1_000_000L) item.addProperty("delayHours", (int) hours);
-					}
+                    NetworkHealthConfigFacts.addDelay(item, site.get("VoteDelay"), site.get("VoteDelayMin"),
+                            plugin.getConfigVoteSites().getVoteDelay(name));
                 } catch (IllegalArgumentException failure) { item.addProperty("delayValid", false); }
                 String url = site.getString("VoteURL", "");
 				item.addProperty("voteUrlState", url.isBlank() ? "BLANK"
@@ -588,23 +579,14 @@ public final class ControlInspectionService {
 		}
 		result.add("voteSites", sites);
         result.addProperty("voteSitesComplete", siteComplete);
-		JsonArray detectedServices = new JsonArray();
-		java.util.TreeMap<String, String> observedServices = new java.util.TreeMap<>(String.CASE_INSENSITIVE_ORDER);
-		for (String observed : plugin.getServerData().getServiceSitesReadOnly()) {
-			if (observed == null || observed.isBlank() || observed.length() > 80
-					|| observed.codePoints().anyMatch(Character::isISOControl)) { observedServices.clear(); break; }
-			observedServices.putIfAbsent(observed, observed);
-		}
-		if (observedServices.size() <= MAX_ROWS) {
-			observedServices.values().forEach(value -> detectedServices.add(value));
-			result.add("detectedServices", detectedServices);
-		}
+        NetworkHealthConfigFacts.addObservedServices(result, plugin.getServerData().getServiceSitesReadOnly());
 		JsonArray plugins = new JsonArray();
 		java.util.Arrays.stream(plugin.getServer().getPluginManager().getPlugins())
 				.map(Plugin::getName).filter(name -> name != null && !name.isBlank()).distinct()
 				.sorted(String.CASE_INSENSITIVE_ORDER.thenComparing(Comparator.naturalOrder())).limit(MAX_ROWS)
 				.forEach(name -> plugins.add(safe(name, 80)));
 		result.add("detectedPlugins", plugins);
+        if (result.has("invalidConfigurationFields")) result.addProperty("configurationHealthy", false);
 		return result;
 	}
 
