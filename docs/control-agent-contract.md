@@ -543,3 +543,18 @@ guarantee.
 A `voteId` correlates rows written with the same identifier. It is not a complete delivery trace: VoteLog does not promise
 an entry for every validation rejection, network hop, duplicate decision, reward command, command outcome, or expiry. UI
 and support output must say “logged events” and must not claim end-to-end delivery proof.
+
+## Existing NuVotifier forwarding diagnostics
+
+VotingPlugin can observe forwarding in unmodified NuVotifier BungeeCord/Velocity deployments through a deliberately
+narrow, optional reflection adapter. The recognized released runtime shapes are tested against NuVotifier 2.7.2 and 2.7.3.
+It reads only the known forwarding handler, socket target entry names, or PluginMessaging filter and proxy-registry names.
+The public backend-name API and pure server filter are observational; no lifecycle, forward, vote, scheduler, command,
+network, credential, or configuration-write method is invoked. The adapter never reads NuVotifier files, endpoints or keys.
+
+The optional Boolean `votifierForwardingEnabled` distinguishes an observed eligible forwarding path from unavailable
+state; bounded `forwardingDestinations` are included only as names. A null handler can mean disabled, loading or failed
+initialization, so remains UNKNOWN. Unrecognized/inaccessible shapes, malformed names and incomplete inventories cannot
+produce a healthy disabled result. Positive forwarding evidence cannot be hidden by another disabled provider.
+Backend NuVotifier remains valid for synthetic `TriggerVotifierEvent` compatibility; ingress-provider forwarding is a
+separate path. NuVotifier needs no changes or upgrade solely for this inspection.

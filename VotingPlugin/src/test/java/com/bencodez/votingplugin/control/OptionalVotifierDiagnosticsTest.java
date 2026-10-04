@@ -20,7 +20,7 @@ class OptionalVotifierDiagnosticsTest {
     @Test void oldProviderApiIsUnknownAndValidNewApiContainsOnlyAllowlistedFacts() {
         JsonObject old = new JsonObject(); OptionalVotifierDiagnostics.add(old, List.of(new Object())); assertEquals(0, old.size());
         JsonObject current = new JsonObject(); OptionalVotifierDiagnostics.add(current, List.of(new VotifierProvider(new Snapshot(List.of("backend-a")))));
-        assertEquals(Set.of("votifierProviderPresent", "votifierListenerInitialized", "votifierForwardingKnown", "forwardingDestinations"), current.keySet());
+        assertEquals(Set.of("votifierProviderPresent", "votifierListenerInitialized", "votifierForwardingKnown", "forwardingDestinations", "votifierForwardingEnabled"), current.keySet());
         assertTrue(current.get("votifierForwardingKnown").getAsBoolean()); assertEquals("backend-a", current.getAsJsonArray("forwardingDestinations").get(0).getAsString());
     }
     @Test void invalidDuplicateOrOversizedApiEvidenceNeverProvesEmptyForwarding() {
@@ -39,4 +39,5 @@ class OptionalVotifierDiagnosticsTest {
             assertTrue(facts.get("votifierForwardingKnown").getAsBoolean()); assertTrue(facts.get("votifierListenerInitialized").getAsBoolean());
         }
     }
+
 }

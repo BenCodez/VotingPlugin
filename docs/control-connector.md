@@ -380,3 +380,5 @@ Arbitrary console commands, direct backup-rollback endpoints, topology persisten
 signed remote release manifests, and remote support remain later milestones. Automatic release tracking trusts GitHub's authenticated
 release metadata and published asset digest for the official repository. Administrators who require an independently
 reviewed trust pin can continue to supply `DownloadUrl` and `Sha256` locally.
+
+Network Doctor also supports bounded forwarding observations from recognized existing NuVotifier proxy runtime shapes, without changing NuVotifier. See the agent contract for availability, eligibility filtering and UNKNOWN behavior.
