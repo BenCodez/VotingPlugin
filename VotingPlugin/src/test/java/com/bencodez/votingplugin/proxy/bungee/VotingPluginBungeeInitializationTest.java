@@ -26,6 +26,14 @@ import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 
 class VotingPluginBungeeInitializationTest {
 	@Test
+	void missingMultiProxySectionIsAnEmptyDiagnosticInventory() {
+		BungeeConfig config = mock(BungeeConfig.class, CALLS_REAL_METHODS);
+		net.md_5.bungee.config.Configuration yaml = new net.md_5.bungee.config.Configuration();
+		when(config.getData()).thenReturn(yaml);
+		assertTrue(config.getMultiProxyServers().isEmpty());
+	}
+
+	@Test
 	void freshInitializationDoesNotCreateADisposableRuntimeBeforeFullLoad() {
 		VotingPluginBungee plugin = mock(VotingPluginBungee.class, CALLS_REAL_METHODS);
 		java.util.concurrent.atomic.AtomicInteger reloadCalls = new java.util.concurrent.atomic.AtomicInteger();

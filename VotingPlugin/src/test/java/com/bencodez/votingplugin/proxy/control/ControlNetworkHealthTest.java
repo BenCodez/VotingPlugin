@@ -99,6 +99,34 @@ class ControlNetworkHealthTest {
             assertEquals(1, requests.size(), "Invalid filters must never trigger a result snapshot");
         } finally { executor.shutdownNow(); }
     }
+
+    @Test void recoveryConnectorDoesNotClaimNewDiagnosticsOrExposeInventory() throws Exception {
+        var executor = Executors.newSingleThreadScheduledExecutor(); List<ControlConnector.Request> requests = new ArrayList<>();
+        try (var connector = connector("VELOCITY", request -> { requests.add(request); return CompletableFuture.completedFuture(new ControlConnector.Response(204, "")); }, executor)) {
+            field(connector, "recovering", true);
+            poll(connector);
+            assertTrue(requests.isEmpty());
+            var method = ControlConnector.class.getDeclaredMethod("registrationRequest"); method.setAccessible(true);
+            var registration = (ControlConnector.Request) method.invoke(connector);
+            assertFalse(JsonParser.parseString(registration.body()).getAsJsonObject().has("detectedPlugins"));
+        } finally { executor.shutdownNow(); }
+    }
+
+    @Test void collectionFailureSettlesClaimWithGenericInspectionFailure() throws Exception {
+        var executor = Executors.newSingleThreadScheduledExecutor(); List<ControlConnector.Request> requests = new ArrayList<>();
+        try (var connector = connector("VELOCITY", request -> {
+            requests.add(request);
+            if (requests.size() == 1) return CompletableFuture.completedFuture(new ControlConnector.Response(200, task("network-health", "{}")));
+            return CompletableFuture.completedFuture(new ControlConnector.Response(200, "{}"));
+        }, executor)) {
+            var proxyField = ControlConnector.class.getDeclaredField("proxy"); proxyField.setAccessible(true);
+            when(((VotingPluginProxy) proxyField.get(connector)).getAllConfiguredServers()).thenThrow(new IllegalStateException("secret details"));
+            poll(connector);
+            assertEquals(2, requests.size());
+            assertTrue(requests.get(1).body().contains("\"code\":\"INSPECTION_FAILED\""));
+            assertFalse(requests.get(1).body().contains("secret details"));
+        } finally { executor.shutdownNow(); }
+    }
     @Test void shutdownCancelsThePendingClaimAndCannotPostItsLateResult() throws Exception {
         var executor = Executors.newSingleThreadScheduledExecutor(); List<ControlConnector.Request> requests = new ArrayList<>();
         var pending = new CompletableFuture<ControlConnector.Response>();

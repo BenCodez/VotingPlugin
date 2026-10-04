@@ -21,4 +21,14 @@ class NetworkHealthInventoryTest {
   assertEquals(List.of("votifierplus"), VotingPluginVelocity.installedPluginNames(List.of(installed)));
  }
 
+ @Test void diagnosticProvidersRetainProvidersBeyondDisplayInventoryLimit() {
+  List<PluginContainer> plugins = new ArrayList<>();
+  for (int i = 0; i < 129; i++) {
+   PluginContainer plugin = mock(PluginContainer.class);
+   doReturn(Optional.of(new Object())).when(plugin).getInstance();
+   plugins.add(plugin);
+  }
+  assertEquals(129, VotingPluginVelocity.diagnosticProviders(plugins).size());
+ }
+
 }

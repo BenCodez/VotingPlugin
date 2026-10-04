@@ -440,6 +440,18 @@ class BackendControlConnectorProtocolTest {
 				"{\"kind\":\"reward-file-inventory\"}").getAsJsonObject()).code());
 	}
 
+	@Test void malformedNetworkHealthKindsReachTypedValidation() throws Exception {
+		BackendControlConnector connector = org.mockito.Mockito.mock(BackendControlConnector.class,
+				org.mockito.Mockito.CALLS_REAL_METHODS);
+		var inspections = BackendControlConnector.class.getDeclaredField("inspections");
+		inspections.setAccessible(true);
+		inspections.set(connector, new ControlInspectionService());
+		for (String kind : List.of("null", "{}", "[]")) {
+			JsonObject query = JsonParser.parseString("{\"kind\":" + kind + ",\"filters\":{}}").getAsJsonObject();
+			assertEquals("VALIDATION_ERROR", connector.executeInspection(query).code(), kind);
+		}
+	}
+
 	@Test void unexpectedInspectionFailureMessagesNeverExposeTheCause() {
 		String message = BackendControlConnector.inspectionFailureMessage(new IllegalStateException(
 				"jdbc:mysql://database.internal/votes user=secret path=/srv/private"));

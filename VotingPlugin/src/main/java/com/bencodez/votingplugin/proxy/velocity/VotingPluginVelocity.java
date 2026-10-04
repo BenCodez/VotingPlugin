@@ -96,7 +96,7 @@ public class VotingPluginVelocity {
                 .filter(name -> name != null && !name.isBlank()).limit(128).toList();
     }
     static Collection<Object> diagnosticProviders(Collection<com.velocitypowered.api.plugin.PluginContainer> plugins) {
-        return plugins.stream().limit(128).flatMap(container -> container.getInstance().map(instance -> (Object)instance).stream()).toList();
+        return plugins.stream().flatMap(container -> container.getInstance().map(instance -> (Object)instance).stream()).limit(129).toList();
     }
 
 	@Getter

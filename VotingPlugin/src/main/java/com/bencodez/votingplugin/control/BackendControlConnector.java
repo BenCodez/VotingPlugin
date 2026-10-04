@@ -562,7 +562,8 @@ public final class BackendControlConnector implements AutoCloseable {
 
 	InspectionTaskResult executeInspection(JsonObject query) {
 		try {
-			if (query != null && query.has("kind") && "network-health".equals(query.get("kind").getAsString())
+			if (query != null && query.has("kind") && query.get("kind").isJsonPrimitive()
+					&& "network-health".equals(query.get("kind").getAsString())
 					&& !networkHealthAccepted) {
 				return InspectionTaskResult.failure("UNAVAILABLE", "Network health was not negotiated");
 			}

@@ -29,6 +29,31 @@ class OptionalVotifierDiagnosticsTest {
             assertFalse(current.get("votifierForwardingKnown").getAsBoolean()); assertTrue(current.getAsJsonArray("forwardingDestinations").size() <= 100);
         }
     }
+    @Test void providerLinkageFailureDoesNotAbortOtherProviderDiagnostics(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) throws Exception {
+        var missing = dir.resolve("Missing.java");
+        var provider = dir.resolve("BrokenVotifierProvider.java");
+        java.nio.file.Files.writeString(missing, "public class Missing {}");
+        java.nio.file.Files.writeString(provider, "public class BrokenVotifierProvider { public Object getNetworkHealthSnapshot() { return null; } public Missing optional() { return null; } }");
+        assertEquals(0, javax.tools.ToolProvider.getSystemJavaCompiler().run(null, null, null,
+                "-d", dir.toString(), missing.toString(), provider.toString()));
+        try (var loader = new java.net.URLClassLoader(new java.net.URL[]{dir.toUri().toURL()}, getClass().getClassLoader()) {
+            @Override protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
+                if ("Missing".equals(name)) throw new ClassNotFoundException(name);
+                return super.loadClass(name, resolve);
+            }
+        }) {
+            Class<?> type = loader.loadClass("BrokenVotifierProvider");
+            Object broken = type.getConstructor().newInstance();
+            assertThrows(LinkageError.class, () -> type.getMethod("getNetworkHealthSnapshot"));
+            JsonObject facts = new JsonObject();
+            OptionalVotifierDiagnostics.add(facts, List.of(broken, new VotifierProvider(new Snapshot(List.of("backend-a")))));
+            assertFalse(facts.get("votifierForwardingKnown").getAsBoolean());
+            assertTrue(facts.get("votifierForwardingEnabled").getAsBoolean());
+            assertEquals("backend-a", facts.getAsJsonArray("forwardingDestinations").get(0).getAsString());
+            JsonObject failed = new JsonObject(); OptionalVotifierDiagnostics.add(failed, List.of(broken));
+            assertFalse(failed.has("votifierForwardingEnabled"));
+        }
+    }
     @Test void consumesCandidateSnapshotWithoutACompileTimeDependency() throws Exception {
         String candidate = System.getProperty("votifier.health.candidate");
         org.junit.jupiter.api.Assumptions.assumeTrue(candidate != null, "Optional paired artifact supplied by integration validation");

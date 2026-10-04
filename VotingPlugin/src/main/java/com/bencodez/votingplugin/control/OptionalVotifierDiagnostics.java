@@ -16,7 +16,7 @@ public final class OptionalVotifierDiagnostics {
             if (candidate == null || !candidate.getClass().getName().toLowerCase(Locale.ROOT).contains("votifier")) continue;
             JsonObject facts = new JsonObject();
             try { read(facts, candidate); }
-            catch (ReflectiveOperationException | RuntimeException ignored) {
+            catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
                 facts = new JsonObject(); // no exception messages or partial facts cross this boundary
             }
             observations.add(facts);

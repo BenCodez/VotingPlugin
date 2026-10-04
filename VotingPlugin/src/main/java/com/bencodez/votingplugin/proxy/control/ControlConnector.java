@@ -311,7 +311,7 @@ public final class ControlConnector implements AutoCloseable {
 	}
 
 	private void pollNetworkHealth() {
-		if (closed || !registered || status != Status.CONNECTED || !acceptedCapabilities.contains(NETWORK_HEALTH_CAPABILITY)
+		if (closed || recovering || !registered || status != Status.CONNECTED || !acceptedCapabilities.contains(NETWORK_HEALTH_CAPABILITY)
                 || !acceptedCapabilities.contains("data.inspect.v1")
 				|| System.nanoTime() < inspectionRetryAtNanos
 				|| !inspectionInFlight.compareAndSet(false, true)) return;
@@ -332,7 +332,15 @@ public final class ControlConnector implements AutoCloseable {
                                 || !query.get("filters").isJsonObject() || !query.getAsJsonObject("filters").keySet().isEmpty()) throw new ProtocolException();
                         String kind = requireString(query, "kind");
                         JsonObject result;
-                        if ("network-health".equals(kind)) result = networkHealthResult();
+                        if ("network-health".equals(kind)) {
+                            try { result = networkHealthResult(); }
+                            catch (RuntimeException failure) {
+                                result = new JsonObject();
+                                result.addProperty("success", false);
+                                result.addProperty("code", "INSPECTION_FAILED");
+                                result.addProperty("message", "Network health inspection failed");
+                            }
+                        }
                         else { result = new JsonObject(); result.addProperty("success", false); result.addProperty("code", "UNSUPPORTED"); result.addProperty("message", "Proxy inspection kind is unsupported"); }
 						result.addProperty("sessionId", sessionId.toString());
 						result.addProperty("attemptId", task.get("attemptId").getAsString());
@@ -847,10 +855,12 @@ public final class ControlConnector implements AutoCloseable {
 		body.addProperty("displayName", settings.displayName());
 		body.addProperty("platform", settings.platform());
 		body.addProperty("pluginVersion", settings.pluginVersion());
-		JsonArray detectedPlugins = new JsonArray();
-		proxyPluginNames().stream().filter(name -> name.length() <= 100 && name.codePoints().noneMatch(Character::isISOControl)).distinct().sorted(String.CASE_INSENSITIVE_ORDER).limit(128)
-				.forEach(detectedPlugins::add);
-		body.add("detectedPlugins", detectedPlugins);
+		if (!recovering) {
+			JsonArray detectedPlugins = new JsonArray();
+			proxyPluginNames().stream().filter(name -> name.length() <= 100 && name.codePoints().noneMatch(Character::isISOControl)).distinct().sorted(String.CASE_INSENSITIVE_ORDER).limit(128)
+					.forEach(detectedPlugins::add);
+			body.add("detectedPlugins", detectedPlugins);
+		}
 		addCapabilities(body);
 		return new Request("POST", "/api/v1/nodes/register", body.toString());
 	}
