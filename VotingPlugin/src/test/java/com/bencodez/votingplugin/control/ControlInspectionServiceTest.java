@@ -78,6 +78,36 @@ class ControlInspectionServiceTest {
 		assertTrue(ControlInspectionService.rewardFileInventoryQuery(JsonParser.parseString(
 				"{\"kind\":\"reward-file-inventory\"}").getAsJsonObject()));
 	}
+
+	@Test void networkHealthOmitsIncompleteBukkitPluginInventory() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+		var config = new org.bukkit.configuration.file.YamlConfiguration();
+		var sites = new org.bukkit.configuration.file.YamlConfiguration();
+		when(plugin.getConfigFile().getData()).thenReturn(config);
+		when(plugin.getBungeeSettings().getData()).thenReturn(config);
+		when(plugin.getConfigVoteSites().getData()).thenReturn(sites);
+		when(plugin.getServer().getPluginManager().getPlugins()).thenReturn(java.util.stream.IntStream.range(0, 101)
+				.mapToObj(index -> mock(org.bukkit.plugin.Plugin.class, RETURNS_DEEP_STUBS)).toArray(org.bukkit.plugin.Plugin[]::new));
+		org.bukkit.plugin.Plugin[] plugins = plugin.getServer().getPluginManager().getPlugins();
+		for (int index = 0; index < plugins.length; index++) when(plugins[index].getName()).thenReturn("Plugin" + index);
+		JsonObject result = new ControlInspectionService(plugin).inspect(JsonParser.parseString(
+				"{\"kind\":\"network-health\",\"filters\":{}}").getAsJsonObject()).getAsJsonObject("result");
+		assertFalse(result.has("detectedPlugins"));
+		org.bukkit.plugin.Plugin[] complete = new org.bukkit.plugin.Plugin[ControlInspectionService.MAX_ROWS];
+		for (int index = 0; index < complete.length; index++) {
+			complete[index] = mock(org.bukkit.plugin.Plugin.class, RETURNS_DEEP_STUBS);
+			when(complete[index].getName()).thenReturn("Complete" + index);
+		}
+		when(plugin.getServer().getPluginManager().getPlugins()).thenReturn(complete);
+		result = new ControlInspectionService(plugin).inspect(JsonParser.parseString(
+				"{\"kind\":\"network-health\",\"filters\":{}}").getAsJsonObject()).getAsJsonObject("result");
+		assertEquals(ControlInspectionService.MAX_ROWS, result.getAsJsonArray("detectedPlugins").size());
+		complete[ControlInspectionService.MAX_ROWS - 1] = mock(org.bukkit.plugin.Plugin.class, RETURNS_DEEP_STUBS);
+		when(complete[ControlInspectionService.MAX_ROWS - 1].getName()).thenReturn("bad\nname");
+		result = new ControlInspectionService(plugin).inspect(JsonParser.parseString(
+				"{\"kind\":\"network-health\",\"filters\":{}}").getAsJsonObject()).getAsJsonObject("result");
+		assertFalse(result.has("detectedPlugins"));
+	}
 	@Test void overviewIncludesSafeStorageAndVoteLogReadiness() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
 		org.bukkit.configuration.file.YamlConfiguration config = new org.bukkit.configuration.file.YamlConfiguration();

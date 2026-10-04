@@ -581,12 +581,18 @@ public final class ControlInspectionService {
 		result.add("voteSites", sites);
         result.addProperty("voteSitesComplete", siteComplete);
         NetworkHealthConfigFacts.addObservedServices(result, plugin.getServerData().getServiceSitesReadOnly());
-		JsonArray plugins = new JsonArray();
-		java.util.Arrays.stream(plugin.getServer().getPluginManager().getPlugins())
-				.map(Plugin::getName).filter(name -> name != null && !name.isBlank()).distinct()
-				.sorted(String.CASE_INSENSITIVE_ORDER.thenComparing(Comparator.naturalOrder())).limit(MAX_ROWS)
-				.forEach(name -> plugins.add(safe(name, 80)));
-		result.add("detectedPlugins", plugins);
+		// A bounded prefix cannot prove the full inventory; omit it unless every
+		// discovered name fits the complete bounded representation.
+		List<String> rawPluginNames = java.util.Arrays.stream(plugin.getServer().getPluginManager().getPlugins())
+				.map(Plugin::getName).toList();
+		List<String> pluginNames = rawPluginNames.stream().filter(name -> name != null && !name.isBlank()).distinct()
+				.sorted(String.CASE_INSENSITIVE_ORDER.thenComparing(Comparator.naturalOrder())).limit(MAX_ROWS + 1).toList();
+		if (rawPluginNames.size() <= MAX_ROWS && pluginNames.size() == rawPluginNames.size()) {
+			JsonArray plugins = new JsonArray();
+			pluginNames.stream().filter(name -> name.length() <= 80 && name.codePoints().noneMatch(Character::isISOControl))
+					.forEach(name -> plugins.add(name));
+			if (plugins.size() == pluginNames.size()) result.add("detectedPlugins", plugins);
+		}
         if (result.has("invalidConfigurationFields")) result.addProperty("configurationHealthy", false);
 		return result;
 	}

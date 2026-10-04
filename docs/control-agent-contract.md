@@ -521,7 +521,10 @@ unreported when no bounded snapshot API exists.
 Nodes may advertise the additive `data.network-health.v1` capability. A negotiated
 `network-health` inspection is read-only and returns bounded typed facts. Unsupported
 or unavailable facts are omitted and therefore mean `UNKNOWN` to Control; they are
-never represented as healthy defaults. Votifier diagnostics use only the optional
+never represented as healthy defaults. Bukkit omits the optional `detectedPlugins`
+health inventory if more than 100 plugins are installed or any name cannot be represented
+without truncation; missing inventory must not establish that a plugin is absent.
+Votifier diagnostics use only the optional
 `getNetworkHealthSnapshot` API and never expose keys, tokens, endpoints, raw config,
 or logs. Proxy polling is independently failure-isolated from vote and configuration
 work, and older peers continue using existing capabilities unchanged.
