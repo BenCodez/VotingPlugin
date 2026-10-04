@@ -506,6 +506,9 @@ credential, secret, raw payload, SQL metadata, or arbitrary storage key is expos
 
 ## Network health inspection
 
+Proxy inspection `attemptId` is opaque and echoed unchanged: a non-empty string of at most 256 characters,
+without control characters. Only `inspectionId` is a UUID; attempt IDs must not be interpreted as UUIDs.
+
 Redis multi-proxy peers use `proxyServers`; socket multi-proxy peers use `socketProxyServers`. Neither list is
 inferred from backend topology. `broadcastServersApplicable` and `offlineForwardServersApplicable` describe whether
 persisted routing lists participate in the current configured broadcast mode. Shared transport authentication

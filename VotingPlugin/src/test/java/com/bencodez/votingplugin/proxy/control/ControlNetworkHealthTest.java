@@ -127,6 +127,35 @@ class ControlNetworkHealthTest {
             assertFalse(requests.get(1).body().contains("secret details"));
         } finally { executor.shutdownNow(); }
     }
+
+    @Test void inspectionEchoesOpaqueAttemptIdsAndRejectsMalformedBounds() throws Exception {
+        var executor = Executors.newSingleThreadScheduledExecutor(); List<ControlConnector.Request> requests = new ArrayList<>();
+        String opaque = "attempt-from-control-7f3a";
+        try (var connector = connector("VELOCITY", request -> {
+            requests.add(request);
+            if (requests.size() == 1) return CompletableFuture.completedFuture(new ControlConnector.Response(200,
+                    taskWithAttempt("network-health", "{}", opaque)));
+            return CompletableFuture.completedFuture(new ControlConnector.Response(200, "{}"));
+        }, executor)) {
+            poll(connector);
+            assertEquals(opaque, JsonParser.parseString(requests.get(1).body()).getAsJsonObject().get("attemptId").getAsString());
+        } finally { executor.shutdownNow(); }
+
+        requests.clear();
+        try (var connector = connector("VELOCITY", request -> {
+            requests.add(request);
+            return CompletableFuture.completedFuture(new ControlConnector.Response(200,
+                    taskWithAttempt("network-health", "{}", "x".repeat(257))));
+        }, executor)) {
+            poll(connector);
+            assertEquals(1, requests.size());
+        } finally { executor.shutdownNow(); }
+    }
+
+    private static String taskWithAttempt(String kind, String filters, String attempt) {
+        return "{\"inspectionId\":\"" + ID + "\",\"attemptId\":\"" + attempt
+                + "\",\"query\":{\"kind\":\"" + kind + "\",\"filters\":" + filters + "}}";
+    }
     @Test void shutdownCancelsThePendingClaimAndCannotPostItsLateResult() throws Exception {
         var executor = Executors.newSingleThreadScheduledExecutor(); List<ControlConnector.Request> requests = new ArrayList<>();
         var pending = new CompletableFuture<ControlConnector.Response>();

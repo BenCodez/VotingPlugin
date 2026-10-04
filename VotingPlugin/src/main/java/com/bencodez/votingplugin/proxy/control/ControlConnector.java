@@ -59,6 +59,7 @@ public final class ControlConnector implements AutoCloseable {
 	static final int PROTOCOL_VERSION = 1;
 	static final int MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
 	private static final int MAX_RESULT_TEXT_CHARS = 240;
+	private static final int MAX_INSPECTION_ATTEMPT_ID_CHARS = 256;
 	private static final Pattern NODE_ID = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]{0,63}");
 	private static final Set<String> BASE_CAPABILITIES = Set.of("presence.snapshot");
 	private static final String CONFIGURATION_CAPABILITY = "config.proxy-routing.v1";
@@ -325,8 +326,8 @@ public final class ControlConnector implements AutoCloseable {
 						requireSuccess(response);
 						JsonObject task = parseObject(response.body);
                         if (!task.keySet().equals(Set.of("inspectionId", "attemptId", "query"))) throw new ProtocolException();
-                        String id = requireString(task, "inspectionId"), attempt = requireString(task, "attemptId");
-                        if (!UUID.fromString(id).toString().equals(id) || !UUID.fromString(attempt).toString().equals(attempt)) throw new ProtocolException();
+                        String id = requireString(task, "inspectionId"), attempt = requireInspectionAttemptId(task);
+                        if (!UUID.fromString(id).toString().equals(id)) throw new ProtocolException();
                         JsonObject query = task.getAsJsonObject("query");
                         if (query == null || !query.keySet().equals(Set.of("kind", "filters"))
                                 || !query.get("filters").isJsonObject() || !query.getAsJsonObject("filters").keySet().isEmpty()) throw new ProtocolException();
@@ -343,7 +344,7 @@ public final class ControlConnector implements AutoCloseable {
                         }
                         else { result = new JsonObject(); result.addProperty("success", false); result.addProperty("code", "UNSUPPORTED"); result.addProperty("message", "Proxy inspection kind is unsupported"); }
 						result.addProperty("sessionId", sessionId.toString());
-						result.addProperty("attemptId", task.get("attemptId").getAsString());
+						result.addProperty("attemptId", attempt);
 						return sendInspectionRequest(new Request("POST", "/api/v1/nodes/" + settings.nodeId() + "/inspections/"
 								+ task.get("inspectionId").getAsString() + "/result", result.toString()))
 							.thenAccept(ControlConnector::requireSuccess);
@@ -1439,6 +1440,13 @@ public final class ControlConnector implements AutoCloseable {
 		if (body == null || !body.has(name) || !body.get(name).isJsonPrimitive()
 				|| !body.getAsJsonPrimitive(name).isString()) throw new MalformedResponseException();
 		return body.get(name).getAsString();
+	}
+
+	private static String requireInspectionAttemptId(JsonObject body) {
+		String value = requireString(body, "attemptId");
+		if (value.isEmpty() || value.length() > MAX_INSPECTION_ATTEMPT_ID_CHARS
+				|| value.codePoints().anyMatch(Character::isISOControl)) throw new MalformedResponseException();
+		return value;
 	}
 
 	private JsonObject commonBody() {
