@@ -96,8 +96,44 @@ class ControlNetworkHealthTest {
         try (var connector = connector("VELOCITY", request -> { requests.add(request); return CompletableFuture.completedFuture(new ControlConnector.Response(200, task("network-health", "{\"path\":\"secret\"}"))); }, executor)) {
             field(connector, "acceptedCapabilities", Set.of("data.inspect.v1")); poll(connector); assertTrue(requests.isEmpty());
             field(connector, "acceptedCapabilities", Set.of("data.inspect.v1", "data.network-health.v1")); poll(connector);
-            assertEquals(1, requests.size(), "Invalid filters must never trigger a result snapshot");
+            assertEquals(2, requests.size(), "Invalid filters must settle the claimed task without a snapshot");
+            assertEquals("VALIDATION_ERROR", JsonParser.parseString(requests.get(1).body()).getAsJsonObject().get("code").getAsString());
         } finally { executor.shutdownNow(); }
+    }
+
+    @Test void malformedQueriesSettleWithoutBlockingTheNextInspection() throws Exception {
+        for (String platform : List.of("BUNGEECORD", "VELOCITY")) {
+            for (String query : List.of("null", "[]", "true", "{}", "{\"kind\":\"network-health\"}",
+                    "{\"kind\":\"network-health\",\"filters\":null}",
+                    "{\"kind\":\"network-health\",\"filters\":[]}",
+                    "{\"kind\":17,\"filters\":{}}",
+                    "{\"kind\":\"network-health\",\"filters\":{},\"extra\":true}",
+                    "{\"kind\":\"network-health\",\"filters\":{\"secret\":\"never echo\"}}", "MISSING")) {
+                var executor = Executors.newSingleThreadScheduledExecutor();
+                List<ControlConnector.Request> requests = new ArrayList<>();
+                String malformed = "{\"inspectionId\":\"" + ID + "\",\"attemptId\":\"" + ATTEMPT + "\""
+                        + ("MISSING".equals(query) ? "}" : ",\"query\":" + query + "}");
+                try (var connector = connector(platform, request -> {
+                    requests.add(request);
+                    return CompletableFuture.completedFuture(new ControlConnector.Response(200,
+                            requests.size() == 1 ? malformed : requests.size() == 3 ? task("network-health", "{}") : "{}"));
+                }, executor)) {
+                    poll(connector);
+                    assertEquals(2, requests.size(), query);
+                    var result = JsonParser.parseString(requests.get(1).body()).getAsJsonObject();
+                    assertFalse(result.get("success").getAsBoolean());
+                    assertEquals("VALIDATION_ERROR", result.get("code").getAsString());
+                    assertEquals(SESSION.toString(), result.get("sessionId").getAsString());
+                    assertEquals(ATTEMPT, result.get("attemptId").getAsString());
+                    assertTrue(requests.get(1).path().endsWith("/" + ID + "/result"));
+                    assertFalse(result.has("data"));
+                    assertFalse(result.toString().contains("never echo"));
+                    poll(connector);
+                    assertEquals(4, requests.size());
+                    assertTrue(JsonParser.parseString(requests.get(3).body()).getAsJsonObject().get("success").getAsBoolean());
+                } finally { executor.shutdownNow(); }
+            }
+        }
     }
 
     @Test void recoveryConnectorDoesNotClaimNewDiagnosticsOrExposeInventory() throws Exception {

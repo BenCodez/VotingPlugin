@@ -527,7 +527,10 @@ without truncation; missing inventory must not establish that a plugin is absent
 Votifier diagnostics use only the optional
 `getNetworkHealthSnapshot` API and never expose keys, tokens, endpoints, raw config,
 or logs. Proxy polling is independently failure-isolated from vote and configuration
-work, and older peers continue using existing capabilities unchanged.
+work, and older peers continue using existing capabilities unchanged. Once a task has valid
+inspection and attempt identifiers, malformed proxy inspection queries settle with a generic
+`VALIDATION_ERROR` result; they do not collect a snapshot or retain the lease for retries.
+Untrustworthy task identifiers remain protocol failures and are never used for result routing.
 
 ## VoteLog interpretation
 

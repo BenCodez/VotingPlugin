@@ -325,24 +325,10 @@ public final class ControlConnector implements AutoCloseable {
 						if (closed || response.statusCode == 204) return CompletableFuture.completedFuture(null);
 						requireSuccess(response);
 						JsonObject task = parseObject(response.body);
-                        if (!task.keySet().equals(Set.of("inspectionId", "attemptId", "query"))) throw new ProtocolException();
+                        if (!Set.of("inspectionId", "attemptId", "query").containsAll(task.keySet())) throw new ProtocolException();
                         String id = requireString(task, "inspectionId"), attempt = requireInspectionAttemptId(task);
                         if (!UUID.fromString(id).toString().equals(id)) throw new ProtocolException();
-                        JsonObject query = task.getAsJsonObject("query");
-                        if (query == null || !query.keySet().equals(Set.of("kind", "filters"))
-                                || !query.get("filters").isJsonObject() || !query.getAsJsonObject("filters").keySet().isEmpty()) throw new ProtocolException();
-                        String kind = requireString(query, "kind");
-                        JsonObject result;
-                        if ("network-health".equals(kind)) {
-                            try { result = networkHealthResult(); }
-                            catch (RuntimeException failure) {
-                                result = new JsonObject();
-                                result.addProperty("success", false);
-                                result.addProperty("code", "INSPECTION_FAILED");
-                                result.addProperty("message", "Network health inspection failed");
-                            }
-                        }
-                        else { result = new JsonObject(); result.addProperty("success", false); result.addProperty("code", "UNSUPPORTED"); result.addProperty("message", "Proxy inspection kind is unsupported"); }
+                        JsonObject result = executeNetworkHealthQuery(task.get("query"));
 						result.addProperty("sessionId", sessionId.toString());
 						result.addProperty("attemptId", attempt);
 						return sendInspectionRequest(new Request("POST", "/api/v1/nodes/" + settings.nodeId() + "/inspections/"
@@ -361,6 +347,35 @@ public final class ControlConnector implements AutoCloseable {
 			inspectionInFlight.set(false);
 		}
 	}
+
+
+    private JsonObject executeNetworkHealthQuery(JsonElement requested) {
+        String kind;
+        try {
+            if (requested == null || !requested.isJsonObject()) throw new ProtocolException();
+            JsonObject query = requested.getAsJsonObject();
+            if (!query.keySet().equals(Set.of("kind", "filters"))
+                    || !query.get("filters").isJsonObject()
+                    || !query.getAsJsonObject("filters").keySet().isEmpty()) throw new ProtocolException();
+            kind = requireString(query, "kind");
+        } catch (ProtocolException | MalformedResponseException invalid) {
+            return networkHealthFailure("VALIDATION_ERROR", "Proxy inspection query fields are invalid");
+        }
+        if (!"network-health".equals(kind))
+            return networkHealthFailure("UNSUPPORTED", "Proxy inspection kind is unsupported");
+        try { return networkHealthResult(); }
+        catch (RuntimeException failure) {
+            return networkHealthFailure("INSPECTION_FAILED", "Network health inspection failed");
+        }
+    }
+
+    private static JsonObject networkHealthFailure(String code, String message) {
+        JsonObject result = new JsonObject();
+        result.addProperty("success", false);
+        result.addProperty("code", code);
+        result.addProperty("message", message);
+        return result;
+    }
 
     private CompletableFuture<Response> sendInspectionRequest(Request request) {
         synchronized (inspectionLifecycle) {
