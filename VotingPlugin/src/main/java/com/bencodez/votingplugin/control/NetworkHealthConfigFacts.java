@@ -12,11 +12,14 @@ final class NetworkHealthConfigFacts {
         addBoolean(out, config, "onlineMode", "OnlineMode");
         addString(out, config, "bedrockPlayerPrefix", "BedrockPlayerPrefix", 80);
         addInt(out, config, "timeHourOffset", "TimeHourOffSet");
-        addBoolean(out, config, "resetMilestonesMonthly", "ResetMilestonesMonthly");
         addBoolean(out, config, "monthDateTotals", "UseMonthDateTotalsAsPrimaryTotal");
         addBoolean(out, config, "extraAllSitesCheck", "ExtraAllSitesCheck");
         addBoolean(out, config, "allowUnjoined", "AllowUnjoined");
         addInt(out, config, "maxVotesPerDay", "MaxAmountOfVotesPerDay");
+    }
+
+    static void addSpecialRewards(JsonObject out, FileConfiguration config) {
+        addBoolean(out, config, "resetMilestonesMonthly", "ResetMilestonesMonthly");
         addBoolean(out, config, "votePartyEnabled", "VoteParty.Enabled");
         addInt(out, config, "votePartyVotesRequired", "VoteParty.VotesRequired");
     }

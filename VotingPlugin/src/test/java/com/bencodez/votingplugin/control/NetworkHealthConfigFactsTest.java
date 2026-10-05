@@ -22,6 +22,23 @@ class NetworkHealthConfigFactsTest {
         assertFalse(out.has("bedrockPlayerPrefix"));
     }
 
+    @Test void votePartyAndMilestoneFactsComeOnlyFromSpecialRewardsConfig() {
+        YamlConfiguration main = new YamlConfiguration();
+        main.set("VoteParty.Enabled", true);
+        main.set("VoteParty.VotesRequired", 99);
+        main.set("ResetMilestonesMonthly", true);
+        YamlConfiguration special = new YamlConfiguration();
+        special.set("VoteParty.Enabled", false);
+        special.set("VoteParty.VotesRequired", 12);
+        special.set("ResetMilestonesMonthly", false);
+        JsonObject out = new JsonObject();
+        NetworkHealthConfigFacts.addBackend(out, main);
+        NetworkHealthConfigFacts.addSpecialRewards(out, special);
+        assertFalse(out.get("votePartyEnabled").getAsBoolean());
+        assertEquals(12, out.get("votePartyVotesRequired").getAsInt());
+        assertFalse(out.get("resetMilestonesMonthly").getAsBoolean());
+    }
+
     @Test void globalFactsRejectWrongTypesAndLongValues() {
         YamlConfiguration yaml = new YamlConfiguration();
         yaml.set("GlobalData.Prefix", "p".repeat(81));
@@ -41,6 +58,20 @@ class NetworkHealthConfigFactsTest {
         yaml.set("TimeHourOffSet", -3);
         NetworkHealthConfigFacts.addBackend(out, yaml);
         assertEquals(-3, out.get("timeHourOffset").getAsInt());
+    }
+
+    @Test void malformedSpecialRewardsFactsAreOmittedAndMarkedInvalid() {
+        YamlConfiguration special = new YamlConfiguration();
+        special.set("VoteParty.Enabled", "yes");
+        special.set("VoteParty.VotesRequired", "many");
+        special.set("ResetMilestonesMonthly", 1);
+        JsonObject out = new JsonObject();
+        NetworkHealthConfigFacts.addSpecialRewards(out, special);
+        assertFalse(out.has("votePartyEnabled"));
+        assertFalse(out.has("votePartyVotesRequired"));
+        assertFalse(out.has("resetMilestonesMonthly"));
+        assertTrue(out.getAsJsonArray("invalidConfigurationFields").asList().stream()
+                .map(element -> element.getAsString()).anyMatch("VoteParty.Enabled"::equals));
     }
 
     @Test void longMinimumDoesNotPassAbsoluteValueBound() {

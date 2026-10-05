@@ -521,6 +521,7 @@ public final class ControlInspectionService {
 		OptionalVotifierDiagnostics.add(result, java.util.Arrays.asList(plugin.getServer().getPluginManager().getPlugins()));
 		result.addProperty("configurationHealthy", !plugin.isYmlError());
 		NetworkHealthConfigFacts.addBackend(result, plugin.getConfigFile().getData());
+		NetworkHealthConfigFacts.addSpecialRewards(result, plugin.getSpecialRewardsConfig().getData());
 		NetworkHealthConfigFacts.addGlobal(result, plugin.getBungeeSettings().getData());
 		result.addProperty("processRewards", plugin.getConfigFile().getData().getBoolean("ProcessRewards", true));
 		result.addProperty("autoCreateVoteSites", plugin.getConfigFile().isAutoCreateVoteSites());
