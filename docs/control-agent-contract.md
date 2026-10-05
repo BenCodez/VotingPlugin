@@ -55,6 +55,16 @@ download, size/hash, invalid artifact, staging/write, cancellation, and lost cap
 dedicated background worker. Disable/reload marks the worker inactive, interrupts it, and prevents a stale completion
 from submitting success. Mixed-version nodes that do not negotiate `plugin.deploy.v1` remain connected but are excluded
 from deployment targets.
+## Network-health fact availability
+
+The current producers expose only facts backed by stable, bounded APIs. Both producers expose role and supported
+transport/configuration facts; the backend additionally exposes observational `detectedServices` from persisted
+`GottenServiceSites` without filtering configured or disabled sites. The proxy producer exposes `waitForUserOnline` and the
+vote-cache/non-voted-cache MySQL mode booleans through its proxy config getters. Backend nodes do not currently expose
+those proxy-only cache or wait settings, and neither producer resolves named reward references or reads reward files for
+network health; consumers must render omitted fields as `UNKNOWN`. Named reward file names are available only through the
+separate bounded `reward-file-inventory` inspection when its capability is accepted.
+
 ## Named reward files (`config.reward-files.v1`)
 
 This additive Bukkit capability manages only existing `Rewards/<name>.yml` files directly under VotingPlugin's Rewards
@@ -111,7 +121,10 @@ The operation is carried in the normal authenticated node operation queue. Contr
 }
 ```
 
-`content` is omitted for READ. The node submits the result through the normal operation-result endpoint; a result has
+`content` is omitted or null for READ. The shared Control configuration union may also serialize
+`sendVotesToAllServers: null`, `blockedServers: []`, `preset: null`, and `options: {}`. Proxy file tasks accept
+those neutral members as well as compact envelopes; populated foreign members and unknown fields remain invalid.
+The node submits the result through the normal operation-result endpoint; a result has
 `success`, `code`, `message`, `revision` (on success), `configuration` (on success), `changes`, `reloaded`, and
 `rolledBack`, and includes the claimed `attemptId`. A successful configuration object contains `domain`, `fileName`,
 and masked `content`. `changes` is a deterministic, lexicographically ordered list of at most 20 flattened YAML paths,
@@ -491,6 +504,34 @@ credential, secret, raw payload, SQL metadata, or arbitrary storage key is expos
 - Capability negotiation is authoritative. An older Control that does not accept `data.inspect.v1` must not receive
   inspection polling.
 
+## Network health inspection
+
+Proxy inspection `attemptId` is opaque and echoed unchanged: a non-empty string of at most 256 characters,
+without control characters. Only `inspectionId` is a UUID; attempt IDs must not be interpreted as UUIDs.
+
+Redis multi-proxy peers use `proxyServers`; socket multi-proxy peers use `socketProxyServers`. Neither list is
+inferred from backend topology. `broadcastServersApplicable` and `offlineForwardServersApplicable` describe whether
+persisted routing lists participate in the current configured broadcast mode. Shared transport authentication
+comparisons apply to Redis/MQTT backend transport and Redis multi-proxy transport, not socket multi-proxy traffic.
+
+Proxy `parkedVotes` is the existing bounded count of server/online cache entries retained for persistence retry.
+It does not count every delivery queue, imply lost votes, or expose players or payloads. Other queue/age counters remain
+unreported when no bounded snapshot API exists.
+
+Nodes may advertise the additive `data.network-health.v1` capability. A negotiated
+`network-health` inspection is read-only and returns bounded typed facts. Unsupported
+or unavailable facts are omitted and therefore mean `UNKNOWN` to Control; they are
+never represented as healthy defaults. Bukkit omits the optional `detectedPlugins`
+health inventory if more than 100 plugins are installed or any name cannot be represented
+without truncation; missing inventory must not establish that a plugin is absent.
+Votifier diagnostics use only the optional
+`getNetworkHealthSnapshot` API and never expose keys, tokens, endpoints, raw config,
+or logs. Proxy polling is independently failure-isolated from vote and configuration
+work, and older peers continue using existing capabilities unchanged. Once a task has valid
+inspection and attempt identifiers, malformed proxy inspection queries settle with a generic
+`VALIDATION_ERROR` result; they do not collect a snapshot or retain the lease for retries.
+Untrustworthy task identifiers remain protocol failures and are never used for result routing.
+
 ## VoteLog interpretation
 
 VoteLogging is optional and SQL-backed; a dependent query returns `UNAVAILABLE` when it is disabled, lacks an initialized
@@ -511,3 +552,18 @@ guarantee.
 A `voteId` correlates rows written with the same identifier. It is not a complete delivery trace: VoteLog does not promise
 an entry for every validation rejection, network hop, duplicate decision, reward command, command outcome, or expiry. UI
 and support output must say “logged events” and must not claim end-to-end delivery proof.
+
+## Existing NuVotifier forwarding diagnostics
+
+VotingPlugin can observe forwarding in unmodified NuVotifier BungeeCord/Velocity deployments through a deliberately
+narrow, optional reflection adapter. The recognized released runtime shapes are tested against NuVotifier 2.7.2 and 2.7.3.
+It reads only the known forwarding handler, socket target entry names, or PluginMessaging filter and proxy-registry names.
+The public backend-name API and pure server filter are observational; no lifecycle, forward, vote, scheduler, command,
+network, credential, or configuration-write method is invoked. The adapter never reads NuVotifier files, endpoints or keys.
+
+The optional Boolean `votifierForwardingEnabled` distinguishes an observed eligible forwarding path from unavailable
+state; bounded `forwardingDestinations` are included only as names. A null handler can mean disabled, loading or failed
+initialization, so remains UNKNOWN. Unrecognized/inaccessible shapes, malformed names and incomplete inventories cannot
+produce a healthy disabled result. Positive forwarding evidence cannot be hidden by another disabled provider.
+Backend NuVotifier remains valid for synthetic `TriggerVotifierEvent` compatibility; ingress-provider forwarding is a
+separate path. NuVotifier needs no changes or upgrade solely for this inspection.

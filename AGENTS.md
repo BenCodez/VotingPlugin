@@ -290,6 +290,14 @@ Report readiness for the exact commit that was validated and reviewed. Record th
 
 Do not commit server runtime data, credentials, generated JARs, dependency caches, IDE output, or unrelated formatting.
 
+## Network Doctor diagnostics
+
+`network-health` requires both `data.inspect.v1` and `data.network-health.v1`. It is read-only, bounded, optional, and
+compatible with unsupported peers in either deployment order. Omit unobserved facts; never infer runtime initialization
+from persisted settings or adapter presence alone. Do not return raw configuration, logs, endpoints, credentials, keys or
+certificates. Backend Votifier plus TriggerVotifierEvent is valid synthetic-event compatibility; proxy VotifierPlus socket
+forwarding alongside VotingPlugin delivery is a separate duplicate risk. See the connector/agent contract docs.
+
 ## Paired change and PR workflow
 
 The server-side peer is `BenCodez/VotingPlugin-Control`. When changing a DTO, endpoint, capability, preset, error code, or

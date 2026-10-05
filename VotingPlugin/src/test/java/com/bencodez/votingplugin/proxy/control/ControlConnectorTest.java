@@ -476,6 +476,36 @@ class ControlConnectorTest {
 		assertEquals(1, recoveryCalls.get(), "recovery completion must be idempotent");
 	}
 
+	@Test void proxyFilesAcceptCanonicalControlUnionWithoutWeakeningForeignFieldValidation() throws Exception {
+		Path file = dataDirectory.resolve(ProxyConfigurationFileService.FILE_NAME);
+		Files.writeString(file, "Debug: false\n");
+		connector.close();
+		connector = fileConnector(new ProxyConfigurationFileService(file, ControlConnectorTest::atomicMove));
+		transport.acceptProxyFiles = true;
+		for (String type : List.of("READ", "PREVIEW")) {
+			String content = "READ".equals(type) ? "null" : "\"Debug: true\\n\"";
+			transport.requests.clear();
+			transport.operationClaim = CompletableFuture.completedFuture(new Response(200,
+					"{\"operationId\":\"" + UUID.randomUUID() + "\",\"attemptId\":\"" + UUID.randomUUID()
+					+ "\",\"type\":\"" + type + "\",\"configuration\":{\"domain\":\"file\","
+					+ "\"sendVotesToAllServers\":null,\"blockedServers\":[],\"fileName\":\"bungeeconfig.yml\","
+					+ "\"content\":" + content + ",\"preset\":null,\"options\":{}}}"));
+			connector.cycle();
+			assertTrue(submittedResult().get("success").getAsBoolean(), type);
+		}
+		for (String foreign : List.of("\"sendVotesToAllServers\":true", "\"blockedServers\":[\"lobby\"]",
+				"\"preset\":\"standalone\"", "\"options\":{\"enabled\":\"true\"}", "\"unknown\":null")) {
+			transport.requests.clear();
+			transport.operationClaim = CompletableFuture.completedFuture(new Response(200,
+					"{\"operationId\":\"" + UUID.randomUUID() + "\",\"attemptId\":\"" + UUID.randomUUID()
+					+ "\",\"type\":\"READ\",\"configuration\":{\"domain\":\"file\","
+					+ "\"fileName\":\"bungeeconfig.yml\"," + foreign + "}}"));
+			connector.cycle();
+			assertEquals("VALIDATION_ERROR", submittedResult().get("code").getAsString(), foreign);
+		}
+		assertEquals("Debug: false\n", Files.readString(file), "read/preview must not write");
+	}
+
 	@Test void malformedProxyFileFieldsBecomeDurableValidationFailures() throws Exception {
 		Path file = dataDirectory.resolve(ProxyConfigurationFileService.FILE_NAME);
 		Files.writeString(file, "Debug: false\n");

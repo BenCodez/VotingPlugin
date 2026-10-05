@@ -310,7 +310,8 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 
 	@Override
 	public Collection<String> getMultiProxyServers() {
-		return getData().getSection("MultiProxyServers").getKeys();
+		var section = getData().getSection("MultiProxyServers");
+		return section == null ? List.of() : section.getKeys();
 	}
 
 	@Override

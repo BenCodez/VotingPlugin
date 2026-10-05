@@ -57,6 +57,12 @@ public abstract class VoteCacheHandler {
 	private final ConcurrentHashMap<String, ArrayList<OfflineBungeeVote>> pendingServerVotePersistence =
 			new ConcurrentHashMap<>();
 	private int pendingPersistenceVoteCount;
+
+    /** Read-only bounded count of votes parked for persistence retry, not all queued deliveries. */
+    public synchronized int diagnosticPendingPersistenceVoteCount() {
+        return pendingPersistenceVoteCount;
+    }
+
 	private boolean jsonStorageQuarantined;
 
 	/**

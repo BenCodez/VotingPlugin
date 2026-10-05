@@ -59,6 +59,7 @@ public final class ControlConnector implements AutoCloseable {
 	static final int PROTOCOL_VERSION = 1;
 	static final int MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
 	private static final int MAX_RESULT_TEXT_CHARS = 240;
+	private static final int MAX_INSPECTION_ATTEMPT_ID_CHARS = 256;
 	private static final Pattern NODE_ID = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]{0,63}");
 	private static final Set<String> BASE_CAPABILITIES = Set.of("presence.snapshot");
 	private static final String CONFIGURATION_CAPABILITY = "config.proxy-routing.v1";
@@ -67,6 +68,7 @@ public final class ControlConnector implements AutoCloseable {
 	private static final String PROXY_METHOD_CAPABILITY = "config.proxy-method.v1";
 	private static final String PROXY_METHOD_HTTP_CAPABILITY = "config.proxy-method.v2";
 	private static final String PROXY_FILE_CAPABILITY = "config.proxy-files.v1";
+	private static final String NETWORK_HEALTH_CAPABILITY = "data.network-health.v1";
 	private static final String PROXY_METHOD_PRESET = "proxy-method";
 	private static final String INTERNAL_OPERATION_TYPE = "_controlOperationType";
 	private static final String INTERNAL_REQUIRED_CAPABILITY = "_controlRequiredCapability";
@@ -76,6 +78,7 @@ public final class ControlConnector implements AutoCloseable {
 	private static final long OPERATION_SHUTDOWN_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(65);
 
 	private final Settings settings;
+	private VotingPluginProxy proxy;
 	private final ScheduledExecutorService scheduler;
 	private final Transport transport;
 	private final Supplier<List<ObservedBackend>> snapshotSource;
@@ -100,6 +103,8 @@ public final class ControlConnector implements AutoCloseable {
 	private final Map<UUID, StoredResult> completedTasks = new LinkedHashMap<>();
 	private final Object operationLifecycle = new Object();
 	private final AtomicBoolean inFlight = new AtomicBoolean();
+	private final AtomicBoolean inspectionInFlight = new AtomicBoolean();
+    private final Object inspectionLifecycle = new Object();
 	private final AtomicBoolean recoveryCompleted = new AtomicBoolean();
 	private Runnable deferredReplacement;
 	private volatile boolean closed;
@@ -112,6 +117,10 @@ public final class ControlConnector implements AutoCloseable {
 	private volatile ScheduledFuture<?> scheduled;
 	private volatile ScheduledFuture<?> operationPolling;
 	private volatile ScheduledFuture<?> deploymentPolling;
+	private volatile ScheduledFuture<?> inspectionPolling;
+	private volatile int inspectionFailures;
+	private volatile long inspectionRetryAtNanos;
+	private volatile CompletableFuture<?> activeInspection;
 	private volatile CompletableFuture<?> activeRequest;
 	/* The deployment executor may discard queued AsyncSupply work during shutdown.
 	 * Retain its future so close() can complete the dependent operation chain. */
@@ -281,6 +290,7 @@ public final class ControlConnector implements AutoCloseable {
 				server -> proxy.testBackendCommunication(server, 5000L), new ProxyMethodConfigurationService(proxy),
 				() -> proxy.reloadCore(true), new ProxyConfigurationFileService(proxy),
 				deployments, deploymentHttp, credential, directLocalDeploymentEndpoint, allowInsecureHttpPluginDeployment);
+		connector.proxy = proxy;
 		if (recovered != null) connector.completedTasks.putAll(recovered.results());
 		return connector;
 	}
@@ -297,7 +307,192 @@ public final class ControlConnector implements AutoCloseable {
 			deploymentPolling = scheduler.scheduleWithFixedDelay(this::pollDeployments,
 					OPERATION_POLL_MILLIS, OPERATION_POLL_MILLIS, TimeUnit.MILLISECONDS);
 		}
+		inspectionPolling = scheduler.scheduleWithFixedDelay(this::pollNetworkHealth, 5000, 5000,
+				TimeUnit.MILLISECONDS);
 	}
+
+	private void pollNetworkHealth() {
+		if (closed || recovering || !registered || status != Status.CONNECTED || !acceptedCapabilities.contains(NETWORK_HEALTH_CAPABILITY)
+                || !acceptedCapabilities.contains("data.inspect.v1")
+				|| System.nanoTime() < inspectionRetryAtNanos
+				|| !inspectionInFlight.compareAndSet(false, true)) return;
+		try {
+			JsonObject claim = new JsonObject();
+			claim.addProperty("sessionId", sessionId.toString());
+			CompletableFuture<Response> inspectionRequest = sendInspectionRequest(new Request("POST", "/api/v1/nodes/" + settings.nodeId() + "/inspections", claim.toString()));
+			inspectionRequest
+					.thenCompose(response -> {
+						if (closed || response.statusCode == 204) return CompletableFuture.completedFuture(null);
+						requireSuccess(response);
+						JsonObject task = parseObject(response.body);
+                        if (!Set.of("inspectionId", "attemptId", "query").containsAll(task.keySet())) throw new ProtocolException();
+                        String id = requireString(task, "inspectionId"), attempt = requireInspectionAttemptId(task);
+                        if (!UUID.fromString(id).toString().equals(id)) throw new ProtocolException();
+                        JsonObject result = executeNetworkHealthQuery(task.get("query"));
+						result.addProperty("sessionId", sessionId.toString());
+						result.addProperty("attemptId", attempt);
+						return sendInspectionRequest(new Request("POST", "/api/v1/nodes/" + settings.nodeId() + "/inspections/"
+								+ task.get("inspectionId").getAsString() + "/result", result.toString()))
+							.thenAccept(ControlConnector::requireSuccess);
+					})
+					.whenComplete((ignored, failure) -> {
+						if (failure == null) { inspectionFailures = 0; inspectionRetryAtNanos = 0; }
+						else { inspectionFailures = Math.min(30, inspectionFailures + 1); inspectionRetryAtNanos = System.nanoTime() +
+								TimeUnit.MILLISECONDS.toNanos(Math.min(MAX_BACKOFF_MILLIS, 1000L << Math.min(inspectionFailures - 1, 8))); }
+						inspectionInFlight.set(false);
+					});
+		} catch (RuntimeException failure) {
+			inspectionFailures = Math.min(30, inspectionFailures + 1);
+			inspectionRetryAtNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(1000L << Math.min(inspectionFailures - 1, 8));
+			inspectionInFlight.set(false);
+		}
+	}
+
+
+    private JsonObject executeNetworkHealthQuery(JsonElement requested) {
+        String kind;
+        try {
+            if (requested == null || !requested.isJsonObject()) throw new ProtocolException();
+            JsonObject query = requested.getAsJsonObject();
+            if (!query.keySet().equals(Set.of("kind", "filters"))
+                    || !query.get("filters").isJsonObject()
+                    || !query.getAsJsonObject("filters").keySet().isEmpty()) throw new ProtocolException();
+            kind = requireString(query, "kind");
+        } catch (ProtocolException | MalformedResponseException invalid) {
+            return networkHealthFailure("VALIDATION_ERROR", "Proxy inspection query fields are invalid");
+        }
+        if (!"network-health".equals(kind))
+            return networkHealthFailure("UNSUPPORTED", "Proxy inspection kind is unsupported");
+        try { return networkHealthResult(); }
+        catch (RuntimeException failure) {
+            return networkHealthFailure("INSPECTION_FAILED", "Network health inspection failed");
+        }
+    }
+
+    private static JsonObject networkHealthFailure(String code, String message) {
+        JsonObject result = new JsonObject();
+        result.addProperty("success", false);
+        result.addProperty("code", code);
+        result.addProperty("message", message);
+        return result;
+    }
+
+    private CompletableFuture<Response> sendInspectionRequest(Request request) {
+        synchronized (inspectionLifecycle) {
+            if (closed) return CompletableFuture.failedFuture(new IllegalStateException("Connector closed"));
+            CompletableFuture<Response> future = transport.send(request);
+            activeInspection = future;
+            return future;
+        }
+    }
+
+	private JsonObject networkHealthResult() {
+		JsonObject result = new JsonObject();
+		result.addProperty("success", true);
+		result.addProperty("code", "OK");
+		result.addProperty("message", "Network health inspection completed");
+		JsonObject envelope = new JsonObject();
+		envelope.addProperty("schemaVersion", 1);
+		envelope.addProperty("kind", "network-health");
+		envelope.addProperty("generatedAt", java.time.Instant.now().toString());
+		envelope.add("result", proxyNetworkHealth());
+		result.add("data", envelope);
+		return result;
+	}
+
+	private JsonObject proxyNetworkHealth() {
+		JsonObject result = new JsonObject();
+		result.addProperty("schemaVersion", 1);
+		result.addProperty("role", "PROXY");
+        if (proxy == null) return result;
+		result.addProperty("configuredMethod", methodValue(settingsMethod()));
+        if (proxy.getMethod() != null) result.addProperty("activeMethod", proxy.getMethod().name());
+        if (proxy.getMqttHandler() != null && proxy.getMethod() == com.bencodez.votingplugin.proxy.BungeeMethod.MQTT)
+            result.addProperty("transportInitialized", proxy.getMqttHandler().isConnected());
+		addSafeString(result, "pluginMessageChannel", proxy.getConfig().getPluginMessageChannel());
+		result.addProperty("onlineMode", proxy.getConfig().getOnlineMode());
+		result.addProperty("encryption", proxy.getConfig().getCommunicationEncryption());
+		String auth = proxy.getConfig().getSharedTransportAuthentication();
+        try { result.addProperty("sharedAuthentication", com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.Mode.parse(auth).name()); }
+        catch (IllegalArgumentException invalid) { result.addProperty("sharedAuthentication", "INVALID"); }
+		com.bencodez.votingplugin.control.NetworkHealthStorageFacts.add(result, proxy.getProxyMySQL() == null || proxy.getProxyMySQL().getMysql() == null ? null : proxy.getProxyMySQL().getMysql().getConnectionManager());
+        result.addProperty("bungeeManageTotals", proxy.getConfig().getBungeeManageTotals());
+		result.addProperty("dedicatedVotingProxy", proxy.getConfig().getDedicatedVotingProxy());
+		result.addProperty("multiProxySupport", proxy.getConfig().getMultiProxySupport());
+		String multiMethod = proxy.getConfig().getMultiProxyMethod();
+        result.addProperty("multiProxyMethod", "SOCKET".equalsIgnoreCase(multiMethod) ? "SOCKET" : "REDIS".equalsIgnoreCase(multiMethod) ? "REDIS" : "INVALID");
+        result.addProperty("primaryServer", proxy.getConfig().getPrimaryServer());
+        result.addProperty("timeHourOffset", proxy.getConfig().getTimeHourOffSet());
+        result.addProperty("monthDateTotals", proxy.getConfig().getUseMonthDateTotalsAsPrimaryTotal());
+        result.addProperty("allowUnjoined", proxy.getConfig().getAllowUnJoined());
+        result.addProperty("waitForUserOnline", proxy.getConfig().getWaitForUserOnline());
+        result.addProperty("voteCacheMysql", proxy.getConfig().getVoteCacheUseMySQL());
+        result.addProperty("voteCacheMainMysql", proxy.getConfig().getVoteCacheUseMainMySQL());
+        result.addProperty("nonVotedCacheMysql", proxy.getConfig().getNonVotedCacheUseMySQL());
+        result.addProperty("nonVotedCacheMainMysql", proxy.getConfig().getNonVotedCacheUseMainMySQL());
+        result.addProperty("globalDataEnabled", proxy.getConfig().getGlobalDataEnabled());
+        result.addProperty("globalDataUseMainMysql", proxy.getConfig().getGlobalDataUseMainMySQL());
+        result.addProperty("votePartyEnabled", proxy.getConfig().getVotePartyEnabled());
+        result.addProperty("votePartyVotesRequired", Math.max(0, proxy.getConfig().getVotePartyVotesRequired()));
+        if (!proxy.getConfig().getVotePartyBungeeCommands().isEmpty()) result.addProperty("votePartyEffectiveReward", true);
+        result.addProperty("votePartyServersApplicable", proxy.getConfig().getVotePartyEnabled() && !proxy.getConfig().getVotePartySendToAllServers());
+        addNames(result, "votePartyServers", proxy.getConfig().getVotePartyServersToSend());
+        addSafeString(result, "bedrockPlayerPrefix", proxy.getConfig().getBedrockPlayerPrefix());
+        if ("REDIS".equals(methodValue(settingsMethod()))) { addSafeString(result, "transportNamespace", proxy.getConfig().getRedisPrefix()); result.addProperty("redisSsl", proxy.getConfig().getRedisSsl()); }
+        if ("MQTT".equals(methodValue(settingsMethod()))) { addSafeString(result, "transportNamespace", proxy.getConfig().getMqttPrefix()); addSafeString(result, "mqttClientId", proxy.getConfig().getMqttClientID()); }
+        if ("HTTP".equals(methodValue(settingsMethod()))) result.addProperty("httpPublicEndpointConfigured", proxy.getConfig().getHttpPublicEndpoint() != null && !proxy.getConfig().getHttpPublicEndpoint().isBlank());
+		result.addProperty("multiProxyOneGlobalReward", proxy.getConfig().getMultiProxyOneGlobalReward());
+		result.addProperty("sendVotesToAllServers", proxy.getConfig().getSendVotesToAllServers());
+		addSafeString(result, "proxyServerName", proxy.getConfig().getProxyServerName());
+		addNames(result, "proxyServers", proxy.getConfig().getProxyServers());
+        addNames(result, "socketProxyServers", new ArrayList<>(proxy.getConfig().getMultiProxyServers()));
+		addNames(result, "blockedServers", proxy.getConfig().getBlockedServers());
+		addNames(result, "whitelistedServers", proxy.getConfig().getWhiteListedServers());
+        var scope = com.bencodez.votingplugin.proxy.broadcast.ScopeMode.parse(proxy.getConfig().getProxyBroadcastScopeMode());
+        var offline = com.bencodez.votingplugin.proxy.broadcast.OfflineMode.parse(proxy.getConfig().getProxyBroadcastOfflineMode(), com.bencodez.votingplugin.proxy.broadcast.OfflineMode.QUEUE);
+        result.addProperty("broadcastServersApplicable", proxy.getConfig().getProxyBroadcastEnabled() && (scope == com.bencodez.votingplugin.proxy.broadcast.ScopeMode.SERVERS || scope == com.bencodez.votingplugin.proxy.broadcast.ScopeMode.ALL_EXCEPT));
+        result.addProperty("offlineForwardServersApplicable", proxy.getConfig().getProxyBroadcastEnabled() && scope == com.bencodez.votingplugin.proxy.broadcast.ScopeMode.PLAYER_SERVER && offline == com.bencodez.votingplugin.proxy.broadcast.OfflineMode.FORWARD);
+        addNames(result, "broadcastServers", proxy.getConfig().getProxyBroadcastScopeServers());
+		addNames(result, "offlineForwardServers", proxy.getConfig().getProxyBroadcastOfflineForwardServers());
+		java.util.Set<String> backendNames = proxy.getAllConfiguredServers();
+        addNames(result, "backendNames", new ArrayList<>(backendNames));
+        result.addProperty("topologyComplete", result.has("backendNames"));
+        if (proxy.getVoteCacheHandler() != null) result.addProperty("parkedVotes", proxy.getVoteCacheHandler().diagnosticPendingPersistenceVoteCount());
+		addVotifierDiagnostics(result);
+		result.addProperty("transportProbeState", "UNKNOWN");
+        String fingerprint = proxy.diagnosticSharedKeyFingerprint();
+        if (fingerprint != null && Set.of("REDIS", "MQTT").contains(methodValue(settingsMethod()))) result.addProperty("sharedKeyFingerprint", fingerprint);
+        if (fingerprint != null && "REDIS".equalsIgnoreCase(proxy.getConfig().getMultiProxyMethod())) result.addProperty("multiProxyKeyFingerprint", fingerprint);
+        addNames(result, "detectedPlugins", proxyPluginNames());
+		return result;
+	}
+
+	private static void addNames(JsonObject result, String field, List<String> values) {
+		if (values == null || values.size() > 100) return;
+		JsonArray names = new JsonArray();
+		for (String value : values) {
+			if (value == null || value.isBlank() || value.length() > 80) return;
+			if (value.codePoints().anyMatch(Character::isISOControl) || names.asList().stream().anyMatch(v -> v.getAsString().equals(value))) return;
+            names.add(value);
+		}
+		result.add(field, names);
+	}
+
+    private void addVotifierDiagnostics(JsonObject result) {
+        List<String> names = proxyPluginNames();
+        if (names.size() <= 100) result.addProperty("votifierProviderPresent", names.stream()
+                .anyMatch(name -> Set.of("votifier", "votifierplus", "nuvotifier").contains(name.toLowerCase(java.util.Locale.ROOT))));
+        com.bencodez.votingplugin.control.OptionalVotifierDiagnostics.add(result, proxy.getDiagnosticProviders());
+    }
+    private static String methodValue(String value) {
+        String normalized = value == null ? "" : value.trim().toUpperCase(java.util.Locale.ROOT);
+        return Set.of("PLUGINMESSAGING", "HTTP", "REDIS", "MQTT", "SOCKETS", "MYSQL").contains(normalized) ? normalized : "INVALID";
+    }
+    private static void addSafeString(JsonObject result, String field, String value) {
+        if (value != null && value.length() <= 160 && value.codePoints().noneMatch(Character::isISOControl)) result.addProperty(field, value);
+    }
+
+	private String settingsMethod() { return proxy.getConfig().getBungeeMethod(); }
 
 	/** Keeps large artifact transfer and disk staging off proxy event threads and serializes it with operations. */
 	private void pollDeployments() {
@@ -676,8 +871,18 @@ public final class ControlConnector implements AutoCloseable {
 		body.addProperty("displayName", settings.displayName());
 		body.addProperty("platform", settings.platform());
 		body.addProperty("pluginVersion", settings.pluginVersion());
+		if (!recovering) {
+			JsonArray detectedPlugins = new JsonArray();
+			proxyPluginNames().stream().filter(name -> name.length() <= 100 && name.codePoints().noneMatch(Character::isISOControl)).distinct().sorted(String.CASE_INSENSITIVE_ORDER).limit(128)
+					.forEach(detectedPlugins::add);
+			body.add("detectedPlugins", detectedPlugins);
+		}
 		addCapabilities(body);
 		return new Request("POST", "/api/v1/nodes/register", body.toString());
+	}
+
+	private List<String> proxyPluginNames() {
+		return proxy == null ? List.of() : List.copyOf(proxy.getInstalledPluginNames());
 	}
 
 	private Request heartbeatRequest() {
@@ -1080,7 +1285,20 @@ public final class ControlConnector implements AutoCloseable {
 			else if ("PREVIEW".equals(type) || "APPLY".equals(type))
 				allowedFields = Set.of("domain", "fileName", "content");
 			else return completed(TaskResult.failure("UNSUPPORTED_TASK", "Task type is unsupported"));
-			if (!allowedFields.equals(requested.keySet())) throw new MalformedResponseException();
+			// Control serializes its configuration union with neutral members from other domains.
+			// Accept that canonical envelope as well as older compact claims, but never
+			// accept a populated foreign member or an unknown field.
+			JsonObject fileFields = requested.deepCopy();
+			for (String field : List.of("sendVotesToAllServers", "preset")) {
+				if (fileFields.has(field) && fileFields.get(field).isJsonNull()) fileFields.remove(field);
+			}
+			if (fileFields.has("blockedServers") && fileFields.get("blockedServers").isJsonArray()
+					&& fileFields.getAsJsonArray("blockedServers").isEmpty()) fileFields.remove("blockedServers");
+			if (fileFields.has("options") && fileFields.get("options").isJsonObject()
+					&& fileFields.getAsJsonObject("options").isEmpty()) fileFields.remove("options");
+			if ("READ".equals(type) && fileFields.has("content") && fileFields.get("content").isJsonNull())
+				fileFields.remove("content");
+			if (!allowedFields.equals(fileFields.keySet())) throw new MalformedResponseException();
 			String fileName = requireString(requested, "fileName");
 			if ("READ".equals(type)) {
 				return completed(TaskResult.file(fileConfigurationService.read(fileName), List.of(), false, false));
@@ -1239,6 +1457,13 @@ public final class ControlConnector implements AutoCloseable {
 		return body.get(name).getAsString();
 	}
 
+	private static String requireInspectionAttemptId(JsonObject body) {
+		String value = requireString(body, "attemptId");
+		if (value.isEmpty() || value.length() > MAX_INSPECTION_ATTEMPT_ID_CHARS
+				|| value.codePoints().anyMatch(Character::isISOControl)) throw new MalformedResponseException();
+		return value;
+	}
+
 	private JsonObject commonBody() {
 		JsonObject body = sessionBody();
 		body.addProperty("nodeId", settings.nodeId());
@@ -1289,6 +1514,8 @@ public final class ControlConnector implements AutoCloseable {
 		}
 		if (fileReady) advertised.add(PROXY_FILE_CAPABILITY);
 		if (deploymentReady) advertised.add(PluginDeploymentService.CAPABILITY);
+		advertised.add(NETWORK_HEALTH_CAPABILITY);
+        advertised.add("data.inspect.v1");
 		body.add("capabilities", advertised);
 		JsonArray required = new JsonArray();
 		required.add("presence.snapshot");
@@ -1330,6 +1557,8 @@ public final class ControlConnector implements AutoCloseable {
 		if (polling != null) polling.cancel(false);
 		ScheduledFuture<?> deployment = deploymentPolling;
 		if (deployment != null) deployment.cancel(false);
+		ScheduledFuture<?> inspection = inspectionPolling;
+		if (inspection != null) inspection.cancel(false);
 		if (deployments != null) deployments.cancel();
 		CompletableFuture<?> deploymentWork = activeDeploymentWork;
 		if (deploymentWork != null) deploymentWork.cancel(true);
@@ -1338,6 +1567,10 @@ public final class ControlConnector implements AutoCloseable {
 		if (request != null) {
 			request.cancel(true);
 		}
+		synchronized (inspectionLifecycle) {
+            CompletableFuture<?> inspectionRequest = activeInspection;
+            if (inspectionRequest != null) inspectionRequest.cancel(true);
+        }
 		CompletableFuture<Void> operation = activeOperation;
 		if (operation != null) {
 			try {

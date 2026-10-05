@@ -91,6 +91,14 @@ public class VotingPluginVelocity {
 	 */
 	private volatile ChannelIdentifier channel;
 
+    static Collection<String> installedPluginNames(Collection<com.velocitypowered.api.plugin.PluginContainer> plugins) {
+        return plugins.stream().map(plugin -> plugin.getDescription().getName().orElse(plugin.getDescription().getId()))
+                .filter(name -> name != null && !name.isBlank()).limit(128).toList();
+    }
+    static Collection<Object> diagnosticProviders(Collection<com.velocitypowered.api.plugin.PluginContainer> plugins) {
+        return plugins.stream().flatMap(container -> container.getInstance().map(instance -> (Object)instance).stream()).limit(129).toList();
+    }
+
 	@Getter
 	private VelocityConfig config;
 
@@ -975,6 +983,16 @@ public class VotingPluginVelocity {
 			@Override
 			public String getProxyPlatform() {
 				return "VELOCITY";
+			}
+
+			@Override
+			public Collection<String> getInstalledPluginNames() {
+				return installedPluginNames(server.getPluginManager().getPlugins());
+			}
+
+			@Override
+			public Collection<Object> getDiagnosticProviders() {
+				return diagnosticProviders(server.getPluginManager().getPlugins());
 			}
 
 			@Override

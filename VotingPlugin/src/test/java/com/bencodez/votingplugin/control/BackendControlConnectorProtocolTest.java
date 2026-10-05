@@ -274,6 +274,8 @@ class BackendControlConnectorProtocolTest {
 				.anyMatch(value -> "config.reward-files.v1".equals(value.getAsString())));
 		assertTrue(advertised.asList().stream()
 				.anyMatch(value -> "data.inspect.v1".equals(value.getAsString())));
+		assertTrue(advertised.asList().stream()
+				.anyMatch(value -> "data.network-health.v1".equals(value.getAsString())));
 		JsonArray required = registration.getAsJsonArray("requiredCapabilities");
 		assertTrue(required.asList().stream()
 				.anyMatch(value -> "config.files.v1".equals(value.getAsString())));
@@ -422,6 +424,11 @@ class BackendControlConnectorProtocolTest {
 				BackendControlConnector.operationFailureMessage("READ", new IOException("/srv/private/Config.yml")));
 	}
 
+    @Test void networkHealthRequiresItsExplicitCapability() {
+        BackendControlConnector connector = org.mockito.Mockito.mock(BackendControlConnector.class, org.mockito.Mockito.CALLS_REAL_METHODS);
+        assertEquals("UNAVAILABLE", connector.executeInspection(JsonParser.parseString("{\"kind\":\"network-health\",\"filters\":{}}").getAsJsonObject()).code());
+    }
+
 	@Test void namedRewardInventoryRequiresItsExplicitCapability() {
 		assertTrue(ControlInspectionService.rewardFileInventoryQuery(JsonParser.parseString(
 				"{\"kind\":\"reward-file-inventory\"}").getAsJsonObject()));
@@ -431,6 +438,18 @@ class BackendControlConnectorProtocolTest {
 				org.mockito.Mockito.CALLS_REAL_METHODS);
 		assertEquals("UNAVAILABLE", connector.executeInspection(JsonParser.parseString(
 				"{\"kind\":\"reward-file-inventory\"}").getAsJsonObject()).code());
+	}
+
+	@Test void malformedNetworkHealthKindsReachTypedValidation() throws Exception {
+		BackendControlConnector connector = org.mockito.Mockito.mock(BackendControlConnector.class,
+				org.mockito.Mockito.CALLS_REAL_METHODS);
+		var inspections = BackendControlConnector.class.getDeclaredField("inspections");
+		inspections.setAccessible(true);
+		inspections.set(connector, new ControlInspectionService());
+		for (String kind : List.of("null", "{}", "[]")) {
+			JsonObject query = JsonParser.parseString("{\"kind\":" + kind + ",\"filters\":{}}").getAsJsonObject();
+			assertEquals("VALIDATION_ERROR", connector.executeInspection(query).code(), kind);
+		}
 	}
 
 	@Test void unexpectedInspectionFailureMessagesNeverExposeTheCause() {

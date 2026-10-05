@@ -143,6 +143,11 @@ public class BackendProxyTransportManager {
 				&& policy.encryption().hasEquivalentInboundPolicy(encryption);
 	}
 
+    public synchronized String diagnosticSharedKeyFingerprint() {
+        SharedInboundPolicy policy = sharedInboundPolicySnapshot();
+        return policy == null || policy.authenticator() == null ? null : policy.authenticator().diagnosticKeyFingerprint();
+    }
+
 	private synchronized SharedInboundPolicy sharedInboundPolicySnapshot() {
 		if (transport instanceof RedisBackendProxyTransport redis) return redis.sharedInboundPolicySnapshot();
 		if (transport instanceof MqttBackendProxyTransport mqtt) return mqtt.sharedInboundPolicySnapshot();

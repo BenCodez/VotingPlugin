@@ -340,7 +340,11 @@ entries and per-value/content bounds; unavailable storage returns an empty colum
 serialized payloads, credentials, secrets, and arbitrary keys. See [the exact-player storage schema](control-agent-contract.md#exact-player-storage-fields-schema-version-1)
 for the static/dynamic names and value-type rules.
 
-Inspection filters are string values on the wire and are parsed by the selected kind's strict schema. The connector runs
+Inspection filters are string values on the wire and are parsed by the selected kind's strict schema. The optional
+`data.network-health.v1` lane returns bounded typed facts; omitted evidence is UNKNOWN,
+never PASS. Proxy polling has independent retry backoff and shutdown cancellation,
+and optional VotifierPlus diagnostics are reflective so older providers remain compatible.
+The connector runs
 the handlers, including bounded VoteLog/player storage reads, on the dedicated inspection daemon rather than Bukkit's
 primary thread or the configuration executor. VoteLog statements use a 10-second JDBC timeout. Reward and vote-site
 inspections are dry runs: they do not call reward execution or auto-creating resolution paths.
@@ -376,3 +380,5 @@ Arbitrary console commands, direct backup-rollback endpoints, topology persisten
 signed remote release manifests, and remote support remain later milestones. Automatic release tracking trusts GitHub's authenticated
 release metadata and published asset digest for the official repository. Administrators who require an independently
 reviewed trust pin can continue to supply `DownloadUrl` and `Sha256` locally.
+
+Network Doctor also supports bounded forwarding observations from recognized existing NuVotifier proxy runtime shapes, without changing NuVotifier. See the agent contract for availability, eligibility filtering and UNKNOWN behavior.
