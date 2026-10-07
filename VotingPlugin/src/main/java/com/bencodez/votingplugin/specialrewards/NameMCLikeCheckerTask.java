@@ -76,33 +76,35 @@ public class NameMCLikeCheckerTask extends BukkitRunnable {
 		}
 
 		try {
-		plugin.getUserManager().getUserAsync(uuid, resolved -> {
-			try {
-			if (!plugin.isEnabled() || !plugin.getSpecialRewardsConfig().isNameMCLikeRewardEnabled()) {
-				return;
-			}
-			VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(resolved);
-			if (user.hasClaimedNameMCLikeReward()) {
-				return;
-			}
+			plugin.getUserManager().getUserAsync(uuid, resolved -> {
+				try {
+					// AdvancedCore delivers resolved users on the platform thread,
+					// where reward actions may safely access Bukkit APIs.
+					if (!plugin.isEnabled() || !plugin.getSpecialRewardsConfig().isNameMCLikeRewardEnabled()) {
+						return;
+					}
+					VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(resolved);
+					if (user.hasClaimedNameMCLikeReward()) {
+						return;
+					}
 
-			new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
-					plugin.getSpecialRewardsConfig().getNameMCLikeRewardPath()).setOnline(user.isOnline())
-					.withPlaceHolder("NameMCServer", plugin.getSpecialRewardsConfig().getNameMCLikeRewardUrl()).send(user);
+					new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
+							plugin.getSpecialRewardsConfig().getNameMCLikeRewardPath()).setOnline(user.isOnline())
+							.withPlaceHolder("NameMCServer", plugin.getSpecialRewardsConfig().getNameMCLikeRewardUrl()).send(user);
 
-			user.setClaimedNameMCLikeReward(true);
-			plugin.debug("Gave NameMC like reward to " + user.getPlayerName() + " (" + uuid + ")");
-			} finally {
-				inFlight.remove(uuid);
-			}
-		}, failure -> {
-			try {
-				plugin.getLogger().warning("Failed to resolve NameMC like user " + uuid + ": " + failure.getMessage());
-				plugin.debug(failure);
-			} finally {
-				inFlight.remove(uuid);
-			}
-		});
+					user.setClaimedNameMCLikeReward(true);
+					plugin.debug("Gave NameMC like reward to " + user.getPlayerName() + " (" + uuid + ")");
+				} finally {
+					inFlight.remove(uuid);
+				}
+			}, failure -> {
+				try {
+					plugin.getLogger().warning("Failed to resolve NameMC like user " + uuid + ": " + failure.getMessage());
+					plugin.debug(failure);
+				} finally {
+					inFlight.remove(uuid);
+				}
+			});
 		} catch (RuntimeException | Error failure) {
 			inFlight.remove(uuid);
 			throw failure;
