@@ -56,6 +56,7 @@ public final class BroadcastHandler {
 	private final ConcurrentHashMap<UUID, LocalDate> firstVoteDay = new ConcurrentHashMap<UUID, LocalDate>();
 
 	private final ConcurrentHashMap<UUID, LinkedHashSet<String>> intervalSites = new ConcurrentHashMap<UUID, LinkedHashSet<String>>();
+	private final ConcurrentHashMap<UUID, String> intervalNames = new ConcurrentHashMap<UUID, String>();
 	private volatile BukkitTask intervalTask;
 
 	/**
@@ -112,7 +113,7 @@ public final class BroadcastHandler {
 			return;
 		}
 
-		recordInterval(uuid, siteName);
+		recordInterval(uuid, playerName, siteName);
 
 		String name = playerName == null || playerName.isEmpty() ? resolveName(uuid) : playerName;
 		VoteBroadcastType type = currentSettings.getType();
@@ -389,9 +390,14 @@ public final class BroadcastHandler {
 	 * @param uuid the player's UUID
 	 * @param siteName the vote site
 	 */
-	private void recordInterval(UUID uuid, String siteName) {
-		if (siteName == null || siteName.isEmpty()) {
+	private void recordInterval(UUID uuid, String playerName, String siteName) {
+		if (uuid == null || siteName == null || siteName.isEmpty()) {
 			return;
+		}
+		// Preserve the known name with the vote, rather than resolving every UUID
+		// synchronously during the scheduled global summary.
+		if (playerName != null && !playerName.isEmpty()) {
+			intervalNames.put(uuid, playerName);
 		}
 
 		LinkedHashSet<String> sites = intervalSites.get(uuid);
@@ -424,6 +430,8 @@ public final class BroadcastHandler {
 		ConcurrentHashMap<UUID, LinkedHashSet<String>> snapshot =
 				new ConcurrentHashMap<UUID, LinkedHashSet<String>>(intervalSites);
 		intervalSites.clear();
+		ConcurrentHashMap<UUID, String> nameSnapshot = new ConcurrentHashMap<UUID, String>(intervalNames);
+		intervalNames.clear();
 
 		if (snapshot.isEmpty()) {
 			return;
@@ -439,7 +447,10 @@ public final class BroadcastHandler {
 				continue;
 			}
 
-			String name = resolveName(entry.getKey());
+			String name = nameSnapshot.get(entry.getKey());
+			if (name == null || name.isEmpty()) {
+				name = "Player";
+			}
 			players.add(name);
 
 			int siteCount;
