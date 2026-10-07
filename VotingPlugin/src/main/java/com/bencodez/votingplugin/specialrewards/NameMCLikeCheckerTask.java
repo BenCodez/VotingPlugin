@@ -8,8 +8,8 @@ import java.time.Duration;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
-import org.bukkit.Bukkit;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
@@ -31,6 +31,9 @@ import lombok.Setter;
 public class NameMCLikeCheckerTask extends BukkitRunnable {
 
 	private VotingPluginMain plugin;
+
+	/** Prevent overlapping asynchronous checks from processing a UUID twice. */
+	private final Set<UUID> inFlight = ConcurrentHashMap.newKeySet();
 
 	/**
 	 * Creates a new NameMC like checker task.
@@ -57,11 +60,9 @@ public class NameMCLikeCheckerTask extends BukkitRunnable {
 			return;
 		}
 
-		Bukkit.getScheduler().runTask(plugin, () -> {
-			for (UUID uuid : likedUuids) {
-				processUuid(uuid);
-			}
-		});
+		for (UUID uuid : likedUuids) {
+			processUuid(uuid);
+		}
 	}
 
 	/**
@@ -70,25 +71,44 @@ public class NameMCLikeCheckerTask extends BukkitRunnable {
 	 * @param uuid the uuid
 	 */
 	private void processUuid(UUID uuid) {
-		if (uuid == null) {
+		if (uuid == null || !inFlight.add(uuid)) {
 			return;
 		}
 
-		VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
-		if (user == null) {
-			return;
+		try {
+			plugin.getUserManager().getUserAsync(uuid, resolved -> {
+				try {
+					// AdvancedCore delivers resolved users on the platform thread,
+					// where reward actions may safely access Bukkit APIs.
+					if (!plugin.isEnabled() || !plugin.getSpecialRewardsConfig().isNameMCLikeRewardEnabled()) {
+						return;
+					}
+					VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(resolved);
+					if (user.hasClaimedNameMCLikeReward()) {
+						return;
+					}
+
+					new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
+							plugin.getSpecialRewardsConfig().getNameMCLikeRewardPath()).setOnline(user.isOnline())
+							.withPlaceHolder("NameMCServer", plugin.getSpecialRewardsConfig().getNameMCLikeRewardUrl()).send(user);
+
+					user.setClaimedNameMCLikeReward(true);
+					plugin.debug("Gave NameMC like reward to " + user.getPlayerName() + " (" + uuid + ")");
+				} finally {
+					inFlight.remove(uuid);
+				}
+			}, failure -> {
+				try {
+					plugin.getLogger().warning("Failed to resolve NameMC like user " + uuid + ": " + failure.getMessage());
+					plugin.debug(failure);
+				} finally {
+					inFlight.remove(uuid);
+				}
+			});
+		} catch (RuntimeException | Error failure) {
+			inFlight.remove(uuid);
+			throw failure;
 		}
-
-		if (user.hasClaimedNameMCLikeReward()) {
-			return;
-		}
-
-		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
-				plugin.getSpecialRewardsConfig().getNameMCLikeRewardPath()).setOnline(user.isOnline())
-				.withPlaceHolder("NameMCServer", plugin.getSpecialRewardsConfig().getNameMCLikeRewardUrl()).send(user);
-
-		user.setClaimedNameMCLikeReward(true);
-		plugin.debug("Gave NameMC like reward to " + user.getPlayerName() + " (" + uuid + ")");
 	}
 
 	/**
