@@ -74,21 +74,25 @@ public class NameMCLikeCheckerTask extends BukkitRunnable {
 			return;
 		}
 
-		VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
-		if (user == null) {
-			return;
-		}
+		plugin.getUserManager().getUserAsync(uuid, resolved -> {
+			if (!plugin.isEnabled() || !plugin.getSpecialRewardsConfig().isNameMCLikeRewardEnabled()) {
+				return;
+			}
+			VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(resolved);
+			if (user.hasClaimedNameMCLikeReward()) {
+				return;
+			}
 
-		if (user.hasClaimedNameMCLikeReward()) {
-			return;
-		}
+			new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
+					plugin.getSpecialRewardsConfig().getNameMCLikeRewardPath()).setOnline(user.isOnline())
+					.withPlaceHolder("NameMCServer", plugin.getSpecialRewardsConfig().getNameMCLikeRewardUrl()).send(user);
 
-		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
-				plugin.getSpecialRewardsConfig().getNameMCLikeRewardPath()).setOnline(user.isOnline())
-				.withPlaceHolder("NameMCServer", plugin.getSpecialRewardsConfig().getNameMCLikeRewardUrl()).send(user);
-
-		user.setClaimedNameMCLikeReward(true);
-		plugin.debug("Gave NameMC like reward to " + user.getPlayerName() + " (" + uuid + ")");
+			user.setClaimedNameMCLikeReward(true);
+			plugin.debug("Gave NameMC like reward to " + user.getPlayerName() + " (" + uuid + ")");
+		}, failure -> {
+			plugin.getLogger().warning("Failed to resolve NameMC like user " + uuid + ": " + failure.getMessage());
+			plugin.debug(failure);
+		});
 	}
 
 	/**
