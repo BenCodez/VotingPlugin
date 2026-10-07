@@ -175,6 +175,31 @@ public class BroadcastHandlerTest {
 	}
 
 	@Test
+	public void intervalSummary_usesRecordedNamesWithoutOfflinePlayerLookup() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		BukkitTask task = mock(BukkitTask.class);
+		stubBukkitAndConsole();
+		bukkitStatic.when(Bukkit::getScheduler).thenReturn(scheduler);
+
+		AtomicReference<Runnable> scheduled = new AtomicReference<Runnable>();
+		when(scheduler.runTaskTimer(eq(plugin), any(Runnable.class), anyLong(), anyLong()))
+				.thenAnswer(invocation -> {
+					scheduled.set(invocation.getArgument(1));
+					return task;
+				});
+
+		BroadcastHandler handler = new BroadcastHandler(plugin,
+				settings(VoteBroadcastType.INTERVAL_SUMMARY_GLOBAL, "1s", 10), ZoneId.systemDefault());
+		UUID uuid = UUID.randomUUID();
+		handler.broadcastVote(uuid, "Ben", "SiteA", false);
+		scheduled.get().run();
+
+		verify(console, times(1)).sendMessage(any(String.class));
+		bukkitStatic.verify(() -> Bukkit.getOfflinePlayer(uuid), org.mockito.Mockito.never());
+	}
+
+	@Test
 	public void maxSitesListed_truncates_list_in_multi_broadcast() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);
 		stubBukkitAndConsole();
