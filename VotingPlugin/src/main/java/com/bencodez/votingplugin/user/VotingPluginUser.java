@@ -983,6 +983,18 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 				proxyDelayValidationKnown, proxyQueueClassificationKnown, proxyVoteId, targetedProxyVote, true);
 	}
 
+	/**
+	 * Normal event processing finished, but date accounting was not confirmed.
+	 * A router must finish its remaining normal effects before quarantining the envelope.
+	 */
+	public static final class DateMilestoneAccountingException extends IllegalStateException {
+		private static final long serialVersionUID = 1L;
+
+		private DateMilestoneAccountingException() {
+			super("Date milestone accounting is incomplete; retain the durable proxy envelope for reconciliation");
+		}
+	}
+
 	/** Preserve the canonical wire real/test flag; existing callers retain their historical real-vote default. */
 	public void bungeeVotePluginMessaging(String service, long time, VoteTotalsSnapshot text, boolean setTotals,
 			boolean wasOnline, boolean broadcast, int num, boolean queuedProxyVote,
@@ -1008,7 +1020,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 				voteEvent.setProxyDelayValidationKnown(proxyDelayValidationKnown);
 				voteEvent.setTargetedProxyVote(targetedProxyVote);
 				plugin.getServer().getPluginManager().callEvent(voteEvent);
-				if (voteEvent.isDateMilestoneAccountingFailed()) throw new IllegalStateException("Date milestone accounting is incomplete; retain the durable proxy envelope for reconciliation");
+				if (voteEvent.isDateMilestoneAccountingFailed()) throw new DateMilestoneAccountingException();
 		}
 	}
 

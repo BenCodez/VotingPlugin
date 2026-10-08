@@ -195,6 +195,7 @@ class BackendProxyMessageRouterTest {
         org.mockito.Mockito.doAnswer(call -> { ((com.bencodez.votingplugin.events.PlayerVoteEvent) call.getArgument(0)).setDateMilestoneAccountingFailed(true); return null; })
                 .when(dispatcher).callEvent(any());
         when(plugin.getBungeeSettings()).thenReturn(mock(BungeeSettings.class));
+        when(plugin.getServerData()).thenReturn(mock(ServerData.class));
         when(plugin.getVotingPluginUserManager().getVotingPluginUser(PLAYER_UUID, "Player")).thenReturn(user);
         org.mockito.Mockito.doAnswer(call -> {
             dispatchUser.bungeeVotePluginMessaging(call.getArgument(0), call.getArgument(1), call.getArgument(2),
@@ -209,6 +210,7 @@ class BackendProxyMessageRouterTest {
         assertEquals(OrderedVoteOutcome.QUARANTINE, outcome.get()); outcome.set(null);
         router.handleOrderedVote(envelope, outcome::set); assertEquals(OrderedVoteOutcome.QUARANTINE, outcome.get());
         verify(cache, never()).complete(voteId); verify(dispatchPlugin.getServer().getPluginManager(), times(1)).callEvent(any());
+        verify(plugin.getServerData(), times(1)).addServiceSite("known.example");
     }
 
 	@Test

@@ -186,6 +186,7 @@ public class PlayerVoteListener implements Listener {
                 long voteTime, UUID voteId, boolean cached) {
             PlayerPostVoteEvent post = new PlayerPostVoteEvent(site, user, event.isRealVote(), event.isForceBungee(),
                     voteTime, cached, site.getServiceSite(), user.getJavaUUID(), playerName, voteId);
+            post.setProxyVoteId(event.getProxyVoteId());
             plugin.getServer().getPluginManager().callEvent(post);
         }
         @Override public boolean placeholderCacheAlways() { return plugin.getConfigFile().getPlaceholderCacheLevel().isCacheAlways(); }

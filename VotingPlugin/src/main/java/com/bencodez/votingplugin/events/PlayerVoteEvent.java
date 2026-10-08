@@ -38,7 +38,7 @@ public class PlayerVoteEvent extends Event {
 	@Setter
 	private VoteTotalsSnapshot bungeeTextTotals;
 
-	/** Stable identity supplied by a proxy delivery, independent of totals. */
+	/** Original explicit proxy transport ID; null for legacy totals-only correlation. */
 	@Getter
 	@Setter
 	private UUID proxyVoteId;

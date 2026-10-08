@@ -77,6 +77,11 @@ public class PlayerPostVoteEvent extends Event {
 	@Setter
 	private UUID voteUUID;
 
+	/** Original explicit proxy transport ID; voteUUID retains the legacy correlation fallback. */
+	@Getter
+	@Setter
+	private UUID proxyVoteId;
+
 	/**
 	 * Constructs a new PlayerPostVoteEvent.
 	 *
