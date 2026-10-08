@@ -21,6 +21,25 @@ class ReliableVoteDeliveryOutboxTest {
 	Path directory;
 
 	@Test
+	void retainedVotesLoseLiveFreshnessWithoutMutatingImmediateEnvelopeAndOldRowsAreSanitized() throws Exception {
+		for (boolean oldRow : new boolean[] {false, true}) {
+			Path file=directory.resolve(oldRow ? "old.dat" : "new.dat"); UUID id=UUID.randomUUID();
+			JsonEnvelope live=VotingPluginWire.vote("Player",UUID.randomUUID().toString(),"site",10L,true,true,"",id,false,false,1,1);
+			if(oldRow) {
+				var encode=java.util.Base64.getUrlEncoder().withoutPadding();
+				String server=encode.encodeToString("Survival".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+				String envelope=encode.encodeToString(com.bencodez.simpleapi.servercomm.codec.JsonEnvelopeCodec.encode(live).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+				Files.writeString(file,"VP-VOTE-OUTBOX-2\nA\t"+server+"\t"+envelope+"\n");
+			} else assertTrue(new ReliableVoteDeliveryOutbox(file).offer("Survival",live));
+			var retained=new ReliableVoteDeliveryOutbox(file).snapshot().getFirst().envelope();
+			assertEquals("true",live.getFields().get(VotingPluginWire.K_SESSION_DELIVERY_FRESH));
+			assertEquals("false",retained.getFields().get(VotingPluginWire.K_SESSION_DELIVERY_FRESH));
+			var expected=new java.util.HashMap<>(live.getFields());expected.put(VotingPluginWire.K_SESSION_DELIVERY_FRESH,"false");
+			assertEquals(expected,retained.getFields());assertEquals(live.getSchema(),retained.getSchema());assertEquals(live.getSubChannel(),retained.getSubChannel());
+		}
+	}
+
+	@Test
 	void persistsUntilMatchingBackendAcknowledgesCompletion() throws Exception {
 		Path file = directory.resolve("outbox.dat");
 		UUID voteId = UUID.randomUUID();

@@ -420,6 +420,28 @@ class GuidedVotingSessionsTest {
         }
     }
 
+    @Test void durableDeliveryRetriesCannotConfirmAGuideOpenedAfterInitialAdmission(@org.junit.jupiter.api.io.TempDir java.nio.file.Path root) throws Exception {
+        for (String mode : new String[] {"negotiation", "rejection", "restart"}) try(var f=new Fixture()) {
+            var backend=acceptedBackend(f);var proxy=receiverProxy(false);proxy.setMethod(com.bencodez.votingplugin.proxy.BungeeMethod.HTTP);
+            var type=Class.forName("com.bencodez.votingplugin.proxy.ReliableVoteDeliveryOutbox");var constructor=type.getDeclaredConstructor(java.nio.file.Path.class);constructor.setAccessible(true);
+            var file=root.resolve(mode+".dat");var outboxField=com.bencodez.votingplugin.proxy.VotingPluginProxy.class.getDeclaredField("reliableVoteDeliveryOutbox");outboxField.setAccessible(true);outboxField.set(proxy,constructor.newInstance(file));
+            var legacyField=com.bencodez.votingplugin.proxy.VotingPluginProxy.class.getDeclaredField("legacyVoteDeliveryServers");legacyField.setAccessible(true);
+            ((java.util.Set<?>)legacyField.get(proxy)).clear();
+            var reliableField=com.bencodez.votingplugin.proxy.VotingPluginProxy.class.getDeclaredField("reliableVoteDeliveryServers");reliableField.setAccessible(true);
+            @SuppressWarnings("unchecked") var reliable=(java.util.Set<String>)reliableField.get(proxy);
+            if(mode.equals("rejection")) { reliable.add("server1");proxy.setStableHttpDeliveryResult(false); }
+            UUID occurrence=UUID.randomUUID();proxy.vote("Alice","service",true,false,1L,null,f.uuid.toString(),occurrence);
+            if(mode.equals("rejection")) assertEquals("true",proxy.getLastVoteEnvelope().getFields().get(com.bencodez.votingplugin.proxy.VotingPluginWire.K_SESSION_DELIVERY_FRESH));
+            if(mode.equals("restart")) outboxField.set(proxy,constructor.newInstance(file));
+            startGuide(f);reliable.add("server1");proxy.setStableHttpDeliveryResult(true);
+            var retry=com.bencodez.votingplugin.proxy.VotingPluginProxy.class.getDeclaredMethod("retryReliableVoteDeliveries");retry.setAccessible(true);retry.invoke(proxy);
+            var delivered=proxy.getLastVoteEnvelope();assertNotNull(delivered);assertEquals("false",delivered.getFields().get(com.bencodez.votingplugin.proxy.VotingPluginWire.K_SESSION_DELIVERY_FRESH));
+            assertEquals(occurrence,com.bencodez.votingplugin.proxy.VotingPluginWire.readVote(delivered).voteId);
+            backend.handleOrderedVote(delivered,result->assertEquals(com.bencodez.votingplugin.backendproxy.messaging.BackendProxyMessageRouter.OrderedVoteOutcome.COMPLETE,result));
+            verify(f.user).playerVote(eq(f.site),anyBoolean(),eq(true));verify(f.user).addPoints();checkGuide(f,0);
+        }
+    }
+
     @Test void actualLegacyMultiProxyCallbackNeverMintsFreshGuideProvenance() throws Exception {
         for (boolean allServers : new boolean[] { false, true }) try (var f = new Fixture()) {
             var backend=acceptedBackend(f);var proxy=receiverProxy(allServers);
@@ -551,6 +573,7 @@ class GuidedVotingSessionsTest {
         }).when(pluginManager).callEvent(any(org.bukkit.event.Event.class));
         var cache = mock(com.bencodez.votingplugin.backendproxy.cache.ProcessedVoteCache.class);
         when(cache.reserveWithOutcome(any())).thenReturn(com.bencodez.votingplugin.backendproxy.cache.ProcessedVoteCache.Reservation.RESERVED);
+        when(cache.complete(any())).thenReturn(true);
         return new com.bencodez.votingplugin.backendproxy.messaging.BackendProxyMessageRouter(f.plugin,
                 mock(com.bencodez.votingplugin.backendproxy.presence.BackendPresenceManager.class),
                 mock(com.bencodez.votingplugin.backendproxy.global.BackendGlobalDataSync.class),
