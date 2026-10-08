@@ -181,12 +181,20 @@ public class PlayerVoteListener implements Listener {
                 long voteTime, UUID voteId, boolean cached) {
             PlayerPostVoteEvent post = new PlayerPostVoteEvent(site, user, event.isRealVote(), event.isForceBungee(),
                     voteTime, cached, site.getServiceSite(), user.getJavaUUID(), playerName, voteId);
+            copySessionObservation(post, event);
             plugin.getServer().getPluginManager().callEvent(post);
         }
         @Override public boolean placeholderCacheAlways() { return plugin.getConfigFile().getPlaceholderCacheLevel().isCacheAlways(); }
         @Override public void updatePlaceholders(VotingPluginUser user) { plugin.getPlaceholders().onUpdate(user, true); }
         @Override public void clearCache(VotingPluginUser user) { user.clearCache(); }
         @Override public void setUpdate() { plugin.setUpdate(true); }
+    }
+
+    static void copySessionObservation(PlayerPostVoteEvent post, PlayerVoteEvent input) {
+        post.setProxySessionDelivery(input.isBungee());
+        post.setBackendObservationOrder(input.getBackendObservationOrder());
+        post.setProxyQueueClassificationKnown(input.isProxyQueueClassificationKnown());
+        post.setQueuedProxyVote(input.isQueuedProxyVote());
     }
 
     @SuppressWarnings("deprecation")

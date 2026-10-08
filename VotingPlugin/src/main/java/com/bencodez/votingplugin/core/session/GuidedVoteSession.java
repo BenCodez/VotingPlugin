@@ -18,6 +18,7 @@ public final class GuidedVoteSession {
         public boolean complete() { return !entries.isEmpty() && entries.stream().allMatch(e -> e.status() == Status.RECEIVED); }
     }
     private final long started;
+    private final long observationOrder;
     private final Map<String, Site> candidates = new LinkedHashMap<>();
     private boolean candidatesBound;
     private final Map<String, Site> sites = new LinkedHashMap<>();
@@ -28,7 +29,8 @@ public final class GuidedVoteSession {
     private boolean finished;
     private int index;
 
-    public GuidedVoteSession(long started) { this.started = started; }
+    public GuidedVoteSession(long started) { this(started, System.nanoTime()); }
+    public GuidedVoteSession(long started, long observationOrder) { this.started = started; this.observationOrder = observationOrder; }
     public long started() { return started; }
 
     /** Bind visible identities on the player context before asynchronous eligibility sampling. */
@@ -68,6 +70,16 @@ public final class GuidedVoteSession {
             if (initialized) sites.putIfAbsent(site, candidates.get(site));
         }
     }
+    /** Only explicitly live identified proxy deliveries have comparable backend-local order.
+     * Queued/legacy delivery has unknown original age and must not confirm a fresh session. */
+    public synchronized void acceptedObserved(String site, UUID occurrence, long order) {
+        if (order > observationOrder && occurrence != null && candidates.containsKey(site)
+                && !received.containsKey(site) && !occurrences.containsKey(occurrence)) {
+            received.put(site, order);
+            occurrences.put(occurrence, site);
+            if (initialized) sites.putIfAbsent(site, candidates.get(site));
+        }
+    }
     public synchronized View view(String action) {
         if (!sites.isEmpty()) {
             String current = new ArrayList<>(sites.keySet()).get(index);
@@ -78,7 +90,7 @@ public final class GuidedVoteSession {
         if (action.equals("finish")) finished = true;
         List<Entry> entries = new ArrayList<>();
         for (Site site : sites.values()) {
-            Status status = received.getOrDefault(site.key(), 0L) > started ? Status.RECEIVED : Status.AWAITING;
+            Status status = received.containsKey(site.key()) ? Status.RECEIVED : Status.AWAITING;
             if (status != Status.RECEIVED && !site.eligible()) status = Status.UNAVAILABLE;
             if (status == Status.AWAITING && skipped.contains(site.key())) status = Status.SKIPPED;
             entries.add(new Entry(site, status));

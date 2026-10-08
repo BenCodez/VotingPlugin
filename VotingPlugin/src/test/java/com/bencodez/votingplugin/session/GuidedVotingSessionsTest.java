@@ -19,6 +19,47 @@ import com.bencodez.votingplugin.util.BukkitCompletionScheduler;
 import com.bencodez.votingplugin.votesites.VoteSite;
 
 class GuidedVotingSessionsTest {
+    @Test void liveProxyVoteUsesBackendOrderWhenProxyClockIsBehindOrAhead() {
+        for (long remoteTime : new long[] { 1, Long.MAX_VALUE }) try (var f = new Fixture()) {
+            when(f.plugin.getBungeeSettings().isUseBungeecoord()).thenReturn(true);
+            f.sessions.command(f.player, ""); f.entity.remove().run();
+            f.worker.remove().run(); f.entity.remove().run();
+            var event = f.event(f.uuid, remoteTime, UUID.randomUUID());
+            event.setBungee(true); event.setProxyQueueClassificationKnown(true);
+            event.setBackendObservationOrder(System.nanoTime());
+            f.sessions.credited(event); f.sessions.credited(event);
+            f.sessions.command(f.player, "check"); f.entity.remove().run(); f.worker.remove().run(); f.entity.remove().run();
+            verify(f.player).sendMessage("Voting session: 1/1 votes received.");
+        }
+    }
+    @Test void queuedUnknownOrPreviouslyObservedProxyDeliveryCannotConfirmFreshSession() {
+        try (var f = new Fixture()) {
+            when(f.plugin.getBungeeSettings().isUseBungeecoord()).thenReturn(true);
+            long oldOrder = System.nanoTime();
+            f.sessions.command(f.player, ""); f.entity.remove().run(); f.worker.remove().run(); f.entity.remove().run();
+            var old = f.event(f.uuid, Long.MAX_VALUE, UUID.randomUUID());
+            old.setBungee(true); old.setProxyQueueClassificationKnown(true); old.setBackendObservationOrder(oldOrder);
+            f.sessions.credited(old);
+            var queued = f.event(f.uuid, Long.MAX_VALUE, UUID.randomUUID());
+            queued.setBungee(true); queued.setProxyQueueClassificationKnown(true); queued.setQueuedProxyVote(true);
+            queued.setBackendObservationOrder(System.nanoTime()); f.sessions.credited(queued);
+            var unknown = f.event(f.uuid, Long.MAX_VALUE, UUID.randomUUID()); unknown.setBungee(true);
+            unknown.setBackendObservationOrder(System.nanoTime()); f.sessions.credited(unknown);
+            f.sessions.command(f.player, "check"); f.entity.remove().run(); f.worker.remove().run(); f.entity.remove().run();
+            verify(f.player, times(2)).sendMessage("Voting session: 0/1 votes received.");
+        }
+    }
+    @Test void earlyLiveProxyReceiptRestoresSiteAfterCooldownSampleWithoutClockComparison() {
+        try (var f = new Fixture()) {
+            when(f.plugin.getBungeeSettings().isUseBungeecoord()).thenReturn(true);
+            f.sessions.command(f.player, ""); f.entity.remove().run();
+            when(f.user.canVoteSite(f.site)).thenReturn(false); when(f.user.getTime(f.site)).thenReturn(1L);
+            var event = f.event(f.uuid, 1, UUID.randomUUID()); event.setBungee(true);
+            event.setProxyQueueClassificationKnown(true); event.setBackendObservationOrder(System.nanoTime());
+            f.sessions.credited(event); f.worker.remove().run(); f.entity.remove().run();
+            verify(f.player).sendMessage("Voting session: 1/1 votes received.");
+        }
+    }
     @Test void storageRunsOnWorkerAndOnlyEntityCallbackRenders() {
         try (var fixture = new Fixture()) {
             fixture.sessions.command(fixture.player, "");

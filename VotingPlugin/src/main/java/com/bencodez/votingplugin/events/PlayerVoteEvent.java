@@ -14,6 +14,10 @@ import lombok.Setter;
 
 public class PlayerVoteEvent extends Event {
 
+	/** Backend-local monotonic observation, never a timestamp from another node. */
+	@Getter
+	private final long backendObservationOrder = System.nanoTime();
+
 	/** The Constant handlers. */
 	private static final HandlerList handlers = new HandlerList();
 

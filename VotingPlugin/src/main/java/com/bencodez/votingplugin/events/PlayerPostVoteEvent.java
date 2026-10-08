@@ -14,6 +14,12 @@ import lombok.Setter;
 
 public class PlayerPostVoteEvent extends Event {
 
+	/** Backend-local ingress order forwarded by the accepted pipeline. Zero means unknown. */
+	@Getter @Setter private long backendObservationOrder;
+	@Getter @Setter private boolean proxyQueueClassificationKnown;
+	@Getter @Setter private boolean queuedProxyVote;
+	@Getter @Setter private boolean proxySessionDelivery;
+
 	/** The Constant handlers. */
 	private static final HandlerList handlers = new HandlerList();
 

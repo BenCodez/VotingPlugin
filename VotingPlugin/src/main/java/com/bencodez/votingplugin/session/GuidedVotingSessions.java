@@ -23,7 +23,7 @@ public final class GuidedVotingSessions implements Listener {
     private final VotingPluginMain plugin;
     private final Map<UUID, GuidedVoteSession> sessions = new LinkedHashMap<>();
     private final Map<UUID, Long> requests = new LinkedHashMap<>();
-    private record EarlyReceipt(UUID storageId, String site, UUID occurrence, long time) { }
+    private record EarlyReceipt(UUID storageId, String site, UUID occurrence, long time, boolean observed) { }
     private final Map<UUID, UUID> storageIds = new LinkedHashMap<>();
     private final Map<UUID, String> playerNames = new LinkedHashMap<>();
     private final Map<UUID, Map<String, List<EarlyReceipt>>> early = new LinkedHashMap<>();
@@ -39,13 +39,18 @@ public final class GuidedVotingSessions implements Listener {
     public synchronized void credited(PlayerPostVoteEvent event) {
         if (event.getVoteSite() == null || !event.isRealVote() || event.isCancelled()
                 || event.getVoteUUID() == null || event.getUuid() == null) return;
+        boolean observed = event.isProxySessionDelivery() || event.isBungee();
+        if (observed && (!event.isProxyQueueClassificationKnown() || event.isQueuedProxyVote()
+                || event.getBackendObservationOrder() == 0)) return;
+        long time = observed ? event.getBackendObservationOrder() : event.getVoteTime();
         String key = event.getVoteSite().getKey();
         for (var entry : sessions.entrySet()) {
             UUID owner = entry.getKey(); GuidedVoteSession session = entry.getValue();
             if (event.getUuid().equals(storageIds.get(owner))) {
-                session.accepted(key, event.getVoteUUID(), event.getVoteTime(), true, false);
+                if (observed) session.acceptedObserved(key, event.getVoteUUID(), time);
+                else session.accepted(key, event.getVoteUUID(), time, true, false);
             } else if (!storageIds.containsKey(owner) && pending.containsKey(owner) && session.candidate(key)
-                    && event.getVoteTime() > session.started() && event.getPlayerName() != null
+                    && (observed || time > session.started()) && event.getPlayerName() != null
                     && event.getPlayerName().equalsIgnoreCase(playerNames.get(owner))) {
                 // Name only routes a bounded provisional receipt. Resolved storage UUID must
                 // match before it can confirm progress; no player/entity access occurs here.
@@ -53,7 +58,7 @@ public final class GuidedVotingSessions implements Listener {
                         .computeIfAbsent(key, ignored -> new ArrayList<>());
                 receipts.removeIf(receipt -> receipt.storageId().equals(event.getUuid()));
                 if (receipts.size() >= 4) receipts.remove(0);
-                receipts.add(new EarlyReceipt(event.getUuid(), key, event.getVoteUUID(), event.getVoteTime()));
+                receipts.add(new EarlyReceipt(event.getUuid(), key, event.getVoteUUID(), time, observed));
             }
         }
         // Never reopen an interface or execute rewards from a notification.
@@ -122,7 +127,7 @@ public final class GuidedVotingSessions implements Listener {
                         snapshots.add(new GuidedVoteSession.Site(site.getKey(), site.getDisplayName(),
                                 com.bencodez.advancedcore.api.messages.PlaceholderUtils.replacePlaceHolder(site.getVoteURL(true),
                                         "player", user.getPlayerName() == null ? name : user.getPlayerName()),
-                                user.canVoteSite(site), user.getTime(site)));
+                                user.canVoteSite(site), plugin.getBungeeSettings().isUseBungeecoord() ? 0 : user.getTime(site)));
                     }
                     synchronized (this) {
                         if (!current(uuid, session, request)) return;
@@ -130,7 +135,10 @@ public final class GuidedVotingSessions implements Listener {
                         storageIds.put(uuid, storageId);
                         var provisional = early.remove(uuid);
                         if (provisional != null) for (var receipts : provisional.values()) for (var receipt : receipts) {
-                            if (receipt.storageId().equals(storageId)) session.accepted(receipt.site(), receipt.occurrence(), receipt.time(), true, false);
+                            if (receipt.storageId().equals(storageId)) {
+                                if (receipt.observed()) session.acceptedObserved(receipt.site(), receipt.occurrence(), receipt.time());
+                                else session.accepted(receipt.site(), receipt.occurrence(), receipt.time(), true, false);
+                            }
                         }
                         session.refresh(snapshots);
                     }
