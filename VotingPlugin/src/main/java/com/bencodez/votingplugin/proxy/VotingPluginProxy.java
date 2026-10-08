@@ -2726,7 +2726,9 @@ public abstract class VotingPluginProxy {
 			@Override
 			public void triggerVote(String player, String service, boolean realVote, boolean timeQueue, long queueTime,
 					VoteTotalsSnapshot text, String uuid) {
-				vote(player, service, realVote, timeQueue, queueTime, text, uuid);
+				// Every callback is forwarded, even when a legacy hop lacks origin metadata.
+				// Retain unknown freshness through backend emission and retry.
+				receiveMultiProxyVote(player, service, realVote, timeQueue, queueTime, text, uuid, null);
 			}
 
 			@Override

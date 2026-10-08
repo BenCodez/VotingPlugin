@@ -420,6 +420,28 @@ class GuidedVotingSessionsTest {
         }
     }
 
+    @Test void actualLegacyMultiProxyCallbackNeverMintsFreshGuideProvenance() throws Exception {
+        for (boolean allServers : new boolean[] { false, true }) try (var f = new Fixture()) {
+            var backend=acceptedBackend(f);var proxy=receiverProxy(allServers);
+            // Build the real receiver callback without opening a transport.
+            when(proxy.getConfig().getMultiProxySupport()).thenReturn(false);proxy.loadMultiProxySupport();
+            when(proxy.getConfig().getMultiProxySupport()).thenReturn(true);
+            var handlerField=com.bencodez.votingplugin.proxy.VotingPluginProxy.class.getDeclaredField("multiProxyHandler");
+            handlerField.setAccessible(true);var handler=handlerField.get(proxy);
+            var live=com.bencodez.votingplugin.proxy.VotingPluginWire.vote("Alice",f.uuid.toString(),"service",1L,
+                    true,true,"",UUID.randomUUID(),false,false,1,1);
+            var legacy=com.bencodez.simpleapi.servercomm.codec.JsonEnvelope.builder(live.getSubChannel()).schema(live.getSchema());
+            for(var entry:live.getFields().entrySet()) if(!entry.getKey().equals(com.bencodez.votingplugin.proxy.VotingPluginWire.K_SESSION_DELIVERY_FRESH)) legacy.put(entry.getKey(),entry.getValue());
+            startGuide(f);
+            var receive=com.bencodez.votingplugin.proxy.multiproxy.MultiProxyHandler.class.getDeclaredMethod("handleEnvelope",com.bencodez.simpleapi.servercomm.codec.JsonEnvelope.class);
+            receive.setAccessible(true);receive.invoke(handler,legacy.build());
+            var delivered=proxy.getLastVoteEnvelope();assertNotNull(delivered);
+            assertEquals("false",delivered.getFields().get(com.bencodez.votingplugin.proxy.VotingPluginWire.K_SESSION_DELIVERY_FRESH));
+            backend.handleOrderedVote(delivered, result->assertEquals(com.bencodez.votingplugin.backendproxy.messaging.BackendProxyMessageRouter.OrderedVoteOutcome.COMPLETE,result));
+            verify(f.user).playerVote(eq(f.site),anyBoolean(),eq(true));verify(f.user).addPoints();checkGuide(f,0);
+        }
+    }
+
     @Test void directLiveProxyAndLocalProductionReceiptsStillConfirmTheGuide() throws Exception {
         for (long remoteTime : new long[] { 1L, Long.MAX_VALUE }) try (var f = new Fixture()) {
             var backend = acceptedBackend(f); var proxy = receiverProxy(false); UUID occurrence = UUID.randomUUID();
