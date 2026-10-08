@@ -1253,3 +1253,15 @@ DisableUpdateChecking: false
 # Disable checking permissions on tab complete
 # Could increase performance slightly, but probably not
 DisableAdvancedTab: false
+
+# Experimental native display menu; /vote continues to use its existing GUI.
+# Test with /av testhologram (admin only), Minecraft 1.19.4+.
+Experimental:
+  HologramVoteGUI:
+    Enabled: false
+    # Valid range 1.5..3 blocks from the player's eyes.
+    Distance: 2.5
+    # Valid range 1..60 seconds; menus also close when more than 8 blocks away.
+    TimeoutSeconds: 60
+    # Valid range 1..5 enabled, visible sites per page.
+    SitesPerPage: 5

@@ -422,6 +422,19 @@ public class CommandLoader {
 	 */
 	private void loadAdminVoteCommand() {
 		plugin.setAdminVoteCommand(new ArrayList<>());
+        plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "TestHologram" },
+                "VotingPlugin.Commands.AdminVote.TestHologram|" + adminPerm,
+                "Open the experimental holographic vote menu") {
+            @Override
+            public void execute(CommandSender sender, String[] args) {
+                if (!(sender instanceof Player player)) {
+                    sender.sendMessage("This test command requires a player.");
+                    return;
+                }
+                plugin.getHologramVoteMenu().open(player);
+            }
+        });
+
 
 		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "CurrentPluginTime" },
 				"VotingPlugin.Commands.AdminVote.CurrentPluginTime|" + adminPerm, "Current plugin time") {

@@ -154,6 +154,10 @@ import lombok.Getter;
 import lombok.Setter;
 
 public class VotingPluginMain extends AdvancedCorePlugin {
+	private com.bencodez.votingplugin.hologram.HologramVoteMenu hologramVoteMenu;
+
+	public com.bencodez.votingplugin.hologram.HologramVoteMenu getHologramVoteMenu() { return hologramVoteMenu; }
+
 
 	@Getter
 	public static VotingPluginMain plugin;
@@ -680,6 +684,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Override
 	public void onPostLoad() {
+		hologramVoteMenu = new com.bencodez.votingplugin.hologram.HologramVoteMenu(this);
 		ensureCommunicationSecret();
 		// auto conversion for Shop.yml
 		if (plugin.getShopFile().isJustCreated()) {
@@ -1930,6 +1935,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Override
 	public void onDisable() {
+		if (hologramVoteMenu != null) hologramVoteMenu.shutdown();
 		try {
 			shutdownVoteReminders();
 		} finally {
@@ -2030,6 +2036,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	 * Register events.
 	 */
 	private void registerEvents() {
+		Bukkit.getPluginManager().registerEvents(hologramVoteMenu, this);
 		PluginManager pm = getServer().getPluginManager();
 
 		pm.registerEvents(new PlayerJoinEvent(this), this);
@@ -2108,6 +2115,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	private void reloadPlugin(boolean userStorage, boolean reconcileHostedControl,
 			boolean updateActiveBackendRuntime) {
+		if (hologramVoteMenu != null) hologramVoteMenu.clear();
 		configFile.reloadData();
 		configFile.loadValues();
 
