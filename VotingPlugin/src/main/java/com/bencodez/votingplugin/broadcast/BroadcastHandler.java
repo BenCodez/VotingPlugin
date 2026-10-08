@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -55,8 +56,17 @@ public final class BroadcastHandler {
 
 	private final ConcurrentHashMap<UUID, LocalDate> firstVoteDay = new ConcurrentHashMap<UUID, LocalDate>();
 
-	private final ConcurrentHashMap<UUID, LinkedHashSet<String>> intervalSites = new ConcurrentHashMap<UUID, LinkedHashSet<String>>();
-	private final ConcurrentHashMap<UUID, String> intervalNames = new ConcurrentHashMap<UUID, String>();
+	private static final class IntervalRecord {
+		private String playerName;
+		private final LinkedHashSet<String> sites = new LinkedHashSet<String>();
+
+		private IntervalRecord(String playerName) {
+			this.playerName = playerName;
+		}
+	}
+
+	private final Object intervalLock = new Object();
+	private Map<UUID, IntervalRecord> intervalRecords = new HashMap<UUID, IntervalRecord>();
 	private volatile BukkitTask intervalTask;
 
 	/**
@@ -113,9 +123,10 @@ public final class BroadcastHandler {
 			return;
 		}
 
-		recordInterval(uuid, playerName, siteName);
-
 		String name = playerName == null || playerName.isEmpty() ? resolveName(uuid) : playerName;
+		if (currentSettings.getType() == VoteBroadcastType.INTERVAL_SUMMARY_GLOBAL) {
+			recordInterval(uuid, name, siteName);
+		}
 		VoteBroadcastType type = currentSettings.getType();
 
 		if (type == VoteBroadcastType.EVERY_VOTE_ONLINE_ONLY) {
@@ -394,23 +405,14 @@ public final class BroadcastHandler {
 		if (uuid == null || siteName == null || siteName.isEmpty()) {
 			return;
 		}
-		// Preserve the known name with the vote, rather than resolving every UUID
-		// synchronously during the scheduled global summary.
-		if (playerName != null && !playerName.isEmpty()) {
-			intervalNames.put(uuid, playerName);
-		}
 
-		LinkedHashSet<String> sites = intervalSites.get(uuid);
-		if (sites == null) {
-			LinkedHashSet<String> created = new LinkedHashSet<String>();
-			sites = intervalSites.putIfAbsent(uuid, created);
-			if (sites == null) {
-				sites = created;
+		// The name and its sites are added under the same lock used to rotate intervals.
+		synchronized (intervalLock) {
+			IntervalRecord record = intervalRecords.computeIfAbsent(uuid, ignored -> new IntervalRecord(playerName));
+			if (playerName != null && !playerName.isEmpty()) {
+				record.playerName = playerName;
 			}
-		}
-
-		synchronized (sites) {
-			sites.add(siteName);
+			record.sites.add(siteName);
 		}
 	}
 
@@ -427,11 +429,11 @@ public final class BroadcastHandler {
 			return;
 		}
 
-		ConcurrentHashMap<UUID, LinkedHashSet<String>> snapshot =
-				new ConcurrentHashMap<UUID, LinkedHashSet<String>>(intervalSites);
-		intervalSites.clear();
-		ConcurrentHashMap<UUID, String> nameSnapshot = new ConcurrentHashMap<UUID, String>(intervalNames);
-		intervalNames.clear();
+		Map<UUID, IntervalRecord> snapshot;
+		synchronized (intervalLock) {
+			snapshot = intervalRecords;
+			intervalRecords = new HashMap<UUID, IntervalRecord>();
+		}
 
 		if (snapshot.isEmpty()) {
 			return;
@@ -441,25 +443,23 @@ public final class BroadcastHandler {
 		List<String> players = new ArrayList<String>();
 		LinkedHashSet<String> uniqueSites = new LinkedHashSet<String>();
 
-		for (Map.Entry<UUID, LinkedHashSet<String>> entry : snapshot.entrySet()) {
-			LinkedHashSet<String> siteSet = entry.getValue();
+		for (Map.Entry<UUID, IntervalRecord> entry : snapshot.entrySet()) {
+			IntervalRecord record = entry.getValue();
+			LinkedHashSet<String> siteSet = record.sites;
 			if (siteSet == null || siteSet.isEmpty()) {
 				continue;
 			}
 
-			String name = nameSnapshot.get(entry.getKey());
+			String name = record.playerName;
 			if (name == null || name.isEmpty()) {
 				name = "Player";
 			}
 			players.add(name);
 
-			int siteCount;
-			synchronized (siteSet) {
-				siteCount = siteSet.size();
-				for (String site : siteSet) {
-					if (site != null && !site.isEmpty()) {
-						uniqueSites.add(site);
-					}
+			int siteCount = siteSet.size();
+			for (String site : siteSet) {
+				if (site != null && !site.isEmpty()) {
+					uniqueSites.add(site);
 				}
 			}
 
