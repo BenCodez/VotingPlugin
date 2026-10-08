@@ -199,6 +199,34 @@ class GuidedVotingSessionsTest {
             verify(f.player).sendMessage("Voting session: 1/1 votes received.");
         }
     }
+    @Test void configuredForceLinksAndStoredPlayerPlaceholderProduceTheEstablishedDestination() throws Exception {
+        try (var f = new Fixture()) {
+            var pluginField = VoteSite.class.getDeclaredField("plugin"); pluginField.setAccessible(true); pluginField.set(f.site, f.plugin);
+            doCallRealMethod().when(f.site).setVoteURL(anyString());
+            doCallRealMethod().when(f.site).getVoteURL(anyBoolean());
+            when(f.plugin.getConfigFile().isFormatCommandsVoteForceLinks()).thenReturn(true);
+            when(f.user.getPlayerName()).thenReturn("Stored_Name");
+            f.site.setVoteURL("www.example.org/vote?username=%PLAYER%");
+            f.sessions.command(f.player, ""); f.entity.remove().run(); f.worker.remove().run(); f.entity.remove().run();
+            var components = org.mockito.ArgumentCaptor.forClass(net.md_5.bungee.api.chat.BaseComponent.class);
+            verify(f.player.spigot(), atLeastOnce()).sendMessage(components.capture());
+            assertTrue(components.getAllValues().stream().anyMatch(c -> c.getClickEvent().getAction()
+                    == net.md_5.bungee.api.chat.ClickEvent.Action.OPEN_URL
+                    && c.getClickEvent().getValue().equals("http://www.example.org/vote?username=Stored_Name")));
+            verify(f.site, never()).getVoteURL(false);
+        }
+    }
+    @Test void formattedLinksRenderPlayerPlaceholderBeforeHttpValidation() {
+        try (var f = new Fixture()) {
+            when(f.site.getVoteURL(true)).thenReturn("[Text=\"Vote for %player%\",url=\"https://example.org/vote/%player%\"]");
+            f.sessions.command(f.player, ""); f.entity.remove().run(); f.worker.remove().run(); f.entity.remove().run();
+            var components = org.mockito.ArgumentCaptor.forClass(net.md_5.bungee.api.chat.BaseComponent.class);
+            verify(f.player.spigot(), atLeastOnce()).sendMessage(components.capture());
+            assertTrue(components.getAllValues().stream().anyMatch(c -> c.getClickEvent().getAction()
+                    == net.md_5.bungee.api.chat.ClickEvent.Action.OPEN_URL
+                    && c.getClickEvent().getValue().equals("https://example.org/vote/Alice")));
+        }
+    }
     private static class Fixture implements AutoCloseable {
         final VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
         final Player player = mock(Player.class);
@@ -219,11 +247,12 @@ class GuidedVotingSessionsTest {
             when(player.hasPermission(anyString())).thenReturn(true);
             when(site.getKey()).thenReturn("a"); when(site.getDisplayName()).thenReturn("Site A");
             when(site.getPermissionToView()).thenReturn(""); when(site.isEnabled()).thenReturn(true);
-            when(site.getVoteURL(false)).thenReturn("https://example.org/a");
+            when(site.getVoteURL(true)).thenReturn("https://example.org/a");
             when(plugin.getVoteSiteManager().getVoteSites()).thenReturn(List.of(site));
             when(plugin.getVotingPluginUserManager().getVotingPluginUser(uuid, "Alice")).thenReturn(user);
             when(user.canVoteSite(site)).thenReturn(true);
             when(user.getJavaUUID()).thenReturn(uuid);
+            when(user.getPlayerName()).thenReturn("Alice");
             ScheduledExecutorService timer = mock(ScheduledExecutorService.class);
             when(plugin.getTimer()).thenReturn(timer);
             doAnswer(i -> { worker.add(i.getArgument(0)); return null; }).when(timer).execute(any(Runnable.class));

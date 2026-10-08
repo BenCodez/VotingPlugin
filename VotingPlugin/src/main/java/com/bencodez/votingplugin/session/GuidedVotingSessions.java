@@ -99,7 +99,7 @@ public final class GuidedVotingSessions implements Listener {
             if (action.equals("restart")) { sessions.remove(uuid); storageIds.remove(uuid); early.remove(uuid); }
             session = sessions.computeIfAbsent(uuid, ignored -> new GuidedVoteSession(now));
             session.bindCandidates(visible.stream().map(site -> new GuidedVoteSession.Site(site.getKey(),
-                    site.getDisplayName(), site.getVoteURL(false), false, 0)).toList());
+                    site.getDisplayName(), site.getVoteURL(true), false, 0)).toList());
             playerNames.put(uuid, name);
             request = ++generation;
             requests.put(uuid, request);
@@ -120,7 +120,9 @@ public final class GuidedVotingSessions implements Listener {
                         if (site == null || !site.isEnabled() || site.isHidden()) continue;
                         sampledSites.put(site.getKey(), site);
                         snapshots.add(new GuidedVoteSession.Site(site.getKey(), site.getDisplayName(),
-                                site.getVoteURL(false), user.canVoteSite(site), user.getTime(site)));
+                                com.bencodez.advancedcore.api.messages.PlaceholderUtils.replacePlaceHolder(site.getVoteURL(true),
+                                        "player", user.getPlayerName() == null ? name : user.getPlayerName()),
+                                user.canVoteSite(site), user.getTime(site)));
                     }
                     synchronized (this) {
                         if (!current(uuid, session, request)) return;
