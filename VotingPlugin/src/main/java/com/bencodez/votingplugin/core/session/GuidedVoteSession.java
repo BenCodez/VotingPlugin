@@ -70,8 +70,8 @@ public final class GuidedVoteSession {
             if (initialized) sites.putIfAbsent(site, candidates.get(site));
         }
     }
-    /** Only explicitly live identified proxy deliveries have comparable backend-local order.
-     * Queued/legacy delivery has unknown original age and must not confirm a fresh session. */
+    /** Fresh local ingress and explicitly live identified proxy delivery use backend-local order.
+     * Queued/legacy proxy delivery has unknown original age and must not confirm a fresh session. */
     public synchronized void acceptedObserved(String site, UUID occurrence, long order) {
         if (order > observationOrder && occurrence != null && candidates.containsKey(site)
                 && !received.containsKey(site) && !occurrences.containsKey(occurrence)) {

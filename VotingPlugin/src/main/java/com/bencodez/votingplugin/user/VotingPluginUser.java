@@ -1043,7 +1043,11 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @return true, if the user can vote on the site
 	 */
 	public boolean canVoteSite(VoteSite voteSite) {
-		long time = getTime(voteSite);
+		return canVoteSite(voteSite, getTime(voteSite));
+	}
+
+	/** Same cooldown decision using an already loaded last-vote snapshot; performs no storage read. */
+	public boolean canVoteSite(VoteSite voteSite, long time) {
 		if (time == 0) {
 			return true;
 		}

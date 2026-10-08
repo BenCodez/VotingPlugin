@@ -19,6 +19,8 @@ public class PlayerPostVoteEvent extends Event {
 	@Getter @Setter private boolean proxyQueueClassificationKnown;
 	@Getter @Setter private boolean queuedProxyVote;
 	@Getter @Setter private boolean proxySessionDelivery;
+	/** Fresh local ingress with no supplied historical occurrence timestamp. */
+	@Getter @Setter private boolean liveLocalSessionDelivery;
 
 	/** The Constant handlers. */
 	private static final HandlerList handlers = new HandlerList();

@@ -39,9 +39,10 @@ public final class GuidedVotingSessions implements Listener {
     public synchronized void credited(PlayerPostVoteEvent event) {
         if (event.getVoteSite() == null || !event.isRealVote() || event.isCancelled()
                 || event.getVoteUUID() == null || event.getUuid() == null) return;
-        boolean observed = event.isProxySessionDelivery() || event.isBungee();
-        if (observed && (!event.isProxyQueueClassificationKnown() || event.isQueuedProxyVote()
+        boolean proxy = event.isProxySessionDelivery() || event.isBungee();
+        if (proxy && (!event.isProxyQueueClassificationKnown() || event.isQueuedProxyVote()
                 || event.getBackendObservationOrder() == 0)) return;
+        boolean observed = proxy || event.isLiveLocalSessionDelivery() && event.getBackendObservationOrder() != 0;
         long time = observed ? event.getBackendObservationOrder() : event.getVoteTime();
         String key = event.getVoteSite().getKey();
         for (var entry : sessions.entrySet()) {
@@ -119,6 +120,10 @@ public final class GuidedVotingSessions implements Listener {
                     for (VoteSite site : plugin.getVoteSiteManager().getVoteSites()) currentSites.put(site.getKey(), site);
                     var sampledSites = new java.util.HashMap<String, VoteSite>();
                     var user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid, name);
+                    String storedName = user.getPlayerName();
+                    String voteName = storedName == null ? name : storedName;
+                    var lastVotes = new java.util.HashMap<String, Long>();
+                    user.getLastVotes().forEach((site, time) -> lastVotes.put(site.getKey(), time));
                     List<GuidedVoteSession.Site> snapshots = new ArrayList<>();
                     for (VoteSite original : visible) {
                         VoteSite site = currentSites.get(original.getKey());
@@ -126,8 +131,9 @@ public final class GuidedVotingSessions implements Listener {
                         sampledSites.put(site.getKey(), site);
                         snapshots.add(new GuidedVoteSession.Site(site.getKey(), site.getDisplayName(),
                                 com.bencodez.advancedcore.api.messages.PlaceholderUtils.replacePlaceHolder(site.getVoteURL(true),
-                                        "player", user.getPlayerName() == null ? name : user.getPlayerName()),
-                                user.canVoteSite(site), plugin.getBungeeSettings().isUseBungeecoord() ? 0 : user.getTime(site)));
+                                        "player", voteName),
+                                user.canVoteSite(site, lastVotes.getOrDefault(site.getKey(), 0L)),
+                                plugin.getBungeeSettings().isUseBungeecoord() ? 0 : lastVotes.getOrDefault(site.getKey(), 0L)));
                     }
                     synchronized (this) {
                         if (!current(uuid, session, request)) return;
