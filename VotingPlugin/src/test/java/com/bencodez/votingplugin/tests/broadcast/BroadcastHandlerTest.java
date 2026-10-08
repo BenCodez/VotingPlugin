@@ -226,7 +226,7 @@ public class BroadcastHandlerTest {
 		scheduled.get().run();
 
 		verify(console).sendMessage(org.mockito.ArgumentMatchers.<String>argThat(
-				message -> message.contains("ResolvedBen") && message.contains("SiteA")));
+				message -> message.contains("ResolvedBen (1)") && message.contains("interval")));
 		bukkitStatic.verify(() -> Bukkit.getOfflinePlayer(uuid), times(1));
 	}
 
@@ -257,9 +257,9 @@ public class BroadcastHandlerTest {
 		scheduled.get().run();
 
 		verify(console).sendMessage(org.mockito.ArgumentMatchers.<String>argThat(
-				message -> message.contains("FirstName") && message.contains("SiteA") && !message.contains("SiteB")));
+				message -> message.contains("FirstName (1)") && !message.contains("SecondName")));
 		verify(console).sendMessage(org.mockito.ArgumentMatchers.<String>argThat(
-				message -> message.contains("SecondName") && message.contains("SiteB") && !message.contains("SiteA")));
+				message -> message.contains("SecondName (1)") && !message.contains("FirstName")));
 	}
 
 	@Test
