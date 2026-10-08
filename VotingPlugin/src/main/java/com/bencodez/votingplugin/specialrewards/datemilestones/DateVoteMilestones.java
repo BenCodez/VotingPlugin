@@ -115,15 +115,24 @@ public final class DateVoteMilestones {
         return "DateVoteMilestones." + event.id() + ".Milestones." + threshold + ".Rewards";
     }
     /** Called only from the real asynchronous accepted-vote pipeline; never from navigation. */
-    public void accepted(VotingPluginUser user, String site, UUID occurrence, long occurredAt,
+    public boolean accepted(VotingPluginUser user, String site, UUID occurrence, long occurredAt,
             boolean real, boolean proxy, boolean canonicalProxy, boolean targeted, boolean forceProxyRouting) {
-        if (plugin.getBungeeSettings().isUseBungeecoord() && !proxy) return;
-        if (!real || occurrence == null || occurredAt <= 0 || proxy && (!canonicalProxy || targeted)) return;
+        if (plugin.getBungeeSettings().isUseBungeecoord() && !proxy) return true;
+        if (!real || occurrence == null || occurredAt <= 0 || proxy && (!canonicalProxy || targeted)) return true;
+        boolean recorded = true;
         for (Definition definition : definitions) {
             DateVoteEvent event = definition.event();
             if (!event.matches(occurredAt, site, real, proxy, plugin.getBungeeSettings().getServer())) continue;
+            List<Integer> reached;
             try {
-                for (int threshold : ledger().record(event, user.getJavaUUID(), occurrence, plugin.getOptions().isProcessRewards())) {
+                reached = ledger().record(event, user.getJavaUUID(), occurrence, plugin.getOptions().isProcessRewards());
+            } catch (IOException | RuntimeException failure) {
+                recorded = false;
+                plugin.getLogger().warning("DateVoteMilestones " + event.id() + " occurrence was not confirmed; proxy delivery must remain quarantined for accounting reconciliation: " + failure.getMessage());
+                continue;
+            }
+            try {
+                for (int threshold : reached) {
                     if (!plugin.getOptions().isProcessRewards()) break;
                     var placeholders = new HashMap<String, String>();
                     placeholders.put("DateVoteEvent", event.displayName());
@@ -139,6 +148,7 @@ public final class DateVoteMilestones {
                 plugin.getLogger().warning("DateVoteMilestones " + event.id() + " accounting/reward submission failed; progress retained for review: " + failure.getMessage());
             }
         }
+        return recorded;
     }
     public void progress(Player player) {
         BukkitCompletionScheduler.run(plugin, player, () -> {

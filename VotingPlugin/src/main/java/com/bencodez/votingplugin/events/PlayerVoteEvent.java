@@ -79,6 +79,11 @@ public class PlayerVoteEvent extends Event {
 	@Setter
 	private boolean wasOnline;
 
+	/** Missing date accounting is surfaced after event dispatch so durable proxy envelopes are not acknowledged. */
+	@Getter
+	@Setter
+	private boolean dateMilestoneAccountingFailed;
+
 	/** Whether this is an identified queued proxy delivery. */
 	@Getter
 	@Setter

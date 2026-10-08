@@ -10,6 +10,19 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 
 class ProxyVoteRealFlagTest {
+    @Test void accountingFailureFlagSurvivesBukkitDispatchAndRejectsCompletion() throws Exception {
+        var plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+        when(plugin.getBungeeSettings().isUseBungeecoord()).thenReturn(true);
+        var user = mock(VotingPluginUser.class, CALLS_REAL_METHODS);
+        var field = VotingPluginUser.class.getDeclaredField("plugin"); field.setAccessible(true); field.set(user, plugin);
+        doReturn("Player").when(user).getPlayerName();
+        var dispatcher = plugin.getServer().getPluginManager();
+        doAnswer(call -> { ((PlayerVoteEvent) call.getArgument(0)).setDateMilestoneAccountingFailed(true); return null; })
+                .when(dispatcher).callEvent(any());
+        assertThrows(IllegalStateException.class, () -> user.bungeeVotePluginMessaging("service", 123, null,
+                false, false, false, 1, false, true, true, UUID.randomUUID(), false, true));
+        verify(plugin.getServer().getPluginManager(), times(1)).callEvent(any());
+    }
     @Test void nativeBackendAdapterPreservesCanonicalTestFlagAndLegacyDefaults() throws Exception {
         var plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
         when(plugin.getBungeeSettings().isUseBungeecoord()).thenReturn(true);

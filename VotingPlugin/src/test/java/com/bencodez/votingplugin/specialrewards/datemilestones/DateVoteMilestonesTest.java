@@ -32,6 +32,22 @@ class DateVoteMilestonesTest {
         when(plugin.getOptions().isProcessRewards()).thenReturn(true);
         var m = new DateVoteMilestones(plugin); m.reload(); return m;
     }
+    @Test void failedOccurrencePublicationIsReportedWithoutCountingOrRepeatingAnAward() throws Exception {
+        event("october", "owner"); var manager = manager();
+        assertTrue(manager.accepted(user, "a", UUID.randomUUID(), time, true, true, true, false, false));
+        UUID retry = UUID.randomUUID();
+        try (var publication = mockStatic(com.bencodez.votingplugin.util.DurableFiles.class)) {
+            publication.when(() -> com.bencodez.votingplugin.util.DurableFiles.publishStagedFile(any(Path.class), any(Path.class)))
+                    .thenThrow(new java.io.IOException("fixture occurrence unavailable"));
+            assertFalse(manager.accepted(user, "a", retry, time + 1, true, true, true, false, false));
+        }
+        var definition = DateVoteMilestones.parse("october", config.getConfigurationSection("DateVoteMilestones.october"));
+        assertEquals(1, new DateVoteLedger(root.resolve("date-vote-milestones")).progress(definition, player).votes());
+        assertTrue(manager.accepted(user, "a", retry, time + 1, true, true, true, false, false));
+        assertTrue(manager.accepted(user, "a", retry, time + 1, true, true, true, false, false));
+        assertEquals(2, new DateVoteLedger(root.resolve("date-vote-milestones")).progress(definition, player).votes());
+        verify(plugin.getRewardHandler(), times(1)).giveReward(eq(user), any(), anyString(), any());
+    }
     @Test void disabledRewardProcessingCountsWithoutSubmittingOrLosingThePendingThreshold() throws Exception {
         event("october", ""); var m = manager();
         when(plugin.getOptions().isProcessRewards()).thenReturn(false);

@@ -1008,6 +1008,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 				voteEvent.setProxyDelayValidationKnown(proxyDelayValidationKnown);
 				voteEvent.setTargetedProxyVote(targetedProxyVote);
 				plugin.getServer().getPluginManager().callEvent(voteEvent);
+				if (voteEvent.isDateMilestoneAccountingFailed()) throw new IllegalStateException("Date milestone accounting is incomplete; retain the durable proxy envelope for reconciliation");
 		}
 	}
 
