@@ -195,3 +195,6 @@ permissions:
   VotingPlugin.Login.RemindVotes.All:
     description: Remind if player can vote on all votesites, rather than any
     default: false
+  VotingPlugin.Commands.Vote.Session:
+    description: Start or navigate a guided voting session
+    default: false

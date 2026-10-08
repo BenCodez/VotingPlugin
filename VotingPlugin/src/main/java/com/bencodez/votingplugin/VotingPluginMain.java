@@ -154,6 +154,13 @@ import lombok.Getter;
 import lombok.Setter;
 
 public class VotingPluginMain extends AdvancedCorePlugin {
+	private final com.bencodez.votingplugin.session.GuidedVotingSessions guidedVotingSessions =
+			new com.bencodez.votingplugin.session.GuidedVotingSessions(this);
+
+	public com.bencodez.votingplugin.session.GuidedVotingSessions getGuidedVotingSessions() {
+		return guidedVotingSessions;
+	}
+
 
 	@Getter
 	public static VotingPluginMain plugin;
@@ -1931,6 +1938,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	@Override
 	public void onDisable() {
 		try {
+			guidedVotingSessions.clear();
 			shutdownVoteReminders();
 		} finally {
 			super.onDisable();
@@ -2039,6 +2047,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			pm.registerEvents(votifierEvent, this);
 		}
 		pm.registerEvents(new PlayerVoteListener(this), this);
+		pm.registerEvents(guidedVotingSessions, this);
 		pm.registerEvents(new PlayerPostVoteLoggerListener(this), this);
 		pm.registerEvents(new PlayerSpecialRewardLoggerListener(this), this);
 		pm.registerEvents(new VoteShopPurchaseLoggerListener(this), this);
@@ -2108,6 +2117,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	private void reloadPlugin(boolean userStorage, boolean reconcileHostedControl,
 			boolean updateActiveBackendRuntime) {
+		guidedVotingSessions.clear();
 		configFile.reloadData();
 		configFile.loadValues();
 
