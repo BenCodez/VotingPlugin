@@ -75,7 +75,7 @@ public class VotingPluginWireTest {
 			assertEquals(live.getSubChannel(), forwarded.getSubChannel());
 			java.util.Map<String, String> fields = new java.util.LinkedHashMap<>(forwarded.getFields());
 			assertEquals(origin, fields.remove(VotingPluginWire.K_MULTI_PROXY_ORIGIN));
-			fields.put(VotingPluginWire.K_SESSION_DELIVERY_FRESH, "true");
+			fields.put(VotingPluginWire.K_SESSION_DELIVERY_FRESH, "false");
 			assertEquals(live.getFields(), fields);
 		}
 		assertFalse(live.getFields().containsKey(VotingPluginWire.K_MULTI_PROXY_ORIGIN));

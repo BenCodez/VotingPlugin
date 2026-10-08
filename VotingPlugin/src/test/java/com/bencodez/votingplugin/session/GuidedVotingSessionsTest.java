@@ -118,7 +118,7 @@ class GuidedVotingSessionsTest {
             assertTrue(f.user.canVoteSite(f.site, 0)); verify(f.user, never()).getTime(any()); verify(f.user, never()).getLastVotes();
         }
     }
-    @Test void liveProxyVoteUsesBackendOrderWhenProxyClockIsBehindOrAhead() {
+    @Test void proxyEventCannotProveFreshnessWhenProxyClockIsBehindOrAhead() {
         for (long remoteTime : new long[] { 1, Long.MAX_VALUE }) try (var f = new Fixture()) {
             when(f.plugin.getBungeeSettings().isUseBungeecoord()).thenReturn(true);
             f.sessions.command(f.player, ""); f.entity.remove().run();
@@ -128,7 +128,7 @@ class GuidedVotingSessionsTest {
             event.setBackendObservationOrder(com.bencodez.votingplugin.core.session.VoteObservationSequence.next());
             f.sessions.credited(event); f.sessions.credited(event);
             f.sessions.command(f.player, "check"); f.entity.remove().run(); f.worker.remove().run(); f.entity.remove().run();
-            verify(f.player).sendMessage("Voting session: 1/1 votes received.");
+            verify(f.player, times(2)).sendMessage("Voting session: 0/1 votes received.");
         }
     }
     @Test void queuedUnknownOrPreviouslyObservedProxyDeliveryCannotConfirmFreshSession() {
@@ -148,7 +148,7 @@ class GuidedVotingSessionsTest {
             verify(f.player, times(2)).sendMessage("Voting session: 0/1 votes received.");
         }
     }
-    @Test void earlyLiveProxyReceiptRestoresSiteAfterCooldownSampleWithoutClockComparison() {
+    @Test void earlyProxyEventCannotRestoreInitiallyCoolingSiteWithoutCrossNodeOrder() {
         try (var f = new Fixture()) {
             when(f.plugin.getBungeeSettings().isUseBungeecoord()).thenReturn(true);
             f.sessions.command(f.player, ""); f.entity.remove().run();
@@ -156,7 +156,8 @@ class GuidedVotingSessionsTest {
             var event = f.event(f.uuid, 1, UUID.randomUUID()); event.setBungee(true);
             event.setProxyQueueClassificationKnown(true); event.setBackendObservationOrder(com.bencodez.votingplugin.core.session.VoteObservationSequence.next());
             f.sessions.credited(event); f.worker.remove().run(); f.entity.remove().run();
-            verify(f.player).sendMessage("Voting session: 1/1 votes received.");
+            verify(f.player).sendMessage("Voting session: 0/0 votes received.");
+            verify(f.player).sendMessage("No eligible, visible voting sites. Try /vote session restart after your cooldowns end.");
         }
     }
     @Test void storageRunsOnWorkerAndOnlyEntityCallbackRenders() {
@@ -431,7 +432,7 @@ class GuidedVotingSessionsTest {
             @SuppressWarnings("unchecked") var reliable=(java.util.Set<String>)reliableField.get(proxy);
             if(mode.equals("rejection")) { reliable.add("server1");proxy.setStableHttpDeliveryResult(false); }
             UUID occurrence=UUID.randomUUID();proxy.vote("Alice","service",true,false,1L,null,f.uuid.toString(),occurrence);
-            if(mode.equals("rejection")) assertEquals("true",proxy.getLastVoteEnvelope().getFields().get(com.bencodez.votingplugin.proxy.VotingPluginWire.K_SESSION_DELIVERY_FRESH));
+            if(mode.equals("rejection")) assertEquals("false",proxy.getLastVoteEnvelope().getFields().get(com.bencodez.votingplugin.proxy.VotingPluginWire.K_SESSION_DELIVERY_FRESH));
             if(mode.equals("restart")) outboxField.set(proxy,constructor.newInstance(file));
             startGuide(f);reliable.add("server1");proxy.setStableHttpDeliveryResult(true);
             var retry=com.bencodez.votingplugin.proxy.VotingPluginProxy.class.getDeclaredMethod("retryReliableVoteDeliveries");retry.setAccessible(true);retry.invoke(proxy);
@@ -464,7 +465,29 @@ class GuidedVotingSessionsTest {
         }
     }
 
-    @Test void directLiveProxyAndLocalProductionReceiptsStillConfirmTheGuide() throws Exception {
+    @Test void directProxyIngressBeforeGuideCannotConfirmAfterTransportDelayEvenWithOlderPositiveHint() throws Exception {
+        for (String hint : new String[] {"false", "true", "missing"}) try (var f = new Fixture()) {
+            var backend = acceptedBackend(f); var proxy = receiverProxy(false); UUID occurrence = UUID.randomUUID();
+            proxy.vote("Alice", "service", true, false, Long.MAX_VALUE, null, f.uuid.toString(), occurrence);
+            var initial = proxy.getLastVoteEnvelope(); assertNotNull(initial);
+            var transport = com.bencodez.simpleapi.servercomm.codec.JsonEnvelope.builder(initial.getSubChannel()).schema(initial.getSchema());
+            for (var field : initial.getFields().entrySet()) if (!field.getKey().equals(com.bencodez.votingplugin.proxy.VotingPluginWire.K_SESSION_DELIVERY_FRESH)) transport.put(field.getKey(), field.getValue());
+            if (!hint.equals("missing")) transport.put(com.bencodez.votingplugin.proxy.VotingPluginWire.K_SESSION_DELIVERY_FRESH, hint);
+            // The admitted transport has not reached this backend when the guide opens.
+            startGuide(f);
+            backend.handleOrderedVote(transport.build(), result -> assertEquals(
+                    com.bencodez.votingplugin.backendproxy.messaging.BackendProxyMessageRouter.OrderedVoteOutcome.COMPLETE, result));
+            verify(f.user).setTime(f.site, Long.MAX_VALUE); verify(f.user).playerVote(eq(f.site), anyBoolean(), eq(true));
+            verify(f.user).addTotal(); verify(f.user).addPoints();
+            var events = org.mockito.ArgumentCaptor.forClass(org.bukkit.event.Event.class);
+            verify(f.plugin.getServer().getPluginManager(), times(2)).callEvent(events.capture());
+            var credited = (PlayerPostVoteEvent) events.getAllValues().get(1);
+            assertEquals(occurrence, credited.getVoteUUID()); assertTrue(credited.isUnconfirmedProxySessionDelivery());
+            assertFalse(credited.isQueuedProxyVote()); checkGuide(f, 0);
+        }
+    }
+
+    @Test void crossNodeReceiptsRemainUnconfirmedWhileLocalProductionReceiptsConfirmTheGuide() throws Exception {
         for (long remoteTime : new long[] { 1L, Long.MAX_VALUE }) try (var f = new Fixture()) {
             var backend = acceptedBackend(f); var proxy = receiverProxy(false); UUID occurrence = UUID.randomUUID();
             startGuide(f);
@@ -473,7 +496,7 @@ class GuidedVotingSessionsTest {
             assertFalse(delivered.getFields().containsKey(com.bencodez.votingplugin.proxy.VotingPluginWire.K_MULTI_PROXY_ORIGIN));
             backend.handleOrderedVote(delivered, ignored -> { });
             verify(f.user).setTime(f.site, remoteTime); verify(f.user).addPoints();
-            checkGuide(f, 1);
+            checkGuide(f, 0);
         }
         try (var f = new Fixture()) {
             acceptedBackend(f); startGuide(f);

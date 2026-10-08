@@ -25,6 +25,9 @@ class ReliableVoteDeliveryOutboxTest {
 		for (boolean oldRow : new boolean[] {false, true}) {
 			Path file=directory.resolve(oldRow ? "old.dat" : "new.dat"); UUID id=UUID.randomUUID();
 			JsonEnvelope live=VotingPluginWire.vote("Player",UUID.randomUUID().toString(),"site",10L,true,true,"",id,false,false,1,1);
+			var previous=com.bencodez.simpleapi.servercomm.codec.JsonEnvelope.builder(live.getSubChannel()).schema(live.getSchema());
+			for(var field:live.getFields().entrySet()) previous.put(field.getKey(),field.getValue());
+			live=previous.put(VotingPluginWire.K_SESSION_DELIVERY_FRESH,true).build();
 			if(oldRow) {
 				var encode=java.util.Base64.getUrlEncoder().withoutPadding();
 				String server=encode.encodeToString("Survival".getBytes(java.nio.charset.StandardCharsets.UTF_8));
