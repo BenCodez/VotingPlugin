@@ -10,7 +10,7 @@ import com.bencodez.votingplugin.specialrewards.datemilestones.DateVoteMilestone
 import com.bencodez.votingplugin.user.VotingPluginUser;
 class DateVoteIngressOrderingTest {
     @TempDir Path root;
-    @Test void firstTransportDeliveryFindsDefinitionsAndRewardHandlesAlreadyPublished() {
+    @Test void firstTransportDeliveryFindsDefinitionsAndRewardHandlesAlreadyPublished() throws Exception {
         VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
         YamlConfiguration config = new YamlConfiguration();
         String prefix = "DateVoteMilestones.startup.";
@@ -30,9 +30,26 @@ class DateVoteIngressOrderingTest {
             verify(plugin).addDirectlyDefinedRewards(any());
             events.accepted(user, "a", UUID.randomUUID(), System.currentTimeMillis(), true, true, true, false, false);
         };
+        ready(plugin);
         doCallRealMethod().when(plugin).initializeDateVoteIngress(any());
         plugin.initializeDateVoteIngress(ingress);
         verify(plugin.getRewardHandler()).giveReward(eq(user), any(), startsWith("DateVoteMilestonesRuntime."), any());
         assertTrue(java.nio.file.Files.exists(root.resolve("date-vote-milestones")));
     }
+    private static final String[] HANDLERS = {"voteMilestonesManager", "voteStreakHandler", "voteParty", "specialRewards", "topVoterHandler", "voteShopManager", "placeholders"};
+    private static void ready(VotingPluginMain plugin) throws Exception {
+        for (String name : HANDLERS) {
+            var field = VotingPluginMain.class.getDeclaredField(name); field.setAccessible(true); field.set(plugin, mock(field.getType()));
+        }
+    }
+    @Test void eachMissingDownstreamHandlerKeepsIngressClosed() throws Exception {
+        for (String name : HANDLERS) {
+            VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS); ready(plugin);
+            var field = VotingPluginMain.class.getDeclaredField(name); field.setAccessible(true); field.set(plugin, null);
+            doCallRealMethod().when(plugin).initializeDateVoteIngress(any()); Runnable ingress = mock(Runnable.class);
+            assertThrows(IllegalStateException.class, () -> plugin.initializeDateVoteIngress(ingress)); verify(ingress, never()).run();
+            verify(plugin.getDateVoteMilestones(), never()).reload();
+        }
+    }
+
 }

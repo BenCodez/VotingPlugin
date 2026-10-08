@@ -684,8 +684,12 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		new VotingPluginMetrics().load(plugin);
 	}
 
-    /** Publish configuration and reward aliases before any vote producer can deliver. */
+    /** Publish proxy ingress only after the complete accepted-vote pipeline is initialized. */
     void initializeDateVoteIngress(Runnable openProxy) {
+        if (voteMilestonesManager == null || voteStreakHandler == null || voteParty == null || specialRewards == null
+                || topVoterHandler == null || voteShopManager == null || placeholders == null) {
+            throw new IllegalStateException("Accepted-vote handlers must initialize before proxy ingress");
+        }
         getDateVoteMilestones().reload();
         if (getBungeeSettings().isUseBungeecoord()) openProxy.run();
     }
@@ -722,7 +726,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		loadVoteTimer();
 		getVotingPluginUserManager().startSharedPointTransferRecovery();
 
-		initializeDateVoteIngress(this::loadBungeeHandler);
+		// Proxy ingress opens below, after every accepted-vote handler is initialized.
 
 		if (!bungeeSettings.isUseBungeecoord() || !bungeeSettings.isGloblalDataEnabled()) {
 			this.timeQueueHandler = new TimeQueueHandler(this);
@@ -831,6 +835,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 
 		VotingPluginRewardRegistrar.register(this);
+        initializeDateVoteIngress(this::loadBungeeHandler);
 		// Recovered Votifier votes may now traverse the fully initialized vote,
 		// reward, placeholder, shop, and vote-party pipeline.
 		if (votifierVoteOverflowQueue != null) {
