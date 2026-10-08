@@ -397,3 +397,9 @@ DailyAwards:
     Rewards:
       Messages:
         Player: '&aYou came in second place in %TopVoter%!'
+
+# Owner-defined dated events. Opt-in; use a NEW event ID when changing accounting.
+# Explicit local ISO start/end + IANA timezone. Start inclusive, end exclusive.
+# Proxy use requires one AccountingServer and identified all-server delivery.
+# Full configuration example and durability limits: docs/date-vote-milestones.md
+DateVoteMilestones: {}

@@ -191,7 +191,7 @@ class BackendProxyMessageRouterTest {
 				.thenReturn(user);
 		doThrow(new IllegalStateException("partial reward")).when(user).bungeeVotePluginMessaging(
 				any(), anyLong(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyInt(), anyBoolean(), anyBoolean(),
-				anyBoolean(), any(), anyBoolean());
+				anyBoolean(), any(), anyBoolean(), anyBoolean());
 		BackendProxyMessageRouter voteRouter = new BackendProxyMessageRouter(plugin,
 				mock(BackendPresenceManager.class), mock(BackendGlobalDataSync.class),
 				mock(BackendVotePartySync.class), cache);
@@ -237,7 +237,7 @@ class BackendProxyMessageRouterTest {
 		assertEquals(OrderedVoteOutcome.COMPLETE, outcome.get());
 		verify(cache, times(2)).complete(voteId);
 		verify(user, times(1)).bungeeVotePluginMessaging(any(), anyLong(), any(), anyBoolean(), anyBoolean(),
-				anyBoolean(), anyInt(), eq(false), eq(true), eq(true), eq(voteId), eq(false));
+				anyBoolean(), anyInt(), eq(false), eq(true), eq(true), eq(voteId), eq(false), anyBoolean());
 	}
 
 	@Test
@@ -258,7 +258,24 @@ class BackendProxyMessageRouterTest {
 				LAST_VOTE_TIME, true, true, "", voteId, false, false, 1, 1), ignored -> { });
 
 		verify(user).bungeeVotePluginMessaging(any(), anyLong(), any(), anyBoolean(), anyBoolean(),
-				anyBoolean(), anyInt(), eq(false), eq(false), eq(true), eq(voteId), eq(false));
+				anyBoolean(), anyInt(), eq(false), eq(false), eq(true), eq(voteId), eq(false), anyBoolean());
+	}
+
+	@Test
+	void canonicalTestVoteFlagIsPassedToTheBackendEventAdapter() {
+		UUID voteId = UUID.randomUUID();
+		ProcessedVoteCache cache = mock(ProcessedVoteCache.class);
+		when(cache.reserveWithOutcome(voteId)).thenReturn(Reservation.RESERVED);
+		when(plugin.getBungeeSettings()).thenReturn(mock(BungeeSettings.class));
+		when(plugin.getVotingPluginUserManager().getVotingPluginUser(PLAYER_UUID, "Player")).thenReturn(user);
+		when(plugin.getServerData()).thenReturn(mock(ServerData.class));
+		BackendProxyMessageRouter voteRouter = new BackendProxyMessageRouter(plugin,
+				mock(BackendPresenceManager.class), mock(BackendGlobalDataSync.class),
+				mock(BackendVotePartySync.class), cache);
+		voteRouter.handleOrderedVote(VotingPluginWire.vote("Player", PLAYER_UUID.toString(), "known.example",
+				LAST_VOTE_TIME, true, false, "", voteId, false, false, 1, 1), ignored -> { });
+		verify(user).bungeeVotePluginMessaging(any(), anyLong(), any(), anyBoolean(), anyBoolean(),
+				anyBoolean(), anyInt(), anyBoolean(), anyBoolean(), anyBoolean(), eq(voteId), eq(false), eq(false));
 	}
 
 	@Test
@@ -278,7 +295,7 @@ class BackendProxyMessageRouterTest {
 				LAST_VOTE_TIME, true, true, "", voteId, false, false, 1, 1), ignored -> { });
 
 		verify(user).bungeeVotePluginMessaging(any(), anyLong(), any(), anyBoolean(), anyBoolean(),
-				anyBoolean(), anyInt(), anyBoolean(), anyBoolean(), anyBoolean(), eq(voteId), eq(true));
+				anyBoolean(), anyInt(), anyBoolean(), anyBoolean(), anyBoolean(), eq(voteId), eq(true), anyBoolean());
 	}
 
 	@Test
@@ -300,7 +317,7 @@ class BackendProxyMessageRouterTest {
 		assertEquals(OrderedVoteOutcome.QUARANTINE, outcome.get());
 		verify(cache, never()).complete(voteId);
 		verify(user, never()).bungeeVotePluginMessaging(any(), anyLong(), any(), anyBoolean(), anyBoolean(),
-				anyBoolean(), anyInt(), anyBoolean(), anyBoolean(), anyBoolean(), any(), anyBoolean());
+				anyBoolean(), anyInt(), anyBoolean(), anyBoolean(), anyBoolean(), any(), anyBoolean(), anyBoolean());
 		verify(cache).cancelReservation(voteId);
 	}
 
@@ -320,7 +337,7 @@ class BackendProxyMessageRouterTest {
 
 		assertEquals(OrderedVoteOutcome.RETRY, outcome.get());
 		verify(user, never()).bungeeVotePluginMessaging(any(), anyLong(), any(), anyBoolean(), anyBoolean(),
-				anyBoolean(), anyInt(), anyBoolean(), anyBoolean(), anyBoolean(), any(), anyBoolean());
+				anyBoolean(), anyInt(), anyBoolean(), anyBoolean(), anyBoolean(), any(), anyBoolean(), anyBoolean());
 		verify(cache, never()).complete(voteId);
 	}
 
@@ -452,7 +469,7 @@ class BackendProxyMessageRouterTest {
 		voteRouter.handleOrderedVote(queued, ignored -> { });
 
 		verify(user).bungeeVotePluginMessaging(any(), anyLong(), any(), anyBoolean(), anyBoolean(),
-				anyBoolean(), anyInt(), eq(true), eq(true), eq(true), eq(voteId), eq(true));
+				anyBoolean(), anyInt(), eq(true), eq(true), eq(true), eq(voteId), eq(true), anyBoolean());
 	}
 
 	@Test

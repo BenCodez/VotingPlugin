@@ -484,7 +484,7 @@ public class BackendProxyMessageRouter {
 		user.bungeeVotePluginMessaging(vote.service, vote.time, totals, !vote.manageTotals,
 				wasOnline, vote.broadcast, vote.num, queuedDelivery, vote.delayValidationKnown,
 				vote.queuedDeliveryKnown, voteId,
-				VotingPluginWire.SUB_VOTE_ONLINE.equals(msg.getSubChannel()));
+				VotingPluginWire.SUB_VOTE_ONLINE.equals(msg.getSubChannel()), vote.realVote);
 		if (plugin.getBungeeSettings().isPerServerPoints()) {
 			user.addPoints(plugin.getConfigFile().getPointsOnVote());
 		}

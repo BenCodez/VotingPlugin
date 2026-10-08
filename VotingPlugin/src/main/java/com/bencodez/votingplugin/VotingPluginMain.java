@@ -594,6 +594,11 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	@Getter
 	private VoteStreakHandler voteStreakHandler;
 
+    @Getter
+    private final com.bencodez.votingplugin.specialrewards.datemilestones.DateVoteMilestones dateVoteMilestones =
+            new com.bencodez.votingplugin.specialrewards.datemilestones.DateVoteMilestones(this);
+
+
 	/**
 	 * Registers a directly editable rewards path from SpecialRewards.yml.
 	 *
@@ -607,6 +612,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		VoteSiteRewardRegistrar.register(this);
 		VotePartyRewardRegistrar.register(this);
 		VoteMilestoneRewardRegistrar.register(this);
+        dateVoteMilestones.reload();
 		VoteStreakRewardRegistrar.register(this);
 		TopVoterRewardRegistrar.register(this);
 		VoteShopRewardRegistrar.register(this);
