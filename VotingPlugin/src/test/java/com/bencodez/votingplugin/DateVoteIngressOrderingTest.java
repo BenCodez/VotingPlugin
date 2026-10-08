@@ -83,7 +83,7 @@ class DateVoteIngressOrderingTest {
         config.set(prefix + "AccountingServer", "backend");
         var opened = new java.util.concurrent.atomic.AtomicBoolean();
         Runnable proxy = () -> {
-            assertEquals(1, listeners.size());
+            assertEquals(2, listeners.size());
             assertInstanceOf(com.bencodez.votingplugin.listeners.PlayerVoteListener.class, listeners.getFirst());
             opened.set(true);
         };
@@ -91,11 +91,30 @@ class DateVoteIngressOrderingTest {
             plugin.initializeDateVoteIngress(proxy);
             assertEquals(1, overflow.constructed().size());
         }
-        assertEquals(2, listeners.size());
+        assertEquals(3, listeners.size());
         assertInstanceOf(com.bencodez.votingplugin.listeners.PlayerVoteListener.class, listeners.get(0));
-        assertInstanceOf(com.bencodez.votingplugin.listeners.VotiferEvent.class, listeners.get(1));
+        assertInstanceOf(com.bencodez.votingplugin.timequeue.TimeQueueHandler.class, listeners.get(1));
+        assertInstanceOf(com.bencodez.votingplugin.listeners.VotiferEvent.class, listeners.get(2));
         verify(plugin.getRewardHandler()).giveReward(eq(user), any(), startsWith("DateVoteMilestonesRuntime."), any());
         assertEquals(proxyEnabled, opened.get());
+        }
+    }
+
+    @Test void persistedReplayProducerIsConstructedOnlyAfterItsAcceptedVoteConsumer() throws Exception {
+        VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS); ready(plugin);
+        doCallRealMethod().when(plugin).initializeDateVoteIngress(any());
+        var manager = plugin.getServer().getPluginManager();
+        var registered = new java.util.ArrayList<org.bukkit.event.Listener>();
+        doAnswer(call -> { registered.add(call.getArgument(0)); return null; }).when(manager).registerEvents(any(), eq(plugin));
+        try (var producers = mockConstruction(com.bencodez.votingplugin.timequeue.TimeQueueHandler.class, (handler, context) -> {
+            // The real constructor schedules replay immediately; this hook runs at that boundary.
+            assertEquals(1, registered.size()); assertInstanceOf(com.bencodez.votingplugin.listeners.PlayerVoteListener.class, registered.getFirst());
+            verify(plugin.getDateVoteMilestones()).reload();
+        })) {
+            plugin.initializeDateVoteIngress(() -> fail("Local startup does not open proxy ingress"));
+            assertEquals(1, producers.constructed().size()); assertSame(producers.constructed().getFirst(), registered.get(1));
+            var field = VotingPluginMain.class.getDeclaredField("timeQueueHandler"); field.setAccessible(true);
+            assertSame(producers.constructed().getFirst(), field.get(plugin));
         }
     }
 

@@ -692,6 +692,11 @@ public class VotingPluginMain extends AdvancedCorePlugin {
         }
         getDateVoteMilestones().reload();
         getServer().getPluginManager().registerEvents(new PlayerVoteListener(this), this);
+        // Construction itself schedules persisted replay. Open it only after its consumer.
+        if (!getBungeeSettings().isUseBungeecoord() || !getBungeeSettings().isGloblalDataEnabled()) {
+            timeQueueHandler = new TimeQueueHandler(this);
+            getServer().getPluginManager().registerEvents(timeQueueHandler, this);
+        }
         if (getBungeeSettings().isUseBungeecoord()) openProxy.run();
         registerLocalVotifierIngress();
     }
@@ -730,9 +735,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		// Proxy ingress opens below, after every accepted-vote handler is initialized.
 
-		if (!bungeeSettings.isUseBungeecoord() || !bungeeSettings.isGloblalDataEnabled()) {
-			this.timeQueueHandler = new TimeQueueHandler(this);
-		}
 
 		if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
 			if (getConfigFile().isLoadInteralExpansion()) {
@@ -2070,9 +2072,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			pm.registerEvents(new PlayerInteract(this), this);
 		}
 
-		if (timeQueueHandler != null) {
-			pm.registerEvents(timeQueueHandler, plugin);
-		}
 
 		pm.registerEvents(new VotingPluginUpdateEvent(this), this);
 		/*
