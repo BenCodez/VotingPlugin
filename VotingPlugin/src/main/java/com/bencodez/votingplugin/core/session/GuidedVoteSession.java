@@ -29,7 +29,7 @@ public final class GuidedVoteSession {
     private boolean finished;
     private int index;
 
-    public GuidedVoteSession(long started) { this(started, System.nanoTime()); }
+    public GuidedVoteSession(long started) { this(started, VoteObservationSequence.next()); }
     public GuidedVoteSession(long started, long observationOrder) { this.started = started; this.observationOrder = observationOrder; }
     public long started() { return started; }
 

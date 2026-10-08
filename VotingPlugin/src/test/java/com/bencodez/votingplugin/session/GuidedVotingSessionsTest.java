@@ -19,6 +19,32 @@ import com.bencodez.votingplugin.util.BukkitCompletionScheduler;
 import com.bencodez.votingplugin.votesites.VoteSite;
 
 class GuidedVotingSessionsTest {
+    private static void expireCurrent(Fixture f) throws Exception {
+        var field = GuidedVotingSessions.class.getDeclaredField("sessions"); field.setAccessible(true);
+        var session = ((java.util.Map<?, ?>) field.get(f.sessions)).get(f.uuid);
+        var started = com.bencodez.votingplugin.core.session.GuidedVoteSession.class.getDeclaredField("started"); started.setAccessible(true);
+        started.setLong(session, System.currentTimeMillis() - 60_001L);
+    }
+    @Test void expiredQueuedReadAllowsRestartWithoutReleasingAnotherRequestsAdmission() throws Exception {
+        try (var f = new Fixture()) {
+            f.config.set("GuidedVotingSession.TimeoutMinutes", 1);
+            f.sessions.command(f.player, ""); f.entity.remove().run(); expireCurrent(f);
+            f.sessions.command(f.player, "restart"); f.entity.remove().run(); assertEquals(2, f.worker.size());
+            f.worker.remove().run(); verify(f.user, never()).getLastVotes();
+            f.sessions.command(f.player, "check"); f.entity.remove().run();
+            verify(f.player).sendMessage(startsWith("Voting status is already")); assertEquals(1, f.worker.size());
+            f.worker.remove().run(); f.entity.remove().run(); verify(f.player).sendMessage("Voting session: 0/1 votes received.");
+        }
+    }
+    @Test void expiredOwnerCallbackCannotRenderOrConfirmItsOldGuide() throws Exception {
+        try (var f = new Fixture()) {
+            f.config.set("GuidedVotingSession.TimeoutMinutes", 1);
+            f.sessions.command(f.player, ""); f.entity.remove().run(); f.worker.remove().run(); expireCurrent(f);
+            f.entity.remove().run(); verify(f.player, never()).sendMessage(startsWith("Voting session:"));
+            f.sessions.command(f.player, "check"); f.entity.remove().run(); f.worker.remove().run(); f.entity.remove().run();
+            verify(f.player, times(1)).sendMessage("Voting session: 0/1 votes received.");
+        }
+    }
     @Test void sameMillisecondFreshLocalVoteRestoresTheInitiallyCoolingSite() throws Exception {
         try (var f = new Fixture()) {
             f.sessions.command(f.player, ""); f.entity.remove().run();
@@ -27,7 +53,7 @@ class GuidedVotingSessionsTest {
             long started = ((com.bencodez.votingplugin.core.session.GuidedVoteSession) active.get(f.uuid)).started();
             when(f.user.canVoteSite(eq(f.site), anyLong())).thenReturn(false); f.lastVotes.put(f.site, started);
             var event = f.event(f.uuid, started, UUID.randomUUID());
-            event.setLiveLocalSessionDelivery(true); event.setBackendObservationOrder(System.nanoTime());
+            event.setLiveLocalSessionDelivery(true); event.setBackendObservationOrder(com.bencodez.votingplugin.core.session.VoteObservationSequence.next());
             f.sessions.credited(event); f.worker.remove().run(); f.entity.remove().run();
             verify(f.player).sendMessage("Voting session: 1/1 votes received.");
             f.sessions.credited(event); f.sessions.command(f.player, "check");
@@ -37,9 +63,9 @@ class GuidedVotingSessionsTest {
     }
     @Test void historicalLocalVoteDoesNotUseItsRecentDeliveryOrderToConfirm() {
         try (var f = new Fixture()) {
-            long before = System.nanoTime();
+            long before = com.bencodez.votingplugin.core.session.VoteObservationSequence.next();
             f.sessions.command(f.player, ""); f.entity.remove().run(); f.worker.remove().run(); f.entity.remove().run();
-            var old = f.event(f.uuid, 1, UUID.randomUUID()); old.setBackendObservationOrder(System.nanoTime());
+            var old = f.event(f.uuid, 1, UUID.randomUUID()); old.setBackendObservationOrder(com.bencodez.votingplugin.core.session.VoteObservationSequence.next());
             f.sessions.credited(old);
             var preSession = f.event(f.uuid, Long.MAX_VALUE, UUID.randomUUID());
             preSession.setLiveLocalSessionDelivery(true); preSession.setBackendObservationOrder(before);
@@ -99,7 +125,7 @@ class GuidedVotingSessionsTest {
             f.worker.remove().run(); f.entity.remove().run();
             var event = f.event(f.uuid, remoteTime, UUID.randomUUID());
             event.setBungee(true); event.setProxyQueueClassificationKnown(true);
-            event.setBackendObservationOrder(System.nanoTime());
+            event.setBackendObservationOrder(com.bencodez.votingplugin.core.session.VoteObservationSequence.next());
             f.sessions.credited(event); f.sessions.credited(event);
             f.sessions.command(f.player, "check"); f.entity.remove().run(); f.worker.remove().run(); f.entity.remove().run();
             verify(f.player).sendMessage("Voting session: 1/1 votes received.");
@@ -108,16 +134,16 @@ class GuidedVotingSessionsTest {
     @Test void queuedUnknownOrPreviouslyObservedProxyDeliveryCannotConfirmFreshSession() {
         try (var f = new Fixture()) {
             when(f.plugin.getBungeeSettings().isUseBungeecoord()).thenReturn(true);
-            long oldOrder = System.nanoTime();
+            long oldOrder = com.bencodez.votingplugin.core.session.VoteObservationSequence.next();
             f.sessions.command(f.player, ""); f.entity.remove().run(); f.worker.remove().run(); f.entity.remove().run();
             var old = f.event(f.uuid, Long.MAX_VALUE, UUID.randomUUID());
             old.setBungee(true); old.setProxyQueueClassificationKnown(true); old.setBackendObservationOrder(oldOrder);
             f.sessions.credited(old);
             var queued = f.event(f.uuid, Long.MAX_VALUE, UUID.randomUUID());
             queued.setBungee(true); queued.setProxyQueueClassificationKnown(true); queued.setQueuedProxyVote(true);
-            queued.setBackendObservationOrder(System.nanoTime()); f.sessions.credited(queued);
+            queued.setBackendObservationOrder(com.bencodez.votingplugin.core.session.VoteObservationSequence.next()); f.sessions.credited(queued);
             var unknown = f.event(f.uuid, Long.MAX_VALUE, UUID.randomUUID()); unknown.setBungee(true);
-            unknown.setBackendObservationOrder(System.nanoTime()); f.sessions.credited(unknown);
+            unknown.setBackendObservationOrder(com.bencodez.votingplugin.core.session.VoteObservationSequence.next()); f.sessions.credited(unknown);
             f.sessions.command(f.player, "check"); f.entity.remove().run(); f.worker.remove().run(); f.entity.remove().run();
             verify(f.player, times(2)).sendMessage("Voting session: 0/1 votes received.");
         }
@@ -128,7 +154,7 @@ class GuidedVotingSessionsTest {
             f.sessions.command(f.player, ""); f.entity.remove().run();
             when(f.user.canVoteSite(eq(f.site), anyLong())).thenReturn(false); f.lastVotes.put(f.site, 1L);
             var event = f.event(f.uuid, 1, UUID.randomUUID()); event.setBungee(true);
-            event.setProxyQueueClassificationKnown(true); event.setBackendObservationOrder(System.nanoTime());
+            event.setProxyQueueClassificationKnown(true); event.setBackendObservationOrder(com.bencodez.votingplugin.core.session.VoteObservationSequence.next());
             f.sessions.credited(event); f.worker.remove().run(); f.entity.remove().run();
             verify(f.player).sendMessage("Voting session: 1/1 votes received.");
         }

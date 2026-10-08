@@ -6,6 +6,29 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class GuidedVoteSessionTest {
+    @Test void guideCreationAndIngressShareAStrictSequenceWithoutDependingOnClockResolution() {
+        var old = new com.bencodez.votingplugin.events.PlayerVoteEvent(null, "Alex", "a", true);
+        var session = new GuidedVoteSession(100); session.refresh(List.of(site("a", true)));
+        session.acceptedObserved("a", UUID.randomUUID(), old.getBackendObservationOrder()); assertEquals(0, session.view("check").received());
+        var fresh = new com.bencodez.votingplugin.events.PlayerVoteEvent(null, "Alex", "a", true);
+        assertTrue(fresh.getBackendObservationOrder() > old.getBackendObservationOrder());
+        session.acceptedObserved("a", UUID.randomUUID(), fresh.getBackendObservationOrder()); assertEquals(1, session.view("check").received());
+    }
+    @Test void concurrentIngressOrdersAreUniqueAndStrictWithinEachProducer() throws Exception {
+        var orders = java.util.concurrent.ConcurrentHashMap.<Long>newKeySet();
+        try (var pool = java.util.concurrent.Executors.newFixedThreadPool(8)) {
+            var futures = new java.util.ArrayList<java.util.concurrent.Future<?>>();
+            for (int thread = 0; thread < 8; thread++) futures.add(pool.submit(() -> {
+                long previous = 0;
+                for (int i = 0; i < 128; i++) {
+                    long order = new com.bencodez.votingplugin.events.PlayerVoteEvent(null, "Alex", "a", true).getBackendObservationOrder();
+                    assertTrue(order > previous); assertTrue(orders.add(order)); previous = order;
+                }
+            }));
+            for (var future : futures) future.get();
+        }
+        assertEquals(1024, orders.size());
+    }
     private GuidedVoteSession.Site site(String key, boolean eligible) {
         return new GuidedVoteSession.Site(key, key, "https://example.org/" + key, eligible, 0);
     }

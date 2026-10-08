@@ -44,6 +44,7 @@ public final class GuidedVotingSessions implements Listener {
                 || event.getBackendObservationOrder() == 0)) return;
         boolean observed = proxy || event.isLiveLocalSessionDelivery() && event.getBackendObservationOrder() != 0;
         long time = observed ? event.getBackendObservationOrder() : event.getVoteTime();
+        expire(System.currentTimeMillis());
         String key = event.getVoteSite().getKey();
         for (var entry : sessions.entrySet()) {
             UUID owner = entry.getKey(); GuidedVoteSession session = entry.getValue();
@@ -89,16 +90,11 @@ public final class GuidedVotingSessions implements Listener {
         GuidedVoteSession session;
         long request;
         synchronized (this) {
+            long now = System.currentTimeMillis();
+            expire(now);
             if (pending.containsKey(uuid) || outstanding.size() >= 64) {
                 player.sendMessage("Voting status is already being checked or busy. Please try again shortly."); return;
             }
-            long now = System.currentTimeMillis();
-            int minutes = Math.max(1, Math.min(120, plugin.getConfigFile().getData().getInt("GuidedVotingSession.TimeoutMinutes", 30)));
-            sessions.entrySet().removeIf(e -> now - e.getValue().started() >= minutes * 60_000L);
-            requests.keySet().retainAll(sessions.keySet());
-            storageIds.keySet().retainAll(sessions.keySet());
-            playerNames.keySet().retainAll(sessions.keySet());
-            early.keySet().retainAll(sessions.keySet());
             if (!sessions.containsKey(uuid) && sessions.size() >= 2048) {
                 player.sendMessage("Voting sessions are busy. Please try again later."); return;
             }
@@ -172,7 +168,18 @@ public final class GuidedVotingSessions implements Listener {
             player.sendMessage("Voting status is temporarily unavailable. Please try again.");
         }
     }
+    /** Expiration releases owner admission, while outstanding work retains its global slot until it finishes. */
+    private synchronized void expire(long now) {
+        int minutes = Math.max(1, Math.min(120, plugin.getConfigFile().getData().getInt("GuidedVotingSession.TimeoutMinutes", 30)));
+        sessions.entrySet().removeIf(e -> now - e.getValue().started() >= minutes * 60_000L);
+        requests.keySet().retainAll(sessions.keySet());
+        pending.keySet().retainAll(sessions.keySet());
+        storageIds.keySet().retainAll(sessions.keySet());
+        playerNames.keySet().retainAll(sessions.keySet());
+        early.keySet().retainAll(sessions.keySet());
+    }
     private synchronized boolean current(UUID uuid, GuidedVoteSession session, long request) {
+        expire(System.currentTimeMillis());
         return sessions.get(uuid) == session && Long.valueOf(request).equals(requests.get(uuid));
     }
     /** Recheck visibility on the player context, after any asynchronous wait. */
