@@ -29,7 +29,56 @@ class DateVoteMilestonesTest {
         when(plugin.getSpecialRewardsConfig().getData()).thenReturn(config);
         when(plugin.getBungeeSettings().getServer()).thenReturn("owner");
         when(user.getJavaUUID()).thenReturn(player);
+        when(plugin.getOptions().isProcessRewards()).thenReturn(true);
         var m = new DateVoteMilestones(plugin); m.reload(); return m;
+    }
+    @Test void disabledRewardProcessingCountsWithoutSubmittingOrLosingThePendingThreshold() throws Exception {
+        event("october", ""); var m = manager();
+        when(plugin.getOptions().isProcessRewards()).thenReturn(false);
+        UUID occurrence = UUID.randomUUID();
+        m.accepted(user, "a", occurrence, time, true, false, false, false, false);
+        m.accepted(user, "a", occurrence, time, true, false, false, false, false);
+        verify(plugin.getRewardHandler(), never()).giveReward(any(), any(), anyString(), any());
+        var definition = DateVoteMilestones.parse("october", config.getConfigurationSection("DateVoteMilestones.october"));
+        var progress = new DateVoteLedger(root.resolve("date-vote-milestones")).progress(definition, player);
+        assertEquals(1, progress.votes()); assertEquals(java.util.Set.of(1), progress.deferredAwards());
+        assertTrue(progress.reservedAwards().isEmpty()); assertTrue(progress.submittedAwards().isEmpty());
+    }
+    @Test void confirmedDeferredAwardsResumeOnceAfterRestartAndRewardProcessingIsEnabled() throws Exception {
+        event("october", ""); var m = manager();
+        when(plugin.getOptions().isProcessRewards()).thenReturn(false);
+        UUID occurrence = UUID.randomUUID();
+        m.accepted(user, "a", occurrence, time, true, false, false, false, false);
+        m = manager(); // Fresh manager and on-disk ledger; manager enables processing.
+        m.accepted(user, "a", occurrence, time, true, false, false, false, false);
+        m.accepted(user, "a", UUID.randomUUID(), time + 1, true, false, false, false, false);
+        verify(plugin.getRewardHandler(), times(1)).giveReward(eq(user), any(), eq(rewardPath("october")), any());
+        var definition = DateVoteMilestones.parse("october", config.getConfigurationSection("DateVoteMilestones.october"));
+        var progress = new DateVoteLedger(root.resolve("date-vote-milestones")).progress(definition, player);
+        assertEquals(2, progress.votes()); assertEquals(java.util.Set.of(1), progress.submittedAwards());
+        assertTrue(progress.deferredAwards().isEmpty());
+    }
+    @Test void invalidTimezoneStopsAccountingButPreservesQueuedRewardResolutionOnReload() {
+        event("october", ""); var m = manager(); String alias = rewardPath("october");
+        config.set("DateVoteMilestones.october.Timezone", "No/SuchZone"); clearInvocations(plugin);
+        m.reload();
+        var handle = org.mockito.ArgumentCaptor.forClass(com.bencodez.advancedcore.api.rewards.DirectlyDefinedReward.class);
+        verify(plugin).addDirectlyDefinedRewards(handle.capture());
+        assertEquals(alias, handle.getValue().getPath());
+        assertEquals("Thanks", handle.getValue().getFileData().getString(alias + ".Messages.Player"));
+        m.accepted(user, "a", UUID.randomUUID(), time, true, false, false, false, false);
+        verify(plugin.getRewardHandler(), never()).giveReward(any(), any(), anyString(), any());
+        assertFalse(Files.exists(root.resolve("date-vote-milestones")));
+    }
+    @Test void accountingInvalidAtStartupStillRegistersExistingCanonicalRewardSections() {
+        event("october", ""); String alias = rewardPath("october");
+        config.set("DateVoteMilestones.october.End", "not-a-date"); var m = manager();
+        var handle = org.mockito.ArgumentCaptor.forClass(com.bencodez.advancedcore.api.rewards.DirectlyDefinedReward.class);
+        verify(plugin).addDirectlyDefinedRewards(handle.capture());
+        assertEquals(alias, handle.getValue().getPath());
+        assertEquals("Thanks", handle.getValue().getFileData().getString(alias + ".Messages.Player"));
+        m.accepted(user, "a", UUID.randomUUID(), time, true, false, false, false, false);
+        assertFalse(Files.exists(root.resolve("date-vote-milestones")));
     }
     @Test void configuredRewardsUseExistingHandlerOnceAcrossReplayRestartAndRename() {
         event("october", ""); var m = manager(); UUID occurrence = UUID.randomUUID();

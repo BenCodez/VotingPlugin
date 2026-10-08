@@ -39,41 +39,57 @@ public final class DateVoteMilestones {
                 definitions = List.of(); plugin.getLogger().warning("DateVoteMilestones configuration snapshot invalid"); return;
             }
         }
+        int considered = 0;
         if (root != null) for (String id : root.getKeys(false)) {
-            if (loaded.size() >= 64) { plugin.getLogger().warning("DateVoteMilestones supports at most 64 configured events"); break; }
+            if (++considered > 64) { plugin.getLogger().warning("DateVoteMilestones supports at most 64 configured events"); break; }
             try {
                 ConfigurationSection section = root.getConfigurationSection(id);
                 if (section == null) throw new IllegalArgumentException("Expected an event section");
+                registerRewardHandles(id, section, rewards);
                 DateVoteEvent event = parse(id, section);
                 if (plugin.getBungeeSettings().isUseBungeecoord() && event.accountingServer().isBlank())
                     throw new IllegalArgumentException("Proxy events require one explicit AccountingServer and all-server identified delivery");
                 loaded.add(new Definition(event, rewards));
-                // Disabled events retain reward handles for previously queued awards.
-                for (int threshold : event.thresholds()) {
-                    String source = configPath(event, threshold), alias = path(event, threshold);
-                    rewards.createSection(alias, rewards.getConfigurationSection(source).getValues(true));
-                    plugin.addDirectlyDefinedRewards(new DirectlyDefinedReward(alias) {
-                        private String sourcePath(String requested) {
-                            if (!requested.equals(alias) && !requested.startsWith(alias + "."))
-                                throw new IllegalArgumentException("Unexpected date milestone reward path");
-                            return source + requested.substring(alias.length());
-                        }
-                        @Override public ConfigurationSection getFileData() {
-                            YamlConfiguration data = new YamlConfiguration();
-                            var section = plugin.getSpecialRewardsConfig().getData().getConfigurationSection(source);
-                            if (section != null) data.createSection(alias, section.getValues(true));
-                            return data;
-                        }
-                        @Override public void createSection(String key) { plugin.getSpecialRewardsConfig().createSection(sourcePath(key)); }
-                        @Override public void setData(String key, Object value) { plugin.getSpecialRewardsConfig().setValue(sourcePath(key), value); }
-                        @Override public void save() { plugin.getSpecialRewardsConfig().saveData(); }
-                    });
-                }
             } catch (Exception invalid) {
                 plugin.getLogger().warning("DateVoteMilestones " + id + " disabled: " + invalid.getMessage());
             }
         }
         definitions = List.copyOf(loaded);
+    }
+    /** Queued rewards must resolve even when an accounting-only setting is invalid. */
+    private void registerRewardHandles(String id, ConfigurationSection section, YamlConfiguration rewards) {
+        String fileId = DateVoteEvent.fileId(id);
+        var milestones = section.getConfigurationSection("Milestones");
+        if (milestones == null) return;
+        int count = 0;
+        for (String key : milestones.getKeys(false)) {
+            if (++count > 64) break;
+            int threshold;
+            try { threshold = Integer.parseInt(key); }
+            catch (NumberFormatException invalid) { continue; }
+            if (threshold <= 0 || threshold > 4096 || !key.equals(Integer.toString(threshold))) continue;
+            String source = "DateVoteMilestones." + id + ".Milestones." + threshold + ".Rewards";
+            var configured = rewards.getConfigurationSection(source);
+            if (configured == null) continue;
+            String alias = "DateVoteMilestonesRuntime." + fileId + ".Milestones." + threshold + ".Rewards";
+            rewards.createSection(alias, configured.getValues(true));
+            plugin.addDirectlyDefinedRewards(new DirectlyDefinedReward(alias) {
+                private String sourcePath(String requested) {
+                    if (!requested.equals(alias) && !requested.startsWith(alias + "."))
+                        throw new IllegalArgumentException("Unexpected date milestone reward path");
+                    return source + requested.substring(alias.length());
+                }
+                @Override public ConfigurationSection getFileData() {
+                    YamlConfiguration data = new YamlConfiguration();
+                    var current = plugin.getSpecialRewardsConfig().getData().getConfigurationSection(source);
+                    if (current != null) data.createSection(alias, current.getValues(true));
+                    return data;
+                }
+                @Override public void createSection(String path) { plugin.getSpecialRewardsConfig().createSection(sourcePath(path)); }
+                @Override public void setData(String path, Object value) { plugin.getSpecialRewardsConfig().setValue(sourcePath(path), value); }
+                @Override public void save() { plugin.getSpecialRewardsConfig().saveData(); }
+            });
+        }
     }
     public static DateVoteEvent parse(String id, ConfigurationSection section) {
         String zone = section.getString("Timezone");
@@ -107,7 +123,8 @@ public final class DateVoteMilestones {
             DateVoteEvent event = definition.event();
             if (!event.matches(occurredAt, site, real, proxy, plugin.getBungeeSettings().getServer())) continue;
             try {
-                for (int threshold : ledger().record(event, user.getJavaUUID(), occurrence)) {
+                for (int threshold : ledger().record(event, user.getJavaUUID(), occurrence, plugin.getOptions().isProcessRewards())) {
+                    if (!plugin.getOptions().isProcessRewards()) continue;
                     var placeholders = new HashMap<String, String>();
                     placeholders.put("DateVoteEvent", event.displayName());
                     placeholders.put("DateVoteThreshold", Integer.toString(threshold));
@@ -153,7 +170,7 @@ public final class DateVoteMilestones {
                             long now = System.currentTimeMillis();
                             String state = now < event.start() ? "upcoming" : now >= event.end() ? "ended" : "active";
                             messages.add(event.displayName() + " (" + state + "): " + progress.votes() + " votes; milestones " + event.thresholds()
-                                    + "; submitted " + progress.submittedAwards() + "; pending review " + progress.reservedAwards());
+                                    + "; submitted " + progress.submittedAwards() + "; deferred " + progress.deferredAwards() + "; pending review " + progress.reservedAwards());
                         } catch (IOException failure) { messages.add(event.displayName() + ": progress unavailable; ask an administrator."); }
                     }
                     BukkitCompletionScheduler.run(plugin, player, () -> {

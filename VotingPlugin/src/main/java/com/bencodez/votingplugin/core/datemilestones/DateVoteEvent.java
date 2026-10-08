@@ -45,7 +45,11 @@ public record DateVoteEvent(String id, String displayName, boolean enabled, long
         } catch (java.io.IOException impossible) { throw new IllegalStateException(impossible); }
     }
     /** Portable case-sensitive identity, including on case-insensitive filesystems. */
-    public String fileId() { return hash(id.getBytes(StandardCharsets.UTF_8)); }
+    public String fileId() { return fileId(id); }
+    public static String fileId(String id) {
+        if (id == null || !id.matches("[A-Za-z0-9_-]{1,64}")) throw new IllegalArgumentException("Invalid event ID");
+        return hash(id.getBytes(StandardCharsets.UTF_8));
+    }
     private static String hash(byte[] bytes) {
         try { return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)); }
         catch (java.security.NoSuchAlgorithmException impossible) { throw new IllegalStateException(impossible); }

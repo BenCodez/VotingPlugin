@@ -17,12 +17,15 @@ import java.util.UUID;
 
 /** Single local accounting owner. All entry points must run on a persistence worker. */
 public final class DateVoteLedger {
-    public record Progress(int votes, Set<Integer> reservedAwards, Set<Integer> submittedAwards) { }
+    public record Progress(int votes, Set<Integer> reservedAwards, Set<Integer> submittedAwards, Set<Integer> deferredAwards) { }
     private final Path directory;
     private int recordCount = -1;
     public DateVoteLedger(Path directory) { this.directory = directory.toAbsolutePath().normalize(); }
 
     public synchronized List<Integer> record(DateVoteEvent event, UUID player, UUID occurrence) throws IOException {
+        return record(event, player, occurrence, true);
+    }
+    public synchronized List<Integer> record(DateVoteEvent event, UUID player, UUID occurrence, boolean processRewards) throws IOException {
         seal(event);
         Path file = playerFile(event, player);
         Properties state = read(file);
@@ -30,20 +33,23 @@ public final class DateVoteLedger {
         if (fingerprint != null && !fingerprint.equals(event.fingerprint())) throw new IOException("Event accounting changed; use a new event ID");
         validateFingerprint(event, state);
         Set<UUID> seen = occurrences(state);
-        if (seen.contains(occurrence)) return List.of();
-        if (seen.size() >= 4096) throw new IOException("Event occurrence capacity reached (4096); progress retained");
+        boolean changed = !seen.contains(occurrence);
+        if (changed && seen.size() >= 4096) throw new IOException("Event occurrence capacity reached (4096); progress retained");
         seen.add(occurrence);
         state.setProperty("fingerprint", event.fingerprint());
         state.setProperty("seen", String.join(",", seen.stream().map(UUID::toString).sorted().toList()));
         List<Integer> awards = new ArrayList<>();
         for (int threshold : event.thresholds()) {
             String key = "award." + threshold;
-            if (seen.size() >= threshold && !state.containsKey(key)) {
-                state.setProperty(key, "RESERVED"); awards.add(threshold);
+            if (seen.size() >= threshold && (!state.containsKey(key)
+                    || processRewards && "DEFERRED".equals(state.getProperty(key)))) {
+                state.setProperty(key, processRewards ? "RESERVED" : "DEFERRED");
+                if (processRewards) awards.add(threshold);
+                changed = true;
             }
         }
         // Reserve the whole count/award decision before invoking arbitrary external rewards.
-        write(file, state);
+        if (changed) write(file, state);
         return List.copyOf(awards);
     }
     public synchronized void submitted(DateVoteEvent event, UUID player, int threshold) throws IOException {
@@ -60,7 +66,7 @@ public final class DateVoteLedger {
         if (sealed != null && !sealed.equals(event.fingerprint())) throw new IOException("Event accounting changed; use a new ID");
         Properties state = read(playerFile(event, player));
         validateFingerprint(event, state);
-        Set<Integer> reserved = new HashSet<>(), submitted = new HashSet<>();
+        Set<Integer> reserved = new HashSet<>(), submitted = new HashSet<>(), deferred = new HashSet<>();
         for (String key : state.stringPropertyNames()) {
             if (key.startsWith("award.")) {
                 int threshold;
@@ -68,10 +74,11 @@ public final class DateVoteLedger {
                 catch (NumberFormatException invalid) { throw new IOException("Invalid award state", invalid); }
                 if ("RESERVED".equals(state.getProperty(key))) reserved.add(threshold);
                 else if ("SUBMITTED".equals(state.getProperty(key))) submitted.add(threshold);
+                else if ("DEFERRED".equals(state.getProperty(key))) deferred.add(threshold);
                 else throw new IOException("Unknown award state");
             }
         }
-        return new Progress(occurrences(state).size(), Set.copyOf(reserved), Set.copyOf(submitted));
+        return new Progress(occurrences(state).size(), Set.copyOf(reserved), Set.copyOf(submitted), Set.copyOf(deferred));
     }
     private void validateFingerprint(DateVoteEvent event, Properties state) throws IOException {
         if (state.isEmpty()) return;
@@ -145,7 +152,7 @@ public final class DateVoteLedger {
                 if (!key.matches("award\\.[1-9][0-9]{0,3}")) throw new IOException("Unknown milestone state field");
                 int threshold = Integer.parseInt(key.substring(6));
                 if (threshold > 4096 || threshold > seen.size()
-                        || !(state.getProperty(key).equals("RESERVED") || state.getProperty(key).equals("SUBMITTED")))
+                        || !(state.getProperty(key).equals("RESERVED") || state.getProperty(key).equals("SUBMITTED") || state.getProperty(key).equals("DEFERRED")))
                     throw new IOException("Invalid award state");
             }
         }

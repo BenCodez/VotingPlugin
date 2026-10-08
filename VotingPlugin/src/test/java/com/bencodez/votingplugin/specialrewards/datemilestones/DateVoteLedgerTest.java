@@ -16,6 +16,23 @@ class DateVoteLedgerTest {
     private DateVoteEvent event(String id, String name, long end) {
         return new DateVoteEvent(id, name, true, 100, end, "UTC", List.of(1, 2), Set.of(), "");
     }
+    @Test void deferredThresholdPromotesOnceAcrossConcurrentReplayAndNeverDemotesAnUncertainReservation() throws Exception {
+        var ledger = new DateVoteLedger(root); var e = event("a", "A", 200); UUID occurrence = UUID.randomUUID();
+        assertEquals(List.of(), ledger.record(e, player, occurrence, false));
+        ledger = new DateVoteLedger(root); assertEquals(Set.of(1), ledger.progress(e, player).deferredAwards());
+        final DateVoteLedger resumed = ledger;
+        try (var pool = Executors.newFixedThreadPool(4)) {
+            var jobs = java.util.stream.IntStream.range(0, 20).mapToObj(i -> (java.util.concurrent.Callable<List<Integer>>)
+                    () -> resumed.record(e, player, occurrence, true)).toList();
+            int admitted = 0;
+            for (var result : pool.invokeAll(jobs)) admitted += result.get().size();
+            assertEquals(1, admitted);
+        }
+        assertEquals(List.of(), ledger.record(e, player, occurrence, false));
+        assertEquals(Set.of(1), ledger.progress(e, player).reservedAwards());
+        assertTrue(ledger.progress(e, player).deferredAwards().isEmpty()); assertEquals(1, ledger.progress(e, player).votes());
+        assertEquals(List.of(), new DateVoteLedger(root).record(e, player, occurrence, true));
+    }
     @Test void duplicateAndRestartNeverResubmitReservedOrSubmittedAwards() throws Exception {
         var e = event("a", "A", 200); var ledger = new DateVoteLedger(root); UUID id = UUID.randomUUID();
         assertEquals(List.of(1), ledger.record(e, player, id));
