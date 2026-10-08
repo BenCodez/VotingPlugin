@@ -28,11 +28,12 @@ public final class GuidedVotingSessions implements Listener {
     private final Map<UUID, String> playerNames = new LinkedHashMap<>();
     private final Map<UUID, Map<String, List<EarlyReceipt>>> early = new LinkedHashMap<>();
     private long lifecycle;
+    private final java.util.Set<Long> outstanding = new java.util.HashSet<>();
     private final Map<UUID, Long> pending = new LinkedHashMap<>();
     private long generation;
 
     public GuidedVotingSessions(VotingPluginMain plugin) { this.plugin = plugin; }
-    public synchronized void clear() { sessions.clear(); requests.clear(); storageIds.clear(); playerNames.clear(); early.clear(); generation++; lifecycle++; }
+    public synchronized void clear() { sessions.clear(); requests.clear(); storageIds.clear(); playerNames.clear(); early.clear(); pending.clear(); generation++; lifecycle++; }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public synchronized void credited(PlayerPostVoteEvent event) {
@@ -82,7 +83,7 @@ public final class GuidedVotingSessions implements Listener {
         GuidedVoteSession session;
         long request;
         synchronized (this) {
-            if (pending.containsKey(uuid) || pending.size() >= 64) {
+            if (pending.containsKey(uuid) || outstanding.size() >= 64) {
                 player.sendMessage("Voting status is already being checked or busy. Please try again shortly."); return;
             }
             long now = System.currentTimeMillis();
@@ -103,6 +104,7 @@ public final class GuidedVotingSessions implements Listener {
             request = ++generation;
             requests.put(uuid, request);
             pending.put(uuid, request);
+            outstanding.add(request);
         }
         try {
             plugin.getTimer().execute(() -> {
@@ -146,11 +148,11 @@ public final class GuidedVotingSessions implements Listener {
                                 && (player.hasPermission("VotingPlugin.Commands.Vote.Session") || player.hasPermission("VotingPlugin.Player"))) player.sendMessage("Could not check voting status. Please try /vote session check.");
                     }, () -> { }, () -> { });
                 } finally {
-                    synchronized (this) { pending.remove(uuid, request); }
+                    synchronized (this) { pending.remove(uuid, request); outstanding.remove(request); }
                 }
             });
         } catch (RejectedExecutionException unavailable) {
-            synchronized (this) { pending.remove(uuid, request); }
+            synchronized (this) { pending.remove(uuid, request); outstanding.remove(request); }
             player.sendMessage("Voting status is temporarily unavailable. Please try again.");
         }
     }

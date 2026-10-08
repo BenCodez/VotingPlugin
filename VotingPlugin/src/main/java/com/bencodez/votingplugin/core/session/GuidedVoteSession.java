@@ -41,8 +41,10 @@ public final class GuidedVoteSession {
         bindCandidates(available);
         if (!initialized) {
             for (Site site : available) if (candidates.containsKey(site.key()) && (site.eligible() || site.lastVote() > started || received.containsKey(site.key())) && sites.size() < 100) sites.put(site.key(), site);
-            received.keySet().retainAll(sites.keySet());
-            occurrences.values().removeIf(key -> !sites.containsKey(key));
+            // A temporarily hidden/removed site can be absent from the worker sample.
+            // Keep its confirmed identity so visibility restoration can recover progress.
+            for (Site candidate : candidates.values()) if (received.containsKey(candidate.key()))
+                sites.putIfAbsent(candidate.key(), candidate);
             initialized = true;
         }
         Map<String, Site> current = new LinkedHashMap<>();

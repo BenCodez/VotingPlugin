@@ -59,6 +59,18 @@ class GuidedVoteSessionTest {
         s.refresh(List.of(new GuidedVoteSession.Site("a", "a", "https://example.org/a", false, 99)));
         assertEquals(1, s.view("check").received());
     }
+    @Test void absentFirstSampleCannotDeleteConfirmedProgressOrOccurrenceIdentity() {
+        var s = new GuidedVoteSession(100); UUID occurrence = UUID.randomUUID();
+        s.bindCandidates(List.of(site("a", true), site("b", true)));
+        s.accepted("a", occurrence, 101, true, false);
+        s.refresh(List.of(site("b", true)));
+        assertEquals(1, s.view("check").received());
+        s.accepted("b", occurrence, 102, true, false);
+        s.refresh(List.of(site("a", false), site("b", true)));
+        assertEquals(1, s.view("check").received());
+        assertEquals(GuidedVoteSession.Status.RECEIVED, s.view("check").entries().stream()
+                .filter(e -> e.site().key().equals("a")).findFirst().orElseThrow().status());
+    }
     @Test void receiptAfterFirstIneligibleSampleRestoresBoundCandidate() {
         var s = new GuidedVoteSession(100);
         s.bindCandidates(List.of(site("a", false)));

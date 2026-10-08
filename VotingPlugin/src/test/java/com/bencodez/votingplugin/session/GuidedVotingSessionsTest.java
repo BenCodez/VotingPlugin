@@ -160,6 +160,45 @@ class GuidedVotingSessionsTest {
             verify(f.player).sendMessage("Guided voting sessions are disabled by this server.");
         }
     }
+    @Test void reloadAdmitsFreshRequestWhileOldWorkerCannotReleaseItsLock() {
+        try (var f = new Fixture()) {
+            f.sessions.command(f.player, ""); f.entity.remove().run();
+            f.sessions.clear();
+            f.sessions.command(f.player, ""); f.entity.remove().run();
+            assertEquals(2, f.worker.size());
+            f.worker.remove().run();
+            verify(f.plugin.getVotingPluginUserManager(), never()).getVotingPluginUser(any(UUID.class), anyString());
+            f.sessions.command(f.player, "check"); f.entity.remove().run();
+            assertEquals(1, f.worker.size());
+            f.worker.remove().run(); f.entity.remove().run();
+            verify(f.player).sendMessage("Voting session: 0/1 votes received.");
+        }
+    }
+    @Test void repeatedReloadDoesNotRemoveTheGlobalOutstandingWorkBound() {
+        try (var f = new Fixture()) {
+            for (int i = 0; i < 100; i++) {
+                f.sessions.clear(); f.sessions.command(f.player, ""); f.entity.remove().run();
+            }
+            assertEquals(64, f.worker.size());
+            while (!f.worker.isEmpty()) f.worker.remove().run();
+            verify(f.plugin.getVotingPluginUserManager(), never()).getVotingPluginUser(any(UUID.class), anyString());
+            f.sessions.command(f.player, ""); f.entity.remove().run(); f.worker.remove().run(); f.entity.remove().run();
+            verify(f.player).sendMessage("Voting session: 0/1 votes received.");
+        }
+    }
+    @Test void earlyConfirmedReceiptSurvivesSiteDisappearingBeforeFirstSample() {
+        try (var f = new Fixture()) {
+            f.sessions.command(f.player, ""); f.entity.remove().run();
+            f.sessions.credited(f.event(f.uuid, System.currentTimeMillis() + 1000, UUID.randomUUID()));
+            when(f.plugin.getVoteSiteManager().getVoteSites()).thenReturn(List.of());
+            f.worker.remove().run(); f.entity.remove().run();
+            verify(f.player).sendMessage("> Unavailable site — UNAVAILABLE");
+            when(f.plugin.getVoteSiteManager().getVoteSites()).thenReturn(List.of(f.site));
+            when(f.user.canVoteSite(f.site)).thenReturn(false);
+            f.sessions.command(f.player, "check"); f.entity.remove().run(); f.worker.remove().run(); f.entity.remove().run();
+            verify(f.player).sendMessage("Voting session: 1/1 votes received.");
+        }
+    }
     private static class Fixture implements AutoCloseable {
         final VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
         final Player player = mock(Player.class);
