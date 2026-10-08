@@ -176,7 +176,7 @@ public class PlayerVoteListener implements Listener {
         @Override public void dateMilestones(VotingPluginUser user, VoteSite site, long voteTime, UUID voteId) {
             if (!event.isAsynchronous()) return; // No persistence from a gameplay event context.
             if (!plugin.getDateVoteMilestones().accepted(user, site.getKey(), voteId, voteTime, realVote(), proxyVote(),
-                    proxyVoteId() != null && incomingTime() > 0, targetedProxyVote(), forceProxyRouting())) event.setDateMilestoneAccountingFailed(true);
+                    event.getProxyVoteId() != null && incomingTime() > 0, targetedProxyVote(), forceProxyRouting())) event.setDateMilestoneAccountingFailed(true);
         }
         @Override public void cooldown(VotingPluginUser user, VoteSite site) { plugin.getCoolDownCheck().vote(user, site); }
         @Override public void voteStreak(VotingPluginUser user, long voteTime, UUID voteId) {
