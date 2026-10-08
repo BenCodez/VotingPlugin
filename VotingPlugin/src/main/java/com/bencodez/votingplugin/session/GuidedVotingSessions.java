@@ -40,7 +40,7 @@ public final class GuidedVotingSessions implements Listener {
         if (event.getVoteSite() == null || !event.isRealVote() || event.isCancelled()
                 || event.getVoteUUID() == null || event.getUuid() == null) return;
         boolean proxy = event.isProxySessionDelivery() || event.isBungee();
-        if (proxy && (!event.isProxyQueueClassificationKnown() || event.isQueuedProxyVote()
+        if (proxy && (event.isUnconfirmedProxySessionDelivery() || !event.isProxyQueueClassificationKnown() || event.isQueuedProxyVote()
                 || event.getBackendObservationOrder() == 0)) return;
         boolean observed = proxy || event.isLiveLocalSessionDelivery() && event.getBackendObservationOrder() != 0;
         long time = observed ? event.getBackendObservationOrder() : event.getVoteTime();

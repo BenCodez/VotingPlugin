@@ -481,10 +481,14 @@ public class BackendProxyMessageRouter {
 		user.cache();
 		boolean wasOnline = vote.wasOnlineKnown ? vote.wasOnline : user.isOnline();
 		boolean queuedDelivery = vote.queuedDeliveryKnown ? vote.queuedDelivery : vote.delayValidated;
+		// Origin presence (including unknown/empty origin on cache replay) is guide-only
+		// provenance. It must not reclassify reward delivery or delay authorization.
 		user.bungeeVotePluginMessaging(vote.service, vote.time, totals, !vote.manageTotals,
 				wasOnline, vote.broadcast, vote.num, queuedDelivery, vote.delayValidationKnown,
 				vote.queuedDeliveryKnown, voteId,
-				VotingPluginWire.SUB_VOTE_ONLINE.equals(msg.getSubChannel()));
+				VotingPluginWire.SUB_VOTE_ONLINE.equals(msg.getSubChannel()),
+				msg.getFields().containsKey(VotingPluginWire.K_MULTI_PROXY_ORIGIN)
+						|| !"true".equals(msg.getFields().get(VotingPluginWire.K_SESSION_DELIVERY_FRESH)));
 		if (plugin.getBungeeSettings().isPerServerPoints()) {
 			user.addPoints(plugin.getConfigFile().getPointsOnVote());
 		}

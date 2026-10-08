@@ -19,6 +19,8 @@ public class PlayerPostVoteEvent extends Event {
 	@Getter @Setter private boolean proxyQueueClassificationKnown;
 	@Getter @Setter private boolean queuedProxyVote;
 	@Getter @Setter private boolean proxySessionDelivery;
+	/** Guide-only provenance; independent of normal reward queue/delay policy. */
+	@Getter @Setter private boolean unconfirmedProxySessionDelivery;
 	/** Fresh local ingress with no supplied historical occurrence timestamp. */
 	@Getter @Setter private boolean liveLocalSessionDelivery;
 

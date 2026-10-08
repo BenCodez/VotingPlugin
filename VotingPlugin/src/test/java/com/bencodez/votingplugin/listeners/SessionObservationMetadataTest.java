@@ -8,11 +8,12 @@ class SessionObservationMetadataTest {
     @Test void acceptedAdapterForwardsLocalOrderAndProxyClassificationWithoutChangingOccurrenceTime() {
         var input = new PlayerVoteEvent(null, "Alex", "a", true);
         input.setBungee(true); input.setProxyQueueClassificationKnown(true); input.setQueuedProxyVote(true);
+        input.setUnconfirmedProxySessionDelivery(true);
         var post = new PlayerPostVoteEvent(null, null, true, false, 1, false, "a", UUID.randomUUID(), "Alex", UUID.randomUUID());
         PlayerVoteListener.copySessionObservation(post, input);
         assertEquals(input.getBackendObservationOrder(), post.getBackendObservationOrder());
         assertFalse(post.isLiveLocalSessionDelivery()); assertTrue(post.isProxySessionDelivery()); assertFalse(post.isBungee()); assertTrue(post.isProxyQueueClassificationKnown()); assertTrue(post.isQueuedProxyVote());
-        assertEquals(1, post.getVoteTime());
+        assertEquals(1, post.getVoteTime()); assertTrue(post.isUnconfirmedProxySessionDelivery());
     }
     @Test void freshLocalIngressIsClassifiedWithoutReclassifyingHistoricalLocalDelivery() {
         var input = new PlayerVoteEvent(null, "Alex", "a", true);

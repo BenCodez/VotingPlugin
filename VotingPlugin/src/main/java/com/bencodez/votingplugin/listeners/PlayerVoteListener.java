@@ -192,6 +192,7 @@ public class PlayerVoteListener implements Listener {
 
     static void copySessionObservation(PlayerPostVoteEvent post, PlayerVoteEvent input) {
         post.setProxySessionDelivery(input.isBungee());
+        post.setUnconfirmedProxySessionDelivery(input.isUnconfirmedProxySessionDelivery());
         post.setLiveLocalSessionDelivery(!input.isBungee() && input.getTime() == 0);
         post.setBackendObservationOrder(input.getBackendObservationOrder());
         post.setProxyQueueClassificationKnown(input.isProxyQueueClassificationKnown());

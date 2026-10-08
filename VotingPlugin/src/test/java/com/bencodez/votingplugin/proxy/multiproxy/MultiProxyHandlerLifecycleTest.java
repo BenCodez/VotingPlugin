@@ -477,7 +477,7 @@ class MultiProxyHandlerLifecycleTest {
 		handler.acceptRedisEnvelope(reliableVote, legacy);
 		verify(handler, org.mockito.Mockito.times(2)).triggerVote(org.mockito.ArgumentMatchers.eq("Player"),
 				org.mockito.ArgumentMatchers.eq("Service"), org.mockito.ArgumentMatchers.eq(true),
-				org.mockito.ArgumentMatchers.eq(true), org.mockito.ArgumentMatchers.eq(0L),
+				org.mockito.ArgumentMatchers.eq(true), org.mockito.ArgumentMatchers.eq(1L),
 				org.mockito.ArgumentMatchers.any(VoteTotalsSnapshot.class),
 				org.mockito.ArgumentMatchers.eq("00000000-0000-0000-0000-000000000001"),
 				org.mockito.ArgumentMatchers.eq(reliableVoteId), org.mockito.ArgumentMatchers.eq("Proxy1"));
@@ -567,7 +567,7 @@ class MultiProxyHandlerLifecycleTest {
 
 		verify(handler, org.mockito.Mockito.times(1)).triggerVote(org.mockito.ArgumentMatchers.eq("Player"),
 				org.mockito.ArgumentMatchers.eq("Service"), org.mockito.ArgumentMatchers.eq(true),
-				org.mockito.ArgumentMatchers.eq(true), org.mockito.ArgumentMatchers.eq(0L),
+				org.mockito.ArgumentMatchers.eq(true), org.mockito.ArgumentMatchers.eq(1L),
 				org.mockito.ArgumentMatchers.any(VoteTotalsSnapshot.class),
 				org.mockito.ArgumentMatchers.eq("00000000-0000-0000-0000-000000000001"),
 				org.mockito.ArgumentMatchers.eq(voteId), org.mockito.ArgumentMatchers.eq("Replica"));
@@ -668,7 +668,7 @@ class MultiProxyHandlerLifecycleTest {
 
 		verify(handler).triggerVote(org.mockito.ArgumentMatchers.eq("Player"),
 				org.mockito.ArgumentMatchers.eq("Service"), org.mockito.ArgumentMatchers.eq(true),
-				org.mockito.ArgumentMatchers.eq(true), org.mockito.ArgumentMatchers.eq(0L),
+				org.mockito.ArgumentMatchers.eq(true), org.mockito.ArgumentMatchers.eq(100L),
 				org.mockito.ArgumentMatchers.any(VoteTotalsSnapshot.class),
 				org.mockito.ArgumentMatchers.eq("00000000-0000-0000-0000-000000000001"),
 				org.mockito.ArgumentMatchers.eq(voteId), org.mockito.ArgumentMatchers.eq("Primary"));
@@ -687,7 +687,7 @@ class MultiProxyHandlerLifecycleTest {
 
 		verify(handler).triggerVote(org.mockito.ArgumentMatchers.eq("Player"),
 				org.mockito.ArgumentMatchers.eq("Service"), org.mockito.ArgumentMatchers.eq(true),
-				org.mockito.ArgumentMatchers.eq(true), org.mockito.ArgumentMatchers.eq(0L),
+				org.mockito.ArgumentMatchers.eq(true), org.mockito.ArgumentMatchers.eq(100L),
 				org.mockito.ArgumentMatchers.any(VoteTotalsSnapshot.class),
 				org.mockito.ArgumentMatchers.eq("00000000-0000-0000-0000-000000000001"),
 				org.mockito.ArgumentMatchers.eq(voteId), org.mockito.ArgumentMatchers.eq("Primary"),

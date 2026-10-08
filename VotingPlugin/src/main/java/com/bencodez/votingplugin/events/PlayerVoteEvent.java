@@ -93,6 +93,11 @@ public class PlayerVoteEvent extends Event {
 	@Setter
 	private boolean proxyQueueClassificationKnown;
 
+	/** Guide-only provenance: original ingress is forwarded, replayed, or unknown. */
+	@Getter
+	@Setter
+	private boolean unconfirmedProxySessionDelivery;
+
 	/** Whether the proxy explicitly supplied its delay-validation decision. */
 	@Getter
 	@Setter

@@ -367,6 +367,206 @@ class GuidedVotingSessionsTest {
                     && c.getClickEvent().getValue().equals("https://example.org/vote/Alice")));
         }
     }
+    @Test void durableMultiProxyForwardingCannotConfirmANewGuideButStillProcessesTheVote() throws Exception {
+        for (boolean allServers : new boolean[] { false, true }) {
+            for (boolean validationKnown : new boolean[] { false, true }) {
+                for (long remoteTime : new long[] { 1L, Long.MAX_VALUE }) try (var f = new Fixture()) {
+                    var backend = acceptedBackend(f);
+                    var proxy = receiverProxy(allServers);
+                    UUID occurrence = UUID.randomUUID();
+                    var outbox = new com.bencodez.votingplugin.timequeue.VoteTimeQueue(occurrence, "Alice", "service",
+                            remoteTime, false, java.util.Set.of(), java.util.Set.of(), "", false, f.uuid.toString());
+                    outbox.setRealVote(true); outbox.setMultiProxyOrigin("Primary");
+                    if (validationKnown) outbox.setDelayValidated(true);
+                    var producer = com.bencodez.votingplugin.proxy.VotingPluginProxy.class.getDeclaredMethod(
+                            "multiProxyVoteEnvelope", com.bencodez.votingplugin.timequeue.VoteTimeQueue.class);
+                    producer.setAccessible(true);
+                    var pending = (com.bencodez.simpleapi.servercomm.codec.JsonEnvelope) producer.invoke(proxy, outbox);
+                    // The durable vote exists before the guide; its forwarding wakeup runs afterwards.
+                    startGuide(f);
+                    var handler = mock(com.bencodez.votingplugin.proxy.multiproxy.MultiProxyHandler.class, CALLS_REAL_METHODS);
+                    doAnswer(i -> {
+                        proxy.receive(i.getArgument(0), i.getArgument(1), i.getArgument(2), i.getArgument(3),
+                                i.getArgument(4), i.getArgument(5), i.getArgument(6), i.getArgument(7),
+                                i.getArgument(8), i.getArgument(9), i.getArgument(10));
+                        return null;
+                    }).when(handler).triggerVote(anyString(), anyString(), anyBoolean(), anyBoolean(), anyLong(),
+                            any(com.bencodez.votingplugin.proxy.VoteTotalsSnapshot.class), anyString(), any(UUID.class),
+                            anyString(), anyBoolean(), anyBoolean());
+                    var handle = com.bencodez.votingplugin.proxy.multiproxy.MultiProxyHandler.class.getDeclaredMethod(
+                            "handleEnvelope", com.bencodez.simpleapi.servercomm.codec.JsonEnvelope.class);
+                    handle.setAccessible(true); handle.invoke(handler, pending);
+                    var delivered = proxy.getLastVoteEnvelope(); assertNotNull(delivered);
+                    var vote = com.bencodez.votingplugin.proxy.VotingPluginWire.readVote(delivered);
+                    assertEquals(occurrence, vote.voteId); assertEquals(remoteTime, vote.time);
+                    assertTrue(vote.queuedDeliveryKnown); assertFalse(vote.queuedDelivery);
+                    assertEquals(validationKnown, vote.delayValidationKnown);
+                    assertEquals(validationKnown, vote.delayValidated);
+                    assertEquals("Primary", delivered.getFields().get(com.bencodez.votingplugin.proxy.VotingPluginWire.K_MULTI_PROXY_ORIGIN));
+                    backend.handleOrderedVote(delivered, result -> assertEquals(
+                            com.bencodez.votingplugin.backendproxy.messaging.BackendProxyMessageRouter.OrderedVoteOutcome.COMPLETE, result));
+                    verify(f.user).canVoteSite(f.site); // Freshness exclusion must not bypass normal delay enforcement.
+                    verify(f.user).setTime(f.site, remoteTime);
+                    verify(f.user).playerVote(eq(f.site), anyBoolean(), eq(true));
+                    verify(f.user).addTotal(); verify(f.user).addTotalDaily(); verify(f.user).addTotalWeekly(); verify(f.user).addPoints();
+                    var post = org.mockito.ArgumentCaptor.forClass(org.bukkit.event.Event.class);
+                    verify(f.plugin.getServer().getPluginManager(), times(2)).callEvent(post.capture());
+                    var credited = (PlayerPostVoteEvent) post.getAllValues().get(1);
+                    assertEquals(occurrence, credited.getVoteUUID()); assertEquals(remoteTime, credited.getVoteTime());
+                    assertTrue(credited.isUnconfirmedProxySessionDelivery()); assertFalse(credited.isQueuedProxyVote());
+                    checkGuide(f, 0);
+                }
+            }
+        }
+    }
+
+    @Test void directLiveProxyAndLocalProductionReceiptsStillConfirmTheGuide() throws Exception {
+        for (long remoteTime : new long[] { 1L, Long.MAX_VALUE }) try (var f = new Fixture()) {
+            var backend = acceptedBackend(f); var proxy = receiverProxy(false); UUID occurrence = UUID.randomUUID();
+            startGuide(f);
+            proxy.vote("Alice", "service", true, false, remoteTime, null, f.uuid.toString(), occurrence);
+            var delivered = proxy.getLastVoteEnvelope(); assertNotNull(delivered);
+            assertFalse(delivered.getFields().containsKey(com.bencodez.votingplugin.proxy.VotingPluginWire.K_MULTI_PROXY_ORIGIN));
+            backend.handleOrderedVote(delivered, ignored -> { });
+            verify(f.user).setTime(f.site, remoteTime); verify(f.user).addPoints();
+            checkGuide(f, 1);
+        }
+        try (var f = new Fixture()) {
+            acceptedBackend(f); startGuide(f);
+            var event = new com.bencodez.votingplugin.events.PlayerVoteEvent(f.site, "Alice", "service", true);
+            event.setVotingPluginUser(f.user);
+            f.plugin.getServer().getPluginManager().callEvent(event);
+            verify(f.user).setTime(f.site); verify(f.user).playerVote(f.site, true, false);
+            verify(f.user).addTotal(); verify(f.user).addPoints(); checkGuide(f, 1);
+        }
+    }
+
+    @Test void cachedAndReceiverTimedReplayRemainUnconfirmedWithoutChangingQueuePolicy() throws Exception {
+        for (boolean validationKnown : new boolean[] { false, true }) {
+            for (boolean online : new boolean[] { false, true }) try (var f = new Fixture()) {
+                var backend = acceptedBackend(f); var proxy = receiverProxy(false); UUID occurrence = UUID.randomUUID();
+                var cached = new com.bencodez.votingplugin.proxy.OfflineBungeeVote(occurrence, "Alice", f.uuid.toString(),
+                        "service", 1L, true, "");
+                if (validationKnown) cached.setDelayValidated(true);
+                var emitter = com.bencodez.votingplugin.proxy.VotingPluginProxy.class.getDeclaredMethod("cachedVoteEnvelope",
+                        com.bencodez.votingplugin.proxy.OfflineBungeeVote.class, boolean.class, boolean.class, int.class, int.class);
+                emitter.setAccessible(true); startGuide(f);
+                var delivered = (com.bencodez.simpleapi.servercomm.codec.JsonEnvelope) emitter.invoke(proxy, cached, online, false, 1, 1);
+                var vote = com.bencodez.votingplugin.proxy.VotingPluginWire.readVote(delivered);
+                assertEquals(validationKnown, vote.queuedDelivery); assertTrue(vote.queuedDeliveryKnown);
+                assertEquals(occurrence, vote.voteId); assertEquals(1L, vote.time);
+                backend.handleOrderedVote(delivered, ignored -> { });
+                verify(f.user).playerVote(eq(f.site), anyBoolean(), eq(true)); verify(f.user).addPoints(); checkGuide(f, 0);
+            }
+        }
+        try (var f = new Fixture()) {
+            var backend = acceptedBackend(f); var proxy = receiverProxy(false); UUID occurrence = UUID.randomUUID();
+            var queued = new com.bencodez.votingplugin.timequeue.VoteTimeQueue(occurrence, "Alice", "service", 1L,
+                    false, java.util.Set.of(), java.util.Set.of(), "", false, f.uuid.toString());
+            queued.setRealVote(true); queued.setMultiProxyOrigin("Primary");
+            startGuide(f); proxy.replay(queued);
+            var delivered = proxy.getLastVoteEnvelope(); assertNotNull(delivered);
+            assertEquals("Primary", delivered.getFields().get(com.bencodez.votingplugin.proxy.VotingPluginWire.K_MULTI_PROXY_ORIGIN));
+            backend.handleOrderedVote(delivered, ignored -> { });
+            verify(f.user).setTime(f.site, 1L); verify(f.user).addPoints(); checkGuide(f, 0);
+        }
+    }
+
+    @Test void forwardedVoteStillObeysBackendWaitUntilVoteDelayRejection() throws Exception {
+        try (var f = new Fixture()) {
+            var backend = acceptedBackend(f); var proxy = receiverProxy(false); startGuide(f);
+            when(f.user.canVoteSite(f.site)).thenReturn(false);
+            proxy.receive("Alice", "service", true, false, 1L, null, f.uuid.toString(), UUID.randomUUID(), "Primary", true, true);
+            backend.handleOrderedVote(proxy.getLastVoteEnvelope(), ignored -> { });
+            verify(f.user, never()).playerVote(any(), anyBoolean(), anyBoolean());
+            verify(f.user, never()).addPoints(); checkGuide(f, 0);
+        }
+    }
+
+    @Test void olderProxyWithoutPositiveFreshnessMetadataRewardsNormallyButCannotConfirmGuide() throws Exception {
+        try (var f = new Fixture()) {
+            var backend = acceptedBackend(f); startGuide(f);
+            var fresh = com.bencodez.votingplugin.proxy.VotingPluginWire.vote("Alice", f.uuid.toString(), "service", 1L,
+                    true, true, "", UUID.randomUUID(), false, false, 1, 1);
+            var legacy = com.bencodez.simpleapi.servercomm.codec.JsonEnvelope.builder(fresh.getSubChannel()).schema(fresh.getSchema());
+            for (var field : fresh.getFields().entrySet()) if (!field.getKey().equals(com.bencodez.votingplugin.proxy.VotingPluginWire.K_SESSION_DELIVERY_FRESH)) legacy.put(field.getKey(), field.getValue());
+            backend.handleOrderedVote(legacy.build(), ignored -> { });
+            verify(f.user).playerVote(eq(f.site), anyBoolean(), eq(true)); verify(f.user).addPoints(); checkGuide(f, 0);
+        }
+    }
+
+    private static void startGuide(Fixture f) {
+        f.sessions.command(f.player, ""); f.entity.remove().run(); f.worker.remove().run(); f.entity.remove().run();
+    }
+    private static void checkGuide(Fixture f, int received) {
+        clearInvocations(f.player); f.sessions.command(f.player, "check");
+        f.entity.remove().run(); f.worker.remove().run(); f.entity.remove().run();
+        verify(f.player).sendMessage("Voting session: " + received + "/1 votes received.");
+    }
+    private static com.bencodez.votingplugin.backendproxy.messaging.BackendProxyMessageRouter acceptedBackend(Fixture f) throws Exception {
+        when(f.plugin.isEnabled()).thenReturn(true); when(f.plugin.getBungeeSettings().isUseBungeecoord()).thenReturn(true);
+        when(f.plugin.getConfigFile().isAddTotals()).thenReturn(true);
+        when(f.plugin.getOptions().isProcessRewards()).thenReturn(true);
+        when(f.plugin.getUserManager().getProperName("Alice")).thenReturn("Alice");
+        var validation = mock(com.bencodez.advancedcore.api.user.validation.UserValidationResult.class);
+        when(validation.isValid()).thenReturn(true); when(validation.getNormalizedName()).thenReturn("Alice");
+        when(validation.getSource()).thenReturn(com.bencodez.advancedcore.api.user.validation.ValidationSource.STORAGE);
+        when(f.plugin.getUserManager().getValidationService().validate("Alice", false)).thenReturn(validation);
+        when(f.user.isOnline()).thenReturn(true); when(f.user.getUUID()).thenReturn(f.uuid.toString());
+        when(f.site.getServiceSite()).thenReturn("service"); when(f.site.isWaitUntilVoteDelay()).thenReturn(true);
+        when(f.user.canVoteSite(f.site)).thenReturn(true);
+        when(f.plugin.getVoteSiteManager().getVoteSite("service", true)).thenReturn(f.site);
+        var pluginField = VotingPluginUser.class.getDeclaredField("plugin"); pluginField.setAccessible(true); pluginField.set(f.user, f.plugin);
+        doCallRealMethod().when(f.user).bungeeVotePluginMessaging(anyString(), anyLong(), any(), anyBoolean(), anyBoolean(),
+                anyBoolean(), anyInt(), anyBoolean(), anyBoolean(), anyBoolean(), any(), anyBoolean(), anyBoolean());
+        var listener = new com.bencodez.votingplugin.listeners.PlayerVoteListener(f.plugin);
+        var pluginManager = f.plugin.getServer().getPluginManager();
+        doAnswer(i -> {
+            var event = i.getArgument(0);
+            if (event instanceof com.bencodez.votingplugin.events.PlayerVoteEvent input) listener.onplayerVote(input);
+            else if (event instanceof PlayerPostVoteEvent post) f.sessions.credited(post);
+            return null;
+        }).when(pluginManager).callEvent(any(org.bukkit.event.Event.class));
+        var cache = mock(com.bencodez.votingplugin.backendproxy.cache.ProcessedVoteCache.class);
+        when(cache.reserveWithOutcome(any())).thenReturn(com.bencodez.votingplugin.backendproxy.cache.ProcessedVoteCache.Reservation.RESERVED);
+        return new com.bencodez.votingplugin.backendproxy.messaging.BackendProxyMessageRouter(f.plugin,
+                mock(com.bencodez.votingplugin.backendproxy.presence.BackendPresenceManager.class),
+                mock(com.bencodez.votingplugin.backendproxy.global.BackendGlobalDataSync.class),
+                mock(com.bencodez.votingplugin.backendproxy.voteparty.BackendVotePartySync.class), cache);
+    }
+    private static ReceiverProxy receiverProxy(boolean allServers) throws Exception {
+        var proxy = spy(new ReceiverProxy());
+        var cache = mock(com.bencodez.votingplugin.proxy.cache.VoteCacheHandler.class);
+        when(cache.markMultiProxyVoteCompletedDurably(any())).thenReturn(true);
+        when(cache.getTimeChangeQueue()).thenReturn(new java.util.concurrent.ConcurrentLinkedQueue<>());
+        when(cache.addOnlineVoteDurably(anyString(), any())).thenReturn(true);
+        when(cache.addServerVoteDurably(anyString(), any())).thenReturn(true);
+        when(cache.updateOnlineVote(anyString(), any())).thenReturn(true);
+        when(cache.updateServerVote(anyString(), any())).thenReturn(true);
+        when(cache.updateTimeVote(any())).thenReturn(true);
+        doReturn(cache).when(proxy).getVoteCacheHandler(); doNothing().when(proxy).addVoteParty();
+        when(proxy.getConfig().getMultiProxySupport()).thenReturn(true);
+        when(proxy.getConfig().getPrimaryServer()).thenReturn(false);
+        when(proxy.getConfig().getOnlineMode()).thenReturn(true);
+        when(proxy.getConfig().getSendVotesToAllServers()).thenReturn(allServers);
+        proxy.setMethod(com.bencodez.votingplugin.proxy.BungeeMethod.PLUGINMESSAGING);
+        proxy.setGlobalMessageProxyHandlerForTest(new com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler() {
+            @Override public void sendMessage(String server, int delay, com.bencodez.simpleapi.servercomm.codec.JsonEnvelope envelope) { }
+        });
+        var legacyField = com.bencodez.votingplugin.proxy.VotingPluginProxy.class.getDeclaredField("legacyVoteDeliveryServers");
+        legacyField.setAccessible(true);
+        @SuppressWarnings("unchecked") var legacy = (java.util.Set<String>) legacyField.get(proxy);
+        legacy.add("server1"); legacy.add("server2");
+        return proxy;
+    }
+    private static final class ReceiverProxy extends com.bencodez.votingplugin.tests.VotingPluginProxyTestImpl {
+        void receive(String player, String service, boolean real, boolean timeQueue, long time,
+                com.bencodez.votingplugin.proxy.VoteTotalsSnapshot totals, String uuid, UUID id, String origin,
+                boolean validated, boolean known) {
+            receiveMultiProxyVote(player, service, real, timeQueue, time, totals, uuid, id, origin, validated, known);
+        }
+        void replay(com.bencodez.votingplugin.timequeue.VoteTimeQueue vote) { replayQueuedVote(vote, null, true); }
+    }
     private static class Fixture implements AutoCloseable {
         final VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
         final Player player = mock(Player.class);
