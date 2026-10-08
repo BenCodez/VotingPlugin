@@ -684,6 +684,12 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		new VotingPluginMetrics().load(plugin);
 	}
 
+    /** Publish configuration and reward aliases before any vote producer can deliver. */
+    void initializeDateVoteIngress(Runnable openProxy) {
+        getDateVoteMilestones().reload();
+        if (getBungeeSettings().isUseBungeecoord()) openProxy.run();
+    }
+
 	@Override
 	public void onPostLoad() {
 		ensureCommunicationSecret();
@@ -716,9 +722,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		loadVoteTimer();
 		getVotingPluginUserManager().startSharedPointTransferRecovery();
 
-		if (bungeeSettings.isUseBungeecoord()) {
-			loadBungeeHandler();
-		}
+		initializeDateVoteIngress(this::loadBungeeHandler);
 
 		if (!bungeeSettings.isUseBungeecoord() || !bungeeSettings.isGloblalDataEnabled()) {
 			this.timeQueueHandler = new TimeQueueHandler(this);
@@ -2134,6 +2138,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		// Re-evaluate after storage has reloaded; UserManager keeps this lifecycle task unique.
 		getVotingPluginUserManager().startSharedPointTransferRecovery();
 
+        getOptions().setServer(bungeeSettings.getServer());
+        getDateVoteMilestones().reload();
 		reloadBackendProxyRuntime(updateActiveBackendRuntime, userStorage);
 		checkYMLError();
 
