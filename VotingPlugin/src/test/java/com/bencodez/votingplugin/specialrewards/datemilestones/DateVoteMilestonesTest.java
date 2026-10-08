@@ -58,6 +58,67 @@ class DateVoteMilestonesTest {
         assertEquals(2, progress.votes()); assertEquals(java.util.Set.of(1), progress.submittedAwards());
         assertTrue(progress.deferredAwards().isEmpty());
     }
+    private com.bencodez.votingplugin.core.datemilestones.DateVoteEvent deferredPair(DateVoteMilestones manager) {
+        when(plugin.getOptions().isProcessRewards()).thenReturn(false);
+        manager.accepted(user, "a", UUID.randomUUID(), time, true, false, false, false, false);
+        manager.accepted(user, "a", UUID.randomUUID(), time + 1, true, false, false, false, false);
+        when(plugin.getOptions().isProcessRewards()).thenReturn(true);
+        return DateVoteMilestones.parse("october", config.getConfigurationSection("DateVoteMilestones.october"));
+    }
+    @Test void earlierSubmissionFailureDoesNotReserveAnUnattemptedLaterThreshold() throws Exception {
+        event("october", ""); config.set("DateVoteMilestones.october.Milestones.2.Rewards.Messages.Player", "Second");
+        var manager = manager(); var definition = deferredPair(manager);
+        var first = DateVoteMilestones.path(definition, 1); var second = DateVoteMilestones.path(definition, 2);
+        var handler = plugin.getRewardHandler();
+        doThrow(new IllegalStateException("fixture uncertain submission")).when(handler)
+                .giveReward(eq(user), any(), eq(first), any());
+        UUID delivery = UUID.randomUUID();
+        manager.accepted(user, "a", delivery, time + 2, true, false, false, false, false);
+        var progress = new DateVoteLedger(root.resolve("date-vote-milestones")).progress(definition, player);
+        assertEquals(java.util.Set.of(1), progress.reservedAwards());
+        assertEquals(java.util.Set.of(2), progress.deferredAwards());
+        verify(plugin.getRewardHandler(), never()).giveReward(eq(user), any(), eq(second), any());
+        manager = manager(); // Restart and replay must retain the earlier uncertain reservation.
+        manager.accepted(user, "a", delivery, time + 2, true, false, false, false, false);
+        verify(plugin.getRewardHandler(), times(1)).giveReward(eq(user), any(), eq(first), any());
+        verify(plugin.getRewardHandler(), times(1)).giveReward(eq(user), any(), eq(second), any());
+        progress = new DateVoteLedger(root.resolve("date-vote-milestones")).progress(definition, player);
+        assertEquals(3, progress.votes()); assertEquals(java.util.Set.of(2), progress.submittedAwards());
+    }
+    @Test void acknowledgementFailureDoesNotReserveAnUnattemptedLaterThreshold() throws Exception {
+        event("october", ""); config.set("DateVoteMilestones.october.Milestones.2.Rewards.Messages.Player", "Second");
+        var manager = manager(); var definition = deferredPair(manager);
+        try (var publication = mockStatic(com.bencodez.votingplugin.util.DurableFiles.class)) {
+            publication.when(() -> com.bencodez.votingplugin.util.DurableFiles.publishStagedFile(any(Path.class), any(Path.class)))
+                    .thenAnswer(invocation -> {
+                        Path staged = invocation.getArgument(0);
+                        if (Files.readString(staged).contains("award.1=SUBMITTED")) throw new java.io.IOException("fixture acknowledgement failure");
+                        return invocation.callRealMethod();
+                    });
+            manager.accepted(user, "a", UUID.randomUUID(), time + 2, true, false, false, false, false);
+        }
+        var progress = new DateVoteLedger(root.resolve("date-vote-milestones")).progress(definition, player);
+        assertEquals(java.util.Set.of(1), progress.reservedAwards()); assertEquals(java.util.Set.of(2), progress.deferredAwards());
+        verify(plugin.getRewardHandler(), times(1)).giveReward(eq(user), any(), eq(DateVoteMilestones.path(definition, 1)), any());
+        verify(plugin.getRewardHandler(), never()).giveReward(eq(user), any(), eq(DateVoteMilestones.path(definition, 2)), any());
+        manager = manager(); manager.accepted(user, "a", UUID.randomUUID(), time + 3, true, false, false, false, false);
+        verify(plugin.getRewardHandler(), times(1)).giveReward(eq(user), any(), eq(DateVoteMilestones.path(definition, 1)), any());
+        verify(plugin.getRewardHandler(), times(1)).giveReward(eq(user), any(), eq(DateVoteMilestones.path(definition, 2)), any());
+    }
+    @Test void turningRewardsOffBetweenSubmissionsKeepsTheLaterThresholdDeferred() throws Exception {
+        event("october", ""); config.set("DateVoteMilestones.october.Milestones.2.Rewards.Messages.Player", "Second");
+        var manager = manager(); var definition = deferredPair(manager);
+        var handler = plugin.getRewardHandler();
+        doAnswer(invocation -> { when(plugin.getOptions().isProcessRewards()).thenReturn(false); return null; })
+                .when(handler).giveReward(eq(user), any(), eq(DateVoteMilestones.path(definition, 1)), any());
+        manager.accepted(user, "a", UUID.randomUUID(), time + 2, true, false, false, false, false);
+        var progress = new DateVoteLedger(root.resolve("date-vote-milestones")).progress(definition, player);
+        assertEquals(java.util.Set.of(1), progress.submittedAwards()); assertEquals(java.util.Set.of(2), progress.deferredAwards());
+        assertTrue(progress.reservedAwards().isEmpty());
+        verify(plugin.getRewardHandler(), never()).giveReward(eq(user), any(), eq(DateVoteMilestones.path(definition, 2)), any());
+        manager = manager(); manager.accepted(user, "a", UUID.randomUUID(), time + 3, true, false, false, false, false);
+        verify(plugin.getRewardHandler(), times(1)).giveReward(eq(user), any(), eq(DateVoteMilestones.path(definition, 2)), any());
+    }
     @Test void invalidTimezoneStopsAccountingButPreservesQueuedRewardResolutionOnReload() {
         event("october", ""); var m = manager(); String alias = rewardPath("october");
         config.set("DateVoteMilestones.october.Timezone", "No/SuchZone"); clearInvocations(plugin);

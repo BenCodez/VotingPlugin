@@ -124,10 +124,11 @@ public final class DateVoteMilestones {
             if (!event.matches(occurredAt, site, real, proxy, plugin.getBungeeSettings().getServer())) continue;
             try {
                 for (int threshold : ledger().record(event, user.getJavaUUID(), occurrence, plugin.getOptions().isProcessRewards())) {
-                    if (!plugin.getOptions().isProcessRewards()) continue;
+                    if (!plugin.getOptions().isProcessRewards()) break;
                     var placeholders = new HashMap<String, String>();
                     placeholders.put("DateVoteEvent", event.displayName());
                     placeholders.put("DateVoteThreshold", Integer.toString(threshold));
+                    if (!ledger().reserve(event, user.getJavaUUID(), threshold)) continue;
                     plugin.getRewardHandler().giveReward(user, definition.rewards(), path(event, threshold),
                             new RewardOptions().setPrefix("DateVoteMilestones-" + event.id() + "-" + threshold)
                                     .setServer(forceProxyRouting).setPlaceholders(placeholders));

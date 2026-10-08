@@ -41,16 +41,25 @@ public final class DateVoteLedger {
         List<Integer> awards = new ArrayList<>();
         for (int threshold : event.thresholds()) {
             String key = "award." + threshold;
-            if (seen.size() >= threshold && (!state.containsKey(key)
-                    || processRewards && "DEFERRED".equals(state.getProperty(key)))) {
-                state.setProperty(key, processRewards ? "RESERVED" : "DEFERRED");
-                if (processRewards) awards.add(threshold);
+            if (seen.size() >= threshold && !state.containsKey(key)) {
+                state.setProperty(key, "DEFERRED");
                 changed = true;
             }
+            if (processRewards && "DEFERRED".equals(state.getProperty(key))) awards.add(threshold);
         }
-        // Reserve the whole count/award decision before invoking arbitrary external rewards.
+        // Persist counts and known unattempted awards; each submission claims only its own threshold.
         if (changed) write(file, state);
         return List.copyOf(awards);
+    }
+    /** Atomically admit one known unattempted threshold immediately before its external submission. */
+    public synchronized boolean reserve(DateVoteEvent event, UUID player, int threshold) throws IOException {
+        Path file = playerFile(event, player);
+        Properties state = read(file);
+        validateFingerprint(event, state);
+        if (!event.thresholds().contains(threshold) || !"DEFERRED".equals(state.getProperty("award." + threshold))) return false;
+        state.setProperty("award." + threshold, "RESERVED");
+        write(file, state);
+        return true;
     }
     public synchronized void submitted(DateVoteEvent event, UUID player, int threshold) throws IOException {
         Path file = playerFile(event, player);

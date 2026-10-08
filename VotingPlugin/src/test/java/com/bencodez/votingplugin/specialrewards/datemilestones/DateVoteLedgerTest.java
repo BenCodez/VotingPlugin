@@ -23,7 +23,13 @@ class DateVoteLedgerTest {
         final DateVoteLedger resumed = ledger;
         try (var pool = Executors.newFixedThreadPool(4)) {
             var jobs = java.util.stream.IntStream.range(0, 20).mapToObj(i -> (java.util.concurrent.Callable<List<Integer>>)
-                    () -> resumed.record(e, player, occurrence, true)).toList();
+                    () -> {
+                        var pending = resumed.record(e, player, occurrence, true);
+                        return pending.stream().filter(threshold -> {
+                            try { return resumed.reserve(e, player, threshold); }
+                            catch (IOException failure) { throw new java.io.UncheckedIOException(failure); }
+                        }).toList();
+                    }).toList();
             int admitted = 0;
             for (var result : pool.invokeAll(jobs)) admitted += result.get().size();
             assertEquals(1, admitted);
@@ -36,6 +42,7 @@ class DateVoteLedgerTest {
     @Test void duplicateAndRestartNeverResubmitReservedOrSubmittedAwards() throws Exception {
         var e = event("a", "A", 200); var ledger = new DateVoteLedger(root); UUID id = UUID.randomUUID();
         assertEquals(List.of(1), ledger.record(e, player, id));
+        assertTrue(ledger.reserve(e, player, 1));
         ledger = new DateVoteLedger(root);
         assertEquals(List.of(), ledger.record(e, player, id));
         assertEquals(Set.of(1), ledger.progress(e, player).reservedAwards());
@@ -55,7 +62,13 @@ class DateVoteLedgerTest {
         var ledger = new DateVoteLedger(root); var e = event("a", "A", 200); UUID occurrence = UUID.randomUUID();
         try (var pool = Executors.newFixedThreadPool(4)) {
             var jobs = java.util.stream.IntStream.range(0, 20).mapToObj(i -> (java.util.concurrent.Callable<List<Integer>>)
-                    () -> ledger.record(e, player, occurrence)).toList();
+                    () -> {
+                        var pending = ledger.record(e, player, occurrence);
+                        return pending.stream().filter(threshold -> {
+                            try { return ledger.reserve(e, player, threshold); }
+                            catch (IOException failure) { throw new java.io.UncheckedIOException(failure); }
+                        }).toList();
+                    }).toList();
             int awarded = 0;
             for (var result : pool.invokeAll(jobs)) awarded += result.get().size();
             assertEquals(1, awarded); assertEquals(1, ledger.progress(e, player).votes());
@@ -81,7 +94,7 @@ class DateVoteLedgerTest {
     }
     @Test void missingReachedAwardFailsClosedForReadsWritesAndAcknowledgements() throws Exception {
         var e = event("a", "A", 200); var ledger = new DateVoteLedger(root);
-        ledger.record(e, player, UUID.randomUUID()); ledger.submitted(e, player, 1);
+        ledger.record(e, player, UUID.randomUUID()); assertTrue(ledger.reserve(e, player, 1)); ledger.submitted(e, player, 1);
         Path file = root.resolve(e.fileId() + "-" + player + ".properties");
         String broken = Files.readString(file).replace("award.1=SUBMITTED\n", "");
         Files.writeString(file, broken);
