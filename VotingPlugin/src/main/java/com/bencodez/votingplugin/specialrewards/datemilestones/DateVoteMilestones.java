@@ -104,6 +104,10 @@ public final class DateVoteMilestones {
                 throw new IllegalArgumentException("Each numeric milestone must contain Rewards");
             thresholds.add(threshold);
         }
+        Object rawSites = section.get("VoteSites");
+        if (rawSites != null && (!(rawSites instanceof List<?> sites)
+                || sites.stream().anyMatch(site -> !(site instanceof String))))
+            throw new IllegalArgumentException("VoteSites must be a list of configured site keys");
         return new DateVoteEvent(id, section.getString("DisplayName", id), section.getBoolean("Enabled", false),
                 DateVoteEvent.timestamp(start, zone), DateVoteEvent.timestamp(end, zone), zone, thresholds,
                 new java.util.HashSet<>(section.getStringList("VoteSites")), section.getString("AccountingServer", ""));
@@ -163,7 +167,7 @@ public final class DateVoteMilestones {
             }
             List<Definition> snapshot = definitions;
             try {
-                plugin.getTimer().execute(() -> {
+                plugin.getUserManager().getDataManager().getTimer().execute(() -> {
                     try {
                     if (snapshot != definitions || !plugin.isEnabled()) return;
                     UUID storageId = snapshot.isEmpty() ? uuid

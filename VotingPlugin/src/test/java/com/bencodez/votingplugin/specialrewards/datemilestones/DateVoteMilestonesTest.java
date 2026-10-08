@@ -259,16 +259,21 @@ class DateVoteMilestonesTest {
         when(plugin.isEnabled()).thenReturn(true);
         java.util.Queue<Runnable> worker = new java.util.ArrayDeque<>(), entity = new java.util.ArrayDeque<>();
         var timer = mock(java.util.concurrent.ScheduledExecutorService.class);
-        when(plugin.getTimer()).thenReturn(timer);
+        when(plugin.getUserManager().getDataManager().getTimer()).thenReturn(timer);
         doAnswer(invocation -> { worker.add(invocation.getArgument(0)); return null; }).when(timer).execute(any(Runnable.class));
         try (var scheduler = mockStatic(com.bencodez.votingplugin.util.BukkitCompletionScheduler.class)) {
             scheduler.when(() -> com.bencodez.votingplugin.util.BukkitCompletionScheduler.run(eq(plugin), eq(playerEntity),
                     any(Runnable.class), any(Runnable.class), any(Runnable.class))).thenAnswer(invocation -> {
                         entity.add(invocation.getArgument(2)); return null;
                     });
+            worker.add(() -> when(user.getJavaUUID()).thenReturn(storageId));
+            when(user.getJavaUUID()).thenReturn(player); // Earlier ordered mutation has not yet run.
             m.progress(playerEntity); entity.remove().run();
             for (int i = 0; i < 100; i++) { m.progress(playerEntity); entity.remove().run(); }
-            assertEquals(1, worker.size());
+            assertEquals(2, worker.size());
+            verify(plugin, never()).getTimer();
+            verify(plugin.getVotingPluginUserManager(), never()).getVotingPluginUser(any(UUID.class), anyString());
+            worker.remove().run(); // The prior mutation must precede the progress lookup.
             verify(playerEntity, never()).sendMessage(startsWith("october ("));
             worker.remove().run(); assertEquals(1, entity.size());
             entity.remove().run(); verify(playerEntity).sendMessage(contains(": 1 votes;"));
@@ -280,6 +285,30 @@ class DateVoteMilestonesTest {
             verify(playerEntity, never()).sendMessage(startsWith("october ("));
         }
     }
+    @Test void malformedSiteFilterDisablesOnlyThatDefinitionAndPreservesQueuedRewardHandles() {
+        for (Object malformed : new Object[] {"SiteA", 42, java.util.Map.of("SiteA", true), java.util.List.of("SiteA", 42)}) {
+            event("badfilter", ""); event("validfilter", "");
+            config.set("DateVoteMilestones.badfilter.VoteSites", malformed);
+            var manager = manager();
+            assertThrows(IllegalArgumentException.class, () -> DateVoteMilestones.parse("badfilter", config.getConfigurationSection("DateVoteMilestones.badfilter")));
+            var handles = org.mockito.ArgumentCaptor.forClass(com.bencodez.advancedcore.api.rewards.DirectlyDefinedReward.class);
+            verify(plugin, atLeastOnce()).addDirectlyDefinedRewards(handles.capture());
+            assertTrue(handles.getAllValues().stream().anyMatch(h -> h.getPath().contains(com.bencodez.votingplugin.core.datemilestones.DateVoteEvent.fileId("badfilter"))));
+            manager.accepted(user, "a", UUID.randomUUID(), time, true, false, false, false, false);
+            verify(plugin.getRewardHandler(), never()).giveReward(eq(user), any(), contains(com.bencodez.votingplugin.core.datemilestones.DateVoteEvent.fileId("badfilter")), any());
+            verify(plugin.getRewardHandler(), atLeastOnce()).giveReward(eq(user), any(), eq(rewardPath("validfilter")), any());
+        }
+    }
+    @Test void absentEmptyAndExplicitStringSiteFiltersKeepTheirDocumentedScope() {
+        event("filters", ""); var section = config.getConfigurationSection("DateVoteMilestones.filters");
+        assertTrue(DateVoteMilestones.parse("filters", section).matches(time, "a", true, false, ""));
+        section.set("VoteSites", java.util.List.of());
+        assertTrue(DateVoteMilestones.parse("filters", section).matches(time, "b", true, false, ""));
+        section.set("VoteSites", java.util.List.of("a"));
+        var filtered = DateVoteMilestones.parse("filters", section);
+        assertTrue(filtered.matches(time, "a", true, false, "")); assertFalse(filtered.matches(time, "b", true, false, ""));
+    }
+
     private long countPlayerRecords(Path directory) {
         try (var files = Files.list(directory)) {
             return files.filter(p -> !p.getFileName().toString().equals("definitions.properties")).count();

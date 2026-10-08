@@ -684,14 +684,16 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		new VotingPluginMetrics().load(plugin);
 	}
 
-    /** Publish proxy ingress only after the complete accepted-vote pipeline is initialized. */
+    /** Publish accepted and transport ingress only after the complete vote pipeline is initialized. */
     void initializeDateVoteIngress(Runnable openProxy) {
         if (voteMilestonesManager == null || voteStreakHandler == null || voteParty == null || specialRewards == null
                 || topVoterHandler == null || voteShopManager == null || placeholders == null) {
-            throw new IllegalStateException("Accepted-vote handlers must initialize before proxy ingress");
+            throw new IllegalStateException("Accepted-vote handlers must initialize before transport ingress");
         }
         getDateVoteMilestones().reload();
+        getServer().getPluginManager().registerEvents(new PlayerVoteListener(this), this);
         if (getBungeeSettings().isUseBungeecoord()) openProxy.run();
+        registerLocalVotifierIngress();
     }
 
 	@Override
@@ -2041,19 +2043,20 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	}
 
-	/**
-	 * Register events.
-	 */
-	private void registerEvents() {
+	/** Local ingress is registered only after accepted-vote handlers and date definitions are ready. */
+	private void registerLocalVotifierIngress() {
 		PluginManager pm = getServer().getPluginManager();
-
-		pm.registerEvents(new PlayerJoinEvent(this), this);
 		if (isVotifierLoaded()) {
 			VotiferEvent votifierEvent = new VotiferEvent(this);
 			votifierVoteOverflowQueue = new VotifierVoteOverflowQueue(this, votifierEvent::processVote);
 			pm.registerEvents(votifierEvent, this);
 		}
-		pm.registerEvents(new PlayerVoteListener(this), this);
+	}
+
+	private void registerEvents() {
+		PluginManager pm = getServer().getPluginManager();
+
+		pm.registerEvents(new PlayerJoinEvent(this), this);
 		pm.registerEvents(new PlayerPostVoteLoggerListener(this), this);
 		pm.registerEvents(new PlayerSpecialRewardLoggerListener(this), this);
 		pm.registerEvents(new VoteShopPurchaseLoggerListener(this), this);
