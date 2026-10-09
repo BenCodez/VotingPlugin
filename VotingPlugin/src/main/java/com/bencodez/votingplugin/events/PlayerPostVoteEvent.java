@@ -13,6 +13,8 @@ import lombok.Getter;
 import lombok.Setter;
 
 public class PlayerPostVoteEvent extends Event {
+	/** Local recovered ingress cannot prove ordering relative to a new guide. */
+	@Getter @Setter private boolean unconfirmedLocalSessionDelivery;
 
 	/** Backend-local ingress order forwarded by the accepted pipeline. Zero means unknown. */
 	@Getter @Setter private long backendObservationOrder;

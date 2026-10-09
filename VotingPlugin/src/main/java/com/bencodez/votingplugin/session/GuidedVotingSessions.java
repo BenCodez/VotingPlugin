@@ -41,7 +41,7 @@ public final class GuidedVotingSessions implements Listener {
                 || event.getVoteUUID() == null || event.getUuid() == null) return;
         boolean proxy = event.isProxySessionDelivery() || event.isBungee();
         // Older adapters can report a positive hint without proving original cross-node order.
-        if (proxy) return;
+        if (proxy || event.isUnconfirmedLocalSessionDelivery()) return;
         boolean observed = event.isLiveLocalSessionDelivery() && event.getBackendObservationOrder() != 0;
         long time = observed ? event.getBackendObservationOrder() : event.getVoteTime();
         expire(System.currentTimeMillis());

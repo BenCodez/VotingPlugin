@@ -26,4 +26,13 @@ class SessionObservationMetadataTest {
         PlayerVoteListener.copySessionObservation(post, input);
         assertFalse(post.isLiveLocalSessionDelivery()); assertEquals(100, post.getVoteTime());
     }
+    @Test void recoveredZeroTimestampLocalVoteDoesNotInventCurrentObservationOrder() {
+        var input = new PlayerVoteEvent(null, "Alex", "a", true);
+        input.setBackendObservationOrder(0L);
+        var post = new PlayerPostVoteEvent(null, null, true, false, System.currentTimeMillis(), false,
+                "a", UUID.randomUUID(), "Alex", UUID.randomUUID());
+        PlayerVoteListener.copySessionObservation(post,input);
+        assertFalse(post.isLiveLocalSessionDelivery()); assertTrue(post.isUnconfirmedLocalSessionDelivery());
+        assertEquals(0,post.getBackendObservationOrder()); assertTrue(post.getVoteTime()>0);
+    }
 }

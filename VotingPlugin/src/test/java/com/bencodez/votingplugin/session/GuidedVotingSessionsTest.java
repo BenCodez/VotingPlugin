@@ -61,6 +61,15 @@ class GuidedVotingSessionsTest {
             verify(f.player, times(2)).sendMessage("Voting session: 1/1 votes received.");
         }
     }
+    @Test void unknownRecoveredLocalIngressCannotConfirmEvenWithFreshProcessingTimestamp() {
+        try(var f=new Fixture()) {
+            f.sessions.command(f.player, ""); f.entity.remove().run(); f.worker.remove().run(); f.entity.remove().run();
+            var replay=f.event(f.uuid,Long.MAX_VALUE,UUID.randomUUID()); replay.setUnconfirmedLocalSessionDelivery(true);
+            f.sessions.credited(replay); f.sessions.credited(replay);
+            f.sessions.command(f.player,"check"); f.entity.remove().run(); f.worker.remove().run(); f.entity.remove().run();
+            verify(f.player,times(2)).sendMessage("Voting session: 0/1 votes received.");
+        }
+    }
     @Test void historicalLocalVoteDoesNotUseItsRecentDeliveryOrderToConfirm() {
         try (var f = new Fixture()) {
             long before = com.bencodez.votingplugin.core.session.VoteObservationSequence.next();

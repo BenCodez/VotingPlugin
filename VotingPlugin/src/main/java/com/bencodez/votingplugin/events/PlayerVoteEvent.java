@@ -16,7 +16,8 @@ public class PlayerVoteEvent extends Event {
 
 	/** Backend-local strictly increasing observation, never a timestamp from another node. */
 	@Getter
-	private final long backendObservationOrder = com.bencodez.votingplugin.core.session.VoteObservationSequence.next();
+	@Setter
+	private long backendObservationOrder = com.bencodez.votingplugin.core.session.VoteObservationSequence.next();
 
 	/** The Constant handlers. */
 	private static final HandlerList handlers = new HandlerList();
