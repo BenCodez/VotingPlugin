@@ -396,10 +396,15 @@ class GuidedVotingSessionsTest {
                             anyString(), anyBoolean(), anyBoolean());
                     var handle = com.bencodez.votingplugin.proxy.multiproxy.MultiProxyHandler.class.getDeclaredMethod(
                             "handleEnvelope", com.bencodez.simpleapi.servercomm.codec.JsonEnvelope.class);
-                    handle.setAccessible(true); handle.invoke(handler, pending);
+                    handle.setAccessible(true);
+                    long beforeReceive = System.currentTimeMillis();
+                    handle.invoke(handler, pending);
+                    long afterReceive = System.currentTimeMillis();
                     var delivered = proxy.getLastVoteEnvelope(); assertNotNull(delivered);
                     var vote = com.bencodez.votingplugin.proxy.VotingPluginWire.readVote(delivered);
-                    assertEquals(occurrence, vote.voteId); assertEquals(remoteTime, vote.time);
+                    assertEquals(occurrence, vote.voteId);
+                    assertTrue(vote.time >= beforeReceive && vote.time <= afterReceive,
+                            "normal backend cooldown time remains local to the receiving proxy");
                     assertTrue(vote.queuedDeliveryKnown); assertFalse(vote.queuedDelivery);
                     assertEquals(validationKnown, vote.delayValidationKnown);
                     assertEquals(validationKnown, vote.delayValidated);
@@ -407,13 +412,13 @@ class GuidedVotingSessionsTest {
                     backend.handleOrderedVote(delivered, result -> assertEquals(
                             com.bencodez.votingplugin.backendproxy.messaging.BackendProxyMessageRouter.OrderedVoteOutcome.COMPLETE, result));
                     verify(f.user).canVoteSite(f.site); // Freshness exclusion must not bypass normal delay enforcement.
-                    verify(f.user).setTime(f.site, remoteTime);
+                    verify(f.user).setTime(f.site, vote.time);
                     verify(f.user).playerVote(eq(f.site), anyBoolean(), eq(true));
                     verify(f.user).addTotal(); verify(f.user).addTotalDaily(); verify(f.user).addTotalWeekly(); verify(f.user).addPoints();
                     var post = org.mockito.ArgumentCaptor.forClass(org.bukkit.event.Event.class);
                     verify(f.plugin.getServer().getPluginManager(), times(2)).callEvent(post.capture());
                     var credited = (PlayerPostVoteEvent) post.getAllValues().get(1);
-                    assertEquals(occurrence, credited.getVoteUUID()); assertEquals(remoteTime, credited.getVoteTime());
+                    assertEquals(occurrence, credited.getVoteUUID()); assertEquals(vote.time, credited.getVoteTime());
                     assertTrue(credited.isUnconfirmedProxySessionDelivery()); assertFalse(credited.isQueuedProxyVote());
                     checkGuide(f, 0);
                 }
