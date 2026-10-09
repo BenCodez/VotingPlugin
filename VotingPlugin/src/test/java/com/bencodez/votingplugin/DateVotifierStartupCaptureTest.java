@@ -306,6 +306,51 @@ class DateVotifierStartupCaptureTest {
         }
     }
 
+    @Test void startedNativeCallbackBlockedBeforeConsumerSurvivesShutdownAndRewardsOnceAfterRestart() throws Exception {
+        UUID playerId = UUID.randomUUID(), original; long originalTime;
+        var entered = new CountDownLatch(1); var release = new CountDownLatch(1);
+        try (var fixture = new Fixture(root, 0, playerId)) {
+            fixture.plugin.registerEarlyVotifierIngress(); fixture.drain(); fixture.open();
+            var serverData = fixture.plugin.getServerData();
+            doAnswer(call -> {
+                entered.countDown();
+                try { if (!release.await(5, TimeUnit.SECONDS)) throw new IllegalStateException("test storage timeout"); }
+                catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt(); throw new IllegalStateException("native receipt storage interrupted before consumer", interrupted);
+                }
+                return null;
+            }).when(serverData).addServiceSite(SERVICE);
+            fixture.vote(); assertTrue(entered.await(3, TimeUnit.SECONDS));
+            assertEquals(1, fixture.capture().getPendingCaptureCount()); assertTrue(fixture.accepted.isEmpty());
+            var registryField = VotiferEvent.class.getDeclaredField("captured"); registryField.setAccessible(true);
+            var registry = (Map<?, ?>) registryField.get(fixture.capture()); original = (UUID) registry.keySet().iterator().next();
+            var captureTime = registry.values().iterator().next().getClass().getDeclaredField("occurredAt"); captureTime.setAccessible(true);
+            originalTime = captureTime.getLong(registry.values().iterator().next());
+            // Use the native teardown fence, then the real listener/worker stop order.
+            var closed = VotingPluginMain.class.getDeclaredField("localVotifierIngressClosed"); closed.setAccessible(true); closed.setBoolean(fixture.plugin, true);
+            var readiness = VotingPluginMain.class.getDeclaredField("localVotifierIngressReady"); readiness.setAccessible(true); readiness.setBoolean(fixture.plugin, false);
+            fixture.capture().stop(); fixture.timer.shutdownNow(); assertTrue(fixture.timer.awaitTermination(3, TimeUnit.SECONDS));
+            fixture.plugin.getVotifierVoteOverflowQueue().close(); assertEquals(0, fixture.capture().getPendingCaptureCount());
+            var disk = YamlConfiguration.loadConfiguration(root.resolve("VotifierVoteQueue.yml").toFile()).getMapList("Votes");
+            assertEquals(1, disk.size()); assertEquals(original.toString(), disk.getFirst().get("LocalOccurrenceId"));
+            assertEquals(originalTime, ((Number) disk.getFirst().get("Time")).longValue());
+            verify(fixture.user, never()).cache(); verify(fixture.user, never()).addTotal();
+            verify(fixture.user, never()).playerVote(any(), anyBoolean(), anyBoolean());
+            verify(fixture.plugin.getRewardHandler(), never()).giveReward(any(), any(), anyString(), any());
+        } finally { release.countDown(); }
+        try (var restarted = new Fixture(root, 1, playerId)) {
+            restarted.plugin.registerEarlyVotifierIngress(); restarted.drain(); restarted.open(); restarted.received();
+            assertEquals(original, restarted.accepted.getFirst().getLocalOccurrenceId());
+            assertEquals(originalTime, restarted.accepted.getFirst().getCanonicalOccurrenceTime()); assertEquals(1, restarted.progress().votes());
+            verify(restarted.user).addTotal(); verify(restarted.user).playerVote(restarted.site, true, false);
+            verify(restarted.plugin.getRewardHandler(), times(1)).giveReward(eq(restarted.user), any(), startsWith("DateVoteMilestonesRuntime."), any());
+        }
+        try (var again = new Fixture(root, 0, playerId)) {
+            again.plugin.registerEarlyVotifierIngress(); again.drain(); again.open(); again.drain();
+            assertTrue(again.accepted.isEmpty()); assertEquals(1, again.progress().votes()); verify(again.user, never()).addTotal();
+        }
+    }
+
     @Test void admittedOverflowCallbackCannotRewardAfterStartupGenerationRetires() throws Exception {
         try (var fixture = new Fixture(root, 0)) {
             fixture.plugin.registerEarlyVotifierIngress(); fixture.drain(); fixture.vote(); fixture.drain();

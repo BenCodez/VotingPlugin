@@ -25,14 +25,16 @@ public class VotiferEvent implements Listener {
     private volatile boolean accepting = true;
     private static final int MAX_CAPTURED = 256;
     private final Object captureLock = new Object();
-    // Admission ownership only. Entries leave at processing start or confirmed
-    // overflow transfer; no totals, reward progress or second execution lane.
+    // Receipt ownership only. Entries leave at completed processing or confirmed
+    // overflow transfer; STARTED work remains owned until then.
     private final Map<UUID, CapturedVote> captured = new LinkedHashMap<>();
     private static final class CapturedVote {
         final String username, site;
         final long occurredAt;
         final UUID id;
         boolean transferring;
+        volatile boolean started, completed, finished, transferred;
+        VotifierVoteOverflowQueue recoveryOwner;
         CapturedVote(String username, String site, long occurredAt, UUID id) {
             this.username = username; this.site = site; this.occurredAt = occurredAt; this.id = id;
         }
@@ -62,25 +64,47 @@ public class VotiferEvent implements Listener {
 
     private void runCaptured(CapturedVote vote) {
         synchronized (captureLock) {
-            if (!captured.containsKey(vote.id) || vote.transferring) return;
+            if (!captured.containsKey(vote.id) || vote.transferring || vote.started) return;
             if (!accepting || !ready.getAsBoolean()) { transferLocked(vote); return; }
-            // Once execution starts, the normal accepted pipeline owns effects.
-            captured.remove(vote.id);
+            vote.started = true;
         }
-        processVote(vote.site, vote.username, vote.occurredAt, vote.id);
+        boolean completed = false;
+        try { completed = processCapturedVote(vote.site, vote.username, vote.occurredAt, vote.id)
+                && !Thread.currentThread().isInterrupted(); }
+        finally {
+            VotifierVoteOverflowQueue acknowledge = null;
+            synchronized (captureLock) {
+                vote.completed = completed;
+                vote.finished = true;
+                if (completed) {
+                    captured.remove(vote.id);
+                    if (vote.transferred) acknowledge = vote.recoveryOwner;
+                }
+            }
+            if (acknowledge != null) acknowledge.acknowledgeOccurrence(vote.id);
+            else if (vote.transferred && vote.recoveryOwner != null) vote.recoveryOwner.resumeTransfers();
+        }
     }
 
     private void transferLocked(CapturedVote vote) {
         if (vote.transferring) return;
         vote.transferring = true;
         VotifierVoteOverflowQueue overflow = plugin.getVotifierVoteOverflowQueue();
+        vote.recoveryOwner = overflow;
         if (overflow == null) { transferred(vote, false); return; }
         overflow.enqueueAfterInitialization(vote.username, vote.site, vote.occurredAt, vote.id,
+                () -> !vote.started || vote.finished && !vote.completed,
                 accepted -> transferred(vote, accepted));
     }
 
     private void transferred(CapturedVote vote, boolean admitted) {
-        synchronized (captureLock) { captured.remove(vote.id); }
+        boolean completed;
+        synchronized (captureLock) {
+            vote.transferred = admitted; completed = vote.completed;
+            if (admitted || completed) captured.remove(vote.id);
+        }
+        if (admitted && completed) vote.recoveryOwner.acknowledgeOccurrence(vote.id);
+        if (completed) return; // Current normal processing won; do not leave an ordinary duplicate retry.
         if (!admitted) plugin.getLogger().severe("Votifier vote queue unavailable or full; vote was not admitted for "
                 + MinecraftUsernameValidator.sanitizeForLog(vote.username));
         else plugin.getLogger().warning("Vote pipeline unavailable or retiring; queued Votifier vote for retry");
@@ -100,6 +124,10 @@ public class VotiferEvent implements Listener {
     }
 
     public void processVote(String voteSite, String voteUsername, long occurredAt, UUID localOccurrenceId) {
+        processCapturedVote(voteSite, voteUsername, occurredAt, localOccurrenceId);
+    }
+
+    private boolean processCapturedVote(String voteSite, String voteUsername, long occurredAt, UUID localOccurrenceId) {
         java.util.Objects.requireNonNull(localOccurrenceId, "localOccurrenceId");
 		try {
 			plugin.getServerData().addServiceSite(voteSite);
@@ -111,7 +139,7 @@ public class VotiferEvent implements Listener {
 							|| plugin.getBackendProxyHandler().getMethod().equals(BungeeMethod.REDIS))) {
 				plugin.getLogger().severe(
 						"Ignoring vote from votifier since a proxy vote transport is enabled; receive votes on the proxy or enable VotifierBypass, then check: https://github.com/BenCodez/VotingPlugin/wiki/Bungeecord-Setups");
-				return;
+				return true;
 			}
 
 			String matchSite = "";
@@ -143,7 +171,7 @@ public class VotiferEvent implements Listener {
 					&& plugin.getConfigFile().isQueueVotesDuringTimeChange()) {
 				plugin.debug("Adding vote to time queue " + voteUsername + "/" + voteSite);
 				plugin.getTimeQueueHandler().addVote(voteUsername, voteSite, occurredAt, localOccurrenceId);
-				return;
+				return true;
 			}
 
 			String voteSiteName = plugin.getVoteSiteManager().getVoteSiteName(true, serviceSite, matchSite);
@@ -157,9 +185,11 @@ public class VotiferEvent implements Listener {
 			if (voteEvent.isCancelled()) {
 				plugin.debug("Vote cancelled");
 			}
+            return true;
 		} catch (Exception e) {
 			plugin.getLogger().severe("Error occured during vote processing");
 			e.printStackTrace();
+            return false; // An exception does not prove ordinary accounting/rewards completed.
 		}
 	}
 
