@@ -36,3 +36,5 @@ Eligibility storage reads run on VotingPlugin's existing worker. Each request re
 Reliable backend outbox records retain freshness=false, including pre-upgrade stored envelopes. Sender admission, negotiation, rejected sends and restart retries never establish cross-node guide ordering. Normal vote processing is unchanged.
 
 Local Votifier ingress captures backend observation order before executor admission. In-process overflow preserves that order, so a vote queued before a guide opens cannot appear as a fresh guide receipt. Recovered overflow and direct legacy processing callbacks have unknown original order and remain unconfirmed by the guide; normal vote totals, cooldowns and rewards still process normally. The order is process-local and is never reused from a persisted queue after restart.
+
+Offline-mode backends resolve the established cached network storage UUID on the player owner before reading cooldowns asynchronously. The guide itself remains owned by the Bukkit player UUID; name/UUID resolution does not grant rewards or confirm proxy vote occurrences.

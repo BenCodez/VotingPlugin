@@ -2098,7 +2098,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				player -> placeholderStorageUuid(player, onlineMode));
 	}
 
-	static UUID placeholderStorageUuid(Player player, boolean onlineMode) {
+	/** Snapshot-only UUID resolution; call while owning the player, before storage work. */
+	public static UUID placeholderStorageUuid(Player player, boolean onlineMode) {
 		if (onlineMode) return player.getUniqueId();
 		String cachedUuid = UuidLookup.getInstance().getCachedUUID(player.getName());
 		try {

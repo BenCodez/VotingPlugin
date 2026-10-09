@@ -25,6 +25,31 @@ class GuidedVotingSessionsTest {
         var started = com.bencodez.votingplugin.core.session.GuidedVoteSession.class.getDeclaredField("started"); started.setAccessible(true);
         started.setLong(session, System.currentTimeMillis() - 60_001L);
     }
+    @Test void offlineProxyGuideCapturesCanonicalStorageUuidOnOwnerBeforeWorkerLookup() {
+        try (var f = new Fixture(); var resolver = mockStatic(com.bencodez.advancedcore.api.player.UuidLookup.class)) {
+            UUID storageId = UUID.randomUUID(), changedId = UUID.randomUUID();
+            var lookup = mock(com.bencodez.advancedcore.api.player.UuidLookup.class);
+            resolver.when(com.bencodez.advancedcore.api.player.UuidLookup::getInstance).thenReturn(lookup);
+            when(lookup.getCachedUUID("Alice")).thenReturn(storageId.toString());
+            when(f.plugin.getOptions().isOnlineMode()).thenReturn(false);
+            when(f.plugin.getBungeeSettings().isUseBungeecoord()).thenReturn(true);
+            when(f.plugin.getVotingPluginUserManager().getVotingPluginUser(storageId,"Alice")).thenReturn(f.user);
+            when(f.user.getJavaUUID()).thenReturn(storageId);
+            f.sessions.command(f.player, ""); f.entity.remove().run();
+            verify(f.plugin.getVotingPluginUserManager(),never()).getVotingPluginUser(any(UUID.class),anyString());
+            when(lookup.getCachedUUID("Alice")).thenReturn(changedId.toString());
+            f.worker.remove().run(); f.entity.remove().run();
+            verify(f.plugin.getVotingPluginUserManager()).getVotingPluginUser(storageId,"Alice");
+            verify(f.plugin.getVotingPluginUserManager(),never()).getVotingPluginUser(f.uuid,"Alice");
+            verify(f.player).sendMessage("Voting session: 0/1 votes received.");
+            when(lookup.getCachedUUID("Alice")).thenReturn(storageId.toString());
+            f.lastVotes.put(f.site,1234L); when(f.user.canVoteSite(f.site,1234L)).thenReturn(false);
+            f.sessions.command(f.player,"check"); f.entity.remove().run(); f.worker.remove().run(); f.entity.remove().run();
+            verify(f.user).canVoteSite(f.site,1234L);
+            verify(f.player).sendMessage(contains("UNAVAILABLE"));
+            verify(lookup,times(2)).getCachedUUID("Alice");
+        }
+    }
     @Test void expiredQueuedReadAllowsRestartWithoutReleasingAnotherRequestsAdmission() throws Exception {
         try (var f = new Fixture()) {
             f.config.set("GuidedVotingSession.TimeoutMinutes", 1);
@@ -662,6 +687,7 @@ class GuidedVotingSessionsTest {
         final GuidedVotingSessions sessions = new GuidedVotingSessions(plugin);
         Fixture() {
             config.set("GuidedVotingSession.Enabled", true);
+            when(plugin.getOptions().isOnlineMode()).thenReturn(true);
             when(plugin.getConfigFile().getData()).thenReturn(config);
             when(player.isOnline()).thenReturn(true);
             when(player.spigot()).thenReturn(mock(Player.Spigot.class));

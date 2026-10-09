@@ -80,6 +80,7 @@ public final class GuidedVotingSessions implements Listener {
         }
         if (!player.hasPermission("VotingPlugin.Commands.Vote.Session") && !player.hasPermission("VotingPlugin.Player")) return;
         UUID uuid = player.getUniqueId();
+        UUID storageUuid = VotingPluginMain.placeholderStorageUuid(player, plugin.getOptions().isOnlineMode());
         String name = player.getName();
         List<VoteSite> visible = new ArrayList<>();
         for (VoteSite site : plugin.getVoteSiteManager().getVoteSites()) {
@@ -115,7 +116,7 @@ public final class GuidedVotingSessions implements Listener {
                     var currentSites = new java.util.HashMap<String, VoteSite>();
                     for (VoteSite site : plugin.getVoteSiteManager().getVoteSites()) currentSites.put(site.getKey(), site);
                     var sampledSites = new java.util.HashMap<String, VoteSite>();
-                    var user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid, name);
+                    var user = plugin.getVotingPluginUserManager().getVotingPluginUser(storageUuid, name);
                     String storedName = user.getPlayerName();
                     String voteName = storedName == null ? name : storedName;
                     var lastVotes = new java.util.HashMap<String, Long>();
