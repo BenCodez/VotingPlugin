@@ -9,6 +9,9 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BooleanSupplier;
+
+import com.bencodez.advancedcore.api.user.usercache.UserDataManager;
 
 import org.bukkit.scheduler.BukkitRunnable;
 
@@ -70,36 +73,61 @@ public class NameMCLikeCheckerTask extends BukkitRunnable {
 	 *
 	 * @param uuid the uuid
 	 */
-	private void processUuid(UUID uuid) {
+	void processUuid(UUID uuid) {
 		if (uuid == null || !inFlight.add(uuid)) {
 			return;
 		}
 
 		try {
 			plugin.getUserManager().getUserAsync(uuid, resolved -> {
+				boolean workerAccepted = false;
 				try {
-					// AdvancedCore delivers resolved users on the platform thread,
-					// where reward actions may safely access Bukkit APIs.
 					if (!plugin.isEnabled() || !plugin.getSpecialRewardsConfig().isNameMCLikeRewardEnabled()) {
 						return;
 					}
 					VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(resolved);
-					if (user.hasClaimedNameMCLikeReward()) {
+					UserDataManager dataManager = plugin.getUserManager().getDataManager();
+					if (dataManager != null && dataManager.hasSharedSqlBackend()) {
+						// Capture Bukkit-owned online state before leaving the platform
+						// callback. All persisted claim checks and writes stay on the
+						// storage worker, including cache population and reward setup.
+						boolean online = user.isOnline();
+						workerAccepted = dataManager.deferSharedStorageResultFromPlatform(() -> {
+							try {
+								user.cache();
+								giveRewardIfUnclaimed(uuid, user, () -> online);
+								return Boolean.TRUE;
+							} finally {
+								// Platform completion may be cancelled on reload/shutdown;
+								// never retain a completed UUID in this in-process guard.
+								inFlight.remove(uuid);
+							}
+						}, ignored -> { }, failure -> {
+							try {
+								plugin.getLogger().warning("Failed to process NameMC like user " + uuid + ": "
+										+ failure.getMessage());
+								plugin.debug(failure);
+							} finally {
+								inFlight.remove(uuid);
+							}
+						});
+						// A retired shared-storage worker must not trigger an unsafe
+						// synchronous fallback on the server thread.
+						if (!workerAccepted) {
+							plugin.getLogger().warning("NameMC like check deferred because shared user storage "
+									+ "is unavailable for " + uuid);
+						}
 						return;
 					}
 
-					new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
-							plugin.getSpecialRewardsConfig().getNameMCLikeRewardPath()).setOnline(user.isOnline())
-							.withPlaceHolder("NameMCServer", plugin.getSpecialRewardsConfig().getNameMCLikeRewardUrl()).send(user);
-
-					user.setClaimedNameMCLikeReward(true);
-					plugin.debug("Gave NameMC like reward to " + user.getPlayerName() + " (" + uuid + ")");
+					giveRewardIfUnclaimed(uuid, user, user::isOnline);
 				} finally {
-					inFlight.remove(uuid);
+					if (!workerAccepted) inFlight.remove(uuid);
 				}
 			}, failure -> {
 				try {
-					plugin.getLogger().warning("Failed to resolve NameMC like user " + uuid + ": " + failure.getMessage());
+					plugin.getLogger().warning("Failed to resolve NameMC like user " + uuid + ": "
+							+ failure.getMessage());
 					plugin.debug(failure);
 				} finally {
 					inFlight.remove(uuid);
@@ -109,6 +137,24 @@ public class NameMCLikeCheckerTask extends BukkitRunnable {
 			inFlight.remove(uuid);
 			throw failure;
 		}
+	}
+
+	/**
+	 * Runs the original grant-then-claim sequence on the appropriate storage lane.
+	 * Online state is supplied lazily so unclaimed users alone need that lookup.
+	 */
+	private void giveRewardIfUnclaimed(UUID uuid, VotingPluginUser user, BooleanSupplier online) {
+		if (!plugin.isEnabled() || !plugin.getSpecialRewardsConfig().isNameMCLikeRewardEnabled()
+				|| user.hasClaimedNameMCLikeReward()) {
+			return;
+		}
+
+		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
+				plugin.getSpecialRewardsConfig().getNameMCLikeRewardPath()).setOnline(online.getAsBoolean())
+				.withPlaceHolder("NameMCServer", plugin.getSpecialRewardsConfig().getNameMCLikeRewardUrl()).send(user);
+
+		user.setClaimedNameMCLikeReward(true);
+		plugin.debug("Gave NameMC like reward to " + user.getPlayerName() + " (" + uuid + ")");
 	}
 
 	/**
