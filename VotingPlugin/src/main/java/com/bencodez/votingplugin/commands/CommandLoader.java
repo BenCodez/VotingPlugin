@@ -1797,14 +1797,16 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				String action = args.length >= 3 ? args[2] : "";
 				boolean preview = "status".equalsIgnoreCase(action);
-				if (args.length < 3 || args.length > 4 || (preview && args.length != 3)
-						|| (!preview && args.length != 4)) {
+				boolean confirmed = args.length == 5
+						&& "all-backends-quiesced".equalsIgnoreCase(args[4]);
+				if (args.length < 3 || (preview && args.length != 3)
+						|| (!preview && args.length != 4 && !confirmed)) {
 					runForCommandSender(sender, () -> sender.sendMessage(MessageAPI.colorize(
-							"&cUsage: /av OfflineVoteRecovery <uuid> status | delivered|retry|already-cleared <token>")));
+							"&cUsage: /av OfflineVoteRecovery <uuid> status | delivered|retry|already-cleared <token> [all-backends-quiesced]")));
 					return;
 				}
 				String token = preview ? "" : args[3];
-				offlineRecovery.handle(sender.getName(), args[1], action, token,
+				offlineRecovery.handle(sender.getName(), args[1], action, token, confirmed,
 						message -> runForCommandSender(sender,
 								() -> sender.sendMessage(MessageAPI.colorize("&e" + message))));
 			}
@@ -1822,13 +1824,15 @@ public class CommandLoader {
 			public void execute(CommandSender sender, String[] args) {
 				String action = args.length >= 3 ? args[2] : "";
 				boolean preview = "status".equalsIgnoreCase(action);
-				if (args.length < 3 || args.length > 4 || (preview && args.length != 3)
-						|| (!preview && args.length != 4)) {
+				boolean confirmed = args.length == 5
+						&& "all-backends-quiesced".equalsIgnoreCase(args[4]);
+				if (args.length < 3 || (preview && args.length != 3)
+						|| (!preview && args.length != 4 && !confirmed)) {
 					runForCommandSender(sender, () -> sender.sendMessage(MessageAPI.colorize(
-							"&cUsage: /av NameMCLikeRecovery <uuid> status | delivered|retry <token>")));
+							"&cUsage: /av NameMCLikeRecovery <uuid> status | delivered|retry <token> [all-backends-quiesced]")));
 					return;
 				}
-				nameMCRecovery.handle(sender.getName(), args[1], action, preview ? "" : args[3],
+				nameMCRecovery.handle(sender.getName(), args[1], action, preview ? "" : args[3], confirmed,
 						message -> runForCommandSender(sender,
 								() -> sender.sendMessage(MessageAPI.colorize("&e" + message))));
 			}

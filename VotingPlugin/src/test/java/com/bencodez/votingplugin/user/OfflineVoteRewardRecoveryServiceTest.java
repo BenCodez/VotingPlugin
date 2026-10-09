@@ -103,4 +103,23 @@ class OfflineVoteRewardRecoveryServiceTest {
 		assertTrue(result.get().startsWith("Invalid UUID"));
 		verify(user, never()).reconcileOfflineVoteRewardBatch(any(), any(), any());
 	}
+	@Test
+	void sharedSqlRecoveryRequiresExplicitNetworkQuiescence() {
+		when(plugin.getUserManager().getDataManager().hasSharedSqlBackend()).thenReturn(true);
+		AtomicReference<String> result = new AtomicReference<>();
+		service.handle("Console", UUID_VALUE.toString(), "status", "", result::set);
+		String marker = "delivered ";
+		int start = result.get().indexOf(marker) + marker.length();
+		String token = result.get().substring(start, result.get().indexOf(' ', start));
+
+		service.handle("Console", UUID_VALUE.toString(), "delivered", token, result::set);
+		assertTrue(result.get().contains("ALL backend servers"));
+		verify(user, never()).reconcileOfflineVoteRewardBatch(any(), any(), any());
+
+		service.handle("Console", UUID_VALUE.toString(), "delivered", token, true, result::set);
+		assertTrue(result.get().contains("recovery applied"));
+		verify(user).reconcileOfflineVoteRewardBatch(eq(List.of("Site1")),
+				eq(List.of("Site1")), eq("delivered"));
+	}
+
 }

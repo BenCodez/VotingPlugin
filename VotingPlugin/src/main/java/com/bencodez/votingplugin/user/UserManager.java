@@ -56,6 +56,11 @@ public class UserManager {
 		manager.addKey(new UserDataKeyString("LastVotes"));
 		manager.addKey(new UserDataKeyBoolean(getCoolDownCheckPath()));
 		manager.addKey(new UserDataKeyString("OfflineVotes").setColumnType("MEDIUMTEXT"));
+		// Register both recovery markers before SQL schema and cache publication.
+		manager.addKey(new UserDataKeyString("OfflineVotesRewardPending").setColumnType("MEDIUMTEXT"));
+		manager.addKey(new UserDataKeyBoolean("NameMCLikeRewardPending"));
+		// Existing NameMC claim state must also be readable/writable in shared SQL.
+		manager.addKey(new UserDataKeyBoolean("NameMCLikeRewardClaimed"));
 		//manager.addKey(new UserDataKeyInt("MilestoneCount"));
 		manager.addKey(new UserDataKeyInt("MonthTotal"));
 

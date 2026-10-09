@@ -29,6 +29,16 @@ public final class OfflineVoteRewardRecoveryService {
 	 * appropriate command-sender scheduler.
 	 */
 	public void handle(String actor, String rawUuid, String action, String token, Consumer<String> completion) {
+		handle(actor, rawUuid, action, token, false, completion);
+	}
+
+	/**
+	 * Shared SQL may span multiple backend JVMs. The local in-flight check is
+	 * necessary but insufficient; a recovery operator must explicitly confirm
+	 * quiescence across every connected backend before any mutation is allowed.
+	 */
+	public void handle(String actor, String rawUuid, String action, String token,
+			boolean allBackendsQuiesced, Consumer<String> completion) {
 		UUID uuid;
 		try {
 			uuid = UUID.fromString(rawUuid);
@@ -57,6 +67,13 @@ public final class OfflineVoteRewardRecoveryService {
 					}
 					if ("status".equalsIgnoreCase(action)) {
 						completion.accept(preview(uuid, user));
+						return;
+					}
+					if (plugin.getUserManager().getDataManager().hasSharedSqlBackend()
+							&& !allBackendsQuiesced) {
+						completion.accept("Shared SQL may have active delivery on another backend. "
+								+ "Suspend reward processing on ALL backend servers, confirm external effects, "
+								+ "then repeat with final argument all-backends-quiesced.");
 						return;
 					}
 					completion.accept(resolve(actor, uuid, user, action, token));

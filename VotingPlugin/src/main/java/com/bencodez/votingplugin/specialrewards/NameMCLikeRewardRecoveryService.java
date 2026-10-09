@@ -27,6 +27,12 @@ public final class NameMCLikeRewardRecoveryService {
 	 * executor; the caller schedules the resulting message onto its sender owner.
 	 */
 	public void handle(String actor, String rawUuid, String action, String token, Consumer<String> completion) {
+		handle(actor, rawUuid, action, token, false, completion);
+	}
+
+	/** Require explicit network-wide quiescence before shared-SQL claim resolution. */
+	public void handle(String actor, String rawUuid, String action, String token,
+			boolean allBackendsQuiesced, Consumer<String> completion) {
 		final UUID uuid;
 		try {
 			uuid = UUID.fromString(rawUuid);
@@ -56,6 +62,13 @@ public final class NameMCLikeRewardRecoveryService {
 					}
 					if ("status".equalsIgnoreCase(action)) {
 						completion.accept(preview(uuid, user));
+						return;
+					}
+					if (plugin.getUserManager().getDataManager().hasSharedSqlBackend()
+							&& !allBackendsQuiesced) {
+						completion.accept("Shared SQL may have active grants on another backend. "
+								+ "Suspend NameMC reward processing on ALL backend servers, verify the reward, "
+								+ "then repeat with final argument all-backends-quiesced.");
 						return;
 					}
 					completion.accept(resolve(actor, uuid, user, action, token));

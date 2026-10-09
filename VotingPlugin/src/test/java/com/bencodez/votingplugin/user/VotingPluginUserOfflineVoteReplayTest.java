@@ -17,6 +17,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -29,6 +30,7 @@ import org.mockito.InOrder;
 
 import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
 import com.bencodez.advancedcore.api.user.UserData;
+import com.bencodez.simpleapi.sql.data.DataValue;
 import com.bencodez.advancedcore.api.rewards.RewardHandler;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.votingplugin.config.SpecialRewardsConfig;
@@ -177,6 +179,35 @@ class VotingPluginUserOfflineVoteReplayTest {
 		assertFalse(fixture.user.isOfflineVoteRewardReplayActive());
 	}
 
+
+	@Test
+	void deliveredBatchCommitCannotLeaveAnOldPendingMarkerForIdenticalNewVotes() {
+		AsyncReplayFixture fixture = asyncFixture();
+		fixture.pending.set(new ArrayList<>(List.of("Site1")));
+		fixture.user.reconcileOfflineVoteRewardBatch(List.of("Site1"), List.of("Site1"), "delivered");
+		assertTrue(fixture.pending.get().isEmpty());
+		assertTrue(fixture.queued.get().isEmpty());
+		verify(fixture.user.getUserData()).setValues(
+				org.mockito.ArgumentMatchers.any(HashMap.class));
+
+		// This later same-site vote is new, not the completed old batch.
+		fixture.queued.set(new ArrayList<>(List.of("Site1")));
+		assertTrue(fixture.pending.get().isEmpty());
+		assertEquals(List.of("Site1"), fixture.queued.get());
+	}
+
+	@Test
+	void transactionalBatchFailureDoesNotClearQueueOrPendingRecoveryState() {
+		AsyncReplayFixture fixture = asyncFixture();
+		doThrow(new IllegalStateException("database write failed")).when(fixture.user.getUserData())
+				.setValues(org.mockito.ArgumentMatchers.any(HashMap.class));
+		fixture.pending.set(new ArrayList<>(List.of("Site1")));
+		assertThrows(IllegalStateException.class, () ->
+				fixture.user.reconcileOfflineVoteRewardBatch(List.of("Site1"), List.of("Site1"), "delivered"));
+		assertEquals(List.of("Site1"), fixture.pending.get());
+		assertEquals(List.of("Site1"), fixture.queued.get());
+	}
+
 	/** Mock persistence boundaries but exercise the real async user method. */
 	private static AsyncReplayFixture asyncFixture() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
@@ -207,6 +238,19 @@ class VotingPluginUserOfflineVoteReplayTest {
 			return null;
 		}).when(data).setStringList(eq("OfflineVotesRewardPending"),
 				org.mockito.ArgumentMatchers.any(ArrayList.class), eq(false));
+		// Transactionally write queue + pending flag in ONE AdvancedCore setValues.
+		doAnswer(call -> {
+			@SuppressWarnings("unchecked")
+			HashMap<String, DataValue> values = call.getArgument(0);
+			assertEquals(java.util.Set.of("OfflineVotes", "OfflineVotesRewardPending"), values.keySet());
+			String updatedQueue = values.get("OfflineVotes").getString();
+			String updatedPending = values.get("OfflineVotesRewardPending").getString();
+			queued.set(updatedQueue.isEmpty() ? new ArrayList<>()
+					: new ArrayList<>(List.of(updatedQueue.split("%line%"))));
+			pending.set(updatedPending.isEmpty() ? new ArrayList<>()
+					: new ArrayList<>(List.of(updatedPending.split("%line%"))));
+			return null;
+		}).when(data).setValues(org.mockito.ArgumentMatchers.any(HashMap.class));
 
 		ScheduledExecutorService timer = mock(ScheduledExecutorService.class);
 		when(plugin.getUserManager().getDataManager().getTimer()).thenReturn(timer);

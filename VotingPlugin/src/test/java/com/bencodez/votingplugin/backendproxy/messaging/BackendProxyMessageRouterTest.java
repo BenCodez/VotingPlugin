@@ -168,7 +168,7 @@ class BackendProxyMessageRouterTest {
 		insideStorage.set(false);
 		org.mockito.InOrder order = org.mockito.Mockito.inOrder(user);
 		order.verify(user).cache();
-		order.verify(user).offVoteWithCapturedTopVoterIgnoreAsync(true, any(Runnable.class));
+		order.verify(user).offVoteWithCapturedTopVoterIgnoreAsync(eq(true), any(Runnable.class));
 		order.verify(user).setTime(site, LAST_VOTE_TIME);
 		verify(user, never()).offVote();
 		verify(plugin, never()).setUpdate(true);
@@ -178,7 +178,7 @@ class BackendProxyMessageRouterTest {
 		pending.success.accept(result);
 		assertEquals(OrderedVoteOutcome.COMPLETE, outcome.get());
 		verify(user, times(1)).setTime(site, LAST_VOTE_TIME);
-		verify(user, times(1)).offVoteWithCapturedTopVoterIgnoreAsync(true, any(Runnable.class));
+		verify(user, times(1)).offVoteWithCapturedTopVoterIgnoreAsync(eq(true), any(Runnable.class));
 		verify(plugin).setUpdate(true);
 	}
 
@@ -215,7 +215,7 @@ class BackendProxyMessageRouterTest {
 			pending.success.accept(pending.work.get());
 
 			assertEquals(OrderedVoteOutcome.COMPLETE, outcome.get());
-			verify(user).offVoteWithCapturedTopVoterIgnoreAsync(true, any(Runnable.class));
+			verify(user).offVoteWithCapturedTopVoterIgnoreAsync(eq(true), any(Runnable.class));
 			verify(user).setTime(site, LAST_VOTE_TIME);
 			verify(user, never()).offVote();
 			verify(plugin).setUpdate(true);
@@ -337,7 +337,7 @@ class BackendProxyMessageRouterTest {
 		assertEquals(OrderedVoteOutcome.COMPLETE, outcome.get());
 		assertEquals(1, completions.get());
 		verify(user).cache();
-		verify(user).offVoteWithCapturedTopVoterIgnoreAsync(false, any(Runnable.class));
+		verify(user).offVoteWithCapturedTopVoterIgnoreAsync(eq(false), any(Runnable.class));
 		verify(user).setTime(site, LAST_VOTE_TIME);
 	}
 
@@ -390,7 +390,7 @@ class BackendProxyMessageRouterTest {
 		VoteSite site = mock(VoteSite.class);
 		when(voteSiteManager.getVoteSite("known.example", true)).thenReturn(site);
 		CompletableFuture<Void> rewards = new CompletableFuture<>();
-		when(user.offVoteWithCapturedTopVoterIgnoreAsync(false, any(Runnable.class))).thenReturn(rewards);
+		when(user.offVoteWithCapturedTopVoterIgnoreAsync(eq(false), any(Runnable.class))).thenReturn(rewards);
 
 		AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
 		router.handleOrderedVote(VotingPluginWire.voteUpdate(PLAYER_UUID.toString(), 1, 10,
@@ -399,7 +399,7 @@ class BackendProxyMessageRouterTest {
 
 		assertEquals(null, outcome.get(), "Do not acknowledge before reward delivery finishes");
 		verify(plugin, never()).setUpdate(true);
-		verify(user).offVoteWithCapturedTopVoterIgnoreAsync(false, any(Runnable.class));
+		verify(user).offVoteWithCapturedTopVoterIgnoreAsync(eq(false), any(Runnable.class));
 		verify(user, never()).offVoteWithCapturedTopVoterIgnore(false);
 		verify(user).setTime(site, LAST_VOTE_TIME);
 
@@ -420,7 +420,7 @@ class BackendProxyMessageRouterTest {
 			return null;
 		}).when(scheduler).runTask(eq(plugin), any(Runnable.class), eq(player));
 		CompletableFuture<Void> rewards = new CompletableFuture<>();
-		when(user.offVoteWithCapturedTopVoterIgnoreAsync(false, any(Runnable.class))).thenReturn(rewards);
+		when(user.offVoteWithCapturedTopVoterIgnoreAsync(eq(false), any(Runnable.class))).thenReturn(rewards);
 
 		AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
 		router.handleOrderedVote(VotingPluginWire.voteUpdate(PLAYER_UUID.toString(), 1, 10,
@@ -431,7 +431,7 @@ class BackendProxyMessageRouterTest {
 		rewards.completeExceptionally(new IllegalStateException("partial external effects"));
 		assertEquals(OrderedVoteOutcome.QUARANTINE, outcome.get());
 		verify(plugin, never()).setUpdate(true);
-		verify(user, times(1)).offVoteWithCapturedTopVoterIgnoreAsync(false, any(Runnable.class));
+		verify(user, times(1)).offVoteWithCapturedTopVoterIgnoreAsync(eq(false), any(Runnable.class));
 	}
 
 
@@ -565,7 +565,7 @@ class BackendProxyMessageRouterTest {
 		IllegalStateException failure = assertThrows(IllegalStateException.class, pending.work::get);
 		pending.failure.accept(failure);
 		assertEquals(OrderedVoteOutcome.QUARANTINE, outcome.get());
-		verify(user, times(1)).offVoteWithCapturedTopVoterIgnoreAsync(false, any(Runnable.class));
+		verify(user, times(1)).offVoteWithCapturedTopVoterIgnoreAsync(eq(false), any(Runnable.class));
 		verify(user, never()).offVote();
 		verify(plugin, never()).setUpdate(true);
 	}

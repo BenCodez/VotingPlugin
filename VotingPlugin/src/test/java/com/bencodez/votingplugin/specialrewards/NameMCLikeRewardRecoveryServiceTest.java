@@ -127,4 +127,18 @@ class NameMCLikeRewardRecoveryServiceTest {
 		assertTrue(outcome.get().contains("Invalid or expired"));
 		verify(user, never()).setNameMCLikeRewardPending(false);
 	}
+	@Test
+	void sharedSqlNameMCRecoveryRequiresExplicitNetworkQuiescence() {
+		when(plugin.getUserManager().getDataManager().hasSharedSqlBackend()).thenReturn(true);
+		String token = previewToken();
+		AtomicReference<String> result = new AtomicReference<>();
+		service.handle("Console", PLAYER_UUID.toString(), "retry", token, result::set);
+		assertTrue(result.get().contains("ALL backend servers"));
+		verify(user, never()).setNameMCLikeRewardPending(false);
+
+		service.handle("Console", PLAYER_UUID.toString(), "retry", token, true, result::set);
+		assertTrue(result.get().contains("recovery applied"));
+		verify(user).setNameMCLikeRewardPending(false);
+	}
+
 }

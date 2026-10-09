@@ -38,6 +38,7 @@ import com.bencodez.advancedcore.api.user.usercache.UserDataCache;
 import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.simpleapi.sql.data.DataValue;
 import com.bencodez.simpleapi.sql.data.DataValueInt;
+import com.bencodez.simpleapi.sql.data.DataValueString;
 import com.bencodez.simpleapi.time.ParsedDuration;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerReceivePointsEvent;
@@ -2133,8 +2134,9 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 							ArrayList<String> remaining = new ArrayList<>(
 									current.subList(offlineVotes.size(), current.size()));
 							// A crash between flushes leaves the pending recovery fence.
-							getUserData().setStringList("OfflineVotes", remaining, false);
-							getUserData().setStringList(OFFLINE_VOTES_REWARD_PENDING_KEY, new ArrayList<>(), false);
+							// Flush both columns as ONE storage transaction. No crash
+							// window may expose a cleared queue with its old pending marker.
+							commitDeliveredOfflineVoteBatch(remaining);
 							confirmed.complete(null);
 						} catch (RuntimeException | Error commitFailure) {
 							confirmed.completeExceptionally(commitFailure);
@@ -2149,6 +2151,18 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			IN_FLIGHT_OFFLINE_VOTE_REWARDS.remove(uuid);
 			throw failure;
 		}
+	}
+
+	/**
+	 * Atomically finish a delivered offline-reward batch on the user-data worker.
+	 * AdvancedCore's setValues sends one registered-column write transaction
+	 * (including MySQL/SQLite) instead of two independently committed setters.
+	 */
+	private void commitDeliveredOfflineVoteBatch(ArrayList<String> remaining) {
+		HashMap<String, DataValue> updates = new HashMap<>();
+		updates.put("OfflineVotes", new DataValueString(String.join("%line%", remaining)));
+		updates.put(OFFLINE_VOTES_REWARD_PENDING_KEY, new DataValueString(""));
+		getUserData().setValues(updates);
 	}
 
 	/** Storage-worker-only snapshot for previewing/reconciling an ambiguous grant. */
@@ -2183,8 +2197,9 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 				&& queued.subList(0, pending.size()).equals(pending);
 		if ("delivered".equalsIgnoreCase(resolution)) {
 			if (!prefixMatches) throw new IllegalStateException("Delivered prefix no longer matches stored queue");
-			getUserData().setStringList("OfflineVotes",
-					new ArrayList<>(queued.subList(pending.size(), queued.size())), false);
+			commitDeliveredOfflineVoteBatch(new ArrayList<>(
+					queued.subList(pending.size(), queued.size())));
+			return;
 		} else if ("retry".equalsIgnoreCase(resolution)) {
 			if (!prefixMatches) throw new IllegalStateException("Retry prefix no longer matches stored queue");
 			// The operator has checked that no external effects were delivered.
