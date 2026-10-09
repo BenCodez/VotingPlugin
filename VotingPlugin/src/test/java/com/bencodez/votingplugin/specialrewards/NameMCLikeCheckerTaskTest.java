@@ -1,7 +1,7 @@
 package com.bencodez.votingplugin.specialrewards;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -14,9 +14,10 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.ArrayDeque;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.logging.Logger;
@@ -47,6 +48,7 @@ class NameMCLikeCheckerTaskTest {
 	private SpecialRewardsConfig config;
 	private YamlConfiguration rewards;
 	private NameMCLikeCheckerTask task;
+	private ArrayDeque<Runnable> storageWork;
 
 	@BeforeEach
 	void setUp() {
@@ -59,6 +61,7 @@ class NameMCLikeCheckerTaskTest {
 		rewardHandler = mock(RewardHandler.class);
 		config = mock(SpecialRewardsConfig.class);
 		rewards = new YamlConfiguration();
+		storageWork = new ArrayDeque<>();
 
 		when(plugin.getUserManager()).thenReturn(coreUsers);
 		when(coreUsers.getDataManager()).thenReturn(dataManager);
@@ -73,11 +76,17 @@ class NameMCLikeCheckerTaskTest {
 		when(config.getNameMCLikeRewardPath()).thenReturn(REWARD_PATH);
 		when(config.getNameMCLikeRewardUrl()).thenReturn("example.minecraft.net");
 		when(user.getPlugin()).thenReturn(plugin);
-		when(rewardHandler.giveRewardAsync(eq(user), eq(rewards), eq(REWARD_PATH),
-				any(RewardOptions.class))).thenReturn(CompletableFuture.completedFuture(null));
 		when(user.getPlayerName()).thenReturn("Player");
 		when(user.isOnline()).thenReturn(true);
+		when(rewardHandler.giveRewardAsync(eq(user), eq(rewards), eq(REWARD_PATH),
+				any(RewardOptions.class))).thenReturn(CompletableFuture.completedFuture(null));
 
+		ScheduledExecutorService timer = mock(ScheduledExecutorService.class);
+		when(dataManager.getTimer()).thenReturn(timer);
+		doAnswer(invocation -> {
+			storageWork.add(invocation.getArgument(0));
+			return null;
+		}).when(timer).execute(any(Runnable.class));
 		doAnswer(invocation -> {
 			@SuppressWarnings("unchecked")
 			Consumer<AdvancedCoreUser> success = invocation.getArgument(1);
@@ -89,64 +98,94 @@ class NameMCLikeCheckerTaskTest {
 	}
 
 	@Test
-	void sharedStorageDefersClaimReadRewardAndClaimWriteToWorker() {
+	void sharedStoragePersistsPendingBeforeDispatchAndClaimsOnlyAfterAsyncSuccess() {
 		DeferredCheck deferred = captureSharedCheck();
-		AtomicReference<Boolean> inStorage = new AtomicReference<>(false);
-		doAnswer(invocation -> {
-			assertTrue(inStorage.get(), "The claim must be checked on the storage worker");
-			return false;
-		}).when(user).hasClaimedNameMCLikeReward();
-		doAnswer(invocation -> {
-			assertTrue(inStorage.get(), "The claim must be stored on the storage worker");
-			return null;
-		}).when(user).setClaimedNameMCLikeReward(true);
+		CompletableFuture<Void> delivery = new CompletableFuture<>();
+		when(rewardHandler.giveRewardAsync(eq(user), eq(rewards), eq(REWARD_PATH),
+				any(RewardOptions.class))).thenReturn(delivery);
 
 		task.processUuid(PLAYER_UUID);
 		task.processUuid(PLAYER_UUID);
 		verify(coreUsers, times(1)).getUserAsync(eq(PLAYER_UUID), any(), any());
 		verify(user, never()).hasClaimedNameMCLikeReward();
-		verify(user, never()).cache();
-
-		inStorage.set(true);
 		assertEquals(Boolean.TRUE, deferred.work.get());
-		inStorage.set(false);
 
 		InOrder order = inOrder(user, rewardHandler);
 		order.verify(user).cache();
 		order.verify(user).hasClaimedNameMCLikeReward();
+		order.verify(user).isNameMCLikeRewardPending();
+		order.verify(user).setNameMCLikeRewardPending(true);
 		order.verify(rewardHandler).giveRewardAsync(eq(user), eq(rewards), eq(REWARD_PATH),
 				any(RewardOptions.class));
-		order.verify(user).setClaimedNameMCLikeReward(true);
-		verify(user, times(1)).isOnline();
-		// Cleanup belongs to the worker, not a platform callback that might be cancelled.
+		verify(user, never()).setClaimedNameMCLikeReward(true);
+		assertTrue(storageWork.isEmpty());
+
+		delivery.complete(null);
+		assertEquals(1, storageWork.size());
+		verify(user, never()).setClaimedNameMCLikeReward(true);
+		storageWork.remove().run();
+		InOrder completed = inOrder(user);
+		completed.verify(user).setNameMCLikeRewardPending(true);
+		completed.verify(user).setClaimedNameMCLikeReward(true);
+		completed.verify(user).setNameMCLikeRewardPending(false);
 		task.processUuid(PLAYER_UUID);
 		verify(coreUsers, times(2)).getUserAsync(eq(PLAYER_UUID), any(), any());
 	}
 
 	@Test
-	void claimedSharedUserDoesNotReceiveSecondReward() {
+	void asyncFailureLeavesPendingWithoutFalseClaimOrDuplicateDelivery() {
+		DeferredCheck deferred = captureSharedCheck();
+		CompletableFuture<Void> delivery = new CompletableFuture<>();
+		when(rewardHandler.giveRewardAsync(eq(user), eq(rewards), eq(REWARD_PATH),
+				any(RewardOptions.class))).thenReturn(delivery);
+		when(user.isNameMCLikeRewardPending()).thenReturn(false, true);
+		task.processUuid(PLAYER_UUID);
+		assertEquals(Boolean.TRUE, deferred.work.get());
+
+		delivery.completeExceptionally(new IllegalStateException("partially delivered"));
+		verify(user, never()).setClaimedNameMCLikeReward(true);
+		verify(user, never()).setNameMCLikeRewardPending(false);
+		assertTrue(storageWork.isEmpty());
+
+		task.processUuid(PLAYER_UUID);
+		assertEquals(Boolean.TRUE, deferred.work.get());
+		verify(rewardHandler, times(1)).giveRewardAsync(eq(user), eq(rewards), eq(REWARD_PATH),
+				any(RewardOptions.class));
+		verify(user, times(1)).setNameMCLikeRewardPending(true);
+	}
+
+	@Test
+	void alreadyClaimedSharedUserDoesNotReceiveSecondReward() {
 		DeferredCheck deferred = captureSharedCheck();
 		when(user.hasClaimedNameMCLikeReward()).thenReturn(true);
 		task.processUuid(PLAYER_UUID);
-
 		assertEquals(Boolean.TRUE, deferred.work.get());
 		verify(user).cache();
-		verify(user).hasClaimedNameMCLikeReward();
-		verify(rewardHandler, never()).giveReward(eq(user), any(YamlConfiguration.class), eq(REWARD_PATH),
+		verify(rewardHandler, never()).giveRewardAsync(eq(user), eq(rewards), eq(REWARD_PATH),
+				any(RewardOptions.class));
+		verify(user, never()).setNameMCLikeRewardPending(true);
+	}
+
+	@Test
+	void preexistingPendingClaimRequiresReviewAndIsNotReplayed() {
+		DeferredCheck deferred = captureSharedCheck();
+		when(user.isNameMCLikeRewardPending()).thenReturn(true);
+		task.processUuid(PLAYER_UUID);
+		assertEquals(Boolean.TRUE, deferred.work.get());
+		verify(rewardHandler, never()).giveRewardAsync(eq(user), eq(rewards), eq(REWARD_PATH),
 				any(RewardOptions.class));
 		verify(user, never()).setClaimedNameMCLikeReward(true);
 	}
 
 	@Test
-	void cacheFailureReleasesInFlightWithoutGrantingOrMarkingClaimed() {
+	void failedCachePopulationCannotDispatchOrClaim() {
 		DeferredCheck deferred = captureSharedCheck();
 		doThrow(new IllegalStateException("cache unavailable")).when(user).cache();
 		task.processUuid(PLAYER_UUID);
-
-		assertThrows(IllegalStateException.class, deferred.work::get);
+		assertEquals(Boolean.TRUE, deferred.work.get());
 		verify(user, never()).hasClaimedNameMCLikeReward();
-		verify(user, never()).setClaimedNameMCLikeReward(true);
-		verify(rewardHandler, never()).giveReward(eq(user), eq(rewards), eq(REWARD_PATH),
+		verify(user, never()).setNameMCLikeRewardPending(true);
+		verify(rewardHandler, never()).giveRewardAsync(eq(user), eq(rewards), eq(REWARD_PATH),
 				any(RewardOptions.class));
 		task.processUuid(PLAYER_UUID);
 		verify(coreUsers, times(2)).getUserAsync(eq(PLAYER_UUID), any(), any());
@@ -159,41 +198,24 @@ class NameMCLikeCheckerTaskTest {
 		verify(dataManager).deferSharedStorageResultFromPlatform(any(), any(), any());
 		verify(user, never()).cache();
 		verify(user, never()).hasClaimedNameMCLikeReward();
-		verify(user, never()).setClaimedNameMCLikeReward(true);
 		task.processUuid(PLAYER_UUID);
 		verify(coreUsers, times(2)).getUserAsync(eq(PLAYER_UUID), any(), any());
 	}
 
-
 	@Test
-	void asynchronousRewardFailureDoesNotReopenAmbiguousClaim() {
-		DeferredCheck deferred = captureSharedCheck();
-		CompletableFuture<Void> delivery = new CompletableFuture<>();
-		when(rewardHandler.giveRewardAsync(eq(user), eq(rewards), eq(REWARD_PATH),
-				any(RewardOptions.class))).thenReturn(delivery);
-		when(user.hasClaimedNameMCLikeReward()).thenReturn(false, true);
-		task.processUuid(PLAYER_UUID);
-		assertEquals(Boolean.TRUE, deferred.work.get());
-		verify(user).setClaimedNameMCLikeReward(true);
-
-		delivery.completeExceptionally(new IllegalStateException("partial reward"));
-		task.processUuid(PLAYER_UUID);
-		assertEquals(Boolean.TRUE, deferred.work.get());
-		verify(rewardHandler, times(1)).giveRewardAsync(eq(user), eq(rewards), eq(REWARD_PATH),
-				any(RewardOptions.class));
-		verify(user, times(1)).setClaimedNameMCLikeReward(true);
-	}
-
-	@Test
-	void nonSharedStoragePreservesExistingRewardBehavior() {
+	void nonSharedStorageAlsoDefersUserDataAndConfirmationToStorageWorker() {
 		when(dataManager.hasSharedSqlBackend()).thenReturn(false);
 		task.processUuid(PLAYER_UUID);
 		verify(dataManager, never()).deferSharedStorageResultFromPlatform(any(), any(), any());
-		verify(user, never()).cache();
-		verify(user).hasClaimedNameMCLikeReward();
-		verify(rewardHandler).giveRewardAsync(eq(user), eq(rewards), eq(REWARD_PATH),
-				any(RewardOptions.class));
+		verify(user, never()).hasClaimedNameMCLikeReward();
+		assertEquals(1, storageWork.size());
+		storageWork.remove().run();
+		verify(user).setNameMCLikeRewardPending(true);
+		verify(user, never()).setClaimedNameMCLikeReward(true);
+		assertEquals(1, storageWork.size());
+		storageWork.remove().run();
 		verify(user).setClaimedNameMCLikeReward(true);
+		verify(user).setNameMCLikeRewardPending(false);
 	}
 
 	private DeferredCheck captureSharedCheck() {

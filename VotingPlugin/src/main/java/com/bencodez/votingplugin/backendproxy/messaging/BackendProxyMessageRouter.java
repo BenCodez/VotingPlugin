@@ -3,6 +3,8 @@ package com.bencodez.votingplugin.backendproxy.messaging;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -402,34 +404,60 @@ public class BackendProxyMessageRouter {
 		try {
 			boolean deferred = dataManager.deferSharedStorageResultFromPlatform(() -> {
 				user.cache();
+				CompletionStage<Void> rewards = CompletableFuture.completedFuture(null);
 				if (processOfflineVotes) {
-					// Offline rewards can produce nontransactional external effects.
+					// The async path snapshots/clears queued votes on the storage
+					// worker, but awaits platform-owned reward injection effects.
 					effectsMayHaveStarted.set(true);
-					user.offVoteWithCapturedTopVoterIgnore(topVoterIgnore);
+					rewards = user.offVoteWithCapturedTopVoterIgnoreAsync(topVoterIgnore);
+					if (rewards == null) throw new IllegalStateException("Offline vote reward chain was null");
 				}
 				applyVoteUpdateTime(update, user, voteSite, () -> effectsMayHaveStarted.set(true));
-				return Boolean.TRUE;
-			}, ignored -> {
-				try {
-					plugin.setUpdate(true);
-				} catch (RuntimeException | Error failure) {
+				return rewards;
+			}, rewards -> {
+				if (rewards == null) {
 					completion.accept(OrderedVoteOutcome.QUARANTINE);
-					throw failure;
+					return;
 				}
-				completion.accept(OrderedVoteOutcome.COMPLETE);
+				// This stage may finish on an injection/region thread. Only the
+				// ordered result and update flag return to the platform scheduler.
+				rewards.whenComplete((ignored, rewardFailure) -> {
+					if (rewardFailure != null) {
+						plugin.getLogger().warning("Unable to finish offline rewards for UUID VoteUpdate: "
+								+ ServiceSiteValidator.sanitizeForLog(update.uuid));
+						plugin.debug(rewardFailure);
+						// The reward chain may already have emitted external effects.
+						// Never automatically replay the entire ordered envelope.
+						completion.accept(OrderedVoteOutcome.QUARANTINE);
+						return;
+					}
+					try {
+						dataManager.dispatchSharedStorageNotification(() -> {
+							try {
+								plugin.setUpdate(true);
+								completion.accept(OrderedVoteOutcome.COMPLETE);
+							} catch (RuntimeException | Error failure) {
+								completion.accept(OrderedVoteOutcome.QUARANTINE);
+								throw failure;
+							}
+						});
+					} catch (RuntimeException | Error failure) {
+						plugin.debug(failure);
+						completion.accept(OrderedVoteOutcome.QUARANTINE);
+					}
+				});
 			}, failure -> {
 				try {
 					plugin.getLogger().warning("Unable to apply UUID user VoteUpdate: "
 							+ ServiceSiteValidator.sanitizeForLog(update.uuid));
 					plugin.debug(failure);
 				} finally {
-					// A retry after rewards or a timestamp write may duplicate effects.
+					// Pre-effect read/cache failures retry; possible external
+					// effects or a vote-time write require quarantine.
 					completion.accept(effectsMayHaveStarted.get()
 							? OrderedVoteOutcome.QUARANTINE : OrderedVoteOutcome.RETRY);
 				}
 			});
-			// Shared storage can retire between route selection and admission. Never
-			// fall back to a blocking platform-thread cache or database lookup.
 			if (!deferred) completion.accept(OrderedVoteOutcome.RETRY);
 		} catch (RuntimeException | Error failure) {
 			completion.accept(effectsMayHaveStarted.get()

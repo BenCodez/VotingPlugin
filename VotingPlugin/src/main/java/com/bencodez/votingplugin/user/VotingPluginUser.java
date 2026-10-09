@@ -1368,7 +1368,19 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @param claimed true if claimed
 	 */
 	public void setClaimedNameMCLikeReward(boolean claimed) {
-		getUserData().setBoolean("NameMCLikeRewardClaimed", claimed);
+		// A completed NameMC reward must be durably persisted before clearing
+		// its recovery marker; never leave this as an ordinary queued write.
+		getUserData().setBoolean("NameMCLikeRewardClaimed", claimed, false);
+	}
+
+	/** Whether the NameMC grant may have started but is not yet confirmed. */
+	public boolean isNameMCLikeRewardPending() {
+		return getUserData().getBoolean("NameMCLikeRewardPending");
+	}
+
+	/** Persist/clear the NameMC replay fence on the user-data worker. */
+	public void setNameMCLikeRewardPending(boolean pending) {
+		getUserData().setBoolean("NameMCLikeRewardPending", pending, false);
 	}
 
 	/**
@@ -2037,6 +2049,45 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 				plugin.debug("Site doesn't exist: " + voteSiteName);
 			}
 		}
+	}
+
+	/**
+	 * Processes queued offline vote rewards without invoking the legacy synchronous
+	 * reward facade on the persistence worker. Invoke only on that worker after
+	 * caching the user and capturing TopVoter.Ignore on the owning platform thread.
+	 *
+	 * <p>The offline-vote queue is cleared before dispatch as in the legacy
+	 * implementation. A failed or ambiguous reward chain must quarantine its
+	 * ordered envelope, never replay all rewards without inspection.</p>
+	 *
+	 * @return completion of the asynchronous reward injection sequence
+	 */
+	public CompletionStage<Void> offVoteWithCapturedTopVoterIgnoreAsync(boolean currentTopVoterIgnore) {
+		if (!plugin.getOptions().isProcessRewards()) return CompletableFuture.completedFuture(null);
+		if (isTopVoterIgnore() != currentTopVoterIgnore) setTopVoterIgnore(currentTopVoterIgnore);
+
+		ArrayList<String> offlineVotes = getOfflineVotes();
+		if (offlineVotes.isEmpty()) return CompletableFuture.completedFuture(null);
+
+		// Clear on the ordered storage worker before any external effects. Never
+		// attempt synchronous storage writes from an owner/platform callback.
+		getUserData().setStringList("OfflineVotes", new ArrayList<>(), false);
+
+		CompletionStage<Void> rewards = plugin.getRewardHandler().giveRewardAsync(this,
+				plugin.getSpecialRewardsConfig().getData(),
+				plugin.getSpecialRewardsConfig().getAnySiteRewardsPath(),
+				new RewardOptions().setOnline(false));
+		for (String name : offlineVotes) {
+			// No automatic vote-site creation/config reload from the storage worker.
+			VoteSite site = plugin.getVoteSiteManager().resolveVoteSite(name, true);
+			if (site != null) {
+				plugin.debug("Giving offline site reward: " + name);
+				rewards = rewards.thenCompose(ignored -> site.giveRewardsAsync(this, false, false));
+			} else {
+				plugin.debug("Site doesn't exist: " + name);
+			}
+		}
+		return rewards;
 	}
 
 	/**

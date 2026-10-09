@@ -9,7 +9,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.BooleanSupplier;
+import java.util.concurrent.CompletionStage;
 
 import com.bencodez.advancedcore.api.user.usercache.UserDataManager;
 
@@ -74,64 +74,47 @@ public class NameMCLikeCheckerTask extends BukkitRunnable {
 	 * @param uuid the uuid
 	 */
 	void processUuid(UUID uuid) {
-		if (uuid == null || !inFlight.add(uuid)) {
-			return;
-		}
-
+		if (uuid == null || !inFlight.add(uuid)) return;
 		try {
 			plugin.getUserManager().getUserAsync(uuid, resolved -> {
-				boolean workerAccepted = false;
 				try {
 					if (!plugin.isEnabled() || !plugin.getSpecialRewardsConfig().isNameMCLikeRewardEnabled()) {
+						inFlight.remove(uuid);
 						return;
 					}
 					VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(resolved);
-					UserDataManager dataManager = plugin.getUserManager().getDataManager();
-					if (dataManager != null && dataManager.hasSharedSqlBackend()) {
-						// Capture Bukkit-owned online state before leaving the platform
-						// callback. All persisted claim checks and writes stay on the
-						// storage worker, including cache population and reward setup.
-						boolean online = user.isOnline();
-						workerAccepted = dataManager.deferSharedStorageResultFromPlatform(() -> {
-							try {
-								user.cache();
-								giveRewardIfUnclaimed(uuid, user, () -> online);
-								return Boolean.TRUE;
-							} finally {
-								// Platform completion may be cancelled on reload/shutdown;
-								// never retain a completed UUID in this in-process guard.
-								inFlight.remove(uuid);
-							}
-						}, ignored -> { }, failure -> {
-							try {
-								plugin.getLogger().warning("Failed to process NameMC like user " + uuid + ": "
-										+ failure.getMessage());
-								plugin.debug(failure);
-							} finally {
-								inFlight.remove(uuid);
-							}
-						});
-						// A retired shared-storage worker must not trigger an unsafe
-						// synchronous fallback on the server thread.
-						if (!workerAccepted) {
-							plugin.getLogger().warning("NameMC like check deferred because shared user storage "
-									+ "is unavailable for " + uuid);
-						}
+					UserDataManager manager = plugin.getUserManager().getDataManager();
+					if (manager == null) {
+						inFlight.remove(uuid);
 						return;
 					}
-
-					giveRewardIfUnclaimed(uuid, user, user::isOnline);
-				} finally {
-					if (!workerAccepted) inFlight.remove(uuid);
-				}
-			}, failure -> {
-				try {
-					plugin.getLogger().warning("Failed to resolve NameMC like user " + uuid + ": "
-							+ failure.getMessage());
-					plugin.debug(failure);
-				} finally {
+					// Identity and live online state are captured before switching
+					// back to the persistence worker. No storage-backed getters here.
+					boolean online = user.isOnline();
+					if (manager.hasSharedSqlBackend()) {
+						boolean deferred = manager.deferSharedStorageResultFromPlatform(() -> {
+							processOnStorageWorker(uuid, user, manager, online);
+							return Boolean.TRUE;
+						}, ignored -> { }, failure -> {
+							logProcessingFailure(uuid, failure);
+							inFlight.remove(uuid);
+						});
+						if (!deferred) {
+							plugin.getLogger().warning("NameMC like storage worker unavailable for " + uuid);
+							inFlight.remove(uuid);
+						}
+					} else {
+						// Even the legacy SQLite path must not read/write user data
+						// from getUserAsync's platform callback.
+						manager.getTimer().execute(() -> processOnStorageWorker(uuid, user, manager, online));
+					}
+				} catch (RuntimeException | Error failure) {
+					logProcessingFailure(uuid, failure);
 					inFlight.remove(uuid);
 				}
+			}, failure -> {
+				logProcessingFailure(uuid, failure);
+				inFlight.remove(uuid);
 			});
 		} catch (RuntimeException | Error failure) {
 			inFlight.remove(uuid);
@@ -140,31 +123,73 @@ public class NameMCLikeCheckerTask extends BukkitRunnable {
 	}
 
 	/**
-	 * Runs the original grant-then-claim sequence on the appropriate storage lane.
-	 * Online state is supplied lazily so unclaimed users alone need that lookup.
+	 * The pending marker is persisted before any effects can start. It fences
+	 * ambiguous partial grants across restarts and must be reconciled manually,
+	 * rather than replaying commands/money twice after a failed async injection.
 	 */
-	private void giveRewardIfUnclaimed(UUID uuid, VotingPluginUser user, BooleanSupplier online) {
-		if (!plugin.isEnabled() || !plugin.getSpecialRewardsConfig().isNameMCLikeRewardEnabled()
-				|| user.hasClaimedNameMCLikeReward()) {
-			return;
+	private void processOnStorageWorker(UUID uuid, VotingPluginUser user, UserDataManager manager, boolean online) {
+		boolean awaitingDelivery = false;
+		try {
+			if (!plugin.isEnabled() || !plugin.getSpecialRewardsConfig().isNameMCLikeRewardEnabled()) return;
+			user.cache();
+			if (user.hasClaimedNameMCLikeReward()) return;
+			if (user.isNameMCLikeRewardPending()) {
+				plugin.debug("NameMC reward requires pending-claim reconciliation for " + uuid);
+				return;
+			}
+			// Force immediate worker-side persistence, not an unconfirmed queued
+			// cache update that might vanish after reward dispatch.
+			user.setNameMCLikeRewardPending(true);
+			CompletionStage<Void> delivery = new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
+					plugin.getSpecialRewardsConfig().getNameMCLikeRewardPath()).setOnline(online)
+					.withPlaceHolder("NameMCServer", plugin.getSpecialRewardsConfig().getNameMCLikeRewardUrl())
+					.sendAsync(user);
+			if (delivery == null) throw new IllegalStateException("NameMC reward returned no completion stage");
+			awaitingDelivery = true;
+			delivery.whenComplete((ignored, failure) -> {
+				if (failure != null) {
+					logProcessingFailure(uuid, failure);
+					// Pending remains durable. Do not label failed/partial delivery
+					// claimed, and do not automatically replay its external effects.
+					inFlight.remove(uuid);
+					return;
+				}
+				try {
+					manager.getTimer().execute(() -> completeClaimOnStorageWorker(uuid, user));
+				} catch (RuntimeException | Error failureToQueue) {
+					logProcessingFailure(uuid, failureToQueue);
+					// Success is ambiguous until the durable claimed write lands.
+					// The pending marker keeps future scans from duplicating it.
+					inFlight.remove(uuid);
+				}
+			});
+		} catch (RuntimeException | Error failure) {
+			logProcessingFailure(uuid, failure);
+			// A failed pending write cannot safely authorize reward delivery.
+		} finally {
+			if (!awaitingDelivery) inFlight.remove(uuid);
 		}
+	}
 
-		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
-				plugin.getSpecialRewardsConfig().getNameMCLikeRewardPath()).setOnline(online.getAsBoolean())
-				.withPlaceHolder("NameMCServer", plugin.getSpecialRewardsConfig().getNameMCLikeRewardUrl())
-				.sendAsync(user).whenComplete((ignored, failure) -> {
-					if (failure != null) {
-						plugin.getLogger().warning("NameMC like reward dispatch failed for " + uuid
-								+ "; the claim remains reserved to prevent duplicate rewards");
-						plugin.debug(failure);
-					}
-				});
+	/** Commit the confirmed result on the same storage lane as the pending fence. */
+	private void completeClaimOnStorageWorker(UUID uuid, VotingPluginUser user) {
+		try {
+			user.cache();
+			user.setClaimedNameMCLikeReward(true);
+			user.setNameMCLikeRewardPending(false);
+			plugin.debug("Gave NameMC like reward to " + user.getPlayerName() + " (" + uuid + ")");
+		} catch (RuntimeException | Error failure) {
+			logProcessingFailure(uuid, failure);
+			// Leave the pending state on disk if the commit was not completed.
+		} finally {
+			inFlight.remove(uuid);
+		}
+	}
 
-		// Keep fire-and-forget claim semantics: mark after dispatch admission,
-		// not after unrelated asynchronous actions. AdvancedCore's awaited reward
-		// API marshals player/command effects to their owning platform scheduler.
-		user.setClaimedNameMCLikeReward(true);
-		plugin.debug("Gave NameMC like reward to " + user.getPlayerName() + " (" + uuid + ")");
+	private void logProcessingFailure(UUID uuid, Throwable failure) {
+		plugin.getLogger().warning("NameMC like reward/claim needs review for " + uuid
+				+ ": " + failure.getMessage());
+		plugin.debug(failure);
 	}
 
 	/**
