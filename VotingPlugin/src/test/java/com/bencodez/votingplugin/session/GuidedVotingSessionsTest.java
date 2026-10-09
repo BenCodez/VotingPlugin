@@ -601,6 +601,21 @@ class GuidedVotingSessionsTest {
         }
     }
 
+    @Test void actualLegacyCallbackDoesNotCreateUnretirableCompletionFilesOrConfirmGuide() throws Exception {
+        try (var f = new Fixture()) {
+            var backend = acceptedBackend(f); var proxy = receiverProxy(false);
+            // Install the real callback without starting an external Redis transport in this fixture.
+            when(proxy.getConfig().getMultiProxySupport()).thenReturn(false);
+            proxy.loadMultiProxySupport();
+            when(proxy.getConfig().getMultiProxySupport()).thenReturn(true);
+            startGuide(f);
+            proxy.getMultiProxyHandler().triggerVote("Alice","service",true,false,100L,null,f.uuid.toString());
+            var delivered = proxy.getLastVoteEnvelope(); assertNotNull(delivered);
+            backend.handleOrderedVote(delivered, ignored -> {}); checkGuide(f,0);
+            verify(proxy.getVoteCacheHandler(),never()).markMultiProxyVoteCompletedDurably(any());
+            verify(proxy.getVoteCacheHandler(),never()).hasMultiProxyVoteCompletion(any());
+        }
+    }
     private static void startGuide(Fixture f) {
         f.sessions.command(f.player, ""); f.entity.remove().run(); f.worker.remove().run(); f.entity.remove().run();
     }
