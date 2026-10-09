@@ -47,6 +47,9 @@ class VotingPluginUserOfflineVoteReplayTest {
 		when(base.getUUID()).thenReturn("00000000-0000-0000-0000-000000000001");
 		when(base.getPlayerName()).thenReturn("Player");
 		VotingPluginUser user = spy(new VotingPluginUser(plugin, base));
+		// The spy must own the mocked UserData; the base-user mock alone does not
+		// override AdvancedCoreUser.getUserData() on the wrapper instance.
+		doReturn(data).when(user).getUserData();
 		VoteSiteManager manager = mock(VoteSiteManager.class);
 		VoteSite site = mock(VoteSite.class);
 		when(plugin.getVoteSiteManager()).thenReturn(manager);
@@ -129,6 +132,9 @@ class VotingPluginUserOfflineVoteReplayTest {
 		when(base.getUUID()).thenReturn("00000000-0000-0000-0000-000000000001");
 		when(base.getPlayerName()).thenReturn("Player");
 		VotingPluginUser user = spy(new VotingPluginUser(plugin, base));
+		// The spy must own the mocked UserData; the base-user mock alone does not
+		// override AdvancedCoreUser.getUserData() on the wrapper instance.
+		doReturn(data).when(user).getUserData();
 		doReturn(false).when(user).isTopVoterIgnore();
 		doNothing().when(user).cache();
 
