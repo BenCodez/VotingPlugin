@@ -44,6 +44,7 @@ class VotingPluginUserOfflineVoteReplayTest {
 		AdvancedCoreUser base = mock(AdvancedCoreUser.class);
 		UserData data = mock(UserData.class);
 		when(base.getUserData()).thenReturn(data);
+		when(data.getStringList("OfflineVotesRewardPending")).thenReturn(new ArrayList<>());
 		when(base.getUUID()).thenReturn("00000000-0000-0000-0000-000000000001");
 		when(base.getPlayerName()).thenReturn("Player");
 		VotingPluginUser user = spy(new VotingPluginUser(plugin, base));
