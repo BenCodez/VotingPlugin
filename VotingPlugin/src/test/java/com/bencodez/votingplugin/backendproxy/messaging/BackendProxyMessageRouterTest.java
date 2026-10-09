@@ -162,8 +162,8 @@ class BackendProxyMessageRouterTest {
 		verify(user, never()).offVote();
 		verify(plugin, never()).setUpdate(true);
 
-		// A cache eviction between worker completion and the platform callback
-		// must not cause a second LastVotes read or replay offline effects.
+		// A cache eviction after worker completion cannot make the platform
+		// callback read LastVotes again or replay offline effects.
 		pending.success.accept(result);
 		assertEquals(OrderedVoteOutcome.COMPLETE, outcome.get());
 		verify(user, times(1)).setTime(site, LAST_VOTE_TIME);
@@ -182,6 +182,24 @@ class BackendProxyMessageRouterTest {
 		IllegalStateException failure = assertThrows(IllegalStateException.class, pending.work::get);
 		pending.failure.accept(failure);
 		assertEquals(OrderedVoteOutcome.RETRY, outcome.get());
+		verify(user, never()).offVoteWithCapturedTopVoterIgnore(anyBoolean());
+		verify(user, never()).setTime(any(), anyLong());
+		verify(plugin, never()).setUpdate(true);
+	}
+
+	@Test
+	void sharedVoteUpdateLookupFailureBeforeMutationsIsRetryable() {
+		DeferredVoteUpdate pending = captureSharedVoteUpdate();
+		when(voteSiteManager.getVoteSite("known.example", true))
+				.thenThrow(new IllegalStateException("vote sites unavailable"));
+		AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
+		router.handleOrderedVote(VotingPluginWire.voteUpdate(PLAYER_UUID.toString(), 1, 10,
+				"known.example", LAST_VOTE_TIME, ""), outcome::set);
+
+		IllegalStateException failure = assertThrows(IllegalStateException.class, pending.work::get);
+		pending.failure.accept(failure);
+		assertEquals(OrderedVoteOutcome.RETRY, outcome.get());
+		verify(user).cache();
 		verify(user, never()).offVoteWithCapturedTopVoterIgnore(anyBoolean());
 		verify(user, never()).setTime(any(), anyLong());
 		verify(plugin, never()).setUpdate(true);
@@ -227,6 +245,27 @@ class BackendProxyMessageRouterTest {
 		assertEquals(OrderedVoteOutcome.COMPLETE, outcome.get());
 		verify(user, never()).offVoteWithCapturedTopVoterIgnore(anyBoolean());
 		verify(user, never()).offVote();
+		verify(user).setTime(site, LAST_VOTE_TIME);
+	}
+
+	@Test
+	void sharedVoteUpdateEntityRetirementUsesGlobalFallbackWithoutRewards() {
+		DeferredVoteUpdate pending = captureSharedVoteUpdate();
+		org.bukkit.entity.Player player = mock(org.bukkit.entity.Player.class);
+		when(user.getPlayer()).thenReturn(player);
+		BukkitScheduler scheduler = plugin.getBukkitScheduler();
+		doThrow(new IllegalStateException("entity retired")).when(scheduler)
+				.runTask(eq(plugin), any(Runnable.class), eq(player));
+		VoteSite site = mock(VoteSite.class);
+		when(voteSiteManager.getVoteSite("known.example", true)).thenReturn(site);
+		AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
+		router.handleOrderedVote(VotingPluginWire.voteUpdate(PLAYER_UUID.toString(), 1, 10,
+				"known.example", LAST_VOTE_TIME, ""), outcome::set);
+
+		pending.success.accept(pending.work.get());
+		assertEquals(OrderedVoteOutcome.COMPLETE, outcome.get());
+		verify(user).cache();
+		verify(user, never()).offVoteWithCapturedTopVoterIgnore(anyBoolean());
 		verify(user).setTime(site, LAST_VOTE_TIME);
 	}
 

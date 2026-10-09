@@ -331,8 +331,7 @@ public class BackendProxyMessageRouter {
 					effectsMayHaveStarted.set(true);
 					user.offVoteWithCapturedTopVoterIgnore(topVoterIgnore);
 				}
-				effectsMayHaveStarted.set(true);
-				applyVoteUpdateTime(update, user);
+				applyVoteUpdateTime(update, user, () -> effectsMayHaveStarted.set(true));
 				return Boolean.TRUE;
 			}, ignored -> {
 				try {
@@ -363,13 +362,16 @@ public class BackendProxyMessageRouter {
 		}
 	}
 
-	private void applyVoteUpdateTime(VotingPluginWire.VoteUpdate update, VotingPluginUser user) {
+	private void applyVoteUpdateTime(VotingPluginWire.VoteUpdate update, VotingPluginUser user,
+			Runnable beforeTimeWrite) {
 		if (update.service != null && !update.service.isEmpty() && update.time > 0) {
 			VoteSite voteSite = plugin.getVoteSiteManager().getVoteSite(update.service, true);
 			if (voteSite == null) {
 				plugin.getLogger().warning("Ignoring VoteUpdate last vote time for unresolved or disabled service site: "
 						+ ServiceSiteValidator.sanitizeForLog(update.service));
 			} else {
+				// Lookups and validation may fail without any effect to replay.
+				beforeTimeWrite.run();
 				user.setTime(voteSite, update.time);
 			}
 		} else if (update.service != null && !update.service.isEmpty() && update.time <= 0
@@ -382,7 +384,7 @@ public class BackendProxyMessageRouter {
 			Consumer<OrderedVoteOutcome> completion) {
 		try {
 			user.offVote();
-			applyVoteUpdateTime(update, user);
+			applyVoteUpdateTime(update, user, () -> {});
 			plugin.setUpdate(true);
 		} catch (RuntimeException | Error failure) {
 			completion.accept(OrderedVoteOutcome.QUARANTINE);
