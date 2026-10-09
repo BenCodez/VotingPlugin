@@ -318,24 +318,63 @@ class BackendProxyMessageRouterTest {
 	}
 
 	@Test
-	void sharedVoteUpdateEntityRetirementUsesGlobalFallbackWithoutRewards() {
-		DeferredVoteUpdate pending = captureSharedVoteUpdate();
+	void sharedVoteUpdateEntityRetirementRetriesBeforeStorageOrRewards() {
+		when(dataManager.hasSharedSqlBackend()).thenReturn(true);
 		org.bukkit.entity.Player player = mock(org.bukkit.entity.Player.class);
 		when(user.getPlayer()).thenReturn(player);
 		BukkitScheduler scheduler = plugin.getBukkitScheduler();
 		doThrow(new IllegalStateException("entity retired")).when(scheduler)
 				.runTask(eq(plugin), any(Runnable.class), eq(player));
-		VoteSite site = mock(VoteSite.class);
-		when(voteSiteManager.getVoteSite("known.example", true)).thenReturn(site);
 		AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
+		AtomicInteger completions = new AtomicInteger();
 		router.handleOrderedVote(VotingPluginWire.voteUpdate(PLAYER_UUID.toString(), 1, 10,
-				"known.example", LAST_VOTE_TIME, ""), outcome::set);
+				"known.example", LAST_VOTE_TIME, ""), result -> {
+			completions.incrementAndGet();
+			outcome.set(result);
+		});
 
-		pending.success.accept(pending.work.get());
-		assertEquals(OrderedVoteOutcome.COMPLETE, outcome.get());
-		verify(user).cache();
+		assertEquals(OrderedVoteOutcome.RETRY, outcome.get());
+		assertEquals(1, completions.get());
+		verify(dataManager, never()).deferSharedStorageResultFromPlatform(any(), any(), any());
+		verify(user, never()).cache();
 		verify(user, never()).offVoteWithCapturedTopVoterIgnore(anyBoolean());
-		verify(user).setTime(site, LAST_VOTE_TIME);
+		verify(user, never()).setTime(any(), anyLong());
+		verify(plugin, never()).setUpdate(true);
+	}
+
+	@Test
+	void sharedVoteUpdateRejectedOwnerAndGlobalSchedulersRetryExactlyOnce() {
+		when(dataManager.hasSharedSqlBackend()).thenReturn(true);
+		org.bukkit.entity.Player player = mock(org.bukkit.entity.Player.class);
+		when(user.getPlayer()).thenReturn(player);
+		BukkitScheduler scheduler = plugin.getBukkitScheduler();
+		AtomicInteger globalCalls = new AtomicInteger();
+		doAnswer(invocation -> {
+			Runnable task = invocation.getArgument(1);
+			if (globalCalls.incrementAndGet() > 1) {
+				throw new IllegalStateException("global scheduler stopped");
+			}
+			task.run();
+			return null;
+		}).when(scheduler).runTask(eq(plugin), any(Runnable.class));
+		doThrow(new IllegalStateException("entity retired")).when(scheduler)
+				.runTask(eq(plugin), any(Runnable.class), eq(player));
+		AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
+		AtomicInteger completions = new AtomicInteger();
+		router.handleOrderedVote(VotingPluginWire.voteUpdate(PLAYER_UUID.toString(), 1, 10,
+				"known.example", LAST_VOTE_TIME, ""), result -> {
+			completions.incrementAndGet();
+			outcome.set(result);
+		});
+
+		assertEquals(OrderedVoteOutcome.RETRY, outcome.get());
+		assertEquals(1, completions.get());
+		assertEquals(2, globalCalls.get());
+		verify(dataManager, never()).deferSharedStorageResultFromPlatform(any(), any(), any());
+		verify(user, never()).cache();
+		verify(user, never()).offVoteWithCapturedTopVoterIgnore(anyBoolean());
+		verify(user, never()).setTime(any(), anyLong());
+		verify(plugin, never()).setUpdate(true);
 	}
 
 	@Test

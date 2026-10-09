@@ -287,7 +287,7 @@ public class BackendProxyMessageRouter {
 			UserDataManager dataManager = plugin.getUserManager().getDataManager();
 			if (dataManager != null && dataManager.hasSharedSqlBackend()) {
 				// Capture player state on its owning thread before entering shared SQL.
-				// A retired entity uses the global-safe fallback, skipping offline rewards.
+				// A retired entity must retry; only a genuinely absent player may skip offline rewards.
 				// Match offVote(): offline-mode identities are looked up by name,
 				// not by their stored UUID. Permission reads still use the entity owner.
 				org.bukkit.entity.Player player = plugin.getOptions().isOnlineMode()
@@ -305,8 +305,11 @@ public class BackendProxyMessageRouter {
 							completion.accept(OrderedVoteOutcome.RETRY);
 							throw failure;
 						}
-					}, () -> deferSharedVoteUpdate(update, user, dataManager, false, false, completion),
-							() -> completion.accept(OrderedVoteOutcome.RETRY));
+					}, () -> {
+						// The entity owner rejected/retired before permissions or offline
+						// rewards could be processed. Preserve the ordered envelope for retry.
+						completion.accept(OrderedVoteOutcome.RETRY);
+					}, () -> completion.accept(OrderedVoteOutcome.RETRY));
 				}
 				return;
 			}
