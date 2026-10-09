@@ -48,10 +48,14 @@ public class TimeQueueHandler implements Listener {
 	 * @param voteUsername the voter username
 	 * @param voteSiteName the vote site name
 	 */
-	public void addVote(String voteUsername, String voteSiteName) {
-		timeChangeQueue.add(new VoteTimeQueue(voteUsername, voteSiteName,
-				LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()));
-	}
+	public void addVote(String voteUsername, String voteSiteName) { addVote(voteUsername, voteSiteName, 0L); }
+
+    public void addVote(String voteUsername, String voteSiteName, long occurredAt) {
+        VoteTimeQueue queued = new VoteTimeQueue(voteUsername, voteSiteName,
+                LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli());
+        if (occurredAt > 0) queued.setCanonicalOccurrenceTime(occurredAt);
+        timeChangeQueue.add(queued);
+    }
 
 	/**
 	 * Loads cached votes from server data and schedules queue processing.
@@ -59,8 +63,9 @@ public class TimeQueueHandler implements Listener {
 	public void load() {
 		for (String str : plugin.getServerData().getTimedVoteCacheKeys()) {
 			ConfigurationSection data = plugin.getServerData().getTimedVoteCacheSection(str);
-			timeChangeQueue
-					.add(new VoteTimeQueue(data.getString("Name"), data.getString("Service"), data.getLong("Time")));
+            VoteTimeQueue queued = new VoteTimeQueue(data.getString("Name"), data.getString("Service"), data.getLong("Time"));
+            if (data.contains("CanonicalOccurrenceTime")) queued.setCanonicalOccurrenceTime(data.getLong("CanonicalOccurrenceTime", -1L));
+            timeChangeQueue.add(queued);
 		}
 		scheduleQueueProcessing(120, TimeUnit.SECONDS);
 	}
@@ -116,6 +121,7 @@ public class TimeQueueHandler implements Listener {
 					plugin.getVoteSiteManager().getVoteSite(plugin.getVoteSiteManager().getVoteSiteName(true, vote.getService()), true), vote.getName(),
 					vote.getService(), true);
 			voteEvent.setTime(vote.getTime());
+            if (vote.getCanonicalOccurrenceTime() != 0L) voteEvent.setCanonicalOccurrenceTime(vote.getCanonicalOccurrenceTime());
 			plugin.getServer().getPluginManager().callEvent(voteEvent);
 
 			if (voteEvent.isCancelled()) {

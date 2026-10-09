@@ -42,7 +42,10 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 	private static final String QUEUE_FILE = "VotifierVoteQueue.yml";
 
 	private final VotingPluginMain plugin;
-	private final BiConsumer<String, String> processor;
+	@FunctionalInterface
+	public interface VoteProcessor { void process(String serviceSite, String username, long occurredAt); }
+	private final VoteProcessor processor;
+    private final java.util.function.BooleanSupplier processingAllowed;
 	private final Path file;
 	private final ScheduledThreadPoolExecutor worker;
 	private final Object lock = new Object();
@@ -63,8 +66,15 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 	 * @param processor callback receiving service site and player name
 	 */
 	public VotifierVoteOverflowQueue(VotingPluginMain plugin, BiConsumer<String, String> processor) {
+        this(plugin, (site, user, occurredAt) -> processor.accept(site, user), () -> true);
+    }
+
+    /** Additive callback retains receipt occurrence and fences a retired startup generation. */
+    public VotifierVoteOverflowQueue(VotingPluginMain plugin, VoteProcessor processor,
+            java.util.function.BooleanSupplier processingAllowed) {
 		this.plugin = plugin;
 		this.processor = processor;
+        this.processingAllowed = processingAllowed;
 		this.file = new File(plugin.getDataFolder(), QUEUE_FILE).toPath();
 		this.worker = new ScheduledThreadPoolExecutor(1, runnable -> {
 			Thread thread = new Thread(runnable, "VotingPlugin-Votifier-Overflow");
@@ -97,10 +107,14 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 	 * @return false when the bounded overflow is full or shutting down
 	 */
 	public boolean enqueue(String username, String serviceSite) {
-		if (username == null || serviceSite == null) return false;
+        return enqueue(username, serviceSite, System.currentTimeMillis());
+    }
+
+    public boolean enqueue(String username, String serviceSite, long occurredAt) {
+		if (username == null || serviceSite == null || occurredAt <= 0) return false;
 		synchronized (lock) {
 			if (closed || entries.size() >= MAX_ENTRIES) return false;
-			entries.addLast(new PendingVote(username, serviceSite, System.currentTimeMillis()));
+			entries.addLast(new PendingVote(username, serviceSite, occurredAt));
 			stateVersion++;
 			requestPersistenceLocked();
 			scheduleDrainLocked();
@@ -152,8 +166,12 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 					// Serialize admission with enqueue so the version proven durable
 					// above cannot change in the gap before submit accepts this vote.
 					plugin.getVoteTimer().submit(() -> {
+                        if (!processingAllowed.getAsBoolean()) {
+                            synchronized (lock) { pending.submitted = false; }
+                            return; // Retired generation retains the durable entry for restart.
+                        }
 						try {
-							processor.accept(pending.serviceSite, pending.username);
+							processor.process(pending.serviceSite, pending.username, pending.time);
 						} finally {
 							acknowledge(pending);
 						}

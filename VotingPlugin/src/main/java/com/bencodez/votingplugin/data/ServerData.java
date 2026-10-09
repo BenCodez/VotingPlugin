@@ -90,6 +90,8 @@ public class ServerData {
 		getData().set("TimedVoteCache." + num + ".Name", vote.getName());
 		getData().set("TimedVoteCache." + num + ".Service", vote.getService());
 		getData().set("TimedVoteCache." + num + ".Time", vote.getTime());
+        getData().set("TimedVoteCache." + num + ".CanonicalOccurrenceTime",
+                vote.getCanonicalOccurrenceTime() == 0L ? null : vote.getCanonicalOccurrenceTime());
 		saveData();
 	}
 

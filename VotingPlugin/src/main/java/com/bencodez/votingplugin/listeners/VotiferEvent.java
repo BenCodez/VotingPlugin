@@ -17,16 +17,21 @@ import com.vexsoftware.votifier.model.VotifierEvent;
 
 public class VotiferEvent implements Listener {
 
-	private VotingPluginMain plugin;
+	private final VotingPluginMain plugin;
+    private final java.util.function.BooleanSupplier ready;
+    private volatile boolean accepting = true;
 
 	/**
 	 * Instantiates a new votifer event.
 	 *
 	 * @param plugin the plugin
 	 */
-	public VotiferEvent(VotingPluginMain plugin) {
-		this.plugin = plugin;
-	}
+	public VotiferEvent(VotingPluginMain plugin) { this(plugin, () -> true); }
+
+    public VotiferEvent(VotingPluginMain plugin, java.util.function.BooleanSupplier ready) {
+        this.plugin = plugin; this.ready = ready;
+    }
+    public void stop() { accepting = false; }
 
 	/**
 	 * Processes a validated vote. The overflow queue invokes this callback from
@@ -35,7 +40,9 @@ public class VotiferEvent implements Listener {
 	 * @param voteSite the validated service site
 	 * @param voteUsername the validated player name
 	 */
-	public void processVote(String voteSite, String voteUsername) {
+	public void processVote(String voteSite, String voteUsername) { processVote(voteSite, voteUsername, 0L); }
+
+    public void processVote(String voteSite, String voteUsername, long occurredAt) {
 		try {
 			plugin.getServerData().addServiceSite(voteSite);
 			if (plugin.getBungeeSettings().isUseBungeecoord() && !plugin.getBungeeSettings().isVotifierBypass()
@@ -77,7 +84,7 @@ public class VotiferEvent implements Listener {
 			if (plugin.getTimeChecker().isActiveProcessing()
 					&& plugin.getConfigFile().isQueueVotesDuringTimeChange()) {
 				plugin.debug("Adding vote to time queue " + voteUsername + "/" + voteSite);
-				plugin.getTimeQueueHandler().addVote(voteUsername, voteSite);
+				plugin.getTimeQueueHandler().addVote(voteUsername, voteSite, occurredAt);
 				return;
 			}
 
@@ -85,6 +92,7 @@ public class VotiferEvent implements Listener {
 
 			PlayerVoteEvent voteEvent = new PlayerVoteEvent(
 					plugin.getVoteSiteManager().getVoteSite(voteSiteName, true), voteUsername, voteSite, true);
+            if (occurredAt > 0) voteEvent.setCanonicalOccurrenceTime(occurredAt);
 			plugin.getServer().getPluginManager().callEvent(voteEvent);
 
 			if (voteEvent.isCancelled()) {
@@ -103,6 +111,8 @@ public class VotiferEvent implements Listener {
 	 */
 	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
 	public void onVotiferEvent(VotifierEvent event) {
+        if (!accepting) return;
+        final long occurredAt = System.currentTimeMillis();
 
 		Vote vote = event.getVote();
 		String str = vote.getServiceName();
@@ -136,15 +146,22 @@ public class VotiferEvent implements Listener {
 		plugin.debug("IP: " + IP);
 
 		try {
-			plugin.getVoteTimer().submit(() -> processVote(voteSite, voteUsername));
-		} catch (RejectedExecutionException rejected) {
-			VotifierVoteOverflowQueue overflow = plugin.getVotifierVoteOverflowQueue();
-			if (overflow == null || !overflow.enqueue(voteUsername, voteSite)) {
-				plugin.getLogger().severe("Votifier vote queue is full; vote was not admitted for "
-						+ MinecraftUsernameValidator.sanitizeForLog(voteUsername));
-			} else {
-				plugin.getLogger().warning("Vote executor saturated; queued Votifier vote for retry");
-			}
-		}
-	}
+			plugin.getVoteTimer().submit(() -> {
+                if (ready.getAsBoolean() && accepting) processVote(voteSite, voteUsername, occurredAt);
+                else bufferVote(voteUsername, voteSite, occurredAt);
+            });
+        } catch (RejectedExecutionException rejected) {
+            bufferVote(voteUsername, voteSite, occurredAt);
+        }
+    }
+
+    private void bufferVote(String username, String site, long occurredAt) {
+        VotifierVoteOverflowQueue overflow = plugin.getVotifierVoteOverflowQueue();
+        if (overflow == null || !overflow.enqueue(username, site, occurredAt)) {
+            plugin.getLogger().severe("Votifier vote queue is full; vote was not admitted for "
+                    + MinecraftUsernameValidator.sanitizeForLog(username));
+        } else {
+            plugin.getLogger().warning("Vote pipeline unavailable or saturated; queued Votifier vote for retry");
+        }
+    }
 }

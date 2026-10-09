@@ -108,4 +108,48 @@ class TimeQueueHandlerRejectionTest {
 				org.mockito.ArgumentMatchers.eq(TimeUnit.SECONDS));
 		assertEquals(1, handler.getTimeChangeQueue().size());
 	}
+
+    @Test
+    void actualCacheWriterAndReplayKeepProcessingAndOccurrenceClocksSeparate() throws Exception {
+        var stored = new org.bukkit.configuration.file.YamlConfiguration();
+        ServerData writer = org.mockito.Mockito.spy(new ServerData(plugin));
+        org.mockito.Mockito.doReturn(stored).when(writer).getData();
+        org.mockito.Mockito.doNothing().when(writer).saveData();
+        var captured = new com.bencodez.votingplugin.timequeue.VoteTimeQueue("Steve", "example.org", 789L);
+        captured.setCanonicalOccurrenceTime(456L);
+        writer.addTimeVoted(0, captured);
+        writer.addTimeVoted(1, new com.bencodez.votingplugin.timequeue.VoteTimeQueue("Alex", "example.org", 123L));
+        assertEquals(789L, stored.getLong("TimedVoteCache.0.Time"));
+        assertEquals(456L, stored.getLong("TimedVoteCache.0.CanonicalOccurrenceTime"));
+        org.junit.jupiter.api.Assertions.assertFalse(stored.contains("TimedVoteCache.1.CanonicalOccurrenceTime"));
+        var restored = new org.bukkit.configuration.file.YamlConfiguration();
+        restored.loadFromString(stored.saveToString());
+        // Malformed optional metadata fails Date provenance, retaining ordinary replay.
+        restored.set("TimedVoteCache.2.Name", "Invalid"); restored.set("TimedVoteCache.2.Service", "example.org");
+        restored.set("TimedVoteCache.2.Time", 321L); restored.set("TimedVoteCache.2.CanonicalOccurrenceTime", "bad");
+        org.mockito.Mockito.doReturn(restored).when(writer).getData();
+        when(plugin.getServerData()).thenReturn(writer);
+        TimeQueueHandler handler = new TimeQueueHandler(plugin);
+        var replayed = new java.util.ArrayList<PlayerVoteEvent>();
+        var eventManager = plugin.getServer().getPluginManager();
+        org.mockito.Mockito.doAnswer(call -> { replayed.add(call.getArgument(0)); return null; })
+                .when(eventManager).callEvent(any());
+        handler.processQueue();
+        assertEquals(3, replayed.size());
+        var byName = replayed.stream().collect(java.util.stream.Collectors.toMap(PlayerVoteEvent::getPlayer, event -> event));
+        assertEquals(789L, byName.get("Steve").getTime()); assertEquals(Long.valueOf(456L), byName.get("Steve").getCanonicalOccurrenceTime());
+        assertEquals(123L, byName.get("Alex").getTime()); org.junit.jupiter.api.Assertions.assertNull(byName.get("Alex").getCanonicalOccurrenceTime());
+        assertEquals(321L, byName.get("Invalid").getTime()); assertEquals(Long.valueOf(-1L), byName.get("Invalid").getCanonicalOccurrenceTime());
+    }
+
+    @Test
+    void timeChangeAdmissionPreservesCapturedReceiptWithoutReplacingQueueTime() {
+        when(serverData.getTimedVoteCacheKeys()).thenReturn(Set.of());
+        TimeQueueHandler handler = new TimeQueueHandler(plugin);
+        long before = System.currentTimeMillis(); handler.addVote("Steve", "example.org", 456L); long after = System.currentTimeMillis();
+        var queued = handler.getTimeChangeQueue().element();
+        org.junit.jupiter.api.Assertions.assertTrue(queued.getTime() >= before && queued.getTime() <= after);
+        assertEquals(456L, queued.getCanonicalOccurrenceTime());
+    }
+
 }

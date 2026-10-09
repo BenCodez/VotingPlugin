@@ -53,50 +53,37 @@ class DateVoteIngressOrderingTest {
         }
     }
 
-    @Test void localVotifierAndAcceptedListenersAreRegisteredOnlyAfterDefinitionsAndHandlers() throws Exception {
+    @Test void earlyCaptureIsRegisteredOnceAndConsumersOpenOnlyAfterDefinitionsAndHandlers() throws Exception {
         for (boolean proxyEnabled : new boolean[] {false, true}) {
-        VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
-        YamlConfiguration config = new YamlConfiguration();
-        String prefix = "DateVoteMilestones.local.";
-        config.set(prefix + "Enabled", true); config.set(prefix + "Timezone", "UTC");
-        config.set(prefix + "Start", "2020-01-01T00:00:00"); config.set(prefix + "End", "2099-01-01T00:00:00");
-        config.set(prefix + "Milestones.1.Rewards.Messages.Player", "Thanks");
-        when(plugin.getSpecialRewardsConfig().getData()).thenReturn(config);
-        when(plugin.getDataFolder()).thenReturn(root.toFile());
-        when(plugin.getOptions().isProcessRewards()).thenReturn(true);
-        when(plugin.isVotifierLoaded()).thenReturn(true);
-        DateVoteMilestones events = new DateVoteMilestones(plugin);
-        when(plugin.getDateVoteMilestones()).thenReturn(events);
-        VotingPluginUser user = mock(VotingPluginUser.class); when(user.getJavaUUID()).thenReturn(UUID.randomUUID());
-        var listeners = new java.util.ArrayList<org.bukkit.event.Listener>();
-        var pluginManager = plugin.getServer().getPluginManager();
-        doAnswer(invocation -> {
-            verify(plugin).addDirectlyDefinedRewards(any());
-            listeners.add(invocation.getArgument(0));
-            if (invocation.getArgument(0) instanceof com.bencodez.votingplugin.listeners.VotiferEvent)
-                assertTrue(events.accepted(user, "a", UUID.randomUUID(), System.currentTimeMillis(), true, proxyEnabled, proxyEnabled, false, false));
-            return null;
-        }).when(pluginManager).registerEvents(any(), eq(plugin));
-        ready(plugin); doCallRealMethod().when(plugin).initializeDateVoteIngress(any());
-        when(plugin.getBungeeSettings().isUseBungeecoord()).thenReturn(proxyEnabled);
-        when(plugin.getBungeeSettings().getServer()).thenReturn("backend");
-        config.set(prefix + "AccountingServer", "backend");
-        var opened = new java.util.concurrent.atomic.AtomicBoolean();
-        Runnable proxy = () -> {
-            assertEquals(2, listeners.size());
-            assertInstanceOf(com.bencodez.votingplugin.listeners.PlayerVoteListener.class, listeners.getFirst());
-            opened.set(true);
-        };
-        try (var overflow = mockConstruction(com.bencodez.votingplugin.listeners.VotifierVoteOverflowQueue.class)) {
-            plugin.initializeDateVoteIngress(proxy);
-            assertEquals(1, overflow.constructed().size());
-        }
-        assertEquals(3, listeners.size());
-        assertInstanceOf(com.bencodez.votingplugin.listeners.PlayerVoteListener.class, listeners.get(0));
-        assertInstanceOf(com.bencodez.votingplugin.timequeue.TimeQueueHandler.class, listeners.get(1));
-        assertInstanceOf(com.bencodez.votingplugin.listeners.VotiferEvent.class, listeners.get(2));
-        verify(plugin.getRewardHandler()).giveReward(eq(user), any(), startsWith("DateVoteMilestonesRuntime."), any());
-        assertEquals(proxyEnabled, opened.get());
+            VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+            when(plugin.isVotifierLoaded()).thenReturn(true);
+            when(plugin.getBungeeSettings().isUseBungeecoord()).thenReturn(proxyEnabled);
+            var timer = mock(java.util.concurrent.ScheduledExecutorService.class);
+            when(plugin.getVoteTimer()).thenReturn(timer);
+            var registered = new java.util.ArrayList<org.bukkit.event.Listener>();
+            var manager = plugin.getServer().getPluginManager();
+            doAnswer(call -> { registered.add(call.getArgument(0)); return null; }).when(manager).registerEvents(any(), eq(plugin));
+            doCallRealMethod().when(plugin).registerEarlyVotifierIngress();
+            doCallRealMethod().when(plugin).initializeDateVoteIngress(any());
+            try (var queues = mockConstruction(com.bencodez.votingplugin.listeners.VotifierVoteOverflowQueue.class)) {
+                plugin.registerEarlyVotifierIngress(); plugin.registerEarlyVotifierIngress();
+                assertEquals(1, registered.size());
+                assertInstanceOf(com.bencodez.votingplugin.listeners.VotiferEvent.class, registered.getFirst());
+                verify(plugin.getDateVoteMilestones(), never()).reload();
+                var setup = org.mockito.ArgumentCaptor.forClass(Runnable.class);
+                verify(timer).submit(setup.capture()); setup.getValue().run();
+                verify(queues.constructed().getFirst(), never()).start();
+                ready(plugin);
+                Runnable proxy = () -> {
+                    verify(plugin.getDateVoteMilestones()).reload();
+                    assertEquals(3, registered.size());
+                    assertInstanceOf(com.bencodez.votingplugin.listeners.PlayerVoteListener.class, registered.get(1));
+                    assertInstanceOf(com.bencodez.votingplugin.timequeue.TimeQueueHandler.class, registered.get(2));
+                };
+                plugin.initializeDateVoteIngress(proxy); plugin.initializeDateVoteIngress(proxy);
+                assertEquals(3, registered.size());
+                verify(plugin.getDateVoteMilestones()).reload(); verify(queues.constructed().getFirst()).start();
+            }
         }
     }
 
@@ -116,6 +103,20 @@ class DateVoteIngressOrderingTest {
             var field = VotingPluginMain.class.getDeclaredField("timeQueueHandler"); field.setAccessible(true);
             assertSame(producers.constructed().getFirst(), field.get(plugin));
         }
+    }
+
+    @Test void failedProxyOpeningRetriesWithoutDuplicatingAcceptedConsumers() throws Exception {
+        VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+        ready(plugin); when(plugin.getBungeeSettings().isUseBungeecoord()).thenReturn(true);
+        doCallRealMethod().when(plugin).initializeDateVoteIngress(any());
+        var registered = new java.util.ArrayList<org.bukkit.event.Listener>();
+        var eventManager = plugin.getServer().getPluginManager();
+        doAnswer(call -> { registered.add(call.getArgument(0)); return null; })
+                .when(eventManager).registerEvents(any(), eq(plugin));
+        assertThrows(IllegalStateException.class, () -> plugin.initializeDateVoteIngress(() -> { throw new IllegalStateException("transport unavailable"); }));
+        assertEquals(2, registered.size());
+        plugin.initializeDateVoteIngress(() -> { }); plugin.initializeDateVoteIngress(() -> fail("Already ready"));
+        assertEquals(2, registered.size()); verify(plugin.getDateVoteMilestones(), times(2)).reload();
     }
 
 }
