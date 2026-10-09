@@ -315,4 +315,50 @@ class DateVoteMilestonesTest {
         } catch (java.io.IOException failure) { throw new AssertionError(failure); }
     }
 
+    @Test void ownerEventAccountingIsBoundedDeferredAndPreservesCanonicalDeduplication() throws Exception {
+        event("october", ""); var m = manager(); when(plugin.isEnabled()).thenReturn(true);
+        var queue = new java.util.ArrayDeque<Runnable>();
+        var timer = mock(java.util.concurrent.ScheduledExecutorService.class);
+        when(plugin.getUserManager().getDataManager().getTimer()).thenReturn(timer);
+        doAnswer(call -> { queue.add(call.getArgument(0)); return null; }).when(timer).execute(any(Runnable.class));
+        UUID id = UUID.randomUUID();
+        for (int i = 0; i < 65; i++) assertFalse(m.deferAccepted(user, "a", id, time, true, false, false, false, false));
+        assertEquals(64, queue.size()); assertFalse(Files.exists(root.resolve("date-vote-milestones")));
+        while (!queue.isEmpty()) queue.remove().run();
+        var definition = DateVoteMilestones.parse("october", config.getConfigurationSection("DateVoteMilestones.october"));
+        assertEquals(1, new DateVoteLedger(root.resolve("date-vote-milestones")).progress(definition, player).votes());
+        verify(plugin.getRewardHandler(), times(1)).giveReward(eq(user), any(), anyString(), any());
+        assertFalse(m.deferAccepted(user, "a", UUID.randomUUID(), time, true, false, false, false, false));
+        assertEquals(1, queue.size());
+    }
+    @Test void deferredOwnerAccountingDoesNotCrossReloadOrDisableAndRejectsWithoutDisk() {
+        for (boolean reload : new boolean[] { false, true }) {
+            event("october", ""); var m = manager(); when(plugin.isEnabled()).thenReturn(true);
+            var queue = new java.util.ArrayDeque<Runnable>();
+            var timer = mock(java.util.concurrent.ScheduledExecutorService.class);
+            when(plugin.getUserManager().getDataManager().getTimer()).thenReturn(timer);
+            doAnswer(call -> { queue.add(call.getArgument(0)); return null; }).when(timer).execute(any(Runnable.class));
+            assertFalse(m.deferAccepted(user, "a", UUID.randomUUID(), time, true, false, false, false, false));
+            if (reload) m.reload(); else when(plugin.isEnabled()).thenReturn(false);
+            queue.remove().run(); assertFalse(Files.exists(root.resolve("date-vote-milestones")));
+            doThrow(new java.util.concurrent.RejectedExecutionException("fixture retired")).when(timer).execute(any(Runnable.class));
+            assertFalse(m.deferAccepted(user, "a", UUID.randomUUID(), time, true, false, false, false, false));
+            assertFalse(Files.exists(root.resolve("date-vote-milestones")));
+        }
+    }
+    @Test void disabledUnmatchedFakeAndUnidentifiedProxyEventsNeedNoOwnerHandoff() {
+        event("october", ""); var m = manager();
+        assertTrue(m.deferAccepted(user, "a", UUID.randomUUID(), time, false, false, false, false, false));
+        assertTrue(m.deferAccepted(user, "a", UUID.randomUUID(), time, true, true, false, false, false));
+        assertTrue(m.deferAccepted(user, "a", UUID.randomUUID(), 1L, true, false, false, false, false));
+        config.set("DateVoteMilestones.october.Enabled", false); m.reload();
+        assertTrue(m.deferAccepted(user, "a", UUID.randomUUID(), time, true, false, false, false, false));
+        assertFalse(Files.exists(root.resolve("date-vote-milestones")));
+        verify(plugin.getUserManager().getDataManager().getTimer(), never()).execute(any(Runnable.class));
+    }
+    @Test void absentDateDefinitionsNeedNoOwnerThreadHandoffOrQuarantine() {
+        var m = manager(); assertTrue(m.deferAccepted(user, "a", UUID.randomUUID(), time, true, false, false, false, false));
+        assertFalse(Files.exists(root.resolve("date-vote-milestones")));
+        verify(plugin.getUserManager().getDataManager().getTimer(), never()).execute(any(Runnable.class));
+    }
 }

@@ -97,7 +97,7 @@ class BackendDateVoteAccountingRegressionTest {
         doCallRealMethod().when(user).addPoints(anyInt());
         doCallRealMethod().when(user).addPoints(anyInt(), anyBoolean());
         doCallRealMethod().when(user).bungeeVotePluginMessaging(any(), anyLong(), any(), anyBoolean(), anyBoolean(),
-                anyBoolean(), anyInt(), anyBoolean(), anyBoolean(), anyBoolean(), any(), anyBoolean(), anyBoolean());
+                anyBoolean(), anyInt(), anyBoolean(), anyBoolean(), anyBoolean(), any(), anyBoolean(), anyBoolean(), anyLong());
 
         var dispatcher = plugin.getServer().getPluginManager();
         var listener = new PlayerVoteListener(plugin);
@@ -153,6 +153,189 @@ class BackendDateVoteAccountingRegressionTest {
         original.getFields().forEach(builder::put);
         return VotingPluginWire.requestVoteDeliveryAcknowledgement(
                 builder.put(VotingPluginWire.K_QUEUED_DELIVERY, queued).build());
+    }
+
+    @Test
+    void reliableForwardingSeparatesOriginalMembershipFromReceiverCooldownTime() throws Exception {
+        config.set("DateVoteMilestones.october.Start", "2026-10-15T00:00:00");
+        config.set("DateVoteMilestones.october.End", "2026-10-16T00:00:00");
+        reloadDefinitions();
+        UUID id = UUID.randomUUID();
+        JsonEnvelope forwarded = receiverEnvelope(id, OCCURRED_AT, null, true);
+        var wire = VotingPluginWire.readVote(forwarded);
+        assertEquals(OCCURRED_AT, wire.canonicalOccurrenceTime);
+        var outcome = new AtomicReference<OrderedVoteOutcome>();
+        router.handleOrderedVote(forwarded, outcome::set);
+        assertEquals(OrderedVoteOutcome.COMPLETE, outcome.get());
+        assertEquals(1, progress("october").votes());
+        assertEquals(java.util.Set.of(1), progress("october").submittedAwards());
+        assertEquals(id, accepted.get(0).getProxyVoteId());
+        assertEquals(OCCURRED_AT, accepted.get(0).getCanonicalOccurrenceTime());
+        assertEquals(OCCURRED_AT, posted.get(0).getCanonicalOccurrenceTime());
+        assertEquals(wire.time, posted.get(0).getVoteTime());
+        assertNormalEffectsOnce(id, wire.time);
+        verify(plugin.getRewardHandler()).giveReward(eq(user), any(), anyString(), any());
+    }
+
+    @Test
+    void newForwarderPreservesIndependentOccurrenceTimeAcrossAnotherHop() throws Exception {
+        UUID id = UUID.randomUUID();
+        var forwarded = receiverEnvelope(id, 1L, OCCURRED_AT, true);
+        var outcome = new AtomicReference<OrderedVoteOutcome>();
+        router.handleOrderedVote(forwarded, outcome::set);
+        assertEquals(OrderedVoteOutcome.COMPLETE, outcome.get());
+        assertEquals(1, progress("october").votes());
+        assertEquals(OCCURRED_AT, posted.get(0).getCanonicalOccurrenceTime());
+        assertNormalEffectsOnce(id, VotingPluginWire.readVote(forwarded).time);
+    }
+
+    @Test
+    void earlierOccurrenceAndOriginlessForwardingRemainOutsideCanonicalAccounting() throws Exception {
+        for (boolean originKnown : new boolean[] { true, false }) {
+            UUID id = UUID.randomUUID();
+            var forwarded = receiverEnvelope(id, 1L, null, originKnown);
+            var outcome = new AtomicReference<OrderedVoteOutcome>();
+            router.handleOrderedVote(forwarded, outcome::set);
+            assertEquals(OrderedVoteOutcome.COMPLETE, outcome.get());
+        }
+        assertEquals(0, progress("october").votes());
+        assertEquals(2, posted.size());
+        assertEquals(1L, posted.get(0).getCanonicalOccurrenceTime());
+        assertEquals(-1L, posted.get(1).getCanonicalOccurrenceTime());
+        verify(user, times(2)).playerVote(site, true, true);
+        verify(user, times(2)).addTotal();
+        verify(plugin.getRewardHandler(), never()).giveReward(any(), any(), anyString(), any());
+    }
+
+    @Test
+    void malformedOccurrenceMetadataExcludesDateMembershipWithoutChangingNormalProcessing() throws Exception {
+        UUID id = UUID.randomUUID();
+        var original = vote(id, false);
+        var forwarded = original.toBuilder().put(VotingPluginWire.K_CANONICAL_OCCURRENCE_TIME,
+                "9".repeat(100)).build();
+        var outcome = new AtomicReference<OrderedVoteOutcome>();
+        router.handleOrderedVote(forwarded, outcome::set);
+        assertEquals(OrderedVoteOutcome.COMPLETE, outcome.get());
+        assertEquals(0, progress("october").votes());
+        assertEquals(-1L, accepted.get(0).getCanonicalOccurrenceTime());
+        assertNormalEffectsOnce(id, OCCURRED_AT);
+        verify(plugin.getRewardHandler(), never()).giveReward(any(), any(), anyString(), any());
+    }
+
+    @Test
+    void oldBackendEnvelopeWithoutOccurrenceProvenanceKeepsNormalEffectsOnly() throws Exception {
+        UUID id = UUID.randomUUID();
+        var source = vote(id, false);
+        var oldSender = JsonEnvelope.builder(source.getSubChannel()).schema(source.getSchema());
+        source.getFields().forEach((key, value) -> {
+            if (!key.equals(VotingPluginWire.K_CANONICAL_OCCURRENCE_TIME)) oldSender.put(key, value);
+        });
+        var outcome = new AtomicReference<OrderedVoteOutcome>();
+        router.handleOrderedVote(oldSender.build(), outcome::set);
+        assertEquals(OrderedVoteOutcome.COMPLETE, outcome.get());
+        assertEquals(0, progress("october").votes());
+        assertEquals(id, accepted.get(0).getProxyVoteId());
+        assertEquals(-1L, posted.get(0).getCanonicalOccurrenceTime());
+        assertNormalEffectsOnce(id, OCCURRED_AT);
+    }
+
+    @Test
+    void cachedReplayPreservesOccurrenceAndEstablishedProcessingTime() throws Exception {
+        UUID id = UUID.randomUUID();
+        var cached = new com.bencodez.votingplugin.proxy.OfflineBungeeVote(id, "Player", PLAYER.toString(),
+                SERVICE, 1L, true, "");
+        cached.setCanonicalOccurrenceTime(OCCURRED_AT);
+        cached.setWasOnline(true);
+        var envelope = cachedEnvelope(cached);
+        var outcome = new AtomicReference<OrderedVoteOutcome>();
+        router.handleOrderedVote(envelope, outcome::set);
+        assertEquals(OrderedVoteOutcome.COMPLETE, outcome.get());
+        assertEquals(1, progress("october").votes());
+        assertEquals(OCCURRED_AT, posted.get(0).getCanonicalOccurrenceTime());
+        assertEquals(1L, posted.get(0).getVoteTime());
+        assertNormalEffectsOnce(id, 1L);
+    }
+
+    @Test
+    void legacyCacheReplayDoesNotInventOccurrenceFromProcessingTime() throws Exception {
+        UUID id = UUID.randomUUID();
+        var cached = new com.bencodez.votingplugin.proxy.OfflineBungeeVote(id, "Player", PLAYER.toString(),
+                SERVICE, OCCURRED_AT, true, "");
+        cached.setWasOnline(true);
+        var outcome = new AtomicReference<OrderedVoteOutcome>();
+        router.handleOrderedVote(cachedEnvelope(cached), outcome::set);
+        assertEquals(OrderedVoteOutcome.COMPLETE, outcome.get());
+        assertEquals(0, progress("october").votes());
+        assertEquals(id, accepted.get(0).getProxyVoteId());
+        assertEquals(-1L, posted.get(0).getCanonicalOccurrenceTime());
+        assertNormalEffectsOnce(id, OCCURRED_AT);
+    }
+
+    private JsonEnvelope cachedEnvelope(com.bencodez.votingplugin.proxy.OfflineBungeeVote cached) throws Exception {
+        var proxy = new com.bencodez.votingplugin.tests.VotingPluginProxyTestImpl();
+        var method = com.bencodez.votingplugin.proxy.VotingPluginProxy.class.getDeclaredMethod("cachedVoteEnvelope",
+                com.bencodez.votingplugin.proxy.OfflineBungeeVote.class, boolean.class, boolean.class,
+                int.class, int.class);
+        method.setAccessible(true);
+        return (JsonEnvelope) method.invoke(proxy, cached, false, false, 1, 1);
+    }
+
+    private JsonEnvelope receiverEnvelope(UUID id, long senderTime, Long originalTime, boolean originKnown) throws Exception {
+        var proxy = spy(new com.bencodez.votingplugin.tests.VotingPluginProxyTestImpl());
+        proxy.setDataFolder(root.resolve(id.toString()).toFile());
+        var votes = mock(com.bencodez.votingplugin.proxy.cache.VoteCacheHandler.class);
+        when(votes.markMultiProxyVoteCompletedDurably(any())).thenReturn(true);
+        when(votes.getTimeChangeQueue()).thenReturn(new java.util.concurrent.ConcurrentLinkedQueue<>());
+        when(votes.addOnlineVoteDurably(anyString(), any())).thenReturn(true);
+        when(votes.addServerVoteDurably(anyString(), any())).thenReturn(true);
+        when(votes.updateOnlineVote(anyString(), any())).thenReturn(true);
+        when(votes.updateServerVote(anyString(), any())).thenReturn(true);
+        doReturn(votes).when(proxy).getVoteCacheHandler();
+        doNothing().when(proxy).addVoteParty();
+        proxy.setMethod(com.bencodez.votingplugin.proxy.BungeeMethod.PLUGINMESSAGING);
+        proxy.setGlobalMessageProxyHandlerForTest(new com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler() {
+            @Override public void sendMessage(String server, int delay, JsonEnvelope envelope) { }
+        });
+        proxy.loadMultiProxySupport();
+        var handler = spy(proxy.getMultiProxyHandler());
+        doNothing().when(handler).acknowledgeMultiProxyVote(any(), anyString());
+        proxy.setMultiProxyHandler(handler);
+        when(proxy.getConfig().getMultiProxySupport()).thenReturn(true);
+        when(proxy.getConfig().getOnlineMode()).thenReturn(true);
+        when(proxy.getConfig().getSendVotesToAllServers()).thenReturn(true);
+        var legacyField = com.bencodez.votingplugin.proxy.VotingPluginProxy.class.getDeclaredField("legacyVoteDeliveryServers");
+        legacyField.setAccessible(true);
+        @SuppressWarnings("unchecked") var legacy = (java.util.Set<String>) legacyField.get(proxy);
+        legacy.add("server1"); legacy.add("server2");
+        var input = originKnown
+                ? VotingPluginWire.multiProxyVote("Player", PLAYER.toString(), SERVICE, senderTime,
+                        true, true, "", id, false, false, 1, 1, "Primary", true)
+                : VotingPluginWire.vote("Player", PLAYER.toString(), SERVICE, senderTime,
+                        true, true, "", id, false, false, 1, 1);
+        if (originalTime != null) input = input.toBuilder().put(VotingPluginWire.K_CANONICAL_OCCURRENCE_TIME, originalTime).build();
+        else {
+            // Exercise the actual pre-metadata sender shape, including reliable origin.
+            var legacyBuilder = JsonEnvelope.builder(input.getSubChannel()).schema(input.getSchema());
+            input.getFields().forEach((key, value) -> {
+                if (!key.equals(VotingPluginWire.K_CANONICAL_OCCURRENCE_TIME)) legacyBuilder.put(key, value);
+            });
+            input = legacyBuilder.build();
+        }
+        var handle = com.bencodez.votingplugin.proxy.multiproxy.MultiProxyHandler.class.getDeclaredMethod("handleEnvelope", JsonEnvelope.class);
+        handle.setAccessible(true);
+        long before = System.currentTimeMillis();
+        handle.invoke(handler, input);
+        long after = System.currentTimeMillis();
+        var emitted = proxy.getLastVoteEnvelope();
+        assertNotNull(emitted);
+        var wire = VotingPluginWire.readVote(emitted);
+        assertTrue(wire.time >= before && wire.time <= after);
+        assertEquals(PLAYER.toString(), wire.uuid);
+        if (originKnown) {
+            assertEquals(id, wire.voteId);
+            assertTrue(wire.delayValidated); assertTrue(wire.delayValidationKnown);
+        }
+        return emitted;
     }
 
     @Test

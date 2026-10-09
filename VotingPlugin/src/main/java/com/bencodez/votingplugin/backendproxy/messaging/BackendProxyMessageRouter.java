@@ -488,7 +488,8 @@ public class BackendProxyMessageRouter {
 			user.bungeeVotePluginMessaging(vote.service, vote.time, totals, !vote.manageTotals,
 					wasOnline, vote.broadcast, vote.num, queuedDelivery, vote.delayValidationKnown,
 					vote.queuedDeliveryKnown, vote.voteId,
-					VotingPluginWire.SUB_VOTE_ONLINE.equals(msg.getSubChannel()), vote.realVote);
+					VotingPluginWire.SUB_VOTE_ONLINE.equals(msg.getSubChannel()), vote.realVote,
+					vote.canonicalOccurrenceTime);
 		} catch (VotingPluginUser.DateMilestoneAccountingException incomplete) {
 			dateAccountingFailure = incomplete;
 		}

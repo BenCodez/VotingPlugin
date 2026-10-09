@@ -22,6 +22,7 @@ public final class DateVoteMilestones {
     private final VotingPluginMain plugin;
     private volatile List<Definition> definitions = List.of();
     private final java.util.Set<UUID> pendingProgress = new java.util.HashSet<>();
+    private final java.util.concurrent.atomic.AtomicInteger deferredAccounting = new java.util.concurrent.atomic.AtomicInteger();
     private DateVoteLedger ledger;
     public DateVoteMilestones(VotingPluginMain plugin) { this.plugin = plugin; }
     private synchronized DateVoteLedger ledger() {
@@ -117,6 +118,35 @@ public final class DateVoteMilestones {
     }
     private static String configPath(DateVoteEvent event, int threshold) {
         return "DateVoteMilestones." + event.id() + ".Milestones." + threshold + ".Rewards";
+    }
+    /** Owner-thread extension events use the existing ordered storage worker without waiting on gameplay. */
+    public boolean deferAccepted(VotingPluginUser user, String site, UUID occurrence, long occurredAt,
+            boolean real, boolean proxy, boolean canonicalProxy, boolean targeted, boolean forceProxyRouting) {
+        if (plugin.getBungeeSettings().isUseBungeecoord() && !proxy) return true;
+        if (!real || occurrence == null || occurredAt <= 0 || proxy && (!canonicalProxy || targeted)) return true;
+        List<Definition> snapshot = definitions;
+        if (snapshot.stream().noneMatch(definition -> definition.event().matches(occurredAt, site, real, proxy,
+                plugin.getBungeeSettings().getServer()))) return true;
+        int pending;
+        do {
+            pending = deferredAccounting.get();
+            if (pending >= 64) {
+                plugin.getLogger().warning("DateVoteMilestones deferred accounting is busy; occurrence remains unconfirmed.");
+                return false;
+            }
+        } while (!deferredAccounting.compareAndSet(pending, pending + 1));
+        try {
+            plugin.getUserManager().getDataManager().getTimer().execute(() -> {
+                try {
+                    if (!plugin.isEnabled() || snapshot != definitions) return;
+                    accepted(user, site, occurrence, occurredAt, real, proxy, canonicalProxy, targeted, forceProxyRouting);
+                } finally { deferredAccounting.decrementAndGet(); }
+            });
+        } catch (RejectedExecutionException rejected) {
+            deferredAccounting.decrementAndGet();
+            plugin.getLogger().warning("DateVoteMilestones deferred accounting was rejected; occurrence remains unconfirmed.");
+        }
+        return false;
     }
     /** Called only from the real asynchronous accepted-vote pipeline; never from navigation. */
     public boolean accepted(VotingPluginUser user, String site, UUID occurrence, long occurredAt,

@@ -34,6 +34,7 @@ public final class VotingPluginWire {
 	}
 
 	public static final int SCHEMA_VERSION = 1;
+	public static final String K_CANONICAL_OCCURRENCE_TIME = "canonicalOccurrenceTime";
 
 	// =========================
 	// Subchannels (canonical)
@@ -177,13 +178,16 @@ public final class VotingPluginWire {
 	private static JsonEnvelope.Builder voteBuilder(String subChannel, String player, String uuid, String service,
 			long time, boolean wasOnline, boolean realVote, String totals, UUID voteId, boolean manageTotals,
 			boolean bungeeBroadcast, int num, int numberOfVotes) {
-		return base(subChannel).put(K_PLAYER, safe(player)).put(K_UUID, safe(uuid)).put(K_SERVICE, safe(service))
+		JsonEnvelope.Builder builder = base(subChannel).put(K_PLAYER, safe(player)).put(K_UUID, safe(uuid)).put(K_SERVICE, safe(service))
 				.put(K_TIME, time).put(K_WAS_ONLINE, wasOnline).put(K_WAS_ONLINE_KNOWN, true)
 				.put(K_REAL_VOTE, realVote).put(K_TOTALS, safe(totals))
 				.put(K_VOTE_ID, voteId == null ? "" : voteId.toString()).put(K_SET_TOTALS, true)
 				.put(K_MANAGE_TOTALS, manageTotals).put(K_QUEUED_DELIVERY, false)
 				.put(K_BUNGEE_BROADCAST, bungeeBroadcast).put(K_NUM, num)
 				.put(K_NUMBER_OF_VOTES, numberOfVotes);
+		Long occurrence = VoteOccurrenceMetadata.read(totals);
+		builder.put(K_CANONICAL_OCCURRENCE_TIME, occurrence == null ? time : occurrence);
+		return builder;
 	}
 
 	/**
@@ -209,12 +213,15 @@ public final class VotingPluginWire {
 	private static JsonEnvelope.Builder multiProxyVoteBuilder(String subChannel, String player, String uuid,
 			String service, long time, boolean wasOnline, boolean realVote, String totals, UUID voteId,
 			boolean manageTotals, boolean bungeeBroadcast, int num, int numberOfVotes, String origin) {
-		return base(subChannel).put(K_PLAYER, safe(player)).put(K_UUID, safe(uuid)).put(K_SERVICE, safe(service))
+		JsonEnvelope.Builder builder = base(subChannel).put(K_PLAYER, safe(player)).put(K_UUID, safe(uuid)).put(K_SERVICE, safe(service))
 				.put(K_TIME, time).put(K_WAS_ONLINE, wasOnline).put(K_WAS_ONLINE_KNOWN, true).put(K_REAL_VOTE, realVote).put(K_TOTALS, safe(totals))
 				.put(K_VOTE_ID, voteId == null ? "" : voteId.toString()).put(K_SET_TOTALS, true)
 				.put(K_MANAGE_TOTALS, manageTotals).put(K_QUEUED_DELIVERY, false)
 				.put(K_BUNGEE_BROADCAST, bungeeBroadcast).put(K_NUM, num)
 				.put(K_NUMBER_OF_VOTES, numberOfVotes).put(K_MULTI_PROXY_ORIGIN, safe(origin));
+		Long occurrence = VoteOccurrenceMetadata.read(totals);
+		builder.put(K_CANONICAL_OCCURRENCE_TIME, occurrence == null ? time : occurrence);
+		return builder;
 	}
 
 	/** Reliable multi-proxy variant of {@link #voteOnline}. */
@@ -633,6 +640,7 @@ public final class VotingPluginWire {
 		public final String uuid;
 		public final String service;
 		public final long time;
+		public final long canonicalOccurrenceTime;
 
 		public final boolean wasOnline;
 		public final boolean wasOnlineKnown;
@@ -654,12 +662,13 @@ public final class VotingPluginWire {
 				boolean wasOnlineKnown, boolean realVote, String totals, UUID voteId, boolean setTotals,
 				boolean manageTotals, boolean delayValidated, boolean delayValidationKnown, boolean queuedDelivery,
 				boolean queuedDeliveryKnown,
-				boolean broadcast, int num, int numberOfVotes) {
+				boolean broadcast, int num, int numberOfVotes, long canonicalOccurrenceTime) {
 			this.subChannel = subChannel;
 			this.player = player;
 			this.uuid = uuid;
 			this.service = service;
 			this.time = time;
+			this.canonicalOccurrenceTime = canonicalOccurrenceTime;
 			this.wasOnline = wasOnline;
 			this.wasOnlineKnown = wasOnlineKnown;
 			this.realVote = realVote;
@@ -690,6 +699,13 @@ public final class VotingPluginWire {
 		final boolean wasOnlineKnown = readBool(f, K_WAS_ONLINE_KNOWN, false);
 		final boolean realVote = readBool(f, K_REAL_VOTE, false);
 		final String totals = safe(f.get(K_TOTALS));
+		Long cachedOccurrence = VoteOccurrenceMetadata.read(totals);
+		// Missing or malformed provenance excludes only date accounting. An older
+		// intermediate proxy may have replaced ordinary time with its receipt time.
+		long occurrence = f.containsKey(K_CANONICAL_OCCURRENCE_TIME)
+				? VoteOccurrenceMetadata.parse(f.get(K_CANONICAL_OCCURRENCE_TIME))
+				: cachedOccurrence == null ? -1L : cachedOccurrence;
+		if (cachedOccurrence != null && (cachedOccurrence <= 0 || cachedOccurrence != occurrence)) occurrence = -1L;
 		final UUID voteId = readUuid(f, K_VOTE_ID);
 
 		final boolean setTotals = readBool(f, K_SET_TOTALS, true);
@@ -706,7 +722,7 @@ public final class VotingPluginWire {
 
 		return new Vote(sub, player, uuid, service, time, wasOnline, wasOnlineKnown, realVote, totals, voteId,
 				setTotals, manageTotals, delayValidated, delayValidationKnown, queuedDelivery, queuedDeliveryKnown,
-				broadcast, num, numberOfVotes);
+				broadcast, num, numberOfVotes, occurrence);
 	}
 
 	public static final class VoteDelayRejected {

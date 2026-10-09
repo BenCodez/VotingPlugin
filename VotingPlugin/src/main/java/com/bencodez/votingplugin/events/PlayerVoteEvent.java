@@ -14,6 +14,11 @@ import lombok.Setter;
 
 public class PlayerVoteEvent extends Event {
 
+	/** Original accepted occurrence time; ordinary cooldown/event time remains separate. */
+	@Getter
+	@Setter
+	private Long canonicalOccurrenceTime;
+
 	/** The Constant handlers. */
 	private static final HandlerList handlers = new HandlerList();
 

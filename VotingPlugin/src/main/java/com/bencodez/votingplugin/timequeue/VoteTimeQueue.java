@@ -47,6 +47,19 @@ public class VoteTimeQueue {
 	@Getter
 	@Setter
 	private String totals;
+
+	public long getCanonicalOccurrenceTime() {
+		Long original = com.bencodez.votingplugin.proxy.VoteOccurrenceMetadata.read(totals);
+		return original == null ? 0L : original;
+	}
+
+	public void setCanonicalOccurrenceTime(long time) {
+		totals = com.bencodez.votingplugin.proxy.VoteOccurrenceMetadata.store(totals, time);
+	}
+
+	public void setTotals(String updated) {
+		totals = com.bencodez.votingplugin.proxy.VoteOccurrenceMetadata.preserve(totals, updated);
+	}
 	@Getter
 	@Setter
 	private boolean processed;

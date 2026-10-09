@@ -18,6 +18,19 @@ public final class BukkitCompletionScheduler {
 	public static boolean isSuccessfulEntityTaskResult(Object status) {
 		return status instanceof Enum<?> result && "SUCCESS".equals(result.name());
 	}
+
+    /** Event flags are not a reliable execution-context check, including Folia region threads. */
+    public static boolean isPlatformOwnedThread() {
+        try { if (org.bukkit.Bukkit.isPrimaryThread()) return true; } catch (RuntimeException ignored) { }
+        Object server = org.bukkit.Bukkit.getServer();
+        if (server != null) try {
+            if (Boolean.TRUE.equals(server.getClass().getMethod("isGlobalTickThread").invoke(server))) return true;
+        } catch (ReflectiveOperationException | RuntimeException ignored) { }
+        for (String name : new String[] { "ca.spottedleaf.moonrise.common.util.TickThread", "io.papermc.paper.util.TickThread" }) try {
+            if (Boolean.TRUE.equals(Class.forName(name).getMethod("isTickThread").invoke(null))) return true;
+        } catch (ReflectiveOperationException | LinkageError | RuntimeException ignored) { }
+        return false;
+    }
 	private BukkitCompletionScheduler() {
 	}
 

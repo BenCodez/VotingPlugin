@@ -444,6 +444,14 @@ public abstract class MultiProxyHandler {
 		triggerVote(player, service, realVote, timeQueue, queueTime, text, uuid, voteId, origin);
 	}
 
+	/** Additive occurrence metadata; queueTime remains the normal receiver clock convention. */
+	public void triggerVote(String player, String service, boolean realVote, boolean timeQueue, long queueTime,
+			VoteTotalsSnapshot text, String uuid, UUID voteId, String origin, boolean delayValidated,
+			boolean delayValidationKnown, long canonicalOccurrenceTime) {
+		triggerVote(player, service, realVote, timeQueue, queueTime, text, uuid, voteId, origin,
+				delayValidated, delayValidationKnown);
+	}
+
 	/** Called when a receiver acknowledges this proxy's stable vote ID. */
 	public void onMultiProxyVoteAcknowledged(UUID voteId, String recipient) {
 		// Optional for legacy implementations.
@@ -1276,8 +1284,14 @@ public abstract class MultiProxyHandler {
 				if (origin.isBlank()) {
 					triggerVote(player, service, realVote, true, 0L, VoteTotalsSnapshot.parseStorage(totals), uuid);
 				} else {
-					triggerVote(player, service, realVote, true, wireVote.time, VoteTotalsSnapshot.parseStorage(totals), uuid,
-							wireVote.voteId, origin, wireVote.delayValidated, wireVote.delayValidationKnown);
+					// Older reliable origin envelopes still carry the sender's original
+					// time. Keep it separate from receiver-local cooldown processing.
+					long occurrenceTime = !f.containsKey(VotingPluginWire.K_CANONICAL_OCCURRENCE_TIME)
+							&& com.bencodez.votingplugin.proxy.VoteOccurrenceMetadata.read(totals) == null
+							? wireVote.time : wireVote.canonicalOccurrenceTime;
+					triggerVote(player, service, realVote, true, 0L, VoteTotalsSnapshot.parseStorage(totals), uuid,
+							wireVote.voteId, origin, wireVote.delayValidated, wireVote.delayValidationKnown,
+							occurrenceTime);
 				}
 			}
 			return;

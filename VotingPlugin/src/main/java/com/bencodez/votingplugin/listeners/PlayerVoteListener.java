@@ -174,9 +174,18 @@ public class PlayerVoteListener implements Listener {
                     voteId, new HashMap<String, String>());
         }
         @Override public void dateMilestones(VotingPluginUser user, VoteSite site, long voteTime, UUID voteId) {
-            if (!event.isAsynchronous()) return; // No persistence from a gameplay event context.
-            if (!plugin.getDateVoteMilestones().accepted(user, site.getKey(), voteId, voteTime, realVote(), proxyVote(),
-                    event.getProxyVoteId() != null && incomingTime() > 0, targetedProxyVote(), forceProxyRouting())) event.setDateMilestoneAccountingFailed(true);
+            long occurrenceTime = event.getCanonicalOccurrenceTime() == null
+                    ? proxyVote() ? incomingTime() : voteTime : event.getCanonicalOccurrenceTime();
+            if (com.bencodez.votingplugin.util.BukkitCompletionScheduler.isPlatformOwnedThread()) {
+                // An asynchronous event flag does not identify the thread that dispatched it.
+                // A proxy caller cannot acknowledge accounting that has only been admitted.
+                event.setDateMilestoneAccountingFailed(!plugin.getDateVoteMilestones().deferAccepted(user, site.getKey(), voteId, occurrenceTime,
+                        realVote(), proxyVote(), event.getProxyVoteId() != null && occurrenceTime > 0,
+                        targetedProxyVote(), forceProxyRouting()));
+                return;
+            }
+            if (!plugin.getDateVoteMilestones().accepted(user, site.getKey(), voteId, occurrenceTime, realVote(), proxyVote(),
+                    event.getProxyVoteId() != null && occurrenceTime > 0, targetedProxyVote(), forceProxyRouting())) event.setDateMilestoneAccountingFailed(true);
         }
         @Override public void cooldown(VotingPluginUser user, VoteSite site) { plugin.getCoolDownCheck().vote(user, site); }
         @Override public void voteStreak(VotingPluginUser user, long voteTime, UUID voteId) {
@@ -187,6 +196,8 @@ public class PlayerVoteListener implements Listener {
             PlayerPostVoteEvent post = new PlayerPostVoteEvent(site, user, event.isRealVote(), event.isForceBungee(),
                     voteTime, cached, site.getServiceSite(), user.getJavaUUID(), playerName, voteId);
             post.setProxyVoteId(event.getProxyVoteId());
+            post.setCanonicalOccurrenceTime(event.getCanonicalOccurrenceTime() == null
+                    ? event.isBungee() ? event.getTime() : voteTime : event.getCanonicalOccurrenceTime());
             plugin.getServer().getPluginManager().callEvent(post);
         }
         @Override public boolean placeholderCacheAlways() { return plugin.getConfigFile().getPlaceholderCacheLevel().isCacheAlways(); }
