@@ -282,23 +282,29 @@ public class BackendProxyMessageRouter {
 
 	private void cacheVoteUpdateUser(VotingPluginWire.VoteUpdate update, AdvancedCoreUser resolved,
 			Consumer<OrderedVoteOutcome> completion) {
-		VotingPluginUser user;
 		try {
-			user = plugin.getVotingPluginUserManager().getVotingPluginUser(resolved);
+			VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(resolved);
 			UserDataManager dataManager = plugin.getUserManager().getDataManager();
 			if (dataManager != null && dataManager.hasSharedSqlBackend()) {
-				boolean deferred = dataManager.deferSharedStorageResultFromPlatform(() -> {
-					user.cache();
-					return Boolean.TRUE;
-				}, ignored -> applyVoteUpdate(update, user, completion), failure -> {
-					try {
-						plugin.getLogger().warning("Unable to cache UUID user in VoteUpdate: " + update.uuid);
-						plugin.debug(failure);
-					} finally {
-						completion.accept(OrderedVoteOutcome.RETRY);
-					}
-				});
-				if (deferred) return;
+				// Capture player state on its owning thread before entering shared SQL.
+				// A retired entity uses the global-safe fallback, skipping offline rewards.
+				org.bukkit.entity.Player player = user.getPlayer();
+				if (player == null) {
+					deferSharedVoteUpdate(update, user, dataManager, false, false, completion);
+				} else {
+					com.bencodez.votingplugin.util.BukkitCompletionScheduler.run(plugin, player, () -> {
+						try {
+							boolean online = player.isOnline();
+							deferSharedVoteUpdate(update, user, dataManager, online,
+									online && player.hasPermission("VotingPlugin.TopVoter.Ignore"), completion);
+						} catch (RuntimeException | Error failure) {
+							completion.accept(OrderedVoteOutcome.RETRY);
+							throw failure;
+						}
+					}, () -> deferSharedVoteUpdate(update, user, dataManager, false, false, completion),
+							() -> completion.accept(OrderedVoteOutcome.RETRY));
+				}
+				return;
 			}
 			user.cache();
 			applyVoteUpdate(update, user, completion);
@@ -308,23 +314,75 @@ public class BackendProxyMessageRouter {
 		}
 	}
 
+	/**
+	 * The cache must be populated and LastVotes read/updated on the same storage
+	 * worker. A platform callback between those steps permits another storage
+	 * operation to retire the published cache and makes setTime() fail on Bukkit.
+	 */
+	private void deferSharedVoteUpdate(VotingPluginWire.VoteUpdate update, VotingPluginUser user,
+			UserDataManager dataManager, boolean processOfflineVotes, boolean topVoterIgnore,
+			Consumer<OrderedVoteOutcome> completion) {
+		AtomicBoolean effectsMayHaveStarted = new AtomicBoolean();
+		try {
+			boolean deferred = dataManager.deferSharedStorageResultFromPlatform(() -> {
+				user.cache();
+				if (processOfflineVotes) {
+					// Offline rewards can produce nontransactional external effects.
+					effectsMayHaveStarted.set(true);
+					user.offVoteWithCapturedTopVoterIgnore(topVoterIgnore);
+				}
+				effectsMayHaveStarted.set(true);
+				applyVoteUpdateTime(update, user);
+				return Boolean.TRUE;
+			}, ignored -> {
+				try {
+					plugin.setUpdate(true);
+				} catch (RuntimeException | Error failure) {
+					completion.accept(OrderedVoteOutcome.QUARANTINE);
+					throw failure;
+				}
+				completion.accept(OrderedVoteOutcome.COMPLETE);
+			}, failure -> {
+				try {
+					plugin.getLogger().warning("Unable to apply UUID user VoteUpdate: "
+							+ ServiceSiteValidator.sanitizeForLog(update.uuid));
+					plugin.debug(failure);
+				} finally {
+					// A retry after rewards or a timestamp write may duplicate effects.
+					completion.accept(effectsMayHaveStarted.get()
+							? OrderedVoteOutcome.QUARANTINE : OrderedVoteOutcome.RETRY);
+				}
+			});
+			// Shared storage can retire between route selection and admission. Never
+			// fall back to a blocking platform-thread cache or database lookup.
+			if (!deferred) completion.accept(OrderedVoteOutcome.RETRY);
+		} catch (RuntimeException | Error failure) {
+			completion.accept(effectsMayHaveStarted.get()
+					? OrderedVoteOutcome.QUARANTINE : OrderedVoteOutcome.RETRY);
+			throw failure;
+		}
+	}
+
+	private void applyVoteUpdateTime(VotingPluginWire.VoteUpdate update, VotingPluginUser user) {
+		if (update.service != null && !update.service.isEmpty() && update.time > 0) {
+			VoteSite voteSite = plugin.getVoteSiteManager().getVoteSite(update.service, true);
+			if (voteSite == null) {
+				plugin.getLogger().warning("Ignoring VoteUpdate last vote time for unresolved or disabled service site: "
+						+ ServiceSiteValidator.sanitizeForLog(update.service));
+			} else {
+				user.setTime(voteSite, update.time);
+			}
+		} else if (update.service != null && !update.service.isEmpty() && update.time <= 0
+				&& plugin.getBungeeSettings().isBungeeDebug()) {
+			plugin.debug("Invalid last vote time received from bungee: " + update.time);
+		}
+	}
+
 	private void applyVoteUpdate(VotingPluginWire.VoteUpdate update, VotingPluginUser user,
 			Consumer<OrderedVoteOutcome> completion) {
 		try {
 			user.offVote();
-
-			if (update.service != null && !update.service.isEmpty() && update.time > 0) {
-				VoteSite voteSite = plugin.getVoteSiteManager().getVoteSite(update.service, true);
-				if (voteSite == null) {
-					plugin.getLogger().warning("Ignoring VoteUpdate last vote time for unresolved or disabled service site: "
-							+ ServiceSiteValidator.sanitizeForLog(update.service));
-				} else {
-					user.setTime(voteSite, update.time);
-				}
-			} else if (update.service != null && !update.service.isEmpty() && update.time <= 0
-					&& plugin.getBungeeSettings().isBungeeDebug()) {
-				plugin.debug("Invalid last vote time received from bungee: " + update.time);
-			}
+			applyVoteUpdateTime(update, user);
 			plugin.setUpdate(true);
 		} catch (RuntimeException | Error failure) {
 			completion.accept(OrderedVoteOutcome.QUARANTINE);

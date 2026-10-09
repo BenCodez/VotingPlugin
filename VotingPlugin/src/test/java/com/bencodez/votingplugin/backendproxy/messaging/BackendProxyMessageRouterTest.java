@@ -124,6 +124,143 @@ class BackendProxyMessageRouterTest {
 		verify(logger, never()).warning(any(String.class));
 		verify(plugin).setUpdate(true);
 	}
+
+	@Test
+	void sharedVoteUpdateFinishesStorageWorkBeforePlatformCompletion() {
+		DeferredVoteUpdate pending = captureSharedVoteUpdate();
+		org.bukkit.entity.Player player = mock(org.bukkit.entity.Player.class);
+		when(user.getPlayer()).thenReturn(player);
+		when(player.isOnline()).thenReturn(true);
+		when(player.hasPermission("VotingPlugin.TopVoter.Ignore")).thenReturn(true);
+		BukkitScheduler scheduler = plugin.getBukkitScheduler();
+		doAnswer(invocation -> {
+			Runnable task = invocation.getArgument(1);
+			task.run();
+			return null;
+		}).when(scheduler).runTask(eq(plugin), any(Runnable.class), eq(player));
+		VoteSite site = mock(VoteSite.class);
+		when(voteSiteManager.getVoteSite("known.example", true)).thenReturn(site);
+		java.util.concurrent.atomic.AtomicBoolean insideStorage = new java.util.concurrent.atomic.AtomicBoolean();
+		doAnswer(invocation -> {
+			assertTrue(insideStorage.get(), "LastVotes must be updated on the storage worker");
+			return null;
+		}).when(user).setTime(site, LAST_VOTE_TIME);
+
+		AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
+		router.handleOrderedVote(VotingPluginWire.voteUpdate(PLAYER_UUID.toString(), 1, 10,
+				"known.example", LAST_VOTE_TIME, ""), outcome::set);
+
+		assertEquals(null, outcome.get());
+		verify(user, never()).cache();
+		insideStorage.set(true);
+		Boolean result = pending.work.get();
+		insideStorage.set(false);
+		org.mockito.InOrder order = org.mockito.Mockito.inOrder(user);
+		order.verify(user).cache();
+		order.verify(user).offVoteWithCapturedTopVoterIgnore(true);
+		order.verify(user).setTime(site, LAST_VOTE_TIME);
+		verify(user, never()).offVote();
+		verify(plugin, never()).setUpdate(true);
+
+		// A cache eviction between worker completion and the platform callback
+		// must not cause a second LastVotes read or replay offline effects.
+		pending.success.accept(result);
+		assertEquals(OrderedVoteOutcome.COMPLETE, outcome.get());
+		verify(user, times(1)).setTime(site, LAST_VOTE_TIME);
+		verify(user, times(1)).offVoteWithCapturedTopVoterIgnore(true);
+		verify(plugin).setUpdate(true);
+	}
+
+	@Test
+	void sharedVoteUpdateCacheFailureBeforeEffectsIsRetryable() {
+		DeferredVoteUpdate pending = captureSharedVoteUpdate();
+		doThrow(new IllegalStateException("cache failed")).when(user).cache();
+		AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
+		router.handleOrderedVote(VotingPluginWire.voteUpdate(PLAYER_UUID.toString(), 1, 10,
+				"known.example", LAST_VOTE_TIME, ""), outcome::set);
+
+		IllegalStateException failure = assertThrows(IllegalStateException.class, pending.work::get);
+		pending.failure.accept(failure);
+		assertEquals(OrderedVoteOutcome.RETRY, outcome.get());
+		verify(user, never()).offVoteWithCapturedTopVoterIgnore(anyBoolean());
+		verify(user, never()).setTime(any(), anyLong());
+		verify(plugin, never()).setUpdate(true);
+	}
+
+	@Test
+	void sharedVoteUpdateFailureAfterOfflineEffectsIsQuarantined() {
+		DeferredVoteUpdate pending = captureSharedVoteUpdate();
+		org.bukkit.entity.Player player = mock(org.bukkit.entity.Player.class);
+		when(user.getPlayer()).thenReturn(player);
+		when(player.isOnline()).thenReturn(true);
+		BukkitScheduler scheduler = plugin.getBukkitScheduler();
+		doAnswer(invocation -> {
+			Runnable task = invocation.getArgument(1);
+			task.run();
+			return null;
+		}).when(scheduler).runTask(eq(plugin), any(Runnable.class), eq(player));
+		VoteSite site = mock(VoteSite.class);
+		when(voteSiteManager.getVoteSite("known.example", true)).thenReturn(site);
+		doThrow(new IllegalStateException("timestamp failed")).when(user).setTime(site, LAST_VOTE_TIME);
+		AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
+		router.handleOrderedVote(VotingPluginWire.voteUpdate(PLAYER_UUID.toString(), 1, 10,
+				"known.example", LAST_VOTE_TIME, ""), outcome::set);
+
+		IllegalStateException failure = assertThrows(IllegalStateException.class, pending.work::get);
+		pending.failure.accept(failure);
+		assertEquals(OrderedVoteOutcome.QUARANTINE, outcome.get());
+		verify(user, times(1)).offVoteWithCapturedTopVoterIgnore(false);
+		verify(user, never()).offVote();
+		verify(plugin, never()).setUpdate(true);
+	}
+
+	@Test
+	void sharedVoteUpdateDoesNotRunOfflineRewardsForAbsentPlayer() {
+		DeferredVoteUpdate pending = captureSharedVoteUpdate();
+		VoteSite site = mock(VoteSite.class);
+		when(voteSiteManager.getVoteSite("known.example", true)).thenReturn(site);
+		AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
+		router.handleOrderedVote(VotingPluginWire.voteUpdate(PLAYER_UUID.toString(), 1, 10,
+				"known.example", LAST_VOTE_TIME, ""), outcome::set);
+
+		pending.success.accept(pending.work.get());
+		assertEquals(OrderedVoteOutcome.COMPLETE, outcome.get());
+		verify(user, never()).offVoteWithCapturedTopVoterIgnore(anyBoolean());
+		verify(user, never()).offVote();
+		verify(user).setTime(site, LAST_VOTE_TIME);
+	}
+
+	@Test
+	void sharedVoteUpdateDoesNotFallBackToPlatformStorageWhenSubmissionIsRejected() {
+		when(dataManager.hasSharedSqlBackend()).thenReturn(true);
+		AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
+		router.handleOrderedVote(VotingPluginWire.voteUpdate(PLAYER_UUID.toString(), 1, 10,
+				"known.example", LAST_VOTE_TIME, ""), outcome::set);
+
+		assertEquals(OrderedVoteOutcome.RETRY, outcome.get());
+		verify(user, never()).cache();
+		verify(user, never()).offVote();
+		verify(user, never()).setTime(any(), anyLong());
+	}
+
+	private DeferredVoteUpdate captureSharedVoteUpdate() {
+		when(dataManager.hasSharedSqlBackend()).thenReturn(true);
+		DeferredVoteUpdate pending = new DeferredVoteUpdate();
+		doAnswer(invocation -> {
+			pending.work = invocation.getArgument(0);
+			pending.success = invocation.getArgument(1);
+			pending.failure = invocation.getArgument(2);
+			return true;
+		}).when(dataManager).deferSharedStorageResultFromPlatform(any(), any(), any());
+		return pending;
+	}
+
+	private static final class DeferredVoteUpdate {
+		private java.util.function.Supplier<Boolean> work;
+		private Consumer<Boolean> success;
+		private Consumer<Throwable> failure;
+	}
+
 	@Test
 	void releasesOrderedVoteLaneWhenUuidResolutionFails() {
 		doAnswer(invocation -> {
