@@ -79,6 +79,9 @@ class BackendProxyMessageRouterTest {
 		when(coreUserManager.getDataManager()).thenReturn(dataManager);
 		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
 		when(plugin.getLogger()).thenReturn(logger);
+		AdvancedCoreConfigOptions options = mock(AdvancedCoreConfigOptions.class);
+		when(options.isOnlineMode()).thenReturn(true);
+		when(plugin.getOptions()).thenReturn(options);
 		when(votingUserManager.getVotingPluginUser(resolvedUser)).thenReturn(user);
 		doAnswer(invocation -> {
 			Runnable task = invocation.getArgument(1);
@@ -169,6 +172,72 @@ class BackendProxyMessageRouterTest {
 		verify(user, times(1)).setTime(site, LAST_VOTE_TIME);
 		verify(user, times(1)).offVoteWithCapturedTopVoterIgnore(true);
 		verify(plugin).setUpdate(true);
+	}
+
+
+	@Test
+	void sharedVoteUpdateOfflineModeUsesPlayerNameEvenWhenUuidLookupMisses() {
+		DeferredVoteUpdate pending = captureSharedVoteUpdate();
+		AdvancedCoreConfigOptions options = mock(AdvancedCoreConfigOptions.class);
+		when(options.isOnlineMode()).thenReturn(false);
+		when(plugin.getOptions()).thenReturn(options);
+		when(user.getPlayerName()).thenReturn("OnlinePlayer");
+		org.bukkit.entity.Player player = mock(org.bukkit.entity.Player.class);
+		when(player.isOnline()).thenReturn(true);
+		when(player.hasPermission("VotingPlugin.TopVoter.Ignore")).thenReturn(true);
+		BukkitScheduler scheduler = plugin.getBukkitScheduler();
+		doAnswer(invocation -> {
+			Runnable task = invocation.getArgument(1);
+			task.run();
+			return null;
+		}).when(scheduler).runTask(eq(plugin), any(Runnable.class), eq(player));
+		VoteSite site = mock(VoteSite.class);
+		when(voteSiteManager.getVoteSite("known.example", true)).thenReturn(site);
+
+		try (org.mockito.MockedStatic<org.bukkit.Bukkit> bukkit =
+				org.mockito.Mockito.mockStatic(org.bukkit.Bukkit.class)) {
+			bukkit.when(() -> org.bukkit.Bukkit.getPlayer("OnlinePlayer")).thenReturn(player);
+			AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
+			router.handleOrderedVote(VotingPluginWire.voteUpdate(PLAYER_UUID.toString(), 1, 10,
+					"known.example", LAST_VOTE_TIME, ""), outcome::set);
+
+			assertEquals(null, outcome.get());
+			bukkit.verify(() -> org.bukkit.Bukkit.getPlayer("OnlinePlayer"));
+			verify(user, never()).getPlayer();
+			pending.success.accept(pending.work.get());
+
+			assertEquals(OrderedVoteOutcome.COMPLETE, outcome.get());
+			verify(user).offVoteWithCapturedTopVoterIgnore(true);
+			verify(user).setTime(site, LAST_VOTE_TIME);
+			verify(user, never()).offVote();
+			verify(plugin).setUpdate(true);
+		}
+	}
+
+	@Test
+	void sharedVoteUpdateOnlineModeNeverFallsBackToAnUnrelatedPlayerName() {
+		DeferredVoteUpdate pending = captureSharedVoteUpdate();
+		when(user.getPlayerName()).thenReturn("DifferentPlayer");
+		org.bukkit.entity.Player differentPlayer = mock(org.bukkit.entity.Player.class);
+		VoteSite site = mock(VoteSite.class);
+		when(voteSiteManager.getVoteSite("known.example", true)).thenReturn(site);
+
+		try (org.mockito.MockedStatic<org.bukkit.Bukkit> bukkit =
+				org.mockito.Mockito.mockStatic(org.bukkit.Bukkit.class)) {
+			bukkit.when(() -> org.bukkit.Bukkit.getPlayer("DifferentPlayer")).thenReturn(differentPlayer);
+			AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
+			router.handleOrderedVote(VotingPluginWire.voteUpdate(PLAYER_UUID.toString(), 1, 10,
+					"known.example", LAST_VOTE_TIME, ""), outcome::set);
+
+			bukkit.verify(() -> org.bukkit.Bukkit.getPlayer("DifferentPlayer"), never());
+			verify(user).getPlayer();
+			verify(user, never()).getPlayerName();
+			pending.success.accept(pending.work.get());
+
+			assertEquals(OrderedVoteOutcome.COMPLETE, outcome.get());
+			verify(user, never()).offVoteWithCapturedTopVoterIgnore(anyBoolean());
+			verify(user).setTime(site, LAST_VOTE_TIME);
+		}
 	}
 
 	@Test
