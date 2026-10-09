@@ -306,6 +306,9 @@ public class BackendProxyMessageRouter {
 			VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(resolved);
 			UserDataManager dataManager = plugin.getUserManager().getDataManager();
 			if (dataManager != null && dataManager.hasSharedSqlBackend()) {
+				// Site resolution may auto-create YAML and reload reward/site registries.
+				// Capture it once on the platform scheduler before entering the SQL worker.
+				VoteSite voteSite = resolveVoteUpdateSite(update);
 				// Capture player state on its owning thread before entering shared SQL.
 				// A retired entity must retry; only a genuinely absent player may skip offline rewards.
 				// Match offVote(): offline-mode identities are looked up by name,
@@ -314,7 +317,7 @@ public class BackendProxyMessageRouter {
 						? user.getPlayer()
 						: org.bukkit.Bukkit.getPlayer(user.getPlayerName());
 				if (player == null) {
-					deferSharedVoteUpdate(update, user, dataManager, false, false, completion);
+					deferSharedVoteUpdate(update, user, dataManager, voteSite, false, false, completion);
 				} else {
 					// A scheduler can accept this runnable and discard it during reload.
 					// Only the winner may begin effects, including if a late callback runs.
@@ -327,7 +330,7 @@ public class BackendProxyMessageRouter {
 						if (!ownerClaimed.compareAndSet(false, true)) return;
 						try {
 							boolean online = player.isOnline();
-							deferSharedVoteUpdate(update, user, dataManager, online,
+							deferSharedVoteUpdate(update, user, dataManager, voteSite, online,
 									online && player.hasPermission("VotingPlugin.TopVoter.Ignore"), completion);
 						} catch (RuntimeException | Error failure) {
 							completion.accept(OrderedVoteOutcome.RETRY);
@@ -351,7 +354,7 @@ public class BackendProxyMessageRouter {
 	 * operation to retire the published cache and makes setTime() fail on Bukkit.
 	 */
 	private void deferSharedVoteUpdate(VotingPluginWire.VoteUpdate update, VotingPluginUser user,
-			UserDataManager dataManager, boolean processOfflineVotes, boolean topVoterIgnore,
+			UserDataManager dataManager, VoteSite voteSite, boolean processOfflineVotes, boolean topVoterIgnore,
 			Consumer<OrderedVoteOutcome> completion) {
 		AtomicBoolean effectsMayHaveStarted = new AtomicBoolean();
 		try {
@@ -362,7 +365,7 @@ public class BackendProxyMessageRouter {
 					effectsMayHaveStarted.set(true);
 					user.offVoteWithCapturedTopVoterIgnore(topVoterIgnore);
 				}
-				applyVoteUpdateTime(update, user, () -> effectsMayHaveStarted.set(true));
+				applyVoteUpdateTime(update, user, voteSite, () -> effectsMayHaveStarted.set(true));
 				return Boolean.TRUE;
 			}, ignored -> {
 				try {
@@ -393,10 +396,17 @@ public class BackendProxyMessageRouter {
 		}
 	}
 
-	private void applyVoteUpdateTime(VotingPluginWire.VoteUpdate update, VotingPluginUser user,
-			Runnable beforeTimeWrite) {
+	/** May mutate VoteSites.yml when auto-create is enabled; never call on the SQL worker. */
+	private VoteSite resolveVoteUpdateSite(VotingPluginWire.VoteUpdate update) {
 		if (update.service != null && !update.service.isEmpty() && update.time > 0) {
-			VoteSite voteSite = plugin.getVoteSiteManager().getVoteSite(update.service, true);
+			return plugin.getVoteSiteManager().getVoteSite(update.service, true);
+		}
+		return null;
+	}
+
+	private void applyVoteUpdateTime(VotingPluginWire.VoteUpdate update, VotingPluginUser user,
+			VoteSite voteSite, Runnable beforeTimeWrite) {
+		if (update.service != null && !update.service.isEmpty() && update.time > 0) {
 			if (voteSite == null) {
 				plugin.getLogger().warning("Ignoring VoteUpdate last vote time for unresolved or disabled service site: "
 						+ ServiceSiteValidator.sanitizeForLog(update.service));
@@ -415,7 +425,7 @@ public class BackendProxyMessageRouter {
 			Consumer<OrderedVoteOutcome> completion) {
 		try {
 			user.offVote();
-			applyVoteUpdateTime(update, user, () -> {});
+			applyVoteUpdateTime(update, user, resolveVoteUpdateSite(update), () -> {});
 			plugin.setUpdate(true);
 		} catch (RuntimeException | Error failure) {
 			completion.accept(OrderedVoteOutcome.QUARANTINE);

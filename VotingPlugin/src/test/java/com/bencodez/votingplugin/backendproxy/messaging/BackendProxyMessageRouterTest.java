@@ -376,20 +376,45 @@ class BackendProxyMessageRouterTest {
 
 	@Test
 	void sharedVoteUpdateLookupFailureBeforeMutationsIsRetryable() {
-		DeferredVoteUpdate pending = captureSharedVoteUpdate();
+		captureSharedVoteUpdate();
 		when(voteSiteManager.getVoteSite("known.example", true))
 				.thenThrow(new IllegalStateException("vote sites unavailable"));
 		AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
-		router.handleOrderedVote(VotingPluginWire.voteUpdate(PLAYER_UUID.toString(), 1, 10,
-				"known.example", LAST_VOTE_TIME, ""), outcome::set);
+		assertThrows(IllegalStateException.class, () -> router.handleOrderedVote(
+				VotingPluginWire.voteUpdate(PLAYER_UUID.toString(), 1, 10,
+						"known.example", LAST_VOTE_TIME, ""), outcome::set));
 
-		IllegalStateException failure = assertThrows(IllegalStateException.class, pending.work::get);
-		pending.failure.accept(failure);
 		assertEquals(OrderedVoteOutcome.RETRY, outcome.get());
-		verify(user).cache();
+		// A failed platform-owned lookup must not admit any user-storage work.
+		verify(dataManager, never()).deferSharedStorageResultFromPlatform(any(), any(), any());
+		verify(user, never()).cache();
 		verify(user, never()).offVoteWithCapturedTopVoterIgnore(anyBoolean());
 		verify(user, never()).setTime(any(), anyLong());
 		verify(plugin, never()).setUpdate(true);
+	}
+
+	@Test
+	void sharedVoteUpdateResolvesAutoCreatedSiteBeforeSubmittingStorageWork() {
+		DeferredVoteUpdate pending = captureSharedVoteUpdate();
+		VoteSite site = mock(VoteSite.class);
+		java.util.concurrent.atomic.AtomicBoolean inStorage = new java.util.concurrent.atomic.AtomicBoolean();
+		doAnswer(invocation -> {
+			assertFalse(inStorage.get(), "Vote-site creation must remain on the platform thread");
+			return site;
+		}).when(voteSiteManager).getVoteSite("auto-created.example", true);
+		AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
+		router.handleOrderedVote(VotingPluginWire.voteUpdate(PLAYER_UUID.toString(), 1, 10,
+				"auto-created.example", LAST_VOTE_TIME, ""), outcome::set);
+
+		verify(voteSiteManager).getVoteSite("auto-created.example", true);
+		verify(user, never()).cache();
+		inStorage.set(true);
+		pending.success.accept(pending.work.get());
+		inStorage.set(false);
+		assertEquals(OrderedVoteOutcome.COMPLETE, outcome.get());
+		verify(voteSiteManager, times(1)).getVoteSite("auto-created.example", true);
+		verify(user).cache();
+		verify(user).setTime(site, LAST_VOTE_TIME);
 	}
 
 	@Test
