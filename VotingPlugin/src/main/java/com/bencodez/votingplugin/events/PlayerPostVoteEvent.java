@@ -14,6 +14,11 @@ import lombok.Setter;
 
 public class PlayerPostVoteEvent extends Event {
 
+	/** Original accepted occurrence time; ordinary cooldown/event time remains separate. */
+	@Getter
+	@Setter
+	private Long canonicalOccurrenceTime;
+
 	/** The Constant handlers. */
 	private static final HandlerList handlers = new HandlerList();
 
@@ -76,6 +81,11 @@ public class PlayerPostVoteEvent extends Event {
 	@Getter
 	@Setter
 	private UUID voteUUID;
+
+	/** Original explicit proxy transport ID; voteUUID retains the legacy correlation fallback. */
+	@Getter
+	@Setter
+	private UUID proxyVoteId;
 
 	/**
 	 * Constructs a new PlayerPostVoteEvent.

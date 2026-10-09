@@ -324,6 +324,7 @@ Control behavior in production.
 
 - Trace whether the code runs on the connector worker, proxy thread, Bukkit primary thread, or a SQL executor.
 - Preserve queued votes across saturation, reload, runtime replacement, scheduler rejection/cancellation, shutdown, and restart; overflow handling must be bounded, durable when promised, and observable rather than silently dropping work. Scheduler admission is never proof of durable ownership.
+- Local Votifier captures remain owned after STARTED until normal callback completion or confirmed overflow transfer. Transfer execution stays fenced while the original callback runs; successful non-interrupted completion reconciles only its exact occurrence, while interruption/exception or failed transfer retains bounded recovery ownership. A callback completing after the final overflow snapshot is an explicit uncertain reconciliation case; a retired queue must not overwrite a successor, and ordinary partial external effects retain the existing at-least-once boundary.
 - Proxy-to-backend guaranteed delivery is capability negotiated and at least once. Journal a reward-bearing envelope before
   reporting transport acceptance, retain it until the matching backend completion acknowledgement is durable, persist
   completed IDs before acknowledgement for restart-safe deduplication, retire receipts only through the durable

@@ -128,6 +128,7 @@ public class PlayerVoteListener implements Listener {
         }
         @Override public boolean hasProxyTextTotals() { return event.getBungeeTextTotals() != null; }
         @Override public UUID proxyVoteId() { return resolveProxyVoteId(event); }
+        @Override public UUID localOccurrenceId() { return event.getLocalOccurrenceId(); }
         @Override public boolean identifiedQueuedProxyVote() { return event.isQueuedProxyVote(); }
 		@Override public boolean proxyQueueClassificationKnown() { return event.isProxyQueueClassificationKnown(); }
         @Override public boolean proxyDelayValidationKnown() { return event.isProxyDelayValidationKnown(); }
@@ -173,6 +174,20 @@ public class PlayerVoteListener implements Listener {
             plugin.getVoteMilestonesManager().handleVote(user, event.getBungeeTextTotals(), forceProxyRouting,
                     voteId, new HashMap<String, String>());
         }
+        @Override public void dateMilestones(VotingPluginUser user, VoteSite site, long voteTime, UUID voteId) {
+            long occurrenceTime = event.getCanonicalOccurrenceTime() == null
+                    ? proxyVote() ? incomingTime() : voteTime : event.getCanonicalOccurrenceTime();
+            if (com.bencodez.votingplugin.util.BukkitCompletionScheduler.isPlatformOwnedThread()) {
+                // An asynchronous event flag does not identify the thread that dispatched it.
+                // A proxy caller cannot acknowledge accounting that has only been admitted.
+                event.setDateMilestoneAccountingFailed(!plugin.getDateVoteMilestones().deferAccepted(user, site.getKey(), voteId, occurrenceTime,
+                        realVote(), proxyVote(), event.getProxyVoteId() != null && occurrenceTime > 0,
+                        targetedProxyVote(), forceProxyRouting()));
+                return;
+            }
+            if (!plugin.getDateVoteMilestones().accepted(user, site.getKey(), voteId, occurrenceTime, realVote(), proxyVote(),
+                    event.getProxyVoteId() != null && occurrenceTime > 0, targetedProxyVote(), forceProxyRouting())) event.setDateMilestoneAccountingFailed(true);
+        }
         @Override public void cooldown(VotingPluginUser user, VoteSite site) { plugin.getCoolDownCheck().vote(user, site); }
         @Override public void voteStreak(VotingPluginUser user, long voteTime, UUID voteId) {
             plugin.getVoteStreakHandler().processVote(user, voteTime, voteId);
@@ -181,6 +196,9 @@ public class PlayerVoteListener implements Listener {
                 long voteTime, UUID voteId, boolean cached) {
             PlayerPostVoteEvent post = new PlayerPostVoteEvent(site, user, event.isRealVote(), event.isForceBungee(),
                     voteTime, cached, site.getServiceSite(), user.getJavaUUID(), playerName, voteId);
+            post.setProxyVoteId(event.getProxyVoteId());
+            post.setCanonicalOccurrenceTime(event.getCanonicalOccurrenceTime() == null
+                    ? event.isBungee() ? event.getTime() : voteTime : event.getCanonicalOccurrenceTime());
             plugin.getServer().getPluginManager().callEvent(post);
         }
         @Override public boolean placeholderCacheAlways() { return plugin.getConfigFile().getPlaceholderCacheLevel().isCacheAlways(); }

@@ -720,6 +720,9 @@ public class VotingPluginProxyTest {
 			target.setAccessible(true);
 			target.set(retry, field.getValue());
 		}
+		java.lang.reflect.Field occurrence = retryType.getDeclaredField("canonicalOccurrenceTime");
+		occurrence.setAccessible(true);
+		occurrence.setLong(retry, 123L);
 		java.lang.reflect.Field retriesField = VotingPluginProxy.class.getDeclaredField("liveVoteRetries");
 		retriesField.setAccessible(true);
 		@SuppressWarnings("unchecked")
@@ -738,7 +741,11 @@ public class VotingPluginProxyTest {
 		@SuppressWarnings({ "rawtypes", "unchecked" })
 		org.mockito.ArgumentCaptor<java.util.Collection<String>> recipients =
 				(org.mockito.ArgumentCaptor) org.mockito.ArgumentCaptor.forClass(java.util.Collection.class);
-		verify(multiProxyHandler, Mockito.times(2)).sendMultiProxyEnvelopeAccepted(Mockito.any(), recipients.capture());
+		org.mockito.ArgumentCaptor<JsonEnvelope> envelopes = org.mockito.ArgumentCaptor.forClass(JsonEnvelope.class);
+		verify(multiProxyHandler, Mockito.times(2)).sendMultiProxyEnvelopeAccepted(envelopes.capture(), recipients.capture());
+		assertTrue(envelopes.getAllValues().stream().allMatch(envelope ->
+				VotingPluginWire.readVote(envelope).canonicalOccurrenceTime == 123L
+				&& VotingPluginWire.readVote(envelope).time == 100L));
 		assertEquals(java.util.Set.of(java.util.Set.of("proxy2"), java.util.Set.of("ProxyLegacy")),
 				new java.util.HashSet<>(recipients.getAllValues()));
 		java.lang.reflect.Method settle = VotingPluginProxy.class
@@ -750,6 +757,8 @@ public class VotingPluginProxyTest {
 		verify(voteCache, Mockito.atLeast(2)).addTimeVoteToCache(outboxes.capture());
 		assertTrue(outboxes.getAllValues().stream().allMatch(outbox -> voteId.equals(outbox.getVoteId())));
 		assertEquals(1, queue.size());
+		assertEquals(100L, queue.element().getTime());
+		assertEquals(123L, queue.element().getCanonicalOccurrenceTime());
 		assertEquals(voteId, queue.element().getVoteId());
 		assertEquals(java.util.Set.of("proxy2"), queue.element().getMultiProxyRecipients());
 	}
@@ -840,6 +849,8 @@ public class VotingPluginProxyTest {
 		verify(multiProxyHandler, never()).sendMultiProxyEnvelopeAccepted(Mockito.any(), Mockito.any());
 		assertEquals(1, queue.size());
 		assertTrue(queue.element().isMultiProxyCapabilityDiscoveryPending());
+		assertEquals(100L, queue.element().getTime());
+		assertEquals(100L, queue.element().getCanonicalOccurrenceTime());
 		assertTrue(queue.element().isProcessed());
 		verify(scheduler).schedule(Mockito.any(Runnable.class), Mockito.eq(5L),
 				Mockito.eq(java.util.concurrent.TimeUnit.SECONDS));
@@ -1714,7 +1725,8 @@ public class VotingPluginProxyTest {
 
 		assertEquals(1, queue.size());
 		assertEquals(voteId, queue.element().getVoteId());
-		assertEquals("", queue.element().getTotals());
+		assertEquals(0, com.bencodez.votingplugin.proxy.VoteTotalsSnapshot.parseStorage(queue.element().getTotals()).getAllTimeTotal());
+		assertEquals(100L, queue.element().getCanonicalOccurrenceTime());
 		assertFalse(queue.element().isRealVote());
 		assertEquals(1024, retryMap.size());
 	}

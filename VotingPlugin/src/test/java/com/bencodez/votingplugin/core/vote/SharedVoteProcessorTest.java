@@ -75,11 +75,35 @@ class SharedVoteProcessorTest {
         order.verify(ops).checkDayVoteStreak(user, false);
         order.verify(ops).setMonthTotal(user, 2);
         order.verify(ops).milestones(eq(user), any(UUID.class), eq(false));
+        order.verify(ops).dateMilestones(eq(user), eq(site), eq(123L), any(UUID.class));
         order.verify(ops).cooldown(user, site);
         order.verify(ops).voteStreak(eq(user), eq(123L), any(UUID.class));
         order.verify(ops).postVote(eq(site), eq(user), eq("Ben"), eq(123L), any(UUID.class), eq(false));
         order.verify(ops).updatePlaceholders(user);
         order.verify(ops).setUpdate();
+    }
+
+    @Test
+    void standaloneDateMembershipUsesActualInstantDuringDstRollback() {
+        var ops = accepted();
+        long instant = java.time.Instant.parse("2026-11-01T06:15:00Z").toEpochMilli();
+        when(ops.currentTimeMillis()).thenReturn(instant);
+        SharedVoteProcessor.process(ops);
+        verify(ops).dateMilestones(eq(user), eq(site), eq(instant), any(UUID.class));
+    }
+
+    @Test
+    void localOccurrenceIdentityKeepsOrdinaryProcessingClockAndDoesNotTriggerProxyBehavior() {
+        var ops = accepted();
+        UUID localId = UUID.randomUUID();
+        when(ops.localOccurrenceId()).thenReturn(localId);
+        when(ops.proxyVoteId()).thenReturn(UUID.randomUUID()); // An irrelevant proxy field cannot override local identity.
+        when(ops.currentTimeMillis()).thenReturn(789L);
+        SharedVoteProcessor.process(ops);
+        verify(ops).setTimeNow(user, site);
+        verify(ops, never()).triggerProxyEvent();
+        verify(ops).dateMilestones(user, site, 789L, localId);
+        verify(ops).postVote(site, user, "Ben", 789L, localId, true);
     }
 
     @Test
@@ -108,6 +132,7 @@ class SharedVoteProcessorTest {
         ArgumentCaptor<UUID> id = ArgumentCaptor.forClass(UUID.class);
         verify(ops).postVote(eq(site), eq(user), eq("Ben"), eq(321L), id.capture(), eq(false));
         assertEquals(proxyId, id.getValue());
+        verify(ops).dateMilestones(user, site, 321L, proxyId);
     }
 
     @Test

@@ -144,15 +144,37 @@ public class VotiferEventDisabledVoteSiteTest {
 		verify(pluginManager).callEvent(any(PlayerVoteEvent.class));
 	}
 
+    @Test
+    public void cancelledCapturesAreBoundedAndTransferredOnceBeforeShutdown() {
+        var tasks = new java.util.ArrayList<Runnable>();
+        doAnswer(call -> { tasks.add(call.getArgument(0)); return CompletableFuture.completedFuture(null); })
+                .when(voteTimer).submit(any(Runnable.class));
+        doAnswer(call -> { ((java.util.function.Consumer<Boolean>) call.getArgument(5)).accept(true); return null; })
+                .when(overflowQueue).enqueueAfterInitialization(anyString(), anyString(), org.mockito.ArgumentMatchers.anyLong(), any(java.util.UUID.class), any(java.util.function.BooleanSupplier.class), any());
+        for (int index = 0; index < 257; index++) listener.onVotiferEvent(createVoteEvent(SERVICE_SITE));
+        org.junit.jupiter.api.Assertions.assertEquals(256, listener.getPendingCaptureCount());
+        org.junit.jupiter.api.Assertions.assertEquals(256, tasks.size());
+        listener.stop(); listener.stop();
+        org.junit.jupiter.api.Assertions.assertEquals(0, listener.getPendingCaptureCount());
+        // Cancelled callbacks that later run cannot transfer or process again.
+        tasks.forEach(Runnable::run);
+        verify(overflowQueue, org.mockito.Mockito.times(256)).enqueueAfterInitialization(anyString(), anyString(),
+                org.mockito.ArgumentMatchers.anyLong(), any(java.util.UUID.class), any(java.util.function.BooleanSupplier.class), any());
+        verify(pluginManager, never()).callEvent(any(PlayerVoteEvent.class));
+    }
+
 	@Test
 	public void testVoteIsQueuedWhenBoundedExecutorRejectsIt() {
 		doThrow(new RejectedExecutionException("capacity exhausted"))
 				.when(voteTimer).submit(any(Runnable.class));
-		when(overflowQueue.enqueue("Steve", SERVICE_SITE)).thenReturn(true);
+        doAnswer(call -> { ((java.util.function.Consumer<Boolean>) call.getArgument(5)).accept(true); return null; })
+                .when(overflowQueue).enqueueAfterInitialization(org.mockito.ArgumentMatchers.eq("Steve"),
+                        org.mockito.ArgumentMatchers.eq(SERVICE_SITE), org.mockito.ArgumentMatchers.anyLong(), any(java.util.UUID.class), any(java.util.function.BooleanSupplier.class), any());
 
 		listener.onVotiferEvent(createVoteEvent(SERVICE_SITE));
 
-		verify(overflowQueue).enqueue("Steve", SERVICE_SITE);
+        verify(overflowQueue).enqueueAfterInitialization(org.mockito.ArgumentMatchers.eq("Steve"),
+                org.mockito.ArgumentMatchers.eq(SERVICE_SITE), org.mockito.ArgumentMatchers.anyLong(), any(java.util.UUID.class), any(java.util.function.BooleanSupplier.class), any());
 		verify(pluginManager, never()).callEvent(any(PlayerVoteEvent.class));
 	}
 }

@@ -17,10 +17,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 import org.bukkit.configuration.file.YamlConfiguration;
 
@@ -42,7 +44,12 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 	private static final String QUEUE_FILE = "VotifierVoteQueue.yml";
 
 	private final VotingPluginMain plugin;
-	private final BiConsumer<String, String> processor;
+	@FunctionalInterface
+	public interface VoteProcessor { void process(String serviceSite, String username, long occurredAt); }
+	@FunctionalInterface
+	public interface OccurrenceProcessor { void process(String serviceSite, String username, long occurredAt, UUID localOccurrenceId); }
+	private final OccurrenceProcessor processor;
+    private final java.util.function.BooleanSupplier processingAllowed;
 	private final Path file;
 	private final ScheduledThreadPoolExecutor worker;
 	private final Object lock = new Object();
@@ -53,6 +60,11 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 	private boolean persistenceDirty;
 	private boolean started;
 	private boolean closed;
+    private boolean closing;
+    private volatile boolean loaded;
+    private volatile boolean loadFailed;
+    private int pendingIngress;
+    private final boolean asynchronousInitialization;
 	private long stateVersion;
 	private long durableVersion;
 
@@ -63,8 +75,32 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 	 * @param processor callback receiving service site and player name
 	 */
 	public VotifierVoteOverflowQueue(VotingPluginMain plugin, BiConsumer<String, String> processor) {
+        this(plugin, (site, user, occurredAt, id) -> processor.accept(site, user), () -> true);
+    }
+
+    /** Additive callback retains receipt occurrence and fences a retired startup generation. */
+    public VotifierVoteOverflowQueue(VotingPluginMain plugin, VoteProcessor processor,
+            java.util.function.BooleanSupplier processingAllowed) {
+        this(plugin, (site, user, time, id) -> processor.process(site, user, time), processingAllowed);
+    }
+
+    public VotifierVoteOverflowQueue(VotingPluginMain plugin, OccurrenceProcessor processor,
+            java.util.function.BooleanSupplier processingAllowed) {
+        this(plugin, processor, processingAllowed, false);
+    }
+
+    /** Memory-only construction; all loading and handoffs run on the existing queue worker. */
+    public static VotifierVoteOverflowQueue initializeAsync(VotingPluginMain plugin, OccurrenceProcessor processor,
+            java.util.function.BooleanSupplier processingAllowed) {
+        return new VotifierVoteOverflowQueue(plugin, processor, processingAllowed, true);
+    }
+
+    private VotifierVoteOverflowQueue(VotingPluginMain plugin, OccurrenceProcessor processor,
+            java.util.function.BooleanSupplier processingAllowed, boolean asynchronousInitialization) {
+        this.asynchronousInitialization = asynchronousInitialization;
 		this.plugin = plugin;
 		this.processor = processor;
+        this.processingAllowed = processingAllowed;
 		this.file = new File(plugin.getDataFolder(), QUEUE_FILE).toPath();
 		this.worker = new ScheduledThreadPoolExecutor(1, runnable -> {
 			Thread thread = new Thread(runnable, "VotingPlugin-Votifier-Overflow");
@@ -72,7 +108,8 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 			return thread;
 		});
 		this.worker.setRemoveOnCancelPolicy(true);
-		load();
+		if (asynchronousInitialization) worker.execute(this::load);
+        else load();
 	}
 
 	/**
@@ -97,16 +134,64 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 	 * @return false when the bounded overflow is full or shutting down
 	 */
 	public boolean enqueue(String username, String serviceSite) {
-		if (username == null || serviceSite == null) return false;
+        return enqueue(username, serviceSite, System.currentTimeMillis());
+    }
+
+    public boolean enqueue(String username, String serviceSite, long occurredAt) {
+        return enqueue(username, serviceSite, occurredAt, UUID.randomUUID());
+    }
+
+    public boolean enqueue(String username, String serviceSite, long occurredAt, UUID localOccurrenceId) {
+        return enqueueStored(username, serviceSite, occurredAt, localOccurrenceId, false);
+    }
+
+    /** Transfer stays behind initial loading and is bounded independently of executor admissions. */
+    public void enqueueAfterInitialization(String username, String serviceSite, long occurredAt, UUID localOccurrenceId,
+            Consumer<Boolean> completion) {
+        enqueueAfterInitialization(username, serviceSite, occurredAt, localOccurrenceId, () -> true, completion);
+    }
+
+    /** A STARTED original callback retains execution ownership until its outcome is known. */
+    public void enqueueAfterInitialization(String username, String serviceSite, long occurredAt, UUID localOccurrenceId,
+            java.util.function.BooleanSupplier executionReleased, Consumer<Boolean> completion) {
+        boolean submitted = false;
+        synchronized (lock) {
+            if (!closed && !closing && pendingIngress < MAX_ENTRIES) {
+                pendingIngress++;
+                try {
+                    worker.execute(() -> {
+                        boolean accepted;
+                        try { accepted = enqueueStored(username, serviceSite, occurredAt, localOccurrenceId, true, executionReleased); }
+                        finally { synchronized (lock) { pendingIngress--; } }
+                        completion.accept(accepted);
+                    });
+                    submitted = true;
+                } catch (RejectedExecutionException rejected) { pendingIngress--; }
+            }
+        }
+        if (!submitted) completion.accept(false);
+    }
+
+    private boolean enqueueStored(String username, String serviceSite, long occurredAt, UUID localOccurrenceId,
+            boolean admittedTransfer) {
+        return enqueueStored(username, serviceSite, occurredAt, localOccurrenceId, admittedTransfer, () -> true);
+    }
+
+    private boolean enqueueStored(String username, String serviceSite, long occurredAt, UUID localOccurrenceId,
+            boolean admittedTransfer, java.util.function.BooleanSupplier executionReleased) {
+		if (username == null || serviceSite == null || occurredAt <= 0 || localOccurrenceId == null) return false;
 		synchronized (lock) {
-			if (closed || entries.size() >= MAX_ENTRIES) return false;
-			entries.addLast(new PendingVote(username, serviceSite, System.currentTimeMillis()));
+			if (closed || closing && !admittedTransfer || !loaded || loadFailed || entries.size() >= MAX_ENTRIES) return false;
+			entries.addLast(new PendingVote(username, serviceSite, occurredAt, localOccurrenceId, executionReleased));
 			stateVersion++;
 			requestPersistenceLocked();
 			scheduleDrainLocked();
 			return true;
 		}
 	}
+
+    /** Completion only; transfers separately report load/capacity admission failure. */
+    public boolean isInitializationComplete() { return loaded; }
 
 	/**
 	 * Returns the number of votes waiting for admission or completion.
@@ -126,7 +211,7 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 	}
 
 	private void scheduleDrainLocked() {
-		if (closed || !started || drainScheduled) return;
+		if (closed || closing || !loaded || loadFailed || !started || drainScheduled) return;
 		drainScheduled = true;
 		try {
 			worker.schedule(this::drain, 0, TimeUnit.MILLISECONDS);
@@ -138,6 +223,7 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 	private void drain() {
 		while (true) {
 			synchronized (lock) {
+                if (closed || closing || !loaded || loadFailed) { drainScheduled = false; return; }
 				if (durableVersion != stateVersion) {
 					drainScheduled = false;
 					return;
@@ -152,8 +238,12 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 					// Serialize admission with enqueue so the version proven durable
 					// above cannot change in the gap before submit accepts this vote.
 					plugin.getVoteTimer().submit(() -> {
+                        if (!processingAllowed.getAsBoolean()) {
+                            synchronized (lock) { pending.submitted = false; }
+                            return; // Retired generation retains the durable entry for restart.
+                        }
 						try {
-							processor.accept(pending.serviceSite, pending.username);
+							processor.process(pending.serviceSite, pending.username, pending.time, pending.localOccurrenceId);
 						} finally {
 							acknowledge(pending);
 						}
@@ -175,7 +265,7 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 
 	private PendingVote nextUnsubmittedLocked() {
 		for (PendingVote pending : entries) {
-			if (!pending.submitted) return pending;
+			if (!pending.submitted && pending.executionReleased.getAsBoolean()) return pending;
 		}
 		return null;
 	}
@@ -188,6 +278,22 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 			scheduleDrainLocked();
 		}
 	}
+
+    /** Reconcile a receipt whose original normal callback completed during transfer. */
+    public void acknowledgeOccurrence(UUID localOccurrenceId) {
+        synchronized (lock) {
+            if (closed) {
+                // A nonterminating callback outlived the final snapshot. A retired
+                // writer cannot overwrite a successor's queue; retain uncertainty.
+                plugin.getLogger().warning("Completed Votifier callback outlived queue shutdown; retained occurrence requires reconciliation");
+                return;
+            }
+            if (!entries.removeIf(pending -> pending.localOccurrenceId.equals(localOccurrenceId))) return;
+            stateVersion++; requestPersistenceLocked(); scheduleDrainLocked();
+        }
+    }
+    /** Wake the same bounded drain when an original transferred callback finishes uncertainly. */
+    public void resumeTransfers() { scheduleDrain(); }
 
 	private void requestPersistenceLocked() {
 		persistenceDirty = true;
@@ -239,18 +345,16 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 	}
 
 	private void load() {
+        ArrayDeque<PendingVote> recovered = new ArrayDeque<>();
 		try {
 			if (!Files.exists(file, LinkOption.NOFOLLOW_LINKS)) return;
 			YamlConfiguration yaml = new YamlConfiguration();
 			yaml.loadFromString(readQueueFile());
 			Object raw = yaml.get("Votes");
-			if (!(raw instanceof List<?> values)) return;
+			if (!(raw instanceof List<?> values)) throw new IOException("queue votes are not a list");
+            if (values.size() > MAX_ENTRIES) throw new IOException("queue exceeds entry capacity");
 			boolean skipped = false;
 			for (Object value : values) {
-				if (entries.size() >= MAX_ENTRIES) {
-					skipped = true;
-					break;
-				}
 				if (!(value instanceof Map<?, ?> map)) {
 					skipped = true;
 					continue;
@@ -265,8 +369,24 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 					skipped = true;
 					continue;
 				}
-				entries.addLast(new PendingVote(name, site, timestamp.longValue()));
+				UUID localOccurrenceId;
+                if (!map.containsKey("LocalOccurrenceId")) {
+                    localOccurrenceId = UUID.randomUUID();
+                    skipped = true; // Publish the migration before admitting any recovered row.
+                } else {
+                    Object rawId = map.get("LocalOccurrenceId");
+                    try {
+                        if (!(rawId instanceof String id)) throw new IllegalArgumentException();
+                        localOccurrenceId = UUID.fromString(id);
+                        if (!localOccurrenceId.toString().equalsIgnoreCase(id)) throw new IllegalArgumentException();
+                    } catch (IllegalArgumentException malformed) {
+                        skipped = true;
+                        continue; // Explicit corrupt IDs cannot become fresh occurrences.
+                    }
+                }
+                recovered.addLast(new PendingVote(name, site, timestamp.longValue(), localOccurrenceId));
 			}
+            synchronized (lock) { entries.addAll(recovered); }
 			if (skipped) {
 				synchronized (lock) {
 					stateVersion++;
@@ -274,8 +394,12 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 				}
 			}
 		} catch (Exception failure) {
+            loadFailed = true;
 			plugin.getLogger().warning("Unable to load queued Votifier votes: " + failure.getClass().getSimpleName());
-		}
+		} finally {
+            loaded = true;
+            synchronized (lock) { scheduleDrainLocked(); }
+        }
 	}
 
 	private String readQueueFile() throws IOException {
@@ -305,6 +429,7 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 			value.put("Username", pending.username);
 			value.put("ServiceSite", pending.serviceSite);
 			value.put("Time", pending.time);
+            value.put("LocalOccurrenceId", pending.localOccurrenceId.toString());
 			values.add(value);
 		}
 		yaml.set("Votes", values);
@@ -330,6 +455,7 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 
 	@Override
 	public void close() {
+        if (asynchronousInitialization) { closeInitializedWorker(); return; }
 		List<PendingVote> snapshot;
 		synchronized (lock) {
 			if (closed) return;
@@ -345,6 +471,7 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 		} catch (InterruptedException interrupted) {
 			Thread.currentThread().interrupt();
 		}
+        if (loadFailed) return;
 		try {
 			synchronized (persistenceWriteLock) {
 				writeSnapshotLocked(snapshot);
@@ -355,16 +482,50 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 		}
 	}
 
+    private void closeInitializedWorker() {
+        synchronized (lock) {
+            if (closed || closing) return;
+            closing = true;
+            // FIFO finalization follows loading and every accepted ingress transfer.
+            // Never replace an unreadable disk queue with a guessed empty snapshot.
+            worker.execute(() -> {
+                List<PendingVote> snapshot;
+                synchronized (lock) { closed = true; snapshot = new ArrayList<>(entries); }
+                if (loadFailed) return;
+                try { synchronized (persistenceWriteLock) { writeSnapshotLocked(snapshot); } }
+                catch (IOException failure) {
+                    plugin.getLogger().warning("Unable to persist queued Votifier votes during shutdown: "
+                            + failure.getClass().getSimpleName());
+                }
+            });
+            worker.shutdown();
+        }
+        try {
+            if (!worker.awaitTermination(1, TimeUnit.SECONDS)) {
+                plugin.getLogger().warning("Votifier queue shutdown publication is still pending on its worker");
+            }
+        } catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
+    }
+
 	private static final class PendingVote {
 		private final String username;
 		private final String serviceSite;
 		private final long time;
+        private final UUID localOccurrenceId;
+		private final java.util.function.BooleanSupplier executionReleased;
 		private boolean submitted;
 
-		private PendingVote(String username, String serviceSite, long time) {
+		private PendingVote(String username, String serviceSite, long time, UUID localOccurrenceId) {
+			this(username, serviceSite, time, localOccurrenceId, () -> true);
+		}
+
+		private PendingVote(String username, String serviceSite, long time, UUID localOccurrenceId,
+                java.util.function.BooleanSupplier executionReleased) {
 			this.username = username;
 			this.serviceSite = serviceSite;
 			this.time = time;
+            this.localOccurrenceId = localOccurrenceId;
+            this.executionReleased = java.util.Objects.requireNonNull(executionReleased);
 		}
 	}
 }

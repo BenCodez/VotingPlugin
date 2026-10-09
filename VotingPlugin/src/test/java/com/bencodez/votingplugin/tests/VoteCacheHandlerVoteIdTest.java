@@ -47,6 +47,7 @@ import com.bencodez.votingplugin.proxy.cache.ProxyOnlineVoteCacheTable;
 import com.bencodez.votingplugin.proxy.cache.ProxyTimedVoteCacheTable;
 import com.bencodez.votingplugin.proxy.cache.ProxyVoteCacheTable;
 import com.bencodez.votingplugin.proxy.cache.VoteCacheHandler;
+import com.bencodez.votingplugin.proxy.velocity.VelocityJsonVoteCache;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 
 /**
@@ -1385,6 +1386,69 @@ public class VoteCacheHandlerVoteIdTest {
 		data.addProperty("BroadcastForwardedServers", vote.encodeBroadcastForwardedServers());
 		data.addProperty("HttpBroadcastDeliveryIds", vote.encodeHttpBroadcastDeliveryIds());
 		return new GsonDataNode(data);
+	}
+
+	@Test
+	void occurrenceMetadataSurvivesBothJsonAdaptersAndCacheRestart() throws Exception {
+		for (boolean bungee : new boolean[] { true, false }) {
+			Path folder = tempDir.resolve(bungee ? "bungee" : "velocity");
+			Files.createDirectories(folder);
+			VotingPluginBungee plugin = mock(VotingPluginBungee.class);
+			when(plugin.getDataFolder()).thenReturn(folder.toFile());
+			IVoteCache store = bungee ? new BungeeJsonVoteCache(plugin)
+					: new VelocityJsonVoteCache(folder.resolve("votecache.json").toFile());
+			VoteCacheHandler writer = newHandler(store);
+			OfflineBungeeVote server = vote(UUID.randomUUID(), 456L);
+			server.setCanonicalOccurrenceTime(123L);
+			OfflineBungeeVote online = vote(UUID.randomUUID(), 457L);
+			online.setCanonicalOccurrenceTime(123L);
+			VoteTimeQueue timed = new VoteTimeQueue(UUID.randomUUID(), "Player", "Service", 458L);
+			timed.setUuid("player-uuid"); timed.setCanonicalOccurrenceTime(123L);
+			timed.setMultiProxyOrigin("Primary");
+			assertTrue(writer.addServerVoteDurably("server", server));
+			assertTrue(writer.addOnlineVoteDurably("player-uuid", online));
+			assertTrue(writer.addTimeVoteToCache(timed));
+			IVoteCache recoveredStore = bungee ? new BungeeJsonVoteCache(plugin)
+					: new VelocityJsonVoteCache(folder.resolve("votecache.json").toFile());
+			VoteCacheHandler restarted = newHandler(recoveredStore);
+			restarted.load();
+			assertEquals(456L, restarted.getVotes("server").get(0).getTime());
+			assertEquals(123L, restarted.getVotes("server").get(0).getCanonicalOccurrenceTime());
+			assertEquals(457L, restarted.getOnlineVotes("player-uuid").get(0).getTime());
+			assertEquals(123L, restarted.getOnlineVotes("player-uuid").get(0).getCanonicalOccurrenceTime());
+			assertEquals(458L, restarted.getTimeChangeQueue().element().getTime());
+			assertEquals(123L, restarted.getTimeChangeQueue().element().getCanonicalOccurrenceTime());
+			assertEquals("Primary", restarted.getTimeChangeQueue().element().getMultiProxyOrigin());
+		}
+	}
+
+	@Test
+	void sqlRecoveryDecodesOccurrenceFromAllExistingOpaquePayloadColumns() throws Exception {
+		VoteCacheHandler recovered = newHandler(storage);
+		ProxyVoteCacheTable serverTable = mock(ProxyVoteCacheTable.class);
+		ProxyOnlineVoteCacheTable onlineTable = mock(ProxyOnlineVoteCacheTable.class);
+		ProxyTimedVoteCacheTable timedTable = mock(ProxyTimedVoteCacheTable.class);
+		String payload = com.bencodez.votingplugin.proxy.VoteOccurrenceMetadata.store("v2//1//2//3//4//5//6//7//8", 123L);
+		UUID serverId = UUID.randomUUID(), onlineId = UUID.randomUUID(), timedId = UUID.randomUUID();
+		when(serverTable.getAllVotes()).thenReturn(List.of(new ProxyVoteCacheTable.VoteRow(1,
+				serverId.toString(), "player-uuid", "Player", "Service", 456L, true, false, false,
+				payload, false, false, "", "", false, "", "", "server")));
+		when(onlineTable.getAllVotes()).thenReturn(List.of(new ProxyOnlineVoteCacheTable.VoteRow(2,
+				onlineId.toString(), "player-uuid", "Player", "Service", 457L, true, false, false,
+				payload, false, false, "", "", false, "", "")));
+		when(timedTable.getAllVotes()).thenReturn(List.of(new ProxyTimedVoteCacheTable.TimedVoteRow(3,
+				"Player", "Service", 458L, timedId, "player-uuid", false, "", "", payload, false)));
+		setPrivateField(recovered, "useMySQL", true);
+		setPrivateField(recovered, "voteCacheTable", serverTable);
+		setPrivateField(recovered, "onlineVoteCacheTable", onlineTable);
+		setPrivateField(recovered, "timedVoteCacheTable", timedTable);
+		recovered.load();
+		assertEquals(456L, recovered.getVotes("server").get(0).getTime());
+		assertEquals(123L, recovered.getVotes("server").get(0).getCanonicalOccurrenceTime());
+		assertEquals(457L, recovered.getOnlineVotes("player-uuid").get(0).getTime());
+		assertEquals(123L, recovered.getOnlineVotes("player-uuid").get(0).getCanonicalOccurrenceTime());
+		assertEquals(458L, recovered.getTimeChangeQueue().element().getTime());
+		assertEquals(123L, recovered.getTimeChangeQueue().element().getCanonicalOccurrenceTime());
 	}
 
 	private static VoteCacheHandler newHandler(IVoteCache storage) {

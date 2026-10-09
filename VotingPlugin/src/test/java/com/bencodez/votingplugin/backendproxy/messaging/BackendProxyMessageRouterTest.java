@@ -181,6 +181,38 @@ class BackendProxyMessageRouterTest {
 		assertEquals(OrderedVoteOutcome.QUARANTINE, outcome.get());
 	}
 
+    @Test
+    void actualAccountingDispatchFailureQuarantinesOriginalIdAndNeverReplaysNormalProcessing() throws Exception {
+        UUID voteId = UUID.randomUUID();
+        ProcessedVoteCache cache = mock(ProcessedVoteCache.class);
+        when(cache.reserveWithOutcome(voteId)).thenReturn(Reservation.RESERVED, Reservation.DUPLICATE);
+        var dispatchPlugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+        when(dispatchPlugin.getBungeeSettings().isUseBungeecoord()).thenReturn(true);
+        var dispatchUser = mock(VotingPluginUser.class, org.mockito.Mockito.CALLS_REAL_METHODS);
+        var field = VotingPluginUser.class.getDeclaredField("plugin"); field.setAccessible(true); field.set(dispatchUser, dispatchPlugin);
+        org.mockito.Mockito.doReturn("Player").when(dispatchUser).getPlayerName();
+        var dispatcher = dispatchPlugin.getServer().getPluginManager();
+        org.mockito.Mockito.doAnswer(call -> { ((com.bencodez.votingplugin.events.PlayerVoteEvent) call.getArgument(0)).setDateMilestoneAccountingFailed(true); return null; })
+                .when(dispatcher).callEvent(any());
+        when(plugin.getBungeeSettings()).thenReturn(mock(BungeeSettings.class));
+        when(plugin.getServerData()).thenReturn(mock(ServerData.class));
+        when(plugin.getVotingPluginUserManager().getVotingPluginUser(PLAYER_UUID, "Player")).thenReturn(user);
+        org.mockito.Mockito.doAnswer(call -> {
+            dispatchUser.bungeeVotePluginMessaging(call.getArgument(0), call.getArgument(1), call.getArgument(2),
+                    call.getArgument(3), call.getArgument(4), call.getArgument(5), call.getArgument(6), call.getArgument(7),
+                    call.getArgument(8), call.getArgument(9), call.getArgument(10), call.getArgument(11), call.getArgument(12), call.getArgument(13)); return null;
+        }).when(user).bungeeVotePluginMessaging(any(), anyLong(), any(), anyBoolean(), anyBoolean(), anyBoolean(),
+                anyInt(), anyBoolean(), anyBoolean(), anyBoolean(), any(), anyBoolean(), anyBoolean(), anyLong());
+        var router = new BackendProxyMessageRouter(plugin, mock(BackendPresenceManager.class), mock(BackendGlobalDataSync.class), mock(BackendVotePartySync.class), cache);
+        var envelope = VotingPluginWire.requestVoteDeliveryAcknowledgement(VotingPluginWire.vote("Player", PLAYER_UUID.toString(), "known.example", LAST_VOTE_TIME, true, true, "", voteId, false, false, 1, 1));
+        AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
+        assertThrows(IllegalStateException.class, () -> router.handleOrderedVote(envelope, outcome::set));
+        assertEquals(OrderedVoteOutcome.QUARANTINE, outcome.get()); outcome.set(null);
+        router.handleOrderedVote(envelope, outcome::set); assertEquals(OrderedVoteOutcome.QUARANTINE, outcome.get());
+        verify(cache, never()).complete(voteId); verify(dispatchPlugin.getServer().getPluginManager(), times(1)).callEvent(any());
+        verify(plugin.getServerData(), times(1)).addServiceSite("known.example");
+    }
+
 	@Test
 	void voteRewardFailureRequestsQuarantineAfterVoteIdReservation() {
 		UUID voteId = UUID.randomUUID();
@@ -191,7 +223,7 @@ class BackendProxyMessageRouterTest {
 				.thenReturn(user);
 		doThrow(new IllegalStateException("partial reward")).when(user).bungeeVotePluginMessaging(
 				any(), anyLong(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyInt(), anyBoolean(), anyBoolean(),
-				anyBoolean(), any(), anyBoolean());
+				anyBoolean(), any(), anyBoolean(), anyBoolean(), anyLong());
 		BackendProxyMessageRouter voteRouter = new BackendProxyMessageRouter(plugin,
 				mock(BackendPresenceManager.class), mock(BackendGlobalDataSync.class),
 				mock(BackendVotePartySync.class), cache);
@@ -237,7 +269,7 @@ class BackendProxyMessageRouterTest {
 		assertEquals(OrderedVoteOutcome.COMPLETE, outcome.get());
 		verify(cache, times(2)).complete(voteId);
 		verify(user, times(1)).bungeeVotePluginMessaging(any(), anyLong(), any(), anyBoolean(), anyBoolean(),
-				anyBoolean(), anyInt(), eq(false), eq(true), eq(true), eq(voteId), eq(false));
+				anyBoolean(), anyInt(), eq(false), eq(true), eq(true), eq(voteId), eq(false), anyBoolean(), anyLong());
 	}
 
 	@Test
@@ -258,7 +290,24 @@ class BackendProxyMessageRouterTest {
 				LAST_VOTE_TIME, true, true, "", voteId, false, false, 1, 1), ignored -> { });
 
 		verify(user).bungeeVotePluginMessaging(any(), anyLong(), any(), anyBoolean(), anyBoolean(),
-				anyBoolean(), anyInt(), eq(false), eq(false), eq(true), eq(voteId), eq(false));
+				anyBoolean(), anyInt(), eq(false), eq(false), eq(true), eq(voteId), eq(false), anyBoolean(), anyLong());
+	}
+
+	@Test
+	void canonicalTestVoteFlagIsPassedToTheBackendEventAdapter() {
+		UUID voteId = UUID.randomUUID();
+		ProcessedVoteCache cache = mock(ProcessedVoteCache.class);
+		when(cache.reserveWithOutcome(voteId)).thenReturn(Reservation.RESERVED);
+		when(plugin.getBungeeSettings()).thenReturn(mock(BungeeSettings.class));
+		when(plugin.getVotingPluginUserManager().getVotingPluginUser(PLAYER_UUID, "Player")).thenReturn(user);
+		when(plugin.getServerData()).thenReturn(mock(ServerData.class));
+		BackendProxyMessageRouter voteRouter = new BackendProxyMessageRouter(plugin,
+				mock(BackendPresenceManager.class), mock(BackendGlobalDataSync.class),
+				mock(BackendVotePartySync.class), cache);
+		voteRouter.handleOrderedVote(VotingPluginWire.vote("Player", PLAYER_UUID.toString(), "known.example",
+				LAST_VOTE_TIME, true, false, "", voteId, false, false, 1, 1), ignored -> { });
+		verify(user).bungeeVotePluginMessaging(any(), anyLong(), any(), anyBoolean(), anyBoolean(),
+				anyBoolean(), anyInt(), anyBoolean(), anyBoolean(), anyBoolean(), eq(voteId), eq(false), eq(false), anyLong());
 	}
 
 	@Test
@@ -278,7 +327,7 @@ class BackendProxyMessageRouterTest {
 				LAST_VOTE_TIME, true, true, "", voteId, false, false, 1, 1), ignored -> { });
 
 		verify(user).bungeeVotePluginMessaging(any(), anyLong(), any(), anyBoolean(), anyBoolean(),
-				anyBoolean(), anyInt(), anyBoolean(), anyBoolean(), anyBoolean(), eq(voteId), eq(true));
+				anyBoolean(), anyInt(), anyBoolean(), anyBoolean(), anyBoolean(), eq(voteId), eq(true), anyBoolean(), anyLong());
 	}
 
 	@Test
@@ -300,7 +349,7 @@ class BackendProxyMessageRouterTest {
 		assertEquals(OrderedVoteOutcome.QUARANTINE, outcome.get());
 		verify(cache, never()).complete(voteId);
 		verify(user, never()).bungeeVotePluginMessaging(any(), anyLong(), any(), anyBoolean(), anyBoolean(),
-				anyBoolean(), anyInt(), anyBoolean(), anyBoolean(), anyBoolean(), any(), anyBoolean());
+				anyBoolean(), anyInt(), anyBoolean(), anyBoolean(), anyBoolean(), any(), anyBoolean(), anyBoolean(), anyLong());
 		verify(cache).cancelReservation(voteId);
 	}
 
@@ -320,7 +369,7 @@ class BackendProxyMessageRouterTest {
 
 		assertEquals(OrderedVoteOutcome.RETRY, outcome.get());
 		verify(user, never()).bungeeVotePluginMessaging(any(), anyLong(), any(), anyBoolean(), anyBoolean(),
-				anyBoolean(), anyInt(), anyBoolean(), anyBoolean(), anyBoolean(), any(), anyBoolean());
+				anyBoolean(), anyInt(), anyBoolean(), anyBoolean(), anyBoolean(), any(), anyBoolean(), anyBoolean(), anyLong());
 		verify(cache, never()).complete(voteId);
 	}
 
@@ -452,7 +501,7 @@ class BackendProxyMessageRouterTest {
 		voteRouter.handleOrderedVote(queued, ignored -> { });
 
 		verify(user).bungeeVotePluginMessaging(any(), anyLong(), any(), anyBoolean(), anyBoolean(),
-				anyBoolean(), anyInt(), eq(true), eq(true), eq(true), eq(voteId), eq(true));
+				anyBoolean(), anyInt(), eq(true), eq(true), eq(true), eq(voteId), eq(true), anyBoolean(), anyLong());
 	}
 
 	@Test

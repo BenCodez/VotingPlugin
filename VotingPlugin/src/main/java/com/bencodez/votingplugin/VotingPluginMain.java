@@ -321,7 +321,12 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private VotingPluginConfigHealth configHealth;
 	private VotifierIntegration votifierIntegration;
 	@Getter
-	private VotifierVoteOverflowQueue votifierVoteOverflowQueue;
+	private volatile VotifierVoteOverflowQueue votifierVoteOverflowQueue;
+    private VotiferEvent localVotifierListener;
+    private boolean acceptedVoteIngressRegistered;
+    private boolean timeQueueIngressRegistered;
+    private volatile boolean localVotifierIngressReady;
+    private volatile boolean localVotifierIngressClosed;
 	private VoteLogManager voteLogManager;
 	private VotingPluginWebhookManager webhookManager;
 
@@ -594,6 +599,11 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	@Getter
 	private VoteStreakHandler voteStreakHandler;
 
+    @Getter
+    private final com.bencodez.votingplugin.specialrewards.datemilestones.DateVoteMilestones dateVoteMilestones =
+            new com.bencodez.votingplugin.specialrewards.datemilestones.DateVoteMilestones(this);
+
+
 	/**
 	 * Registers a directly editable rewards path from SpecialRewards.yml.
 	 *
@@ -607,6 +617,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		VoteSiteRewardRegistrar.register(this);
 		VotePartyRewardRegistrar.register(this);
 		VoteMilestoneRewardRegistrar.register(this);
+        dateVoteMilestones.reload();
 		VoteStreakRewardRegistrar.register(this);
 		TopVoterRewardRegistrar.register(this);
 		VoteShopRewardRegistrar.register(this);
@@ -678,8 +689,36 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		new VotingPluginMetrics().load(plugin);
 	}
 
+    /** Publish accepted and transport ingress only after the complete vote pipeline is initialized. */
+    void initializeDateVoteIngress(Runnable openProxy) {
+        if (localVotifierIngressClosed) throw new IllegalStateException("Vote ingress is shutting down");
+        if (localVotifierIngressReady) return;
+        if (voteMilestonesManager == null || voteStreakHandler == null || voteParty == null || specialRewards == null
+                || topVoterHandler == null || voteShopManager == null || placeholders == null) {
+            throw new IllegalStateException("Accepted-vote handlers must initialize before transport ingress");
+        }
+        getDateVoteMilestones().reload();
+        if (!acceptedVoteIngressRegistered) {
+            getServer().getPluginManager().registerEvents(new PlayerVoteListener(this), this);
+            acceptedVoteIngressRegistered = true;
+        }
+        // Construction itself schedules persisted replay. Open it only after its consumer.
+        if (!timeQueueIngressRegistered && (!getBungeeSettings().isUseBungeecoord() || !getBungeeSettings().isGloblalDataEnabled())) {
+            timeQueueHandler = new TimeQueueHandler(this);
+            getServer().getPluginManager().registerEvents(timeQueueHandler, this);
+            timeQueueIngressRegistered = true;
+        }
+        if (getBungeeSettings().isUseBungeecoord()) openProxy.run();
+        localVotifierIngressReady = true;
+        VotifierVoteOverflowQueue overflow = votifierVoteOverflowQueue;
+        if (overflow != null) overflow.start();
+    }
+
 	@Override
 	public void onPostLoad() {
+        loadVoteTimer();
+        checkVotifier();
+        registerEarlyVotifierIngress();
 		ensureCommunicationSecret();
 		// auto conversion for Shop.yml
 		if (plugin.getShopFile().isJustCreated()) {
@@ -707,16 +746,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		voteTester = new VoteTester(plugin);
 
-		loadVoteTimer();
 		getVotingPluginUserManager().startSharedPointTransferRecovery();
 
-		if (bungeeSettings.isUseBungeecoord()) {
-			loadBungeeHandler();
-		}
+		// Proxy ingress opens below, after every accepted-vote handler is initialized.
 
-		if (!bungeeSettings.isUseBungeecoord() || !bungeeSettings.isGloblalDataEnabled()) {
-			this.timeQueueHandler = new TimeQueueHandler(this);
-		}
 
 		if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
 			if (getConfigFile().isLoadInteralExpansion()) {
@@ -731,7 +764,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		voteStreakHandler.reload();
 
 		registerCommands();
-		checkVotifier();
 		registerEvents();
 		refreshPlaceholderPlayerPresence();
 
@@ -821,11 +853,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 
 		VotingPluginRewardRegistrar.register(this);
-		// Recovered Votifier votes may now traverse the fully initialized vote,
-		// reward, placeholder, shop, and vote-party pipeline.
-		if (votifierVoteOverflowQueue != null) {
-			votifierVoteOverflowQueue.start();
-		}
+        initializeDateVoteIngress(this::loadBungeeHandler);
 
 		plugin.getLogger().info("Enabled VotingPlugin " + plugin.getDescription().getVersion());
 		if (plugin.getDescription().getVersion().contains("SNAPSHOT")) {
@@ -1946,6 +1974,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Override
 	public void onUnLoad() {
+        localVotifierIngressClosed = true;
+        localVotifierIngressReady = false;
+        if (localVotifierListener != null) localVotifierListener.stop();
 		placeholderPlayerPresence.clear();
 		stopBackendHostedControlLifecycle();
 		stopBackendControlConnectorLifecycle();
@@ -2026,19 +2057,23 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	}
 
-	/**
-	 * Register events.
-	 */
+    /** Capture external events early; only the existing bounded workers may buffer/process them. */
+    void registerEarlyVotifierIngress() {
+        if (localVotifierIngressClosed || !isVotifierLoaded() || localVotifierListener != null) return;
+        VotiferEvent listener = new VotiferEvent(this, () -> localVotifierIngressReady);
+        // Publish the memory owner before capture. Its independent worker loads
+        // disk state; vote-executor cancellation cannot discard queue setup.
+        votifierVoteOverflowQueue = VotifierVoteOverflowQueue.initializeAsync(this,
+                listener::processVote, () -> localVotifierIngressReady && !localVotifierIngressClosed);
+        localVotifierListener = listener;
+        if (localVotifierIngressReady) votifierVoteOverflowQueue.start();
+        getServer().getPluginManager().registerEvents(listener, this);
+    }
+
 	private void registerEvents() {
 		PluginManager pm = getServer().getPluginManager();
 
 		pm.registerEvents(new PlayerJoinEvent(this), this);
-		if (isVotifierLoaded()) {
-			VotiferEvent votifierEvent = new VotiferEvent(this);
-			votifierVoteOverflowQueue = new VotifierVoteOverflowQueue(this, votifierEvent::processVote);
-			pm.registerEvents(votifierEvent, this);
-		}
-		pm.registerEvents(new PlayerVoteListener(this), this);
 		pm.registerEvents(new PlayerPostVoteLoggerListener(this), this);
 		pm.registerEvents(new PlayerSpecialRewardLoggerListener(this), this);
 		pm.registerEvents(new VoteShopPurchaseLoggerListener(this), this);
@@ -2052,9 +2087,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			pm.registerEvents(new PlayerInteract(this), this);
 		}
 
-		if (timeQueueHandler != null) {
-			pm.registerEvents(timeQueueHandler, plugin);
-		}
 
 		pm.registerEvents(new VotingPluginUpdateEvent(this), this);
 		/*
@@ -2128,6 +2160,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		// Re-evaluate after storage has reloaded; UserManager keeps this lifecycle task unique.
 		getVotingPluginUserManager().startSharedPointTransferRecovery();
 
+        getOptions().setServer(bungeeSettings.getServer());
+        getDateVoteMilestones().reload();
 		reloadBackendProxyRuntime(updateActiveBackendRuntime, userStorage);
 		checkYMLError();
 
