@@ -89,7 +89,15 @@ class DateVotifierStartupCaptureTest {
         }
         VotiferEvent capture() { return registered.stream().filter(VotiferEvent.class::isInstance).map(VotiferEvent.class::cast).findFirst().orElseThrow(); }
         void vote() { capture().onVotiferEvent(new com.vexsoftware.votifier.model.VotifierEvent(new Vote(SERVICE, "Steve", "127.0.0.1", "1"))); }
-        void drain() throws Exception { timer.submit(() -> { }).get(3, TimeUnit.SECONDS); }
+        void drain() throws Exception {
+            timer.submit(() -> { }).get(3, TimeUnit.SECONDS);
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
+            while ((!plugin.getVotifierVoteOverflowQueue().isInitializationComplete() || capture().getPendingCaptureCount() != 0)
+                    && System.nanoTime() < deadline) Thread.sleep(5);
+            assertTrue(plugin.getVotifierVoteOverflowQueue().isInitializationComplete(), "queue initialization did not finish");
+            assertEquals(0, capture().getPendingCaptureCount(), "capture transfers did not finish");
+            timer.submit(() -> { }).get(3, TimeUnit.SECONDS);
+        }
         void open() throws Exception { ready(plugin); plugin.initializeDateVoteIngress(() -> fail("Standalone does not open proxy ingress")); }
         void received() throws Exception { assertTrue(delivered.await(3, TimeUnit.SECONDS)); drain(); }
         DateVoteLedger.Progress progress() throws Exception {
@@ -213,6 +221,76 @@ class DateVotifierStartupCaptureTest {
             // Ordinary effects retain their existing at-least-once replay semantics.
             verify(restarted.user).setTime(restarted.site);
             verify(restarted.user).addTotal(); verify(restarted.user).playerVote(restarted.site, true, false);
+        }
+    }
+
+    @Test void blockedExecutorCannotLoseEarlyCaptureOrQueueSetupOnCancellation() throws Exception {
+        capturedAdmissionSurvivesCancellation(false);
+    }
+
+    @Test void blockedExecutorCannotLoseReadyCaptureOnCancellation() throws Exception {
+        capturedAdmissionSurvivesCancellation(true);
+    }
+
+    private void capturedAdmissionSurvivesCancellation(boolean readyFirst) throws Exception {
+        UUID playerId = UUID.randomUUID();
+        UUID original;
+        long originalTime;
+        try (var fixture = new Fixture(root, 0, playerId)) {
+            if (readyFirst) { fixture.plugin.registerEarlyVotifierIngress(); fixture.drain(); fixture.open(); }
+            var entered = new CountDownLatch(1);
+            var release = new CountDownLatch(1);
+            fixture.timer.submit(() -> {
+                entered.countDown();
+                boolean interrupted = false;
+                try {
+                    while (release.getCount() != 0) {
+                        try { assertTrue(release.await(3, TimeUnit.SECONDS)); }
+                        catch (InterruptedException expected) { interrupted = true; }
+                    }
+                } finally { if (interrupted) Thread.currentThread().interrupt(); }
+            });
+            assertTrue(entered.await(3, TimeUnit.SECONDS));
+            // In the early case, even registration/setup happens behind the held
+            // vote worker. Queue construction and disk load must be independent.
+            if (!readyFirst) fixture.plugin.registerEarlyVotifierIngress();
+            assertNotNull(fixture.plugin.getVotifierVoteOverflowQueue());
+            long before = System.currentTimeMillis(); fixture.vote(); long after = System.currentTimeMillis();
+            assertEquals(1, fixture.capture().getPendingCaptureCount());
+            assertTrue(fixture.accepted.isEmpty());
+            var registryField = VotiferEvent.class.getDeclaredField("captured"); registryField.setAccessible(true);
+            var registry = (Map<?, ?>) registryField.get(fixture.capture());
+            original = (UUID) registry.keySet().iterator().next();
+            var captureTime = registry.values().iterator().next().getClass().getDeclaredField("occurredAt"); captureTime.setAccessible(true);
+            originalTime = captureTime.getLong(registry.values().iterator().next());
+            try {
+                fixture.capture().stop();
+                assertFalse(fixture.timer.shutdownNow().isEmpty(), "the capture callback never executed");
+            } finally { release.countDown(); }
+            assertTrue(fixture.timer.awaitTermination(3, TimeUnit.SECONDS));
+            fixture.plugin.getVotifierVoteOverflowQueue().close();
+            assertEquals(0, fixture.capture().getPendingCaptureCount());
+            var disk = YamlConfiguration.loadConfiguration(root.resolve("VotifierVoteQueue.yml").toFile()).getMapList("Votes");
+            assertEquals(1, disk.size());
+            assertEquals(original, UUID.fromString((String) disk.getFirst().get("LocalOccurrenceId")));
+            assertEquals(originalTime, ((Number) disk.getFirst().get("Time")).longValue());
+            assertTrue(originalTime >= before && originalTime <= after);
+            verify(fixture.user, never()).addTotal();
+            verify(fixture.plugin.getRewardHandler(), never()).giveReward(any(), any(), anyString(), any());
+        }
+        try (var restarted = new Fixture(root, 1, playerId)) {
+            restarted.plugin.registerEarlyVotifierIngress(); restarted.drain(); restarted.open(); restarted.received();
+            assertEquals(original, restarted.accepted.getFirst().getLocalOccurrenceId());
+            assertEquals(original, restarted.posted.getFirst().getVoteUUID());
+            assertEquals(originalTime, restarted.accepted.getFirst().getCanonicalOccurrenceTime());
+            assertEquals(0L, restarted.accepted.getFirst().getTime());
+            assertEquals(1, restarted.progress().votes());
+            verify(restarted.user).addTotal(); verify(restarted.user).setTime(restarted.site);
+            verify(restarted.plugin.getRewardHandler(), times(1)).giveReward(eq(restarted.user), any(), startsWith("DateVoteMilestonesRuntime."), any());
+        }
+        try (var secondRestart = new Fixture(root, 0, playerId)) {
+            secondRestart.plugin.registerEarlyVotifierIngress(); secondRestart.drain(); secondRestart.open(); secondRestart.drain();
+            assertTrue(secondRestart.accepted.isEmpty()); assertEquals(1, secondRestart.progress().votes());
         }
     }
 

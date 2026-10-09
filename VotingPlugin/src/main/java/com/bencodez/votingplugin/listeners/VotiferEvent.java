@@ -2,6 +2,8 @@ package com.bencodez.votingplugin.listeners;
 
 import java.util.concurrent.RejectedExecutionException;
 import java.util.UUID;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -21,6 +23,20 @@ public class VotiferEvent implements Listener {
 	private final VotingPluginMain plugin;
     private final java.util.function.BooleanSupplier ready;
     private volatile boolean accepting = true;
+    private static final int MAX_CAPTURED = 256;
+    private final Object captureLock = new Object();
+    // Admission ownership only. Entries leave at processing start or confirmed
+    // overflow transfer; no totals, reward progress or second execution lane.
+    private final Map<UUID, CapturedVote> captured = new LinkedHashMap<>();
+    private static final class CapturedVote {
+        final String username, site;
+        final long occurredAt;
+        final UUID id;
+        boolean transferring;
+        CapturedVote(String username, String site, long occurredAt, UUID id) {
+            this.username = username; this.site = site; this.occurredAt = occurredAt; this.id = id;
+        }
+    }
 
 	/**
 	 * Instantiates a new votifer event.
@@ -32,7 +48,43 @@ public class VotiferEvent implements Listener {
     public VotiferEvent(VotingPluginMain plugin, java.util.function.BooleanSupplier ready) {
         this.plugin = plugin; this.ready = ready;
     }
-    public void stop() { accepting = false; }
+    /** Retire admission and reconcile tasks before the vote executor is cancelled. */
+    public void stop() {
+        synchronized (captureLock) {
+            accepting = false;
+            for (CapturedVote vote : java.util.List.copyOf(captured.values())) transferLocked(vote);
+        }
+    }
+
+    public int getPendingCaptureCount() {
+        synchronized (captureLock) { return captured.size(); }
+    }
+
+    private void runCaptured(CapturedVote vote) {
+        synchronized (captureLock) {
+            if (!captured.containsKey(vote.id) || vote.transferring) return;
+            if (!accepting || !ready.getAsBoolean()) { transferLocked(vote); return; }
+            // Once execution starts, the normal accepted pipeline owns effects.
+            captured.remove(vote.id);
+        }
+        processVote(vote.site, vote.username, vote.occurredAt, vote.id);
+    }
+
+    private void transferLocked(CapturedVote vote) {
+        if (vote.transferring) return;
+        vote.transferring = true;
+        VotifierVoteOverflowQueue overflow = plugin.getVotifierVoteOverflowQueue();
+        if (overflow == null) { transferred(vote, false); return; }
+        overflow.enqueueAfterInitialization(vote.username, vote.site, vote.occurredAt, vote.id,
+                accepted -> transferred(vote, accepted));
+    }
+
+    private void transferred(CapturedVote vote, boolean admitted) {
+        synchronized (captureLock) { captured.remove(vote.id); }
+        if (!admitted) plugin.getLogger().severe("Votifier vote queue unavailable or full; vote was not admitted for "
+                + MinecraftUsernameValidator.sanitizeForLog(vote.username));
+        else plugin.getLogger().warning("Vote pipeline unavailable or retiring; queued Votifier vote for retry");
+    }
 
 	/**
 	 * Processes a validated vote. The overflow queue invokes this callback from
@@ -153,23 +205,20 @@ public class VotiferEvent implements Listener {
 		plugin.debug("VoteSite: " + voteSite);
 		plugin.debug("IP: " + IP);
 
-		try {
-			plugin.getVoteTimer().submit(() -> {
-                if (ready.getAsBoolean() && accepting) processVote(voteSite, voteUsername, occurredAt, localOccurrenceId);
-                else bufferVote(voteUsername, voteSite, occurredAt, localOccurrenceId);
-            });
-        } catch (RejectedExecutionException rejected) {
-            bufferVote(voteUsername, voteSite, occurredAt, localOccurrenceId);
+        CapturedVote capturedVote = new CapturedVote(voteUsername, voteSite, occurredAt, localOccurrenceId);
+        synchronized (captureLock) {
+            if (!accepting) return;
+            if (captured.size() >= MAX_CAPTURED) {
+                plugin.getLogger().severe("Votifier capture capacity exhausted; vote was not admitted for "
+                        + MinecraftUsernameValidator.sanitizeForLog(voteUsername));
+                return;
+            }
+            captured.put(localOccurrenceId, capturedVote);
         }
-    }
-
-    private void bufferVote(String username, String site, long occurredAt, UUID localOccurrenceId) {
-        VotifierVoteOverflowQueue overflow = plugin.getVotifierVoteOverflowQueue();
-        if (overflow == null || !overflow.enqueue(username, site, occurredAt, localOccurrenceId)) {
-            plugin.getLogger().severe("Votifier vote queue is full; vote was not admitted for "
-                    + MinecraftUsernameValidator.sanitizeForLog(username));
-        } else {
-            plugin.getLogger().warning("Vote pipeline unavailable or saturated; queued Votifier vote for retry");
+        try {
+            plugin.getVoteTimer().submit(() -> runCaptured(capturedVote));
+        } catch (RejectedExecutionException rejected) {
+            synchronized (captureLock) { transferLocked(capturedVote); }
         }
     }
 }

@@ -296,6 +296,58 @@ class VotifierVoteOverflowQueueTest {
         } finally { queue.close(); voteTimer.shutdownNow(); }
     }
 
+    @Test
+    void asyncLoadingPreservesFullRecoveredQueueAndRejectsNewTransfers(@TempDir Path dataFolder) throws Exception {
+        VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+        when(plugin.getDataFolder()).thenReturn(dataFolder.toFile());
+        when(plugin.getLogger()).thenReturn(Logger.getAnonymousLogger());
+        try (var seed = new VotifierVoteOverflowQueue(plugin, (site, user) -> { })) {
+            for (int index = 0; index < 256; index++) assertTrue(seed.enqueue("Steve", "example.org", 123L));
+            org.junit.jupiter.api.Assertions.assertFalse(seed.enqueue("Steve", "example.org", 123L));
+        }
+        var before = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(dataFolder.resolve("VotifierVoteQueue.yml").toFile()).getMapList("Votes");
+        var transferred = new java.util.concurrent.CompletableFuture<Boolean>();
+        try (var resumed = VotifierVoteOverflowQueue.initializeAsync(plugin, (site, user, time, id) -> { }, () -> false)) {
+            resumed.enqueueAfterInitialization("Alex", "new.example.org", 456L, java.util.UUID.randomUUID(), transferred::complete);
+            org.junit.jupiter.api.Assertions.assertFalse(transferred.get(3, TimeUnit.SECONDS));
+            assertEquals(256, resumed.size());
+        }
+        var after = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(dataFolder.resolve("VotifierVoteQueue.yml").toFile()).getMapList("Votes");
+        assertEquals(before, after, "recovered identities must not be overwritten or truncated");
+    }
+
+    @Test
+    void asyncUnreadableStoreRejectsTransferAndClosePreservesOriginalFile(@TempDir Path dataFolder) throws Exception {
+        VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+        when(plugin.getDataFolder()).thenReturn(dataFolder.toFile());
+        when(plugin.getLogger()).thenReturn(Logger.getAnonymousLogger());
+        Path file = dataFolder.resolve("VotifierVoteQueue.yml");
+        String corrupt = "Votes: {not: a-list}\n"; Files.writeString(file, corrupt);
+        var transferred = new java.util.concurrent.CompletableFuture<Boolean>();
+        try (var queue = VotifierVoteOverflowQueue.initializeAsync(plugin, (site, user, time, id) -> { }, () -> false)) {
+            queue.enqueueAfterInitialization("Steve", "example.org", 456L, java.util.UUID.randomUUID(), transferred::complete);
+            org.junit.jupiter.api.Assertions.assertFalse(transferred.get(3, TimeUnit.SECONDS));
+        }
+        assertEquals(corrupt, Files.readString(file));
+    }
+
+    @Test
+    void overCapacityRecoveredStoreFailsClosedWithoutTruncation(@TempDir Path dataFolder) throws Exception {
+        VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+        when(plugin.getDataFolder()).thenReturn(dataFolder.toFile());
+        when(plugin.getLogger()).thenReturn(Logger.getAnonymousLogger());
+        Path file = dataFolder.resolve("VotifierVoteQueue.yml");
+        String original = "Votes:\n" + ("- {Username: Steve, ServiceSite: example.org, Time: 123}\n").repeat(257);
+        Files.writeString(file, original);
+        var transferred = new java.util.concurrent.CompletableFuture<Boolean>();
+        try (var queue = VotifierVoteOverflowQueue.initializeAsync(plugin, (site, user, time, id) -> { }, () -> false)) {
+            queue.enqueueAfterInitialization("Alex", "new.example.org", 456L, java.util.UUID.randomUUID(), transferred::complete);
+            org.junit.jupiter.api.Assertions.assertFalse(transferred.get(3, TimeUnit.SECONDS));
+            assertEquals(0, queue.size(), "an over-capacity file cannot be partially admitted");
+        }
+        assertEquals(original, Files.readString(file));
+    }
+
 	private static void waitForFile(Path file) throws Exception {
 		long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
 		while (!Files.exists(file) && System.nanoTime() < deadline) {

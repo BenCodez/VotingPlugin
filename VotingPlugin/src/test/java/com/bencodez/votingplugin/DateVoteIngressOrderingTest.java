@@ -70,8 +70,11 @@ class DateVoteIngressOrderingTest {
                 assertEquals(1, registered.size());
                 assertInstanceOf(com.bencodez.votingplugin.listeners.VotiferEvent.class, registered.getFirst());
                 verify(plugin.getDateVoteMilestones(), never()).reload();
-                var setup = org.mockito.ArgumentCaptor.forClass(Runnable.class);
-                verify(timer).submit(setup.capture()); setup.getValue().run();
+                assertEquals(1, queues.constructed().size(), "capture publishes its independent queue owner immediately");
+                var queueField = VotingPluginMain.class.getDeclaredField("votifierVoteOverflowQueue");
+                queueField.setAccessible(true);
+                assertSame(queues.constructed().getFirst(), queueField.get(plugin));
+                verifyNoInteractions(timer); // Loading cannot be lost with vote-executor cancellation.
                 verify(queues.constructed().getFirst(), never()).start();
                 ready(plugin);
                 Runnable proxy = () -> {

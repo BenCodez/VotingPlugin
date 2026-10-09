@@ -2061,17 +2061,12 @@ public class VotingPluginMain extends AdvancedCorePlugin {
     void registerEarlyVotifierIngress() {
         if (localVotifierIngressClosed || !isVotifierLoaded() || localVotifierListener != null) return;
         VotiferEvent listener = new VotiferEvent(this, () -> localVotifierIngressReady);
+        // Publish the memory owner before capture. Its independent worker loads
+        // disk state; vote-executor cancellation cannot discard queue setup.
+        votifierVoteOverflowQueue = VotifierVoteOverflowQueue.initializeAsync(this,
+                listener::processVote, () -> localVotifierIngressReady && !localVotifierIngressClosed);
         localVotifierListener = listener;
-        // Queue-file loading stays off the server owner. FIFO admission places this
-        // setup ahead of every captured vote, without a second startup collection.
-        getVoteTimer().submit(() -> {
-            VotifierVoteOverflowQueue queue = new VotifierVoteOverflowQueue(this,
-                    (VotifierVoteOverflowQueue.OccurrenceProcessor) listener::processVote,
-                    () -> localVotifierIngressReady && !localVotifierIngressClosed);
-            votifierVoteOverflowQueue = queue;
-            if (localVotifierIngressClosed) queue.close();
-            else if (localVotifierIngressReady) queue.start();
-        });
+        if (localVotifierIngressReady) votifierVoteOverflowQueue.start();
         getServer().getPluginManager().registerEvents(listener, this);
     }
 
