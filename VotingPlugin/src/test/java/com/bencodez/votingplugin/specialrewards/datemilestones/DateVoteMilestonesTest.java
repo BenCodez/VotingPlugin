@@ -32,6 +32,32 @@ class DateVoteMilestonesTest {
         when(plugin.getOptions().isProcessRewards()).thenReturn(true);
         var m = new DateVoteMilestones(plugin); m.reload(); return m;
     }
+    @Test void bundledDefaultExampleParsesAndNeverEnablesDateRewards() throws Exception {
+        var defaults = new YamlConfiguration();
+        try (var resource = DateVoteMilestonesTest.class.getResourceAsStream("/SpecialRewards.yml")) {
+            assertNotNull(resource, "the shipped default resource must be tested");
+            defaults.load(new java.io.InputStreamReader(resource, java.nio.charset.StandardCharsets.UTF_8));
+        }
+        var events = defaults.getConfigurationSection("DateVoteMilestones");
+        assertNotNull(events); assertEquals(java.util.Set.of("example_event"), events.getKeys(false));
+        var definition = DateVoteMilestones.parse("example_event", events.getConfigurationSection("example_event"));
+        assertFalse(definition.enabled()); assertEquals("UTC", definition.timezone());
+        assertEquals(java.util.List.of(10, 25), definition.thresholds());
+        assertEquals(java.time.Instant.parse("2026-10-01T00:00:00Z").toEpochMilli(), definition.start());
+        assertEquals(java.time.Instant.parse("2026-11-01T00:00:00Z").toEpochMilli(), definition.end());
+        assertTrue(definition.sites().isEmpty()); assertEquals("", definition.accountingServer());
+        assertFalse(definition.matches(definition.start(), "a", true, false, "owner"));
+        assertFalse(definition.matches(time, "a", true, false, "owner"));
+        config.loadFromString(defaults.saveToString());
+        var manager = manager();
+        for (int index = 0; index < 25; index++)
+            assertTrue(manager.accepted(user, "a", UUID.randomUUID(), time, true, false, false, false, false));
+        verify(plugin.getRewardHandler(), never()).giveReward(any(), any(), anyString(), any());
+        assertFalse(Files.exists(root.resolve("date-vote-milestones")), "disabled defaults must not create accounting state");
+        assertTrue(config.getBoolean("EnableMonthlyAwards"), "existing default awards stay intact");
+        assertFalse(config.getBoolean("EnableWeeklyAwards"));
+    }
+
     @Test void failedOccurrencePublicationIsReportedWithoutCountingOrRepeatingAnAward() throws Exception {
         event("october", "owner"); var manager = manager();
         assertTrue(manager.accepted(user, "a", UUID.randomUUID(), time, true, true, true, false, false));

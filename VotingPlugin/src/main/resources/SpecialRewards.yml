@@ -398,8 +398,32 @@ DailyAwards:
       Messages:
         Player: '&aYou came in second place in %TopVoter%!'
 
-# Owner-defined dated events. Opt-in; use a NEW event ID when changing accounting.
-# Explicit local ISO start/end + IANA timezone. Start inclusive, end exclusive.
-# Proxy use requires one AccountingServer and identified all-server delivery.
-# Full configuration example and durability limits: docs/date-vote-milestones.md
-DateVoteMilestones: {}
+# Owner-defined dated events. This example is DISABLED by default.
+# Set your own dates/rewards, then enable the event. No automatic recurring reset.
+# Keep the event ID stable to retain progress; never delete its ledger and reuse it.
+# After accounting starts, use a NEW ID for changes to dates, timezone, thresholds,
+# VoteSites or AccountingServer. Unsafe edits are rejected, preserving progress.
+# DisplayName and Enabled may change without resetting counts.
+# Full configuration and durability limits: docs/date-vote-milestones.md
+DateVoteMilestones:
+  example_event:
+    Enabled: false
+    DisplayName: 'Example voting event'
+    # Local ISO date-times interpreted in the explicit IANA timezone below.
+    Start: '2026-10-01T00:00:00' # Inclusive: occurrences at this instant count.
+    End: '2026-11-01T00:00:00' # Exclusive: occurrences at this instant do not count.
+    Timezone: 'UTC'
+    # Standalone: leave empty. Proxy: choose exactly ONE backend Server name,
+    # identically on every backend, and use identified all-server delivery.
+    AccountingServer: ''
+    # Configured VoteSites.yml keys (not service names); empty means all sites.
+    VoteSites: []
+    Milestones:
+      '10':
+        Rewards:
+          Messages:
+            Player: '&aYou reached 10 votes in %DateVoteEvent%!'
+      '25':
+        Rewards:
+          Messages:
+            Player: '&aYou reached 25 votes in %DateVoteEvent%!'
