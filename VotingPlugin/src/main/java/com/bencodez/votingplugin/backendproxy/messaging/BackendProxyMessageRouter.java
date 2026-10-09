@@ -406,10 +406,11 @@ public class BackendProxyMessageRouter {
 				user.cache();
 				CompletionStage<Void> rewards = CompletableFuture.completedFuture(null);
 				if (processOfflineVotes) {
-					// The async path snapshots/clears queued votes on the storage
-					// worker, but awaits platform-owned reward injection effects.
-					effectsMayHaveStarted.set(true);
-					rewards = user.offVoteWithCapturedTopVoterIgnoreAsync(topVoterIgnore);
+					// Persistent reads and cache publication may fail before any
+					// reward begins. The async user API signals only the first
+					// potentially nontransactional reward/pending grant boundary.
+					rewards = user.offVoteWithCapturedTopVoterIgnoreAsync(topVoterIgnore,
+							() -> effectsMayHaveStarted.set(true));
 					if (rewards == null) throw new IllegalStateException("Offline vote reward chain was null");
 				}
 				applyVoteUpdateTime(update, user, voteSite, () -> effectsMayHaveStarted.set(true));

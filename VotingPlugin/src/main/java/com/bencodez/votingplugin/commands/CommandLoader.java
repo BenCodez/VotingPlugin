@@ -90,6 +90,7 @@ import com.bencodez.votingplugin.specialrewards.votestreak.VoteStreakType;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.user.OfflineVoteRewardRecoveryService;
+import com.bencodez.votingplugin.specialrewards.NameMCLikeRewardRecoveryService;
 import com.bencodez.votingplugin.user.PointTransferResult;
 import com.bencodez.votingplugin.util.VoteTaskAdmission;
 import com.bencodez.votingplugin.util.BukkitCompletionScheduler;
@@ -1804,6 +1805,30 @@ public class CommandLoader {
 				}
 				String token = preview ? "" : args[3];
 				offlineRecovery.handle(sender.getName(), args[1], action, token,
+						message -> runForCommandSender(sender,
+								() -> sender.sendMessage(MessageAPI.colorize("&e" + message))));
+			}
+		});
+
+		// Pending NameMC grants also require an explicit operator decision:
+		// never mark a failed asynchronous delivery claimed or replay it blindly.
+		NameMCLikeRewardRecoveryService nameMCRecovery = new NameMCLikeRewardRecoveryService(plugin);
+		plugin.getAdminVoteCommand().add(new CommandHandler(plugin,
+				new String[] { "NameMCLikeRecovery", "(uuid)", "(list)" },
+				"VotingPlugin.Commands.AdminVote.NameMCLikeRecovery|" + adminPerm,
+				"Console only: /av NameMCLikeRecovery <uuid> status, then delivered|retry <token>",
+				true, true) {
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				String action = args.length >= 3 ? args[2] : "";
+				boolean preview = "status".equalsIgnoreCase(action);
+				if (args.length < 3 || args.length > 4 || (preview && args.length != 3)
+						|| (!preview && args.length != 4)) {
+					runForCommandSender(sender, () -> sender.sendMessage(MessageAPI.colorize(
+							"&cUsage: /av NameMCLikeRecovery <uuid> status | delivered|retry <token>")));
+					return;
+				}
+				nameMCRecovery.handle(sender.getName(), args[1], action, preview ? "" : args[3],
 						message -> runForCommandSender(sender,
 								() -> sender.sendMessage(MessageAPI.colorize("&e" + message))));
 			}

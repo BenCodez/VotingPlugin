@@ -2068,9 +2068,20 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * reward facade runs synchronously on the storage worker.
 	 */
 	public CompletionStage<Void> offVoteWithCapturedTopVoterIgnoreAsync(boolean currentTopVoterIgnore) {
+		return offVoteWithCapturedTopVoterIgnoreAsync(currentTopVoterIgnore, () -> { });
+	}
+
+	/**
+	 * The callback marks the first possible nontransactional reward effect.
+	 * Reads/cache misses before this point remain retryable in ordered VoteUpdate.
+	 */
+	public CompletionStage<Void> offVoteWithCapturedTopVoterIgnoreAsync(boolean currentTopVoterIgnore,
+			Runnable beforeRewardEffects) {
 		if (!plugin.getOptions().isProcessRewards()) return CompletableFuture.completedFuture(null);
 		if (isTopVoterIgnore() != currentTopVoterIgnore) setTopVoterIgnore(currentTopVoterIgnore);
 		if (!getPendingOfflineVoteRewardBatch().isEmpty()) {
+			// An existing ambiguous grant must be quarantined, not replayed.
+			beforeRewardEffects.run();
 			return CompletableFuture.failedFuture(new IllegalStateException(
 					"Earlier offline-vote rewards require reconciliation for " + getUUID()));
 		}
@@ -2084,6 +2095,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		}
 		try {
 			getUserData().setStringList(OFFLINE_VOTES_REWARD_PENDING_KEY, new ArrayList<>(offlineVotes), false);
+			beforeRewardEffects.run();
 
 			CompletionStage<Void> rewards = plugin.getRewardHandler().giveRewardAsync(this,
 					plugin.getSpecialRewardsConfig().getData(),
