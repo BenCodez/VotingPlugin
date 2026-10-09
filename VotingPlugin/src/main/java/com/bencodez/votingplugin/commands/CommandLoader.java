@@ -89,6 +89,7 @@ import com.bencodez.votingplugin.specialrewards.votestreak.VoteStreakDefinition;
 import com.bencodez.votingplugin.specialrewards.votestreak.VoteStreakType;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.user.OfflineVoteRewardRecoveryService;
 import com.bencodez.votingplugin.user.PointTransferResult;
 import com.bencodez.votingplugin.util.VoteTaskAdmission;
 import com.bencodez.votingplugin.util.BukkitCompletionScheduler;
@@ -1780,6 +1781,31 @@ public class CommandLoader {
 				plugin.setUpdate(true);
 				plugin.update();
 				sender.sendMessage(MessageAPI.colorize("&cUpdating..."));
+			}
+		});
+
+		// Console-only manual reconciliation of an offline vote batch whose
+		// asynchronous reward effects may have been partially delivered.
+		OfflineVoteRewardRecoveryService offlineRecovery = new OfflineVoteRewardRecoveryService(plugin);
+		plugin.getAdminVoteCommand().add(new CommandHandler(plugin,
+				new String[] { "OfflineVoteRecovery", "(uuid)", "(list)" },
+				"VotingPlugin.Commands.AdminVote.OfflineVoteRecovery|" + adminPerm,
+				"Console only: /av OfflineVoteRecovery <uuid> status, then delivered|retry|already-cleared <token>",
+				true, true) {
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				String action = args.length >= 3 ? args[2] : "";
+				boolean preview = "status".equalsIgnoreCase(action);
+				if (args.length < 3 || args.length > 4 || (preview && args.length != 3)
+						|| (!preview && args.length != 4)) {
+					runForCommandSender(sender, () -> sender.sendMessage(MessageAPI.colorize(
+							"&cUsage: /av OfflineVoteRecovery <uuid> status | delivered|retry|already-cleared <token>")));
+					return;
+				}
+				String token = preview ? "" : args[3];
+				offlineRecovery.handle(sender.getName(), args[1], action, token,
+						message -> runForCommandSender(sender,
+								() -> sender.sendMessage(MessageAPI.colorize("&e" + message))));
 			}
 		});
 

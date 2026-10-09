@@ -123,6 +123,60 @@ class VotingPluginUserOfflineVoteReplayTest {
 		assertEquals(List.of("Site1"), fixture.pending.get());
 	}
 
+	@Test
+	void confirmedDeliveredRecoveryRemovesOnlyReviewedPrefixAndUnblocksNewVotes() {
+		AsyncReplayFixture fixture = asyncFixture();
+		fixture.pending.set(new ArrayList<>(List.of("Site1")));
+		fixture.queued.set(new ArrayList<>(List.of("Site1", "NewVote")));
+
+		fixture.user.reconcileOfflineVoteRewardBatch(List.of("Site1"),
+				List.of("Site1", "NewVote"), "delivered");
+
+		assertTrue(fixture.pending.get().isEmpty());
+		assertEquals(List.of("NewVote"), fixture.queued.get());
+	}
+
+	@Test
+	void reviewedSafeRetryPreservesOriginalVotesWhileClearingPending() {
+		AsyncReplayFixture fixture = asyncFixture();
+		fixture.pending.set(new ArrayList<>(List.of("Site1")));
+		fixture.user.reconcileOfflineVoteRewardBatch(List.of("Site1"), List.of("Site1"), "retry");
+		assertTrue(fixture.pending.get().isEmpty());
+		assertEquals(List.of("Site1"), fixture.queued.get());
+	}
+
+	@Test
+	void alreadyClearedRecoveryUnblocksWithoutDiscardingNewVotes() {
+		AsyncReplayFixture fixture = asyncFixture();
+		fixture.pending.set(new ArrayList<>(List.of("Site1")));
+		fixture.queued.set(new ArrayList<>(List.of("NewVote")));
+		fixture.user.reconcileOfflineVoteRewardBatch(List.of("Site1"),
+				List.of("NewVote"), "already-cleared");
+		assertTrue(fixture.pending.get().isEmpty());
+		assertEquals(List.of("NewVote"), fixture.queued.get());
+	}
+
+	@Test
+	void recoveryRejectsStalePreviewAndActiveDelivery() {
+		AsyncReplayFixture fixture = asyncFixture();
+		fixture.pending.set(new ArrayList<>(List.of("Site1")));
+		fixture.queued.set(new ArrayList<>(List.of("Site1", "NewVote")));
+		assertThrows(IllegalStateException.class, () ->
+				fixture.user.reconcileOfflineVoteRewardBatch(List.of("Site1"), List.of("Site1"), "delivered"));
+		assertEquals(List.of("Site1"), fixture.pending.get());
+
+		fixture.pending.set(new ArrayList<>());
+		fixture.queued.set(new ArrayList<>(List.of("Site1")));
+		CompletableFuture<Void> delivery = fixture.user.offVoteWithCapturedTopVoterIgnoreAsync(false)
+				.toCompletableFuture();
+		assertTrue(fixture.user.isOfflineVoteRewardReplayActive());
+		assertThrows(IllegalStateException.class, () -> fixture.user.reconcileOfflineVoteRewardBatch(
+				List.of("Site1"), List.of("Site1"), "retry"));
+		fixture.anySiteRewards.completeExceptionally(new IllegalStateException("partial effects"));
+		assertThrows(CompletionException.class, delivery::join);
+		assertFalse(fixture.user.isOfflineVoteRewardReplayActive());
+	}
+
 	/** Mock persistence boundaries but exercise the real async user method. */
 	private static AsyncReplayFixture asyncFixture() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
