@@ -3,8 +3,8 @@ package com.bencodez.votingplugin.backendproxy.messaging;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
@@ -39,9 +39,9 @@ public class BackendProxyMessageRouter {
 	private final BackendVotePartySync votePartySync;
 	private final ProcessedVoteCache processedVoteCache;
 	private final AtomicBoolean voteReplayCacheSaturationLogged = new AtomicBoolean();
-	// Bounded below the ordered lane's one-second close grace. A delayed platform
-	// callback is retried before shutdown must quarantine its undetermined state.
-	private static final long VOTE_UPDATE_HANDOFF_TIMEOUT_MILLIS = 750L;
+	private final Object pendingVoteUpdateLock = new Object();
+	private final Set<PendingVoteUpdateHandoff> pendingVoteUpdateHandoffs = new HashSet<>();
+	private boolean pendingVoteUpdateHandoffsClosing;
 	private GlobalMessageHandler messages;
 
 	public BackendProxyMessageRouter(VotingPluginMain plugin, BackendPresenceManager presenceManager,
@@ -238,27 +238,73 @@ public class BackendProxyMessageRouter {
 			return;
 		}
 
-		// Accepted scheduler tasks can be cancelled before execution. Claim the
-		// callback before any effects, so a timed-out task cannot later replay them.
-		AtomicBoolean platformClaimed = new AtomicBoolean();
-		Runnable retryUnstarted = () -> {
-			if (platformClaimed.compareAndSet(false, true)) complete.accept(OrderedVoteOutcome.RETRY);
-		};
+		// Track admission until execution starts; ordinary lag is not cancellation.
+		PendingVoteUpdateHandoff handoff = trackVoteUpdateHandoff(complete);
+		if (handoff.isClaimed()) return;
 		try {
-			scheduleVoteUpdatePlatformHandoffTimeout(retryUnstarted);
 			plugin.getBukkitScheduler().runTask(plugin, () -> {
-				if (platformClaimed.compareAndSet(false, true)) beginVoteUpdateOnPlatform(update, complete);
+				if (handoff.begin()) beginVoteUpdateOnPlatform(update, complete);
 			});
 		} catch (RuntimeException | Error failure) {
-			retryUnstarted.run();
+			handoff.cancel();
 			throw failure;
 		}
 	}
 
-	/** A scheduler-independent fence for admitted-but-cancelled Bukkit tasks. */
-	void scheduleVoteUpdatePlatformHandoffTimeout(Runnable timeout) {
-		CompletableFuture.delayedExecutor(VOTE_UPDATE_HANDOFF_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
-				.execute(timeout);
+	/** Cancel only unstarted VoteUpdates when the ordered lane retires. */
+	public void cancelPendingVoteUpdateHandoffs() {
+		Set<PendingVoteUpdateHandoff> waiting;
+		synchronized (pendingVoteUpdateLock) {
+			pendingVoteUpdateHandoffsClosing = true;
+			waiting = new HashSet<>(pendingVoteUpdateHandoffs);
+		}
+		// Completion can acquire the ordered-lane lock; never hold ours here.
+		for (PendingVoteUpdateHandoff handoff : waiting) handoff.cancel();
+	}
+
+	/** Resume admission when a staged replacement is rolled back. */
+	public void resumeVoteUpdateHandoffs() {
+		synchronized (pendingVoteUpdateLock) {
+			pendingVoteUpdateHandoffsClosing = false;
+		}
+	}
+
+	private PendingVoteUpdateHandoff trackVoteUpdateHandoff(Consumer<OrderedVoteOutcome> completion) {
+		PendingVoteUpdateHandoff handoff = new PendingVoteUpdateHandoff(completion);
+		boolean rejected;
+		synchronized (pendingVoteUpdateLock) {
+			rejected = pendingVoteUpdateHandoffsClosing;
+			if (!rejected) pendingVoteUpdateHandoffs.add(handoff);
+		}
+		if (rejected) handoff.cancel();
+		return handoff;
+	}
+
+	private final class PendingVoteUpdateHandoff {
+		private final AtomicBoolean claimed = new AtomicBoolean();
+		private final Consumer<OrderedVoteOutcome> completion;
+
+		private PendingVoteUpdateHandoff(Consumer<OrderedVoteOutcome> completion) {
+			this.completion = completion;
+		}
+
+		private boolean isClaimed() { return claimed.get(); }
+
+		private boolean begin() {
+			if (!claimed.compareAndSet(false, true)) return false;
+			synchronized (pendingVoteUpdateLock) {
+				pendingVoteUpdateHandoffs.remove(this);
+			}
+			return true;
+		}
+
+		private void cancel() {
+			if (!claimed.compareAndSet(false, true)) return;
+			synchronized (pendingVoteUpdateLock) {
+				pendingVoteUpdateHandoffs.remove(this);
+			}
+			completion.accept(OrderedVoteOutcome.RETRY);
+		}
 	}
 
 	private void beginVoteUpdateOnPlatform(VotingPluginWire.VoteUpdate update,
@@ -319,15 +365,11 @@ public class BackendProxyMessageRouter {
 				if (player == null) {
 					deferSharedVoteUpdate(update, user, dataManager, voteSite, false, false, completion);
 				} else {
-					// A scheduler can accept this runnable and discard it during reload.
-					// Only the winner may begin effects, including if a late callback runs.
-					AtomicBoolean ownerClaimed = new AtomicBoolean();
-					Runnable retryUnstarted = () -> {
-						if (ownerClaimed.compareAndSet(false, true)) completion.accept(OrderedVoteOutcome.RETRY);
-					};
-					scheduleVoteUpdatePlatformHandoffTimeout(retryUnstarted);
+					// A cancelled callback retries only on explicit lifecycle retirement.
+					PendingVoteUpdateHandoff handoff = trackVoteUpdateHandoff(completion);
+					if (handoff.isClaimed()) return;
 					com.bencodez.votingplugin.util.BukkitCompletionScheduler.run(plugin, player, () -> {
-						if (!ownerClaimed.compareAndSet(false, true)) return;
+						if (!handoff.begin()) return;
 						try {
 							boolean online = player.isOnline();
 							deferSharedVoteUpdate(update, user, dataManager, voteSite, online,
@@ -336,7 +378,7 @@ public class BackendProxyMessageRouter {
 							completion.accept(OrderedVoteOutcome.RETRY);
 							throw failure;
 						}
-					}, retryUnstarted, retryUnstarted);
+					}, handoff::cancel, handoff::cancel);
 				}
 				return;
 			}

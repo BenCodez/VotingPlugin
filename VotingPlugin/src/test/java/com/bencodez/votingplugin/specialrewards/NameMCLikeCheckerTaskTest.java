@@ -1,7 +1,6 @@
 package com.bencodez.votingplugin.specialrewards;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -16,6 +15,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -73,6 +73,8 @@ class NameMCLikeCheckerTaskTest {
 		when(config.getNameMCLikeRewardPath()).thenReturn(REWARD_PATH);
 		when(config.getNameMCLikeRewardUrl()).thenReturn("example.minecraft.net");
 		when(user.getPlugin()).thenReturn(plugin);
+		when(rewardHandler.giveRewardAsync(eq(user), eq(rewards), eq(REWARD_PATH),
+				any(RewardOptions.class))).thenReturn(CompletableFuture.completedFuture(null));
 		when(user.getPlayerName()).thenReturn("Player");
 		when(user.isOnline()).thenReturn(true);
 
@@ -112,7 +114,7 @@ class NameMCLikeCheckerTaskTest {
 		InOrder order = inOrder(user, rewardHandler);
 		order.verify(user).cache();
 		order.verify(user).hasClaimedNameMCLikeReward();
-		order.verify(rewardHandler).giveReward(eq(user), eq(rewards), eq(REWARD_PATH),
+		order.verify(rewardHandler).giveRewardAsync(eq(user), eq(rewards), eq(REWARD_PATH),
 				any(RewardOptions.class));
 		order.verify(user).setClaimedNameMCLikeReward(true);
 		verify(user, times(1)).isOnline();
@@ -162,6 +164,26 @@ class NameMCLikeCheckerTaskTest {
 		verify(coreUsers, times(2)).getUserAsync(eq(PLAYER_UUID), any(), any());
 	}
 
+
+	@Test
+	void asynchronousRewardFailureDoesNotReopenAmbiguousClaim() {
+		DeferredCheck deferred = captureSharedCheck();
+		CompletableFuture<Void> delivery = new CompletableFuture<>();
+		when(rewardHandler.giveRewardAsync(eq(user), eq(rewards), eq(REWARD_PATH),
+				any(RewardOptions.class))).thenReturn(delivery);
+		when(user.hasClaimedNameMCLikeReward()).thenReturn(false, true);
+		task.processUuid(PLAYER_UUID);
+		assertEquals(Boolean.TRUE, deferred.work.get());
+		verify(user).setClaimedNameMCLikeReward(true);
+
+		delivery.completeExceptionally(new IllegalStateException("partial reward"));
+		task.processUuid(PLAYER_UUID);
+		assertEquals(Boolean.TRUE, deferred.work.get());
+		verify(rewardHandler, times(1)).giveRewardAsync(eq(user), eq(rewards), eq(REWARD_PATH),
+				any(RewardOptions.class));
+		verify(user, times(1)).setClaimedNameMCLikeReward(true);
+	}
+
 	@Test
 	void nonSharedStoragePreservesExistingRewardBehavior() {
 		when(dataManager.hasSharedSqlBackend()).thenReturn(false);
@@ -169,7 +191,7 @@ class NameMCLikeCheckerTaskTest {
 		verify(dataManager, never()).deferSharedStorageResultFromPlatform(any(), any(), any());
 		verify(user, never()).cache();
 		verify(user).hasClaimedNameMCLikeReward();
-		verify(rewardHandler).giveReward(eq(user), eq(rewards), eq(REWARD_PATH),
+		verify(rewardHandler).giveRewardAsync(eq(user), eq(rewards), eq(REWARD_PATH),
 				any(RewardOptions.class));
 		verify(user).setClaimedNameMCLikeReward(true);
 	}

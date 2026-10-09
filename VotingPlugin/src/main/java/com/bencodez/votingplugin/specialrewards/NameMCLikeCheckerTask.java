@@ -151,8 +151,18 @@ public class NameMCLikeCheckerTask extends BukkitRunnable {
 
 		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
 				plugin.getSpecialRewardsConfig().getNameMCLikeRewardPath()).setOnline(online.getAsBoolean())
-				.withPlaceHolder("NameMCServer", plugin.getSpecialRewardsConfig().getNameMCLikeRewardUrl()).send(user);
+				.withPlaceHolder("NameMCServer", plugin.getSpecialRewardsConfig().getNameMCLikeRewardUrl())
+				.sendAsync(user).whenComplete((ignored, failure) -> {
+					if (failure != null) {
+						plugin.getLogger().warning("NameMC like reward dispatch failed for " + uuid
+								+ "; the claim remains reserved to prevent duplicate rewards");
+						plugin.debug(failure);
+					}
+				});
 
+		// Keep fire-and-forget claim semantics: mark after dispatch admission,
+		// not after unrelated asynchronous actions. AdvancedCore's awaited reward
+		// API marshals player/command effects to their owning platform scheduler.
 		user.setClaimedNameMCLikeReward(true);
 		plugin.debug("Gave NameMC like reward to " + user.getPlayerName() + " (" + uuid + ")");
 	}

@@ -13,7 +13,6 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -96,11 +95,9 @@ class BackendProxyMessageRouterTest {
 			return null;
 		}).when(coreUserManager).getUserAsync(eq(PLAYER_UUID), any(), any());
 
-		router = spy(new BackendProxyMessageRouter(plugin, mock(BackendPresenceManager.class),
+		router = new BackendProxyMessageRouter(plugin, mock(BackendPresenceManager.class),
 				mock(BackendGlobalDataSync.class), mock(BackendVotePartySync.class),
-				mock(ProcessedVoteCache.class)));
-		// Tests control the watchdog instead of relying on elapsed wall-clock time.
-		doAnswer(invocation -> null).when(router).scheduleVoteUpdatePlatformHandoffTimeout(any(Runnable.class));
+				mock(ProcessedVoteCache.class));
 	}
 
 	@Test
@@ -247,17 +244,11 @@ class BackendProxyMessageRouterTest {
 	@Test
 	void globalVoteUpdateTaskAcceptedButCanceledRetriesAndIgnoresLateExecution() {
 		AtomicReference<Runnable> pendingGlobal = new AtomicReference<>();
-		AtomicReference<Runnable> timeout = new AtomicReference<>();
 		BukkitScheduler scheduler = plugin.getBukkitScheduler();
 		doAnswer(invocation -> {
 			pendingGlobal.set(invocation.getArgument(1));
 			return null;
 		}).when(scheduler).runTask(eq(plugin), any(Runnable.class));
-		doAnswer(invocation -> {
-			timeout.set(invocation.getArgument(0));
-			return null;
-		}).when(router).scheduleVoteUpdatePlatformHandoffTimeout(any(Runnable.class));
-
 		AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
 		AtomicInteger completions = new AtomicInteger();
 		router.handleOrderedVote(VotingPluginWire.voteUpdate(PLAYER_UUID.toString(), 1, 10,
@@ -267,7 +258,7 @@ class BackendProxyMessageRouterTest {
 		});
 		assertEquals(null, outcome.get());
 
-		timeout.get().run();
+		router.cancelPendingVoteUpdateHandoffs();
 		assertEquals(OrderedVoteOutcome.RETRY, outcome.get());
 		assertEquals(1, completions.get());
 		pendingGlobal.get().run();
@@ -282,16 +273,11 @@ class BackendProxyMessageRouterTest {
 		org.bukkit.entity.Player player = mock(org.bukkit.entity.Player.class);
 		when(user.getPlayer()).thenReturn(player);
 		AtomicReference<Runnable> pendingOwner = new AtomicReference<>();
-		java.util.ArrayList<Runnable> timeouts = new java.util.ArrayList<>();
 		BukkitScheduler scheduler = plugin.getBukkitScheduler();
 		doAnswer(invocation -> {
 			pendingOwner.set(invocation.getArgument(1));
 			return null;
 		}).when(scheduler).runTask(eq(plugin), any(Runnable.class), eq(player));
-		doAnswer(invocation -> {
-			timeouts.add(invocation.getArgument(0));
-			return null;
-		}).when(router).scheduleVoteUpdatePlatformHandoffTimeout(any(Runnable.class));
 
 		AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
 		AtomicInteger completions = new AtomicInteger();
@@ -300,17 +286,13 @@ class BackendProxyMessageRouterTest {
 			completions.incrementAndGet();
 			outcome.set(result);
 		});
-		assertEquals(2, timeouts.size());
 		assertEquals(null, outcome.get());
 
-		timeouts.get(0).run(); // The global platform task has already started.
-		assertEquals(null, outcome.get());
-		timeouts.get(1).run(); // The entity task was accepted but never executed.
+		router.cancelPendingVoteUpdateHandoffs();
 		assertEquals(OrderedVoteOutcome.RETRY, outcome.get());
 		assertEquals(1, completions.get());
-
-		pendingOwner.get().run(); // A delayed callback cannot apply effects.
-		timeouts.get(1).run();
+		pendingOwner.get().run();
+		router.cancelPendingVoteUpdateHandoffs();
 		assertEquals(1, completions.get());
 		verify(dataManager, never()).deferSharedStorageResultFromPlatform(any(), any(), any());
 		verify(user, never()).cache();
@@ -320,7 +302,7 @@ class BackendProxyMessageRouterTest {
 	}
 
 	@Test
-	void sharedVoteUpdateStartedOwnerTaskCannotBeRetriedByLateWatchdog() {
+	void sharedVoteUpdateStartedOwnerTaskCannotBeRetriedByLifecycleCancellation() {
 		DeferredVoteUpdate pending = captureSharedVoteUpdate();
 		org.bukkit.entity.Player player = mock(org.bukkit.entity.Player.class);
 		when(user.getPlayer()).thenReturn(player);
@@ -330,11 +312,6 @@ class BackendProxyMessageRouterTest {
 			invocation.getArgument(1, Runnable.class).run();
 			return null;
 		}).when(scheduler).runTask(eq(plugin), any(Runnable.class), eq(player));
-		java.util.ArrayList<Runnable> timeouts = new java.util.ArrayList<>();
-		doAnswer(invocation -> {
-			timeouts.add(invocation.getArgument(0));
-			return null;
-		}).when(router).scheduleVoteUpdatePlatformHandoffTimeout(any(Runnable.class));
 		VoteSite site = mock(VoteSite.class);
 		when(voteSiteManager.getVoteSite("known.example", true)).thenReturn(site);
 
@@ -345,18 +322,50 @@ class BackendProxyMessageRouterTest {
 			completions.incrementAndGet();
 			outcome.set(result);
 		});
-		assertEquals(2, timeouts.size());
-		timeouts.forEach(Runnable::run);
+		router.cancelPendingVoteUpdateHandoffs();
 		assertEquals(null, outcome.get());
 
 		pending.success.accept(pending.work.get());
-		timeouts.forEach(Runnable::run);
 		assertEquals(OrderedVoteOutcome.COMPLETE, outcome.get());
 		assertEquals(1, completions.get());
 		verify(user).cache();
 		verify(user).offVoteWithCapturedTopVoterIgnore(false);
 		verify(user).setTime(site, LAST_VOTE_TIME);
 	}
+
+	@Test
+	void slowButAcceptedVoteUpdateTaskDoesNotRetryWithoutCancellation() {
+		AtomicReference<Runnable> pendingGlobal = new AtomicReference<>();
+		BukkitScheduler scheduler = plugin.getBukkitScheduler();
+		doAnswer(invocation -> {
+			pendingGlobal.set(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).runTask(eq(plugin), any(Runnable.class));
+		AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
+		router.handleOrderedVote(VotingPluginWire.voteUpdate(PLAYER_UUID.toString(), 1, 10,
+				"", 0, ""), outcome::set);
+
+		// A queued task is neither cancelled nor retried merely due to latency.
+		assertEquals(null, outcome.get());
+		pendingGlobal.get().run();
+		assertEquals(OrderedVoteOutcome.COMPLETE, outcome.get());
+	}
+
+	@Test
+	void lifecycleRetirementRejectsNewPreStartWorkUntilResumed() {
+		router.cancelPendingVoteUpdateHandoffs();
+		AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
+		router.handleOrderedVote(VotingPluginWire.voteUpdate(PLAYER_UUID.toString(), 1, 10,
+				"known.example", LAST_VOTE_TIME, ""), outcome::set);
+		assertEquals(OrderedVoteOutcome.RETRY, outcome.get());
+		verify(coreUserManager, never()).getUserAsync(eq(PLAYER_UUID), any(), any());
+		router.resumeVoteUpdateHandoffs();
+		outcome.set(null);
+		router.handleOrderedVote(VotingPluginWire.voteUpdate(PLAYER_UUID.toString(), 1, 10,
+				"known.example", LAST_VOTE_TIME, ""), outcome::set);
+		assertEquals(OrderedVoteOutcome.COMPLETE, outcome.get());
+	}
+
 
 	@Test
 	void sharedVoteUpdateCacheFailureBeforeEffectsIsRetryable() {
