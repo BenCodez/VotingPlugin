@@ -148,11 +148,11 @@ public class VotiferEventDisabledVoteSiteTest {
 	public void testVoteIsQueuedWhenBoundedExecutorRejectsIt() {
 		doThrow(new RejectedExecutionException("capacity exhausted"))
 				.when(voteTimer).submit(any(Runnable.class));
-		when(overflowQueue.enqueue(org.mockito.ArgumentMatchers.eq("Steve"), org.mockito.ArgumentMatchers.eq(SERVICE_SITE), org.mockito.ArgumentMatchers.anyLong())).thenReturn(true);
+		when(overflowQueue.enqueue(org.mockito.ArgumentMatchers.eq("Steve"), org.mockito.ArgumentMatchers.eq(SERVICE_SITE), org.mockito.ArgumentMatchers.anyLong(), any(java.util.UUID.class))).thenReturn(true);
 
 		listener.onVotiferEvent(createVoteEvent(SERVICE_SITE));
 
-		verify(overflowQueue).enqueue(org.mockito.ArgumentMatchers.eq("Steve"), org.mockito.ArgumentMatchers.eq(SERVICE_SITE), org.mockito.ArgumentMatchers.anyLong());
+		verify(overflowQueue).enqueue(org.mockito.ArgumentMatchers.eq("Steve"), org.mockito.ArgumentMatchers.eq(SERVICE_SITE), org.mockito.ArgumentMatchers.anyLong(), any(java.util.UUID.class));
 		verify(pluginManager, never()).callEvent(any(PlayerVoteEvent.class));
 	}
 }

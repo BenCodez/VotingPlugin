@@ -93,6 +93,20 @@ class SharedVoteProcessorTest {
     }
 
     @Test
+    void localOccurrenceIdentityKeepsOrdinaryProcessingClockAndDoesNotTriggerProxyBehavior() {
+        var ops = accepted();
+        UUID localId = UUID.randomUUID();
+        when(ops.localOccurrenceId()).thenReturn(localId);
+        when(ops.proxyVoteId()).thenReturn(UUID.randomUUID()); // An irrelevant proxy field cannot override local identity.
+        when(ops.currentTimeMillis()).thenReturn(789L);
+        SharedVoteProcessor.process(ops);
+        verify(ops).setTimeNow(user, site);
+        verify(ops, never()).triggerProxyEvent();
+        verify(ops).dateMilestones(user, site, 789L, localId);
+        verify(ops).postVote(site, user, "Ben", 789L, localId, true);
+    }
+
+    @Test
     void proxyVoteUsesHistoricalOnlineForDeliveryButCurrentOnlineForTotals() {
         var ops = accepted();
         UUID proxyId = UUID.randomUUID();

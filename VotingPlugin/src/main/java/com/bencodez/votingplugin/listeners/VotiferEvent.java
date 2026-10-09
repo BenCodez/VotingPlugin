@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin.listeners;
 
 import java.util.concurrent.RejectedExecutionException;
+import java.util.UUID;
 
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -43,6 +44,11 @@ public class VotiferEvent implements Listener {
 	public void processVote(String voteSite, String voteUsername) { processVote(voteSite, voteUsername, 0L); }
 
     public void processVote(String voteSite, String voteUsername, long occurredAt) {
+        processVote(voteSite, voteUsername, occurredAt, UUID.randomUUID());
+    }
+
+    public void processVote(String voteSite, String voteUsername, long occurredAt, UUID localOccurrenceId) {
+        java.util.Objects.requireNonNull(localOccurrenceId, "localOccurrenceId");
 		try {
 			plugin.getServerData().addServiceSite(voteSite);
 			if (plugin.getBungeeSettings().isUseBungeecoord() && !plugin.getBungeeSettings().isVotifierBypass()
@@ -84,7 +90,7 @@ public class VotiferEvent implements Listener {
 			if (plugin.getTimeChecker().isActiveProcessing()
 					&& plugin.getConfigFile().isQueueVotesDuringTimeChange()) {
 				plugin.debug("Adding vote to time queue " + voteUsername + "/" + voteSite);
-				plugin.getTimeQueueHandler().addVote(voteUsername, voteSite, occurredAt);
+				plugin.getTimeQueueHandler().addVote(voteUsername, voteSite, occurredAt, localOccurrenceId);
 				return;
 			}
 
@@ -92,6 +98,7 @@ public class VotiferEvent implements Listener {
 
 			PlayerVoteEvent voteEvent = new PlayerVoteEvent(
 					plugin.getVoteSiteManager().getVoteSite(voteSiteName, true), voteUsername, voteSite, true);
+            voteEvent.setLocalOccurrenceId(localOccurrenceId);
             if (occurredAt > 0) voteEvent.setCanonicalOccurrenceTime(occurredAt);
 			plugin.getServer().getPluginManager().callEvent(voteEvent);
 
@@ -113,6 +120,7 @@ public class VotiferEvent implements Listener {
 	public void onVotiferEvent(VotifierEvent event) {
         if (!accepting) return;
         final long occurredAt = System.currentTimeMillis();
+        final UUID localOccurrenceId = UUID.randomUUID();
 
 		Vote vote = event.getVote();
 		String str = vote.getServiceName();
@@ -147,17 +155,17 @@ public class VotiferEvent implements Listener {
 
 		try {
 			plugin.getVoteTimer().submit(() -> {
-                if (ready.getAsBoolean() && accepting) processVote(voteSite, voteUsername, occurredAt);
-                else bufferVote(voteUsername, voteSite, occurredAt);
+                if (ready.getAsBoolean() && accepting) processVote(voteSite, voteUsername, occurredAt, localOccurrenceId);
+                else bufferVote(voteUsername, voteSite, occurredAt, localOccurrenceId);
             });
         } catch (RejectedExecutionException rejected) {
-            bufferVote(voteUsername, voteSite, occurredAt);
+            bufferVote(voteUsername, voteSite, occurredAt, localOccurrenceId);
         }
     }
 
-    private void bufferVote(String username, String site, long occurredAt) {
+    private void bufferVote(String username, String site, long occurredAt, UUID localOccurrenceId) {
         VotifierVoteOverflowQueue overflow = plugin.getVotifierVoteOverflowQueue();
-        if (overflow == null || !overflow.enqueue(username, site, occurredAt)) {
+        if (overflow == null || !overflow.enqueue(username, site, occurredAt, localOccurrenceId)) {
             plugin.getLogger().severe("Votifier vote queue is full; vote was not admitted for "
                     + MinecraftUsernameValidator.sanitizeForLog(username));
         } else {

@@ -128,6 +128,7 @@ public class PlayerVoteListener implements Listener {
         }
         @Override public boolean hasProxyTextTotals() { return event.getBungeeTextTotals() != null; }
         @Override public UUID proxyVoteId() { return resolveProxyVoteId(event); }
+        @Override public UUID localOccurrenceId() { return event.getLocalOccurrenceId(); }
         @Override public boolean identifiedQueuedProxyVote() { return event.isQueuedProxyVote(); }
 		@Override public boolean proxyQueueClassificationKnown() { return event.isProxyQueueClassificationKnown(); }
         @Override public boolean proxyDelayValidationKnown() { return event.isProxyDelayValidationKnown(); }

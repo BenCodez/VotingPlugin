@@ -72,6 +72,8 @@ public final class SharedVoteProcessor {
         void broadcast(UUID uuid, String name, String siteDisplayName, boolean online);
         boolean hasProxyTextTotals();
         UUID proxyVoteId();
+        /** Local receipt identity, without implying proxy provenance. */
+        default UUID localOccurrenceId() { return null; }
         default boolean identifiedQueuedProxyVote() { return false; }
         default boolean proxyQueueClassificationKnown() { return false; }
         default boolean proxyDelayValidationKnown() { return false; }
@@ -186,10 +188,8 @@ public final class SharedVoteProcessor {
                     + (legacyRecordedProxyVote ? "; legacy timestamp matches LastVotes: " + ops.incomingTime()
                             : "; stable vote ID identifies this queued delivery: " + ops.proxyVoteId()));
         }
-        UUID voteId = UUID.randomUUID();
-        if (ops.proxyVote() && ops.proxyVoteId() != null) {
-            voteId = ops.proxyVoteId();
-        }
+        UUID voteId = ops.proxyVote() ? ops.proxyVoteId() : ops.localOccurrenceId();
+        if (voteId == null) voteId = UUID.randomUUID();
         String userId = ops.userId(user);
         ops.cache(user);
         ops.updateName(user);

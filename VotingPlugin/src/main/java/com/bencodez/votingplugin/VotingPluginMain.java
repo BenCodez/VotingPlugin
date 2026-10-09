@@ -2066,7 +2066,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
         // setup ahead of every captured vote, without a second startup collection.
         getVoteTimer().submit(() -> {
             VotifierVoteOverflowQueue queue = new VotifierVoteOverflowQueue(this,
-                    (VotifierVoteOverflowQueue.VoteProcessor) listener::processVote,
+                    (VotifierVoteOverflowQueue.OccurrenceProcessor) listener::processVote,
                     () -> localVotifierIngressReady && !localVotifierIngressClosed);
             votifierVoteOverflowQueue = queue;
             if (localVotifierIngressClosed) queue.close();

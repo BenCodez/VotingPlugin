@@ -14,6 +14,11 @@ import lombok.Setter;
 
 public class PlayerVoteEvent extends Event {
 
+	/** Stable local receipt identity, separate from proxy transport provenance. */
+	@Getter
+	@Setter
+	private UUID localOccurrenceId;
+
 	/** Original accepted occurrence time; ordinary cooldown/event time remains separate. */
 	@Getter
 	@Setter

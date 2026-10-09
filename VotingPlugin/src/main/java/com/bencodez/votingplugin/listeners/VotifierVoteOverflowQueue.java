@@ -17,6 +17,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -44,7 +45,9 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 	private final VotingPluginMain plugin;
 	@FunctionalInterface
 	public interface VoteProcessor { void process(String serviceSite, String username, long occurredAt); }
-	private final VoteProcessor processor;
+	@FunctionalInterface
+	public interface OccurrenceProcessor { void process(String serviceSite, String username, long occurredAt, UUID localOccurrenceId); }
+	private final OccurrenceProcessor processor;
     private final java.util.function.BooleanSupplier processingAllowed;
 	private final Path file;
 	private final ScheduledThreadPoolExecutor worker;
@@ -66,11 +69,16 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 	 * @param processor callback receiving service site and player name
 	 */
 	public VotifierVoteOverflowQueue(VotingPluginMain plugin, BiConsumer<String, String> processor) {
-        this(plugin, (site, user, occurredAt) -> processor.accept(site, user), () -> true);
+        this(plugin, (site, user, occurredAt, id) -> processor.accept(site, user), () -> true);
     }
 
     /** Additive callback retains receipt occurrence and fences a retired startup generation. */
     public VotifierVoteOverflowQueue(VotingPluginMain plugin, VoteProcessor processor,
+            java.util.function.BooleanSupplier processingAllowed) {
+        this(plugin, (site, user, time, id) -> processor.process(site, user, time), processingAllowed);
+    }
+
+    public VotifierVoteOverflowQueue(VotingPluginMain plugin, OccurrenceProcessor processor,
             java.util.function.BooleanSupplier processingAllowed) {
 		this.plugin = plugin;
 		this.processor = processor;
@@ -111,10 +119,14 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
     }
 
     public boolean enqueue(String username, String serviceSite, long occurredAt) {
-		if (username == null || serviceSite == null || occurredAt <= 0) return false;
+        return enqueue(username, serviceSite, occurredAt, UUID.randomUUID());
+    }
+
+    public boolean enqueue(String username, String serviceSite, long occurredAt, UUID localOccurrenceId) {
+		if (username == null || serviceSite == null || occurredAt <= 0 || localOccurrenceId == null) return false;
 		synchronized (lock) {
 			if (closed || entries.size() >= MAX_ENTRIES) return false;
-			entries.addLast(new PendingVote(username, serviceSite, occurredAt));
+			entries.addLast(new PendingVote(username, serviceSite, occurredAt, localOccurrenceId));
 			stateVersion++;
 			requestPersistenceLocked();
 			scheduleDrainLocked();
@@ -171,7 +183,7 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
                             return; // Retired generation retains the durable entry for restart.
                         }
 						try {
-							processor.process(pending.serviceSite, pending.username, pending.time);
+							processor.process(pending.serviceSite, pending.username, pending.time, pending.localOccurrenceId);
 						} finally {
 							acknowledge(pending);
 						}
@@ -283,7 +295,22 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 					skipped = true;
 					continue;
 				}
-				entries.addLast(new PendingVote(name, site, timestamp.longValue()));
+				UUID localOccurrenceId;
+                if (!map.containsKey("LocalOccurrenceId")) {
+                    localOccurrenceId = UUID.randomUUID();
+                    skipped = true; // Publish the migration before admitting any recovered row.
+                } else {
+                    Object rawId = map.get("LocalOccurrenceId");
+                    try {
+                        if (!(rawId instanceof String id)) throw new IllegalArgumentException();
+                        localOccurrenceId = UUID.fromString(id);
+                        if (!localOccurrenceId.toString().equalsIgnoreCase(id)) throw new IllegalArgumentException();
+                    } catch (IllegalArgumentException malformed) {
+                        skipped = true;
+                        continue; // Explicit corrupt IDs cannot become fresh occurrences.
+                    }
+                }
+                entries.addLast(new PendingVote(name, site, timestamp.longValue(), localOccurrenceId));
 			}
 			if (skipped) {
 				synchronized (lock) {
@@ -323,6 +350,7 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 			value.put("Username", pending.username);
 			value.put("ServiceSite", pending.serviceSite);
 			value.put("Time", pending.time);
+            value.put("LocalOccurrenceId", pending.localOccurrenceId.toString());
 			values.add(value);
 		}
 		yaml.set("Votes", values);
@@ -377,12 +405,14 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 		private final String username;
 		private final String serviceSite;
 		private final long time;
+        private final UUID localOccurrenceId;
 		private boolean submitted;
 
-		private PendingVote(String username, String serviceSite, long time) {
+		private PendingVote(String username, String serviceSite, long time, UUID localOccurrenceId) {
 			this.username = username;
 			this.serviceSite = serviceSite;
 			this.time = time;
+            this.localOccurrenceId = localOccurrenceId;
 		}
 	}
 }

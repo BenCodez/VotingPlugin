@@ -90,6 +90,8 @@ public class ServerData {
 		getData().set("TimedVoteCache." + num + ".Name", vote.getName());
 		getData().set("TimedVoteCache." + num + ".Service", vote.getService());
 		getData().set("TimedVoteCache." + num + ".Time", vote.getTime());
+        getData().set("TimedVoteCache." + num + ".LocalOccurrenceId",
+                vote.getLocalOccurrenceId() == null ? null : vote.getLocalOccurrenceId().toString());
         getData().set("TimedVoteCache." + num + ".CanonicalOccurrenceTime",
                 vote.getCanonicalOccurrenceTime() == 0L ? null : vote.getCanonicalOccurrenceTime());
 		saveData();
@@ -103,6 +105,12 @@ public class ServerData {
 	public void addVoteShopPurchase(String ident) {
 		setVoteShopPurchases(ident, (getVoteShopPurchases(ident) + 1));
 	}
+
+    /** Assign a legacy local cache row its identity before replay is scheduled. */
+    public void setTimedVoteLocalOccurrenceId(String key, UUID occurrenceId) {
+        getData().set("TimedVoteCache." + key + ".LocalOccurrenceId", occurrenceId.toString());
+        saveData();
+    }
 
 	/**
 	 * Clears the timed vote cache.

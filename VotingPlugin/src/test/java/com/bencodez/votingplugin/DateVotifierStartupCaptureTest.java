@@ -42,7 +42,9 @@ class DateVotifierStartupCaptureTest {
         final List<PlayerPostVoteEvent> posted = new CopyOnWriteArrayList<>();
         final CountDownLatch delivered;
         final DateVoteMilestones dates;
-        Fixture(Path directory, int expectedVotes) throws Exception {
+        volatile Runnable afterAccepted = () -> { };
+        Fixture(Path directory, int expectedVotes) throws Exception { this(directory, expectedVotes, UUID.randomUUID()); }
+        Fixture(Path directory, int expectedVotes, UUID playerId) throws Exception {
             delivered = new CountDownLatch(expectedVotes);
             timer.setExecuteExistingDelayedTasksAfterShutdownPolicy(false);
             timer.setThreadFactory(work -> new Thread(work, "date-startup-vote-owner"));
@@ -58,7 +60,6 @@ class DateVotifierStartupCaptureTest {
             when(plugin.getUserManager().getProperName("Steve")).thenReturn("Steve");
             when(plugin.getUserManager().getValidationService().validate("Steve", false)).thenReturn(
                     new UserValidationResult(ValidationStatus.VALID, "Steve", ValidationSource.STORAGE, "fixture", false));
-            UUID playerId = UUID.randomUUID();
             when(user.getPlayerName()).thenReturn("Steve"); when(user.getJavaUUID()).thenReturn(playerId);
             when(user.getUUID()).thenReturn(playerId.toString()); when(user.isOnline()).thenReturn(true);
             when(site.isEnabled()).thenReturn(true); when(site.getKey()).thenReturn("a"); when(site.getServiceSite()).thenReturn(SERVICE);
@@ -81,6 +82,7 @@ class DateVotifierStartupCaptureTest {
                     vote.setVotingPluginUser(user); accepted.add(vote);
                     var consumer = registered.stream().filter(PlayerVoteListener.class::isInstance).map(PlayerVoteListener.class::cast).findFirst().orElseThrow();
                     consumer.onplayerVote(vote);
+                    afterAccepted.run();
                 } else if (event instanceof PlayerPostVoteEvent post) { posted.add(post); delivered.countDown(); }
                 return null;
             }).when(manager).callEvent(any());
@@ -122,6 +124,9 @@ class DateVotifierStartupCaptureTest {
                 assertEquals(occurrence, fixture.posted.get(index).getCanonicalOccurrenceTime());
                 assertTrue(fixture.posted.get(index).getVoteTime() >= openedAt);
             }
+            assertEquals(3, fixture.accepted.stream().map(PlayerVoteEvent::getLocalOccurrenceId).distinct().count());
+            assertTrue(fixture.accepted.stream().allMatch(vote -> vote.getLocalOccurrenceId() != null && vote.getProxyVoteId() == null));
+            for (int index = 0; index < 3; index++) assertEquals(fixture.accepted.get(index).getLocalOccurrenceId(), fixture.posted.get(index).getVoteUUID());
             assertEquals(3, fixture.progress().votes());
             verify(fixture.user, times(3)).setTime(fixture.site);
             verify(fixture.user, never()).setTime(eq(fixture.site), anyLong());
@@ -161,6 +166,53 @@ class DateVotifierStartupCaptureTest {
             assertEquals(1, restarted.accepted.size()); assertEquals(original, restarted.accepted.getFirst().getCanonicalOccurrenceTime());
             assertEquals(0L, restarted.accepted.getFirst().getTime()); assertEquals(original, restarted.posted.getFirst().getCanonicalOccurrenceTime());
             assertEquals(1, restarted.progress().votes()); verify(restarted.user).addTotal();
+        }
+    }
+
+    @Test void crashAfterLedgerBeforeOverflowAckReplaysTheSameOccurrenceWithoutAnotherAward() throws Exception {
+        UUID playerId = UUID.randomUUID();
+        UUID original;
+        long originalTime;
+        var committed = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        try (var fixture = new Fixture(root, 1, playerId)) {
+            // Recounting a replay would unlock a distinct second reward.
+            fixture.config.set("DateVoteMilestones.startup.Milestones.2.Rewards.Messages.Player", "Second");
+            fixture.afterAccepted = () -> {
+                committed.countDown();
+                try { assertTrue(release.await(3, TimeUnit.SECONDS)); }
+                catch (InterruptedException failure) { throw new AssertionError(failure); }
+            };
+            fixture.plugin.registerEarlyVotifierIngress(); fixture.drain(); fixture.vote(); fixture.drain();
+            fixture.open();
+            assertTrue(committed.await(3, TimeUnit.SECONDS));
+            try {
+                assertEquals(1, fixture.progress().votes());
+                original = fixture.accepted.getFirst().getLocalOccurrenceId();
+                originalTime = fixture.accepted.getFirst().getCanonicalOccurrenceTime();
+                // The native callback has not returned, so existing shutdown retains
+                // precisely the same durable receipt a process crash would leave.
+                fixture.plugin.getVotifierVoteOverflowQueue().close();
+                var disk = YamlConfiguration.loadConfiguration(root.resolve("VotifierVoteQueue.yml").toFile());
+                assertEquals(original.toString(), disk.getMapList("Votes").getFirst().get("LocalOccurrenceId"));
+                verify(fixture.plugin.getRewardHandler(), times(1)).giveReward(eq(fixture.user), any(), startsWith("DateVoteMilestonesRuntime."), any());
+            } finally { release.countDown(); }
+            fixture.drain();
+        }
+        try (var restarted = new Fixture(root, 1, playerId)) {
+            restarted.config.set("DateVoteMilestones.startup.Milestones.2.Rewards.Messages.Player", "Second");
+            restarted.plugin.registerEarlyVotifierIngress(); restarted.drain(); restarted.open(); restarted.received();
+            assertEquals(original, restarted.accepted.getFirst().getLocalOccurrenceId());
+            assertEquals(original, restarted.posted.getFirst().getVoteUUID());
+            assertNull(restarted.accepted.getFirst().getProxyVoteId());
+            assertFalse(restarted.accepted.getFirst().isBungee());
+            assertEquals(originalTime, restarted.accepted.getFirst().getCanonicalOccurrenceTime());
+            assertEquals(0L, restarted.accepted.getFirst().getTime());
+            assertEquals(1, restarted.progress().votes());
+            verify(restarted.plugin.getRewardHandler(), never()).giveReward(any(), any(), anyString(), any());
+            // Ordinary effects retain their existing at-least-once replay semantics.
+            verify(restarted.user).setTime(restarted.site);
+            verify(restarted.user).addTotal(); verify(restarted.user).playerVote(restarted.site, true, false);
         }
     }
 

@@ -255,6 +255,47 @@ class VotifierVoteOverflowQueueTest {
 		}
 	}
 
+    @Test
+    void legacyRowsReceiveDistinctDurableIdsBeforeDrainAndMalformedIdsFailClosed(@TempDir Path dataFolder) throws Exception {
+        VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+        ScheduledExecutorService voteTimer = Executors.newSingleThreadScheduledExecutor();
+        when(plugin.getDataFolder()).thenReturn(dataFolder.toFile());
+        when(plugin.getVoteTimer()).thenReturn(voteTimer);
+        Path file = dataFolder.resolve("VotifierVoteQueue.yml");
+        Files.writeString(file, """
+                Votes:
+                - {Username: Steve, ServiceSite: example.org, Time: 123}
+                - {Username: Steve, ServiceSite: example.org, Time: 123}
+                - {Username: Steve, ServiceSite: example.org, Time: 123, LocalOccurrenceId: bad}
+                - {Username: Steve, ServiceSite: example.org, Time: 123, LocalOccurrenceId: 1-1-1-1-1}
+                - {Username: Steve, ServiceSite: example.org, Time: 123, LocalOccurrenceId: 12}
+                """);
+        var received = new java.util.concurrent.CopyOnWriteArrayList<java.util.UUID>();
+        var done = new CountDownLatch(2);
+        VotifierVoteOverflowQueue queue = new VotifierVoteOverflowQueue(plugin,
+                (site, user, time, id) -> { received.add(id); done.countDown(); }, () -> true);
+        try {
+            assertEquals(2, queue.size());
+            // Closing before admission forces the automatic legacy migration to disk.
+            queue.close();
+            var durable = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(file.toFile()).getMapList("Votes");
+            assertEquals(2, durable.size());
+            var expected = durable.stream().map(row -> java.util.UUID.fromString((String) row.get("LocalOccurrenceId"))).toList();
+            assertEquals(2, expected.stream().distinct().count(), "identical historical receipt fields are distinct rows");
+            try (var restarted = new VotifierVoteOverflowQueue(plugin, (site, user, time, id) -> {
+                var admitted = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(file.toFile()).getMapList("Votes");
+                assertTrue(admitted.stream().anyMatch(row -> id.toString().equals(row.get("LocalOccurrenceId"))),
+                        "the occurrence must be published before admission");
+                assertEquals(123L, time);
+                received.add(id); done.countDown();
+            }, () -> true)) {
+                restarted.start();
+                assertTrue(done.await(3, TimeUnit.SECONDS));
+                assertEquals(expected, received);
+            }
+        } finally { queue.close(); voteTimer.shutdownNow(); }
+    }
+
 	private static void waitForFile(Path file) throws Exception {
 		long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
 		while (!Files.exists(file) && System.nanoTime() < deadline) {
