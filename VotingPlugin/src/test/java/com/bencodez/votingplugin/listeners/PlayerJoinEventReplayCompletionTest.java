@@ -30,7 +30,7 @@ import com.bencodez.votingplugin.user.VotingPluginUser;
 
 class PlayerJoinEventReplayCompletionTest {
 	@Test
-	void storedUserLoginWaitsForReplaySuccessAndTheStorageWorker() {
+	void storedUserLoginReportsPresenceWhileWaitingForReplayAndLoginRewards() {
 		Fixture fixture = new Fixture(true);
 		CompletableFuture<Void> replay = new CompletableFuture<>();
 		doReturn(replay).when(fixture.user).offVoteAsync(fixture.player);
@@ -38,19 +38,29 @@ class PlayerJoinEventReplayCompletionTest {
 		fixture.login();
 
 		verify(fixture.user).offVoteAndThen(any(Player.class), any(Runnable.class));
-		fixture.verifyNoFollowUp();
-		assertTrue(fixture.worker.isEmpty(), "an admitted replay is not a completed login");
-		assertTrue(fixture.presence.isOnline(fixture.uuid), "presence must be published before replay");
+		fixture.verifyNoRewardFollowUp();
+		assertEquals(1, fixture.worker.size(), "presence must not await replay completion");
+		assertTrue(fixture.presence.isOnline(fixture.uuid));
+		fixture.runWorker();
+		fixture.verifyProxyPresence();
+		fixture.verifyNoRewardFollowUp();
 		replay.complete(null);
-		fixture.verifyNoFollowUp();
-		assertEquals(1, fixture.worker.size(), "completion must hand dependent work back to storage");
-		fixture.worker.remove().run();
+		fixture.verifyNoRewardFollowUp();
+		assertEquals(1, fixture.worker.size(), "replay completion must hand login rewards back to storage");
+		fixture.runWorker();
+		verify(fixture.user).loginRewardsAsync();
+		verify(fixture.plugin.getPlaceholders(), never()).onUpdate(fixture.user, true);
+		assertTrue(fixture.worker.isEmpty(), "reward admission is not reward completion");
+		fixture.rewards.complete(null);
+		verify(fixture.plugin.getPlaceholders(), never()).onUpdate(fixture.user, true);
+		assertEquals(1, fixture.worker.size(), "reward completion must return placeholders to storage");
+		fixture.runWorker();
 
 		fixture.verifyFollowUpOrder();
 	}
 
 	@Test
-	void failedReplaySuppressesLoginRewardsPlaceholdersAndProxyNotification() {
+	void failedReplaySuppressesRewardFollowUpButStillReportsProxyPresence() {
 		Fixture fixture = new Fixture(true);
 		CompletableFuture<Void> replay = new CompletableFuture<>();
 		doReturn(replay).when(fixture.user).offVoteAsync(fixture.player);
@@ -58,22 +68,41 @@ class PlayerJoinEventReplayCompletionTest {
 		fixture.login();
 		replay.completeExceptionally(new IllegalStateException("replay commit failed"));
 
-		fixture.verifyNoFollowUp();
+		fixture.verifyNoRewardFollowUp();
+		assertEquals(1, fixture.worker.size());
+		fixture.runWorker();
+		fixture.verifyProxyPresence();
+		fixture.verifyNoRewardFollowUp();
 		assertTrue(fixture.worker.isEmpty());
 	}
 
 	@Test
-	void noDataLoginSkipsReplayButStillSchedulesFollowUpOnStorage() {
+	void failedLoginRewardsCannotRefreshPlaceholdersOrSuppressPresence() {
 		Fixture fixture = new Fixture(false);
+		fixture.login();
+		fixture.runWorker();
+		fixture.runWorker();
 
+		fixture.rewards.completeExceptionally(new IllegalStateException("reward action failed"));
+
+		fixture.verifyProxyPresence();
+		verify(fixture.user).loginRewardsAsync();
+		verify(fixture.user, never()).loginRewards();
+		verify(fixture.plugin.getPlaceholders(), never()).onUpdate(fixture.user, true);
+		assertTrue(fixture.worker.isEmpty());
+	}
+
+	@Test
+	void noDataLoginSkipsReplayButStillSchedulesRewardsAndPlaceholdersOnStorage() {
+		Fixture fixture = new Fixture(false);
 		fixture.login();
 
 		verify(fixture.user, never()).offVoteAsync(any());
 		verify(fixture.user, never()).offVoteAndThen(any(), any(Runnable.class));
-		fixture.verifyNoFollowUp();
-		assertEquals(1, fixture.worker.size());
+		fixture.verifyNoRewardFollowUp();
+		assertEquals(2, fixture.worker.size());
 		assertTrue(fixture.presence.isOnline(fixture.uuid));
-		fixture.worker.remove().run();
+		fixture.finishLogin();
 		fixture.verifyFollowUpOrder();
 	}
 
@@ -81,12 +110,11 @@ class PlayerJoinEventReplayCompletionTest {
 	void disabledOfflineRewardsStillAllowTheWorkerScheduledLoginContinuation() {
 		Fixture fixture = new Fixture(true);
 		when(fixture.plugin.getOptions().isProcessRewards()).thenReturn(false);
-
 		fixture.login();
 
-		fixture.verifyNoFollowUp();
-		assertEquals(1, fixture.worker.size());
-		fixture.worker.remove().run();
+		fixture.verifyNoRewardFollowUp();
+		assertEquals(2, fixture.worker.size());
+		fixture.finishLogin();
 		fixture.verifyFollowUpOrder();
 	}
 
@@ -95,13 +123,40 @@ class PlayerJoinEventReplayCompletionTest {
 		Fixture fixture = new Fixture(true);
 		when(fixture.event.getPlayer()).thenReturn(null);
 		when(fixture.plugin.getOptions().isProcessRewards()).thenReturn(true);
-
 		fixture.login();
 
-		fixture.verifyNoFollowUp();
-		assertEquals(1, fixture.worker.size());
-		fixture.worker.remove().run();
+		fixture.verifyNoRewardFollowUp();
+		assertEquals(2, fixture.worker.size());
+		fixture.finishLogin();
 		fixture.verifyFollowUpOrder();
+	}
+
+	@Test
+	void completedNoOpLoginRewardsStillRefreshPlaceholdersOnlyOnStorage() {
+		Fixture fixture = new Fixture(false);
+		doAnswer(call -> {
+			assertTrue(fixture.onStorageWorker);
+			return CompletableFuture.completedFuture(null);
+		}).when(fixture.user).loginRewardsAsync();
+		fixture.login();
+		fixture.runWorker();
+		fixture.runWorker();
+
+		verify(fixture.plugin.getPlaceholders(), never()).onUpdate(fixture.user, true);
+		assertEquals(1, fixture.worker.size());
+		fixture.runWorker();
+		fixture.verifyFollowUpOrder();
+	}
+
+	@Test
+	void disabledProxyModeSkipsTheIndependentPresenceReport() {
+		Fixture fixture = new Fixture(false);
+		when(fixture.plugin.getBungeeSettings().isUseBungeecoord()).thenReturn(false);
+		fixture.login();
+		fixture.finishLogin();
+
+		verify(fixture.plugin.getBackendProxyHandler(), never()).playerOnline("Player", fixture.uuid.toString());
+		verify(fixture.plugin.getPlaceholders()).onUpdate(fixture.user, true);
 	}
 
 	@Test
@@ -132,27 +187,59 @@ class PlayerJoinEventReplayCompletionTest {
 	}
 
 	@Test
-	void quitWhileReplayIsPendingCannotPublishAStaleLogin() {
+	void quitBeforeQueuedPresenceAndReplayCompletionCannotPublishAStaleLogin() {
 		Fixture fixture = new Fixture(true);
 		CompletableFuture<Void> replay = new CompletableFuture<>();
 		doReturn(replay).when(fixture.user).offVoteAsync(fixture.player);
 		fixture.login();
 		fixture.presence.playerOffline(fixture.uuid, fixture.player);
 		replay.complete(null);
-		fixture.worker.remove().run();
-		fixture.verifyNoFollowUp();
+		fixture.runWorker();
+		fixture.runWorker();
+
+		fixture.verifyNoRewardFollowUp();
+		verify(fixture.plugin.getBackendProxyHandler(), never()).playerOnline("Player", fixture.uuid.toString());
 	}
 
 	@Test
-	void replacementLoginCannotReceiveTheEarlierOwnersFollowUp() {
+	void replacementBeforeQueuedPresenceAndReplayCompletionCannotReceiveEarlierFollowUp() {
 		Fixture fixture = new Fixture(true);
 		CompletableFuture<Void> replay = new CompletableFuture<>();
 		doReturn(replay).when(fixture.user).offVoteAsync(fixture.player);
 		fixture.login();
 		fixture.presence.playerOnline(fixture.uuid, mock(Player.class));
 		replay.complete(null);
-		fixture.worker.remove().run();
-		fixture.verifyNoFollowUp();
+		fixture.runWorker();
+		fixture.runWorker();
+
+		fixture.verifyNoRewardFollowUp();
+		verify(fixture.plugin.getBackendProxyHandler(), never()).playerOnline("Player", fixture.uuid.toString());
+	}
+
+	@Test
+	void quitWhileLoginRewardsArePendingCannotRefreshPlaceholders() {
+		Fixture fixture = new Fixture(false);
+		fixture.login();
+		fixture.runWorker();
+		fixture.runWorker();
+		fixture.presence.playerOffline(fixture.uuid, fixture.player);
+		fixture.rewards.complete(null);
+		fixture.runWorker();
+
+		verify(fixture.plugin.getPlaceholders(), never()).onUpdate(fixture.user, true);
+	}
+
+	@Test
+	void replacementAfterRewardCompletionBeforeQueuedRefreshPreservesReplacementPlaceholders() {
+		Fixture fixture = new Fixture(false);
+		fixture.login();
+		fixture.runWorker();
+		fixture.runWorker();
+		fixture.rewards.complete(null);
+		fixture.presence.playerOnline(fixture.uuid, mock(Player.class));
+		fixture.runWorker();
+
+		verify(fixture.plugin.getPlaceholders(), never()).onUpdate(fixture.user, true);
 	}
 
 	/** Use the real continuation helper with controlled replay completion and worker admission. */
@@ -164,6 +251,8 @@ class PlayerJoinEventReplayCompletionTest {
 		final AdvancedCoreLoginEvent event = mock(AdvancedCoreLoginEvent.class);
 		final PlaceholderPlayerPresence presence = new PlaceholderPlayerPresence();
 		final Queue<Runnable> worker = new ArrayDeque<>();
+		final CompletableFuture<Void> rewards = new CompletableFuture<>();
+		boolean onStorageWorker;
 
 		Fixture(boolean hasData) {
 			AdvancedCoreUser base = mock(AdvancedCoreUser.class);
@@ -174,7 +263,20 @@ class PlayerJoinEventReplayCompletionTest {
 			doReturn(uuid).when(user).getJavaUUID();
 			doReturn(uuid.toString()).when(user).getUUID();
 			doReturn("Player").when(user).getPlayerName();
-			doNothing().when(user).loginRewards();
+			doAnswer(call -> {
+				assertTrue(onStorageWorker, "login reward planning must stay on storage");
+				return rewards;
+			}).when(user).loginRewardsAsync();
+			var placeholders = plugin.getPlaceholders();
+			var proxyHandler = plugin.getBackendProxyHandler();
+			doAnswer(call -> {
+				assertTrue(onStorageWorker, "placeholder refresh reads storage");
+				return null;
+			}).when(placeholders).onUpdate(user, true);
+			doAnswer(call -> {
+				assertTrue(onStorageWorker, "proxy presence reads the storage-backed player name");
+				return null;
+			}).when(proxyHandler).playerOnline("Player", uuid.toString());
 			when(plugin.isMySQLOkay()).thenReturn(true);
 			when(plugin.getPlaceholderPlayerPresence()).thenReturn(presence);
 			when(plugin.getVotingPluginUserManager().getVotingPluginUser(uuid.toString())).thenReturn(user);
@@ -195,17 +297,39 @@ class PlayerJoinEventReplayCompletionTest {
 			new PlayerJoinEvent(plugin).onPlayerLogin(event);
 		}
 
-		void verifyNoFollowUp() {
+		void runWorker() {
+			onStorageWorker = true;
+			try {
+				worker.remove().run();
+			} finally {
+				onStorageWorker = false;
+			}
+		}
+
+		void finishLogin() {
+			runWorker();
+			runWorker();
+			rewards.complete(null);
+			runWorker();
+			assertTrue(worker.isEmpty());
+		}
+
+		void verifyNoRewardFollowUp() {
 			verify(user, never()).loginRewards();
+			verify(user, never()).loginRewardsAsync();
 			verify(plugin.getPlaceholders(), never()).onUpdate(user, true);
-			verify(plugin.getBackendProxyHandler(), never()).playerOnline("Player", uuid.toString());
+		}
+
+		void verifyProxyPresence() {
+			verify(plugin.getBackendProxyHandler()).playerOnline("Player", uuid.toString());
 		}
 
 		void verifyFollowUpOrder() {
+			verify(user, never()).loginRewards();
 			InOrder ordered = inOrder(user, plugin.getPlaceholders(), plugin.getBackendProxyHandler());
-			ordered.verify(user).loginRewards();
-			ordered.verify(plugin.getPlaceholders()).onUpdate(user, true);
 			ordered.verify(plugin.getBackendProxyHandler()).playerOnline("Player", uuid.toString());
+			ordered.verify(user).loginRewardsAsync();
+			ordered.verify(plugin.getPlaceholders()).onUpdate(user, true);
 		}
 	}
 }

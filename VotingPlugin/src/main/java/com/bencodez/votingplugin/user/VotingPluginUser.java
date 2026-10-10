@@ -2001,6 +2001,14 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		}
 	}
 
+	/** Storage preparation stays on its caller; AdvancedCore owns platform reward scheduling. */
+	public CompletionStage<Void> loginRewardsAsync() {
+		if (!plugin.getRewardHandler().hasRewards(plugin.getSpecialRewardsConfig().getData(), "LoginRewards")) {
+			return CompletableFuture.completedFuture(null);
+		}
+		return new RewardBuilder(plugin.getSpecialRewardsConfig().getData(), "LoginRewards").sendAsync(this);
+	}
+
 	/**
 	 * Gives logout rewards to the user.
 	 */
@@ -2049,7 +2057,9 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			return CompletableFuture.completedFuture(null);
 		}
 		CompletableFuture<Void> confirmed = new CompletableFuture<>();
-		BukkitCompletionScheduler.run(plugin, player, () -> {
+		plugin.getOfflineVoteOwnerHandoffs().submit(confirmed, begin ->
+				BukkitCompletionScheduler.run(plugin, player, () -> {
+			if (!begin.getAsBoolean()) return;
 			try {
 				if (!player.isOnline()) {
 					confirmed.complete(null);
@@ -2070,8 +2080,10 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			} catch (RuntimeException | Error failure) {
 				confirmed.completeExceptionally(failure);
 			}
-		}, () -> confirmed.complete(null), () -> confirmed.completeExceptionally(
-				new IllegalStateException("Offline replay owner scheduling rejected")));
+		}, () -> { if (begin.getAsBoolean()) confirmed.complete(null); }, () -> {
+			if (begin.getAsBoolean()) confirmed.completeExceptionally(
+					new IllegalStateException("Offline replay owner scheduling rejected"));
+		}));
 		return confirmed;
 	}
 

@@ -398,12 +398,79 @@ class VotingPluginUserOfflineVoteReplayTest {
 	private org.bukkit.entity.Player installReplayOwner(AsyncReplayFixture fixture) {
 		org.bukkit.entity.Player player = mock(org.bukkit.entity.Player.class);
 		when(player.isOnline()).thenReturn(true);
+		when(fixture.plugin.getOfflineVoteOwnerHandoffs()).thenReturn(new OfflineVoteOwnerHandoffs());
 		com.bencodez.simpleapi.scheduler.BukkitScheduler scheduler =
 				mock(com.bencodez.simpleapi.scheduler.BukkitScheduler.class);
 		when(fixture.plugin.getBukkitScheduler()).thenReturn(scheduler);
 		doAnswer(call -> { call.getArgument(1, Runnable.class).run(); return null; })
 				.when(scheduler).runTask(eq(fixture.plugin), org.mockito.ArgumentMatchers.any(Runnable.class), eq(player));
 		return player;
+	}
+
+	@Test
+	void loginRewardFacadeAwaitsAsyncEffectsWithoutCallingSynchronousSend() {
+		AsyncReplayFixture fixture = asyncFixture();
+		when(fixture.plugin.getRewardHandler().hasRewards(fixture.plugin.getSpecialRewardsConfig().getData(),
+				"LoginRewards")).thenReturn(true);
+		CompletableFuture<Void> effects = new CompletableFuture<>();
+		try (var builders = org.mockito.Mockito.mockConstruction(
+				com.bencodez.advancedcore.api.rewards.RewardBuilder.class,
+				(builder, context) -> when(builder.sendAsync(fixture.user)).thenReturn(effects))) {
+			var completion = fixture.user.loginRewardsAsync().toCompletableFuture();
+			assertFalse(completion.isDone());
+			verify(builders.constructed().getFirst()).sendAsync(fixture.user);
+			verify(builders.constructed().getFirst(), never()).send(fixture.user);
+			effects.complete(null);
+			completion.join();
+		}
+	}
+
+	@Test
+	void absentLoginRewardsAreACompletedNoOp() {
+		AsyncReplayFixture fixture = asyncFixture();
+		try (var builders = org.mockito.Mockito.mockConstruction(com.bencodez.advancedcore.api.rewards.RewardBuilder.class)) {
+			fixture.user.loginRewardsAsync().toCompletableFuture().join();
+			assertTrue(builders.constructed().isEmpty());
+		}
+	}
+
+	@Test
+	void reloadRetriesCanceledOwnerAdmissionWithoutDuplicateRewardDelivery() {
+		AsyncReplayFixture fixture = asyncFixture();
+		org.bukkit.entity.Player player = installReplayOwner(fixture);
+		java.util.ArrayList<Runnable> callbacks = new java.util.ArrayList<>();
+		var scheduler = fixture.plugin.getBukkitScheduler();
+		doAnswer(call -> { callbacks.add(call.getArgument(1, Runnable.class)); return null; })
+				.when(scheduler).runTask(eq(fixture.plugin), org.mockito.ArgumentMatchers.any(Runnable.class), eq(player));
+		CompletableFuture<Void> replay = fixture.user.offVoteAsync(player).toCompletableFuture();
+		assertFalse(replay.isDone());
+		OfflineVoteOwnerHandoffs handoffs = fixture.plugin.getOfflineVoteOwnerHandoffs();
+		handoffs.pause(); handoffs.resume();
+		assertEquals(2, callbacks.size());
+		callbacks.getFirst().run(); // Even if the canceled old callback eventually runs, it is inert.
+		assertTrue(fixture.pending.get().isEmpty());
+		callbacks.getLast().run();
+		assertEquals(List.of("Site1"), fixture.pending.get());
+		fixture.anySiteRewards.complete(null);
+		replay.join();
+		verify(fixture.plugin.getRewardHandler(), org.mockito.Mockito.times(1)).giveRewardAsync(
+				org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+				org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+		assertTrue(fixture.queued.get().isEmpty());
+	}
+
+	@Test
+	void shutdownCompletesCanceledOwnerAdmissionWithoutTouchingOfflineQueue() {
+		AsyncReplayFixture fixture = asyncFixture();
+		org.bukkit.entity.Player player = installReplayOwner(fixture);
+		var scheduler = fixture.plugin.getBukkitScheduler();
+		doAnswer(call -> null).when(scheduler).runTask(eq(fixture.plugin),
+				org.mockito.ArgumentMatchers.any(Runnable.class), eq(player));
+		CompletableFuture<Void> replay = fixture.user.offVoteAsync(player).toCompletableFuture();
+		fixture.plugin.getOfflineVoteOwnerHandoffs().close();
+		assertTrue(replay.isCompletedExceptionally());
+		assertEquals(List.of("Site1"), fixture.queued.get());
+		assertTrue(fixture.pending.get().isEmpty());
 	}
 
 	@Test

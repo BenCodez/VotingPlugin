@@ -241,6 +241,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private final PlaceholderPlayerPresence placeholderPlayerPresence = new PlaceholderPlayerPresence();
 
 	@Getter
+	private final com.bencodez.votingplugin.user.OfflineVoteOwnerHandoffs offlineVoteOwnerHandoffs =
+			new com.bencodez.votingplugin.user.OfflineVoteOwnerHandoffs();
+
+	@Getter
 	private VoteTester voteTester;
 
 
@@ -1940,6 +1944,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Override
 	public void onDisable() {
+		if (offlineVoteOwnerHandoffs != null) offlineVoteOwnerHandoffs.close();
 		try {
 			shutdownVoteReminders();
 		} finally {
@@ -2118,6 +2123,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	private void reloadPlugin(boolean userStorage, boolean reconcileHostedControl,
 			boolean updateActiveBackendRuntime) {
+		if (offlineVoteOwnerHandoffs != null) offlineVoteOwnerHandoffs.pause();
+		try {
 		configFile.reloadData();
 		configFile.loadValues();
 
@@ -2168,6 +2175,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		if (reconcileHostedControl) restartBackendControlConnector();
 
 		setUpdate(true);
+		} finally {
+			if (offlineVoteOwnerHandoffs != null) offlineVoteOwnerHandoffs.resume();
+		}
 	}
 
 	void reloadBackendProxyRuntime(boolean updateActiveRuntime, boolean userStorage) {

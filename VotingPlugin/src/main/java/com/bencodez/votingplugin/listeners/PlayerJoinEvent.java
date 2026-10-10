@@ -94,16 +94,37 @@ public class PlayerJoinEvent implements Listener {
 			}, () -> { }, () -> { });
 		}
 
+		// Proxy routing needs live presence even when offline reward replay fails.
+		plugin.getUserManager().getDataManager().getTimer().execute(() -> {
+			if (player != null && plugin.getPlaceholderPlayerPresence().schedulerOwner(user.getJavaUUID()) != player) {
+				return;
+			}
+			if (plugin.getBungeeSettings().isUseBungeecoord()) {
+				plugin.getBackendProxyHandler().playerOnline(user.getPlayerName(), user.getUUID());
+			}
+		});
 		Runnable afterOfflineVotes = () -> {
 			// Replay may finish after quit or a replacement login for the same storage UUID.
 			if (player != null && plugin.getPlaceholderPlayerPresence().schedulerOwner(user.getJavaUUID()) != player) {
 				return;
 			}
-			user.loginRewards();
-			plugin.getPlaceholders().onUpdate(user, true);
-			if (plugin.getBungeeSettings().isUseBungeecoord()) {
-				plugin.getBackendProxyHandler().playerOnline(user.getPlayerName(), user.getUUID());
-			}
+			user.loginRewardsAsync().whenComplete((ignored, failure) -> {
+				if (failure != null) {
+					plugin.getLogger().warning("Login rewards failed for " + uuid + ": " + failure);
+					return;
+				}
+				try {
+					// Reward completion can run on a player owner; storage-backed placeholders cannot.
+					plugin.getUserManager().getDataManager().getTimer().execute(() -> {
+						if (player != null && plugin.getPlaceholderPlayerPresence().schedulerOwner(user.getJavaUUID()) != player) {
+							return;
+						}
+						plugin.getPlaceholders().onUpdate(user, true);
+					});
+				} catch (RuntimeException rejected) {
+					plugin.getLogger().warning("Login placeholder update rejected for " + uuid + ": " + rejected);
+				}
+			});
 		};
 		if (hasData) {
 			// Follow-up work requires confirmed durable replay, not task admission.
