@@ -15,6 +15,12 @@ mvn -B -f VotingPlugin/pom.xml package
 VotingPlugin Control is an optional management plane. Voting, routing, rewards, joins, and shutdown do not depend on it;
 connectors use outbound requests and capability negotiation so either repository can be upgraded independently.
 
+## Experimental voting menu
+
+An opt-in native holographic vote menu is available through `/av testhologram` on Minecraft 1.19.4+.
+See [configuration, testing instructions, and interaction limits](docs/experimental-hologram-vote-gui.md).
+The normal `/vote` inventory GUI is unchanged.
+
 ## Optional Control feature set
 
 - Authenticated outbound discovery/configuration connectors for Bukkit, BungeeCord, and Velocity nodes.
