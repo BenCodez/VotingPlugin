@@ -1057,7 +1057,7 @@ public class CommandLoader {
 					return;
 				}
 				runBulkStorageMutation(sender, () -> {
-					plugin.getUserManager().removeAllKeyValues("OfflineVotes", DataType.STRING);
+					plugin.getVotingPluginUserManager().clearAllOfflineVotes();
 					plugin.getUserManager().removeAllKeyValues(plugin.getUserManager().getOfflineRewardsPath(), DataType.STRING);
 				}, () -> sender.sendMessage(MessageAPI.colorize("&cCleared offline votes/rewards")));
 			}
@@ -1844,7 +1844,7 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				runBulkStorageMutation(sender,
-						() -> plugin.getUserManager().removeAllKeyValues("OfflineVotes", DataType.STRING),
+						() -> plugin.getVotingPluginUserManager().clearAllOfflineVotes(),
 						() -> sender.sendMessage(MessageAPI.colorize("&cOffline votes Cleared")));
 			}
 		});

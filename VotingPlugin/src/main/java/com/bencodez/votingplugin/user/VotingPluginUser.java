@@ -2591,6 +2591,13 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @param offlineVotes the list of offline votes
 	 */
 	public void setOfflineVotes(ArrayList<String> offlineVotes) {
+		ArrayList<String> pending = getPendingOfflineVoteRewardBatch();
+		if ((!pending.isEmpty() && (offlineVotes.size() < pending.size()
+				|| !offlineVotes.subList(0, pending.size()).equals(pending)))
+				|| (pending.isEmpty() && isOfflineVoteRewardReplayActive())) {
+			throw new IllegalStateException("Offline rewards are active or require reconciliation for "
+					+ getUUID() + "; use /av OfflineVoteRecovery before replacing the queue");
+		}
 		getUserData().setStringList("OfflineVotes", offlineVotes);
 	}
 

@@ -210,6 +210,36 @@ class VotingPluginUserOfflineVoteReplayTest {
 		assertEquals(List.of("Site1"), fixture.queued.get());
 	}
 
+	@Test
+	void clearingUnresolvedBatchPreservesQueueAndRecoveryEvidence() {
+		AsyncReplayFixture fixture = asyncFixture();
+		fixture.pending.set(new ArrayList<>(List.of("Site1")));
+		assertThrows(IllegalStateException.class, fixture.user::clearOfflineVotes);
+		assertThrows(IllegalStateException.class,
+				() -> fixture.user.setOfflineVotes(new ArrayList<>(List.of("OtherSite"))));
+		assertEquals(List.of("Site1"), fixture.queued.get());
+		assertEquals(List.of("Site1"), fixture.pending.get());
+		verify(fixture.user.getUserData(), never()).setStringList(eq("OfflineVotes"), org.mockito.ArgumentMatchers.any());
+		verify(fixture.user, never()).setOfflineRewards(org.mockito.ArgumentMatchers.any(ArrayList.class));
+	}
+
+	@Test
+	void pendingBatchStillAllowsNewVotesToBeAppended() {
+		AsyncReplayFixture fixture = asyncFixture();
+		fixture.pending.set(new ArrayList<>(List.of("Site1")));
+		fixture.user.setOfflineVotes(new ArrayList<>(List.of("Site1", "NewVote")));
+		verify(fixture.user.getUserData()).setStringList("OfflineVotes",
+				new ArrayList<>(List.of("Site1", "NewVote")));
+		assertEquals(List.of("Site1"), fixture.pending.get());
+	}
+
+	@Test
+	void ordinaryClearStillWorksWithoutUnresolvedRewards() {
+		AsyncReplayFixture fixture = asyncFixture();
+		fixture.user.clearOfflineVotes();
+		verify(fixture.user.getUserData()).setStringList("OfflineVotes", new ArrayList<>());
+	}
+
 	/** Mock persistence boundaries but exercise the real async user method. */
 	private static AsyncReplayFixture asyncFixture() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
@@ -225,6 +255,8 @@ class VotingPluginUserOfflineVoteReplayTest {
 		doReturn(data).when(user).getUserData();
 		doReturn(false).when(user).isTopVoterIgnore();
 		doNothing().when(user).cache();
+		// AdvancedCore owns generic queued rewards; this fixture tests the vote queue.
+		doNothing().when(user).setOfflineRewards(org.mockito.ArgumentMatchers.any(ArrayList.class));
 
 		AtomicReference<ArrayList<String>> queued = new AtomicReference<>(
 				new ArrayList<>(List.of("Site1")));

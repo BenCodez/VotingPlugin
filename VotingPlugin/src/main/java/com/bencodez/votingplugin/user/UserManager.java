@@ -108,6 +108,26 @@ public class UserManager {
 	}
 
 	/**
+	 * Clear the offline-vote column only when no unresolved batch would be
+	 * orphaned. Run on the ordered user-storage worker. Check every stored user
+	 * before the bulk write, so a rejected clear leaves all queues untouched.
+	 * Pending batches must be explicitly reconciled, never silently discarded.
+	 */
+	public void clearAllOfflineVotes() {
+		for (String storedUuid : getAllUUIDs()) {
+			VotingPluginUser user = getVotingPluginUser(UUID.fromString(storedUuid), false);
+			user.cache();
+			if (user.isOfflineVoteRewardReplayActive() || !user.getPendingOfflineVoteRewardBatch().isEmpty()) {
+				plugin.getLogger().warning("Offline vote clear refused: active or pending rewards for " + storedUuid
+						+ "; use /av OfflineVoteRecovery first");
+				throw new IllegalStateException("Offline rewards are active or pending for " + storedUuid
+						+ "; use /av OfflineVoteRecovery before clearing offline votes");
+			}
+		}
+		plugin.getUserManager().removeAllKeyValues("OfflineVotes", com.bencodez.simpleapi.sql.DataType.STRING);
+	}
+
+	/**
 	 * Gets all user UUIDs.
 	 * @return list of all UUIDs
 	 */
