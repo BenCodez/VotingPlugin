@@ -81,3 +81,24 @@ Recovery changes are logged with the UUID, operator, and chosen resolution.
 Failures retain the available recovery evidence; inspect the console and request
 another preview before taking further action. A restored healthy storage worker
 or a plugin reload alone never authorizes a replay of an uncertain reward.
+
+### Bulk clear and replay concurrency
+
+The legacy void join/background replay entry point now admits work to the user
+storage worker and uses the same durable asynchronous completion protocol as
+backend replay. Returning from that void method does not confirm delivery.
+Both entry points acquire the same local per-player fence before reading a queue
+or its pending marker. Empty queues and
+failed replay release that fence; asynchronous delivery retains it through confirmed
+storage completion. This fence coordinates one JVM, not multiple backends.
+
+`ClearOfflineVotes` and the vote-queue portion of `ClearOfflineVoteRewards` reject
+bulk clearing when the authoritative active storage type is MySQL. SQLite
+remains supported, including AdvancedCore’s shared-runtime SQLite adapter. A scan followed by
+a bulk deletion cannot safely exclude a concurrently starting remote reward batch.
+An operator assertion is not a distributed lock and cannot enable this bulk action.
+Single-backend bulk clearing continues to reject active or unresolved batches and
+excludes new local replay admissions until the bulk write finishes. No monitor is
+held during storage work; competing replay fails or defers rather than waiting.
+Individual audited recovery remains subject to the all-backends-quiesced requirement
+above; it does not automatically coordinate other JVMs.

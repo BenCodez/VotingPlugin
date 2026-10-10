@@ -11,7 +11,6 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
@@ -26,7 +25,6 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.Test;
 import org.bukkit.configuration.file.YamlConfiguration;
-import org.mockito.InOrder;
 
 import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
 import com.bencodez.advancedcore.api.user.UserData;
@@ -40,36 +38,19 @@ import com.bencodez.votingplugin.votesites.VoteSiteManager;
 
 class VotingPluginUserOfflineVoteReplayTest {
 	@Test
-	void clearsOfflineVotesBeforeStartingRewardsSoPermanentFailuresDoNotReplayForever() {
-		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
-		when(plugin.getOptions().isProcessRewards()).thenReturn(true);
-		AdvancedCoreUser base = mock(AdvancedCoreUser.class);
-		UserData data = mock(UserData.class);
-		when(base.getUserData()).thenReturn(data);
-		when(data.getStringList("OfflineVotesRewardPending")).thenReturn(new ArrayList<>());
-		when(base.getUUID()).thenReturn("00000000-0000-0000-0000-000000000001");
-		when(base.getPlayerName()).thenReturn("Player");
-		VotingPluginUser user = spy(new VotingPluginUser(plugin, base));
-		// The spy must own the mocked UserData; the base-user mock alone does not
-		// override AdvancedCoreUser.getUserData() on the wrapper instance.
-		doReturn(data).when(user).getUserData();
-		VoteSiteManager manager = mock(VoteSiteManager.class);
-		VoteSite site = mock(VoteSite.class);
-		when(plugin.getVoteSiteManager()).thenReturn(manager);
-		when(manager.hasVoteSite("Site1")).thenReturn(true);
-		when(manager.getVoteSite("Site1", true)).thenReturn(site);
-		doReturn(false).when(user).isTopVoterIgnore();
-		doReturn(new ArrayList<>(List.of("Site1"))).when(user).getOfflineVotes();
-		doNothing().when(user).sendVoteEffects(false);
-		doNothing().when(user).setOfflineVotes(org.mockito.ArgumentMatchers.any());
-		doThrow(new IllegalStateException("reward failed")).when(user).playerVote(site, false, false);
-
-		assertThrows(IllegalStateException.class,
-				() -> user.offVoteWithCapturedTopVoterIgnore(false));
-
-		InOrder order = inOrder(user);
-		order.verify(user).setOfflineVotes(org.mockito.ArgumentMatchers.argThat(List::isEmpty));
-		order.verify(user).playerVote(site, false, false);
+	void legacyEntryRetainsQueueAndPendingMarkerWhenRewardDeliveryFails() {
+		AsyncReplayFixture fixture = asyncFixture();
+		fixture.user.offVoteWithCapturedTopVoterIgnore(false);
+		assertEquals(List.of("Site1"), fixture.queued.get());
+		assertEquals(List.of("Site1"), fixture.pending.get());
+		assertTrue(fixture.user.isOfflineVoteRewardReplayActive());
+		fixture.anySiteRewards.completeExceptionally(new IllegalStateException("reward failed"));
+		assertEquals(List.of("Site1"), fixture.queued.get());
+		assertEquals(List.of("Site1"), fixture.pending.get());
+		assertFalse(fixture.user.isOfflineVoteRewardReplayActive());
+		fixture.user.offVoteWithCapturedTopVoterIgnore(false);
+		verify(fixture.user, never()).sendVoteEffects(false);
+		verify(fixture.user, never()).playerVote(fixture.site, false, false);
 	}
 	@Test
 	void asyncReplayRetainsOriginalVotesUntilRewardCompletionAndKeepsNewVotes() {
@@ -309,10 +290,84 @@ class VotingPluginUserOfflineVoteReplayTest {
 		when(plugin.getVoteSiteManager()).thenReturn(sites);
 		when(sites.resolveVoteSite("Site1", true)).thenReturn(site);
 		when(site.giveRewardsAsync(user, false, false)).thenReturn(CompletableFuture.completedFuture(null));
-		return new AsyncReplayFixture(user, site, queued, pending, anySiteRewards);
+		return new AsyncReplayFixture(plugin, user, site, queued, pending, anySiteRewards);
 	}
 
-	private record AsyncReplayFixture(VotingPluginUser user, VoteSite site,
+	@Test
+	void synchronousReplayCannotEnterBeforeAsyncPendingMarkerIsPublished() {
+		AsyncReplayFixture fixture = asyncFixture();
+		UserData data = fixture.user.getUserData();
+		doAnswer(call -> {
+			assertTrue(fixture.user.isOfflineVoteRewardReplayActive());
+			assertTrue(fixture.pending.get().isEmpty());
+			fixture.user.offVoteWithCapturedTopVoterIgnore(false);
+			fixture.pending.set(new ArrayList<>(call.getArgument(1)));
+			return null;
+		}).when(data).setStringList(eq("OfflineVotesRewardPending"),
+				org.mockito.ArgumentMatchers.any(ArrayList.class), eq(false));
+		CompletableFuture<Void> delivery = fixture.user.offVoteWithCapturedTopVoterIgnoreAsync(false)
+				.toCompletableFuture();
+		verify(fixture.user, never()).sendVoteEffects(false);
+		verify(fixture.user, never()).playerVote(fixture.site, false, false);
+		fixture.anySiteRewards.complete(null);
+		delivery.join();
+		assertFalse(fixture.user.isOfflineVoteRewardReplayActive());
+	}
+
+	@Test
+	void asyncReplayCannotEnterWhileSynchronousOwnerReadsTheQueue() {
+		AsyncReplayFixture fixture = asyncFixture();
+		doAnswer(call -> {
+			assertTrue(fixture.user.isOfflineVoteRewardReplayActive());
+			assertThrows(CompletionException.class, () -> fixture.user
+					.offVoteWithCapturedTopVoterIgnoreAsync(false).toCompletableFuture().join());
+			return new ArrayList<String>();
+		}).when(fixture.user).getOfflineVotes();
+		fixture.user.offVoteWithCapturedTopVoterIgnore(false);
+		assertFalse(fixture.user.isOfflineVoteRewardReplayActive());
+		verify(fixture.user, never()).sendVoteEffects(false);
+	}
+
+	@Test
+	void bulkClearExcludesBothReplayAdmissionsWithoutSpendingRewardEffects() {
+		AsyncReplayFixture fixture = asyncFixture();
+		VotingPluginUser.beginOfflineVoteBulkClear();
+		try {
+			fixture.user.offVoteWithCapturedTopVoterIgnore(false);
+			assertThrows(CompletionException.class, () -> fixture.user
+					.offVoteWithCapturedTopVoterIgnoreAsync(false).toCompletableFuture().join());
+			verify(fixture.user, never()).getOfflineVotes();
+			verify(fixture.user, never()).sendVoteEffects(false);
+		} finally {
+			VotingPluginUser.endOfflineVoteBulkClear();
+		}
+		CompletableFuture<Void> delivery = fixture.user.offVoteWithCapturedTopVoterIgnoreAsync(false)
+				.toCompletableFuture();
+		assertThrows(IllegalStateException.class, VotingPluginUser::beginOfflineVoteBulkClear);
+		fixture.anySiteRewards.complete(null);
+		delivery.join();
+	}
+
+	@Test
+	void legacyEntryDefersAllStorageAndRewardsUntilWorkerRuns() {
+		AsyncReplayFixture fixture = asyncFixture();
+		ScheduledExecutorService worker = fixture.plugin.getUserManager().getDataManager().getTimer();
+		AtomicReference<Runnable> admitted = new AtomicReference<>();
+		doAnswer(call -> { admitted.set(call.getArgument(0)); return null; })
+				.when(worker).execute(org.mockito.ArgumentMatchers.any(Runnable.class));
+		fixture.user.offVoteWithCapturedTopVoterIgnore(false);
+		verify(fixture.user, never()).cache();
+		verify(fixture.user, never()).getOfflineVotes();
+		assertTrue(fixture.pending.get().isEmpty());
+		admitted.get().run();
+		assertEquals(List.of("Site1"), fixture.pending.get());
+		fixture.anySiteRewards.complete(null);
+		admitted.get().run();
+		assertTrue(fixture.queued.get().isEmpty());
+		assertFalse(fixture.user.isOfflineVoteRewardReplayActive());
+	}
+
+	private record AsyncReplayFixture(VotingPluginMain plugin, VotingPluginUser user, VoteSite site,
 			AtomicReference<ArrayList<String>> queued,
 			AtomicReference<ArrayList<String>> pending,
 			CompletableFuture<Void> anySiteRewards) { }

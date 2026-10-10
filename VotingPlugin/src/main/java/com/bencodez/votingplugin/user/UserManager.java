@@ -114,17 +114,27 @@ public class UserManager {
 	 * Pending batches must be explicitly reconciled, never silently discarded.
 	 */
 	public void clearAllOfflineVotes() {
-		for (String storedUuid : getAllUUIDs()) {
-			VotingPluginUser user = getVotingPluginUser(UUID.fromString(storedUuid), false);
-			user.cache();
-			if (user.isOfflineVoteRewardReplayActive() || !user.getPendingOfflineVoteRewardBatch().isEmpty()) {
-				plugin.getLogger().warning("Offline vote clear refused: active or pending rewards for " + storedUuid
-						+ "; use /av OfflineVoteRecovery first");
-				throw new IllegalStateException("Offline rewards are active or pending for " + storedUuid
-						+ "; use /av OfflineVoteRecovery before clearing offline votes");
-			}
+		if (com.bencodez.advancedcore.api.user.UserStorage.MYSQL.equals(
+				plugin.getUserManager().getDataManager().effectiveStorageType(plugin.getStorageType()))) {
+			throw new IllegalStateException("Bulk offline-vote clearing is unavailable with MySQL: "
+					+ "another backend may start rewards between inspection and deletion");
 		}
-		plugin.getUserManager().removeAllKeyValues("OfflineVotes", com.bencodez.simpleapi.sql.DataType.STRING);
+		VotingPluginUser.beginOfflineVoteBulkClear();
+		try {
+			for (String storedUuid : getAllUUIDs()) {
+				VotingPluginUser user = getVotingPluginUser(UUID.fromString(storedUuid), false);
+				user.cache();
+				if (user.isOfflineVoteRewardReplayActive() || !user.getPendingOfflineVoteRewardBatch().isEmpty()) {
+					plugin.getLogger().warning("Offline vote clear refused: active or pending rewards for " + storedUuid
+							+ "; use /av OfflineVoteRecovery first");
+					throw new IllegalStateException("Offline rewards are active or pending for " + storedUuid
+							+ "; use /av OfflineVoteRecovery before clearing offline votes");
+				}
+			}
+			plugin.getUserManager().removeAllKeyValues("OfflineVotes", com.bencodez.simpleapi.sql.DataType.STRING);
+		} finally {
+			VotingPluginUser.endOfflineVoteBulkClear();
+		}
 	}
 
 	/**

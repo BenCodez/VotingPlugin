@@ -42,6 +42,37 @@ class UserManagerOfflineVoteClearTest {
 		verify(fixture.plugin.getUserManager()).removeAllKeyValues("OfflineVotes", DataType.STRING);
 	}
 
+	@Test
+	void mysqlRejectsBulkClearBeforeInspectingOrDeletingAnyUsers() {
+		Fixture fixture = fixture();
+		when(fixture.plugin.getUserManager().getDataManager().effectiveStorageType(any()))
+				.thenReturn(com.bencodez.advancedcore.api.user.UserStorage.MYSQL);
+		assertThrows(IllegalStateException.class, fixture.manager::clearAllOfflineVotes);
+		verify(fixture.first, never()).cache();
+		verify(fixture.plugin.getUserManager(), never()).removeAllKeyValues(any(), any());
+	}
+
+	@Test
+	void failedBulkStorageWriteReleasesLocalAdmissionFence() {
+		Fixture fixture = fixture();
+		var storageManager = fixture.plugin.getUserManager();
+		doThrow(new IllegalStateException("storage unavailable")).when(storageManager)
+				.removeAllKeyValues("OfflineVotes", DataType.STRING);
+		assertThrows(IllegalStateException.class, fixture.manager::clearAllOfflineVotes);
+		VotingPluginUser.beginOfflineVoteBulkClear();
+		VotingPluginUser.endOfflineVoteBulkClear();
+	}
+
+	@Test
+	void sharedRuntimeSqliteStillAllowsLocalBulkClearing() {
+		Fixture fixture = fixture();
+		when(fixture.plugin.getUserManager().getDataManager().hasSharedSqlBackend()).thenReturn(true);
+		when(fixture.plugin.getUserManager().getDataManager().effectiveStorageType(any()))
+				.thenReturn(com.bencodez.advancedcore.api.user.UserStorage.SQLITE);
+		fixture.manager.clearAllOfflineVotes();
+		verify(fixture.plugin.getUserManager()).removeAllKeyValues("OfflineVotes", DataType.STRING);
+	}
+
 	private static Fixture fixture() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
 		when(plugin.getLogger()).thenReturn(mock(java.util.logging.Logger.class));

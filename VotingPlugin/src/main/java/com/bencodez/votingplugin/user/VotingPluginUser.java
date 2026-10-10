@@ -63,6 +63,31 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	private static final String OFFLINE_VOTES_REWARD_PENDING_KEY = "OfflineVotesRewardPending";
 	/** An in-process fence against reconciling a still-executing reward chain. */
 	private static final ConcurrentMap<String, Boolean> IN_FLIGHT_OFFLINE_VOTE_REWARDS = new ConcurrentHashMap<>();
+	private static boolean offlineVoteBulkClearActive;
+
+	private static boolean acquireOfflineVoteReplay(String uuid) {
+		synchronized (IN_FLIGHT_OFFLINE_VOTE_REWARDS) {
+			return !offlineVoteBulkClearActive
+					&& IN_FLIGHT_OFFLINE_VOTE_REWARDS.putIfAbsent(uuid, Boolean.TRUE) == null;
+		}
+	}
+
+	/** Exclude new local replay admissions without holding a monitor during storage work. */
+	static void beginOfflineVoteBulkClear() {
+		synchronized (IN_FLIGHT_OFFLINE_VOTE_REWARDS) {
+			if (offlineVoteBulkClearActive || !IN_FLIGHT_OFFLINE_VOTE_REWARDS.isEmpty()) {
+				throw new IllegalStateException("Offline vote replay or another bulk clear is active");
+			}
+			offlineVoteBulkClearActive = true;
+		}
+	}
+
+	static void endOfflineVoteBulkClear() {
+		synchronized (IN_FLIGHT_OFFLINE_VOTE_REWARDS) {
+			offlineVoteBulkClearActive = false;
+		}
+	}
+
 	private static final ConcurrentMap<ReplayPointKey, CompletableFuture<Integer>> IN_FLIGHT_POINT_REPLAYS =
 			new ConcurrentHashMap<>();
 
@@ -2027,39 +2052,25 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		offVoteWithCapturedTopVoterIgnore(player.hasPermission("VotingPlugin.TopVoter.Ignore"));
 	}
 
-	/** Process offline-vote storage/rewards after platform-owned permission state was captured. */
+	/**
+	 * Legacy void entry point: enqueue durable replay on the storage worker.
+	 * Returning means admission, not completed reward delivery. Never wait on a
+	 * platform thread or clear a queue before the reward completion protocol.
+	 */
 	public void offVoteWithCapturedTopVoterIgnore(boolean currentTopVoterIgnore) {
-		if (!plugin.getOptions().isProcessRewards()) {
-			plugin.debug("Processing rewards is disabled");
-			return;
-		}
-		plugin.extraDebug("Checking offline votes for " + getPlayerName() + "/" + getUUID());
-		if (isTopVoterIgnore() != currentTopVoterIgnore) setTopVoterIgnore(currentTopVoterIgnore);
-
-		ArrayList<String> offlineVotes = getOfflineVotes();
-		if (offlineVotes.isEmpty()) {
-			return;
-		}
-		if (!getUserData().getStringList(OFFLINE_VOTES_REWARD_PENDING_KEY).isEmpty()) {
-			// The async reward path owns this batch; do not replay from a join
-			// or a legacy background task while its outcome is unresolved.
-			plugin.getLogger().warning("Offline vote rewards are awaiting reconciliation for " + getUUID());
-			return;
-		}
-
-		// Send vote effects and clear persistent offline votes.
-		sendVoteEffects(false);
-		setOfflineVotes(new ArrayList<>());
-
-		// Process each offline vote.
-		for (String voteSiteName : offlineVotes) {
-			if (plugin.getVoteSiteManager().hasVoteSite(voteSiteName)) {
-				plugin.debug("Giving offline site reward: " + voteSiteName);
-				playerVote(plugin.getVoteSiteManager().getVoteSite(voteSiteName, true), false, false);
-			} else {
-				plugin.debug("Site doesn't exist: " + voteSiteName);
+		if (!plugin.getOptions().isProcessRewards()) return;
+		plugin.getUserManager().getDataManager().getTimer().execute(() -> {
+			try {
+				cache();
+				offVoteWithCapturedTopVoterIgnoreAsync(currentTopVoterIgnore)
+						.whenComplete((ignored, failure) -> {
+							if (failure != null) plugin.getLogger().warning(
+									"Offline vote replay remains pending for " + getUUID() + ": " + failure);
+						});
+			} catch (RuntimeException failure) {
+				plugin.getLogger().warning("Offline vote replay could not start for " + getUUID() + ": " + failure);
 			}
-		}
+		});
 	}
 
 	/**
@@ -2079,22 +2090,22 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	public CompletionStage<Void> offVoteWithCapturedTopVoterIgnoreAsync(boolean currentTopVoterIgnore,
 			Runnable beforeRewardEffects) {
 		if (!plugin.getOptions().isProcessRewards()) return CompletableFuture.completedFuture(null);
-		if (isTopVoterIgnore() != currentTopVoterIgnore) setTopVoterIgnore(currentTopVoterIgnore);
-		if (!getPendingOfflineVoteRewardBatch().isEmpty()) {
-			// An existing ambiguous grant must be quarantined, not replayed.
-			beforeRewardEffects.run();
-			return CompletableFuture.failedFuture(new IllegalStateException(
-					"Earlier offline-vote rewards require reconciliation for " + getUUID()));
-		}
-		ArrayList<String> offlineVotes = getOfflineVotes();
-		if (offlineVotes.isEmpty()) return CompletableFuture.completedFuture(null);
-
 		String uuid = getUUID();
-		if (IN_FLIGHT_OFFLINE_VOTE_REWARDS.putIfAbsent(uuid, Boolean.TRUE) != null) {
+		if (!acquireOfflineVoteReplay(uuid)) {
 			return CompletableFuture.failedFuture(new IllegalStateException(
 					"Offline-vote reward batch is still running for " + uuid));
 		}
 		try {
+			if (isTopVoterIgnore() != currentTopVoterIgnore) setTopVoterIgnore(currentTopVoterIgnore);
+			if (!getPendingOfflineVoteRewardBatch().isEmpty()) {
+				beforeRewardEffects.run();
+				throw new IllegalStateException("Earlier offline-vote rewards require reconciliation for " + uuid);
+			}
+			ArrayList<String> offlineVotes = getOfflineVotes();
+			if (offlineVotes.isEmpty()) {
+				IN_FLIGHT_OFFLINE_VOTE_REWARDS.remove(uuid);
+				return CompletableFuture.completedFuture(null);
+			}
 			getUserData().setStringList(OFFLINE_VOTES_REWARD_PENDING_KEY, new ArrayList<>(offlineVotes), false);
 			beforeRewardEffects.run();
 
@@ -2149,7 +2160,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			return confirmed;
 		} catch (RuntimeException | Error failure) {
 			IN_FLIGHT_OFFLINE_VOTE_REWARDS.remove(uuid);
-			throw failure;
+			return CompletableFuture.failedFuture(failure);
 		}
 	}
 
