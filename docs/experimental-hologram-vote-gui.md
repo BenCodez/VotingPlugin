@@ -233,3 +233,15 @@ A further automated death/disconnect run passed 17 checks on Paper (all eight st
 death, then separately after disconnect/reconnect, with zero tracked sessions, snapshots, NPCs
 and displays. The servers exited cleanly with no listed failure markers. This uses the same
 validated candidate JAR and remains protocol automation rather than manual visual gameplay.
+
+The site-key follow-up at `daa111a8fd619322bbca034939b44541ad710a1b` was rerun on
+both servers with the exact new JAR, SHA-256
+`031555380d0fb081891df1b0793d6576babcda4b7fab36c06fe8218d46a8b371`. Paper passed
+59 checks and Folia passed 46. These repeat the creation/URL/navigation/ownership/
+replacement/close/production-GUI/reload checks and add correct second-site URL
+selection in hologram, radial and showcase menus using two valid 2,048-character
+site keys with a common prefix. Both servers exited with code zero and no listed
+failure markers. The fixtures restored their prior site configuration afterward.
+The separate timeout/teleport/death/disconnect evidence above remains tied to its
+earlier artifact; these latest runs do not broaden the stated visual or gameplay
+verification limits.
