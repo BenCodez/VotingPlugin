@@ -222,8 +222,14 @@ class-loading, event-delivery or thread-ownership failure markers in these runs.
 SHA-256 was `f7d8538b37bd5f7ff89313446ead165ad191b511ee00736552f07bab31eecfac`.
 
 These checks observe tracked registries and client-visible entities, not an exhaustive world
-scan. Earned streak/reward progression, graphical spacing/animation/accessibility, live death
-and disconnect cleanup, failure during partial spawning, old-server gameplay, and Folia
+scan. Earned streak/reward progression, graphical spacing/animation/accessibility, failure
+during partial spawning, old-server gameplay, and Folia
 region-boundary stress remain manual/integration verification limits. Deterministic tests
 cover ownership, cancellation, stale callbacks, unrelated inventory/entity events and cleanup
 failures, but do not substitute for those gameplay scenarios.
+
+A further automated death/disconnect run passed 17 checks on Paper (all eight styles) and
+11 on Folia (five supported native styles). Each active menu was retired after a real player
+death, then separately after disconnect/reconnect, with zero tracked sessions, snapshots, NPCs
+and displays. The servers exited cleanly with no listed failure markers. This uses the same
+validated candidate JAR and remains protocol automation rather than manual visual gameplay.
