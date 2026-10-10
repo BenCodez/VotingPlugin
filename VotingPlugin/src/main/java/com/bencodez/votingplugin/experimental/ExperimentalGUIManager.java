@@ -555,7 +555,7 @@ public final class ExperimentalGUIManager implements Listener {
             var url = HologramVoteModel.votingUrl(current.getVoteURL(false));
             buttons.add(url.isPresent()
                     ? new ExperimentalDialogs.Button(site.title(), site.label(), url.get(), null)
-                    : new ExperimentalDialogs.Button(site.title(), "No valid HTTP/HTTPS URL", null, "invalid:" + site.key()));
+                    : new ExperimentalDialogs.Button(site.title(), "No valid HTTP/HTTPS URL", null, "invalid"));
         }
         buttons.add(new ExperimentalDialogs.Button("Previous", "Previous voting sites", null, "previous"));
         buttons.add(new ExperimentalDialogs.Button("Next", "Next voting sites", null, "next"));

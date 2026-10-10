@@ -529,9 +529,48 @@ class ExperimentalGUIManagerTest {
             selection.get().accept("next");
             assertEquals(4, buttons.get().size());
             assertNull(buttons.get().getFirst().url());
-            assertEquals("invalid:site5", buttons.get().getFirst().action());
+            assertEquals("invalid", buttons.get().getFirst().action());
             verify(f.player, never()).openInventory(any(Inventory.class));
             verify(f.chat, never()).sendMessage(any(BaseComponent.class));
+        }
+    }
+
+    @Test void dialogKeepsLongInvalidAndMissingUrlSitesNavigableWithoutEmbeddingKeysInActions() {
+        AtomicReference<List<ExperimentalDialogs.Button>> buttons = new AtomicReference<>();
+        AtomicReference<java.util.function.Consumer<String>> selection = new AtomicReference<>();
+        try (var renderers = mockConstruction(ExperimentalDialogs.class, (renderer, context) -> {
+            doAnswer(inv -> { buttons.set(inv.getArgument(4)); selection.set(inv.getArgument(5)); return null; })
+                    .when(renderer).render(any(), any(), anyString(), anyString(), anyList(), any());
+        }); Fixture f = new Fixture()) {
+            String prefix = "Z".repeat(2047);
+            List<VoteSite> sites = new ArrayList<>();
+            sites.add(f.site(prefix + "A", "VoteURL"));
+            sites.add(f.site(prefix + "B", null));
+            for (int index = 2; index < 6; index++) sites.add(f.site("site" + index, "https://example.test/" + index));
+            when(f.plugin.getVoteSiteManager().getVoteSitesEnabled()).thenReturn(new ArrayList<>(sites));
+            Inventory production = f.top.get();
+            f.manager.open(f.player, ExperimentalGUIType.NATIVE_DIALOG); f.owner(); f.snapshot();
+            assertNotNull(buttons.get());
+            assertEquals(8, buttons.get().size());
+            for (int index = 0; index < 2; index++) {
+                assertNull(buttons.get().get(index).url());
+                assertEquals("invalid", buttons.get().get(index).action());
+                assertEquals("No valid HTTP/HTTPS URL", buttons.get().get(index).tooltip());
+            }
+            assertEquals("https://example.test/2", buttons.get().get(2).url());
+            selection.get().accept(buttons.get().getFirst().action());
+            verify(f.player).sendMessage(contains("no valid HTTP/HTTPS voting URL"));
+            selection.get().accept("next");
+            assertEquals(4, buttons.get().size());
+            assertEquals("https://example.test/5", buttons.get().getFirst().url());
+            selection.get().accept("previous");
+            assertEquals(8, buttons.get().size());
+            selection.get().accept("close");
+            verify(renderers.constructed().getFirst(), times(3)).render(any(), any(), anyString(), anyString(), anyList(), any());
+            verify(f.chat, never()).sendMessage(any(BaseComponent.class));
+            verify(f.player, never()).openInventory(any(Inventory.class));
+            verify(f.player, never()).closeInventory();
+            assertSame(production, f.top.get());
         }
     }
 
