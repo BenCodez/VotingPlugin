@@ -27,10 +27,15 @@ import com.bencodez.votingplugin.user.VotingPluginUser;
 class PlayerJoinEventPresenceTest {
 	@Test
 	void advancedCoreLoginRekeysPresenceToTheAuthoritativeStorageUuid() {
-		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
 		PlaceholderPlayerPresence presence = new PlaceholderPlayerPresence();
 		when(plugin.getPlaceholderPlayerPresence()).thenReturn(presence);
 		when(plugin.isMySQLOkay()).thenReturn(true);
+		ScheduledExecutorService storageTimer = plugin.getUserManager().getDataManager().getTimer();
+		doAnswer(call -> {
+			call.getArgument(0, Runnable.class).run();
+			return null;
+		}).when(storageTimer).execute(any(Runnable.class));
 		BungeeSettings bungee = mock(BungeeSettings.class);
 		when(plugin.getBungeeSettings()).thenReturn(bungee);
 		Player player = mock(Player.class);

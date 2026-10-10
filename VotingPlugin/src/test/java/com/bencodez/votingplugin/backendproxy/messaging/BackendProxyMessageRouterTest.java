@@ -81,6 +81,10 @@ class BackendProxyMessageRouterTest {
 		when(coreUserManager.getDataManager()).thenReturn(dataManager);
 		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
 		when(plugin.getLogger()).thenReturn(logger);
+		java.util.concurrent.ScheduledExecutorService timer = mock(java.util.concurrent.ScheduledExecutorService.class);
+		when(dataManager.getTimer()).thenReturn(timer);
+		doAnswer(call -> { call.getArgument(0, Runnable.class).run(); return null; })
+				.when(timer).execute(any(Runnable.class));
 		when(user.offVoteWithCapturedTopVoterIgnoreAsync(anyBoolean(), any(Runnable.class)))
 				.thenReturn(CompletableFuture.completedFuture(null));
 		doAnswer(invocation -> {
@@ -113,8 +117,8 @@ class BackendProxyMessageRouterTest {
 		router.handleVoteUpdate(VotingPluginWire.voteUpdate(PLAYER_UUID.toString(), 1, 10,
 				"unknown.example\nforged-entry", LAST_VOTE_TIME, ""));
 
-		verify(user).cache();
-		verify(user).offVote();
+		verify(user, times(2)).cache();
+		verify(user, never()).offVote();
 		verify(user, never()).setTime(any(), anyLong());
 		verify(logger).warning("Ignoring VoteUpdate last vote time for unresolved or disabled service site: "
 				+ "unknown.example?forged-entry");
@@ -129,8 +133,8 @@ class BackendProxyMessageRouterTest {
 		router.handleVoteUpdate(VotingPluginWire.voteUpdate(PLAYER_UUID.toString(), 1, 10,
 				"known.example", LAST_VOTE_TIME, ""));
 
-		verify(user).cache();
-		verify(user).offVote();
+		verify(user, times(2)).cache();
+		verify(user, never()).offVote();
 		verify(user).setTime(voteSite, LAST_VOTE_TIME);
 		verify(logger, never()).warning(any(String.class));
 		verify(plugin).setUpdate(true);
@@ -420,7 +424,8 @@ class BackendProxyMessageRouterTest {
 			return null;
 		}).when(scheduler).runTask(eq(plugin), any(Runnable.class), eq(player));
 		CompletableFuture<Void> rewards = new CompletableFuture<>();
-		when(user.offVoteWithCapturedTopVoterIgnoreAsync(eq(false), any(Runnable.class))).thenReturn(rewards);
+		doAnswer(call -> { call.getArgument(1, Runnable.class).run(); return rewards; })
+				.when(user).offVoteWithCapturedTopVoterIgnoreAsync(eq(false), any(Runnable.class));
 
 		AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
 		router.handleOrderedVote(VotingPluginWire.voteUpdate(PLAYER_UUID.toString(), 1, 10,
@@ -659,6 +664,101 @@ class BackendProxyMessageRouterTest {
 		verify(user, never()).setTime(any(), anyLong());
 	}
 
+	private void installOnlinePlayer() {
+		org.bukkit.entity.Player player = mock(org.bukkit.entity.Player.class);
+		when(user.getPlayer()).thenReturn(player);
+		when(player.isOnline()).thenReturn(true);
+		BukkitScheduler ownerScheduler = plugin.getBukkitScheduler();
+		doAnswer(call -> { call.getArgument(1, Runnable.class).run(); return null; })
+				.when(ownerScheduler).runTask(eq(plugin), any(Runnable.class), eq(player));
+	}
+
+	@Test
+	void localVoteUpdateWaitsForReplayAndOrderedWorkerBeforeTimeOrAcknowledgement() {
+		installOnlinePlayer();
+		VoteSite site = mock(VoteSite.class);
+		when(voteSiteManager.getVoteSite("known.example", true)).thenReturn(site);
+		CompletableFuture<Void> replay = new CompletableFuture<>();
+		when(user.offVoteWithCapturedTopVoterIgnoreAsync(eq(false), any(Runnable.class))).thenReturn(replay);
+		java.util.ArrayDeque<Runnable> worker = new java.util.ArrayDeque<>();
+		java.util.concurrent.ScheduledExecutorService storageTimer = dataManager.getTimer();
+		doAnswer(call -> { worker.add(call.getArgument(0, Runnable.class)); return null; })
+				.when(storageTimer).execute(any(Runnable.class));
+		AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
+		router.handleOrderedVote(VotingPluginWire.voteUpdate(PLAYER_UUID.toString(), 1, 10,
+				"known.example", LAST_VOTE_TIME, ""), outcome::set);
+		verify(user, never()).cache();
+		verify(user, never()).setTime(any(), anyLong());
+		assertEquals(null, outcome.get());
+		worker.remove().run();
+		verify(user).offVoteWithCapturedTopVoterIgnoreAsync(eq(false), any(Runnable.class));
+		assertTrue(worker.isEmpty());
+		verify(user, never()).setTime(any(), anyLong());
+		replay.complete(null);
+		assertEquals(null, outcome.get(), "completion must not perform storage on the reward callback");
+		verify(user, never()).setTime(any(), anyLong());
+		worker.remove().run();
+		verify(user).setTime(site, LAST_VOTE_TIME);
+		assertEquals(OrderedVoteOutcome.COMPLETE, outcome.get());
+	}
+
+	@Test
+	void localVoteUpdateFailedReplayNeverWritesTimeOrAcknowledges() {
+		installOnlinePlayer();
+		CompletableFuture<Void> replay = new CompletableFuture<>();
+		doAnswer(call -> { call.getArgument(1, Runnable.class).run(); return replay; })
+				.when(user).offVoteWithCapturedTopVoterIgnoreAsync(eq(false), any(Runnable.class));
+		AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
+		router.handleOrderedVote(VotingPluginWire.voteUpdate(PLAYER_UUID.toString(), 1, 10,
+				"known.example", LAST_VOTE_TIME, ""), outcome::set);
+		assertEquals(null, outcome.get());
+		replay.completeExceptionally(new IllegalStateException("partial delivery"));
+		assertEquals(OrderedVoteOutcome.QUARANTINE, outcome.get());
+		verify(user, never()).setTime(any(), anyLong());
+		verify(plugin, never()).setUpdate(true);
+	}
+
+	@Test
+	void localVoteUpdateRejectedStorageAdmissionRemainsRetryable() {
+		java.util.concurrent.ScheduledExecutorService storageTimer = dataManager.getTimer();
+		doThrow(new java.util.concurrent.RejectedExecutionException()).when(storageTimer)
+				.execute(any(Runnable.class));
+		AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
+		router.handleOrderedVote(VotingPluginWire.voteUpdate(PLAYER_UUID.toString(), 1, 10,
+				"known.example", LAST_VOTE_TIME, ""), outcome::set);
+		assertEquals(OrderedVoteOutcome.RETRY, outcome.get());
+		verify(user, never()).cache();
+		verify(user, never()).setTime(any(), anyLong());
+	}
+
+	@Test
+	void localVoteUpdateAsyncFailureBeforeEffectsIsRetryable() {
+		installOnlinePlayer();
+		when(user.offVoteWithCapturedTopVoterIgnoreAsync(eq(false), any(Runnable.class)))
+				.thenReturn(CompletableFuture.failedFuture(new IllegalStateException("storage read unavailable")));
+		AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
+		router.handleOrderedVote(VotingPluginWire.voteUpdate(PLAYER_UUID.toString(), 1, 10,
+				"known.example", LAST_VOTE_TIME, ""), outcome::set);
+		assertEquals(OrderedVoteOutcome.RETRY, outcome.get());
+		verify(user, never()).setTime(any(), anyLong());
+		verify(plugin, never()).setUpdate(true);
+	}
+
+	@Test
+	void sharedVoteUpdateAsyncFailureBeforeEffectsIsRetryable() {
+		DeferredVoteUpdate pending = captureSharedVoteUpdate();
+		installOnlinePlayer();
+		when(user.offVoteWithCapturedTopVoterIgnoreAsync(eq(false), any(Runnable.class)))
+				.thenReturn(CompletableFuture.failedFuture(new IllegalStateException("replay fence busy")));
+		AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
+		router.handleOrderedVote(VotingPluginWire.voteUpdate(PLAYER_UUID.toString(), 1, 10,
+				"", 0, ""), outcome::set);
+		pending.success.accept(pending.work.get());
+		assertEquals(OrderedVoteOutcome.RETRY, outcome.get());
+		verify(user, never()).setTime(any(), anyLong());
+		verify(plugin, never()).setUpdate(true);
+	}
+
 	private DeferredVoteUpdate captureSharedVoteUpdate() {
 		when(dataManager.hasSharedSqlBackend()).thenReturn(true);
 		DeferredVoteUpdate pending = new DeferredVoteUpdate();
@@ -726,12 +826,16 @@ class BackendProxyMessageRouterTest {
 
 	@Test
 	void voteUpdateFailureAfterOfflineEffectRequestsQuarantine() {
-		doThrow(new IllegalStateException("after offline effect")).when(user).offVote();
+		installOnlinePlayer();
+		doAnswer(call -> {
+			call.getArgument(1, Runnable.class).run();
+			throw new IllegalStateException("after offline effect");
+		}).when(user).offVoteWithCapturedTopVoterIgnoreAsync(eq(false), any(Runnable.class));
 		AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
-		assertThrows(IllegalStateException.class, () -> router.handleOrderedVote(
-				VotingPluginWire.voteUpdate(PLAYER_UUID.toString(), 1, 10,
-						"known.example", LAST_VOTE_TIME, ""), outcome::set));
+		router.handleOrderedVote(VotingPluginWire.voteUpdate(PLAYER_UUID.toString(), 1, 10,
+				"known.example", LAST_VOTE_TIME, ""), outcome::set);
 		assertEquals(OrderedVoteOutcome.QUARANTINE, outcome.get());
+		verify(user, never()).setTime(any(), anyLong());
 	}
 
 	@Test

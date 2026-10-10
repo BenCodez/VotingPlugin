@@ -87,6 +87,12 @@ or a plugin reload alone never authorizes a replay of an uncertain reward.
 The legacy void join/background replay entry point now admits work to the user
 storage worker and uses the same durable asynchronous completion protocol as
 backend replay. Returning from that void method does not confirm delivery.
+Login rewards, the public background-update hook, and dependent generic offline rewards
+continue only after confirmed replay. The player-aware completion API captures permissions
+on the entity owner and returns dependent storage work to the storage worker. Disabled
+replay and absent players remain successful no-ops; failed replay leaves dependent work
+unexecuted and logs the pending failure. Non-shared-storage proxy updates also wait
+for replay before writing the vote timestamp and acknowledging the ordered update.
 Both entry points acquire the same local per-player fence before reading a queue
 or its pending marker. Empty queues and
 failed replay release that fence; asynchronous delivery retains it through confirmed

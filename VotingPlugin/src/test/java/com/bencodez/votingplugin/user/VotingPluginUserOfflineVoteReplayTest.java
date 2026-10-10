@@ -395,6 +395,121 @@ class VotingPluginUserOfflineVoteReplayTest {
 		assertEquals(List.of("Site1"), fixture.pending.get());
 	}
 
+	private org.bukkit.entity.Player installReplayOwner(AsyncReplayFixture fixture) {
+		org.bukkit.entity.Player player = mock(org.bukkit.entity.Player.class);
+		when(player.isOnline()).thenReturn(true);
+		com.bencodez.simpleapi.scheduler.BukkitScheduler scheduler =
+				mock(com.bencodez.simpleapi.scheduler.BukkitScheduler.class);
+		when(fixture.plugin.getBukkitScheduler()).thenReturn(scheduler);
+		doAnswer(call -> { call.getArgument(1, Runnable.class).run(); return null; })
+				.when(scheduler).runTask(eq(fixture.plugin), org.mockito.ArgumentMatchers.any(Runnable.class), eq(player));
+		return player;
+	}
+
+	@Test
+	void ownerReplayContinuationWaitsForBothDurableDeliveryAndStorageWorker() {
+		AsyncReplayFixture fixture = asyncFixture();
+		org.bukkit.entity.Player player = installReplayOwner(fixture);
+		java.util.ArrayDeque<Runnable> worker = new java.util.ArrayDeque<>();
+		ScheduledExecutorService storageTimer = fixture.plugin.getUserManager().getDataManager().getTimer();
+		doAnswer(call -> { worker.add(call.getArgument(0, Runnable.class)); return null; })
+				.when(storageTimer)
+				.execute(org.mockito.ArgumentMatchers.any(Runnable.class));
+		java.util.concurrent.atomic.AtomicBoolean continued = new java.util.concurrent.atomic.AtomicBoolean();
+		fixture.user.offVoteAndThen(player, () -> continued.set(true));
+		assertFalse(continued.get());
+		assertTrue(fixture.pending.get().isEmpty());
+		worker.remove().run(); // prepare replay
+		fixture.anySiteRewards.complete(null);
+		assertFalse(continued.get());
+		worker.remove().run(); // durable confirmation
+		assertTrue(fixture.queued.get().isEmpty());
+		assertFalse(continued.get());
+		worker.remove().run(); // dependent work on storage owner
+		assertTrue(continued.get());
+		assertTrue(worker.isEmpty());
+	}
+
+	@Test
+	void ownerReplayFailureDoesNotRunDependentWork() {
+		AsyncReplayFixture fixture = asyncFixture();
+		org.bukkit.entity.Player player = installReplayOwner(fixture);
+		java.util.concurrent.atomic.AtomicBoolean continued = new java.util.concurrent.atomic.AtomicBoolean();
+		fixture.user.offVoteAndThen(player, () -> continued.set(true));
+		fixture.anySiteRewards.completeExceptionally(new IllegalStateException("partial reward"));
+		assertFalse(continued.get());
+		assertEquals(List.of("Site1"), fixture.pending.get());
+	}
+
+	@Test
+	void disabledReplayStillSchedulesDependentWorkWithoutDeliveringRewards() {
+		AsyncReplayFixture fixture = asyncFixture();
+		when(fixture.plugin.getOptions().isProcessRewards()).thenReturn(false);
+		java.util.ArrayDeque<Runnable> worker = new java.util.ArrayDeque<>();
+		ScheduledExecutorService storageTimer = fixture.plugin.getUserManager().getDataManager().getTimer();
+		doAnswer(call -> { worker.add(call.getArgument(0, Runnable.class)); return null; })
+				.when(storageTimer)
+				.execute(org.mockito.ArgumentMatchers.any(Runnable.class));
+		java.util.concurrent.atomic.AtomicBoolean continued = new java.util.concurrent.atomic.AtomicBoolean();
+		fixture.user.offVoteAndThen(mock(org.bukkit.entity.Player.class), () -> continued.set(true));
+		assertFalse(continued.get());
+		worker.remove().run();
+		assertTrue(continued.get());
+		verify(fixture.plugin.getRewardHandler(), never()).giveRewardAsync(
+				org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+				org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+	}
+
+	@Test
+	void capturedPermissionReplayDisabledStillRunsDependentStorageWork() {
+		AsyncReplayFixture fixture = asyncFixture();
+		when(fixture.plugin.getOptions().isProcessRewards()).thenReturn(false);
+		java.util.ArrayDeque<Runnable> worker = new java.util.ArrayDeque<>();
+		ScheduledExecutorService storageTimer = fixture.plugin.getUserManager().getDataManager().getTimer();
+		doAnswer(call -> { worker.add(call.getArgument(0, Runnable.class)); return null; })
+				.when(storageTimer).execute(org.mockito.ArgumentMatchers.any(Runnable.class));
+		java.util.concurrent.atomic.AtomicBoolean continued = new java.util.concurrent.atomic.AtomicBoolean();
+		fixture.user.offVoteWithCapturedTopVoterIgnoreAndThen(false, () -> continued.set(true));
+		assertFalse(continued.get());
+		worker.remove().run();
+		assertTrue(continued.get());
+		assertTrue(fixture.pending.get().isEmpty());
+		assertEquals(List.of("Site1"), fixture.queued.get());
+	}
+
+	@Test
+	void ownerDependentWaitsForAlreadyActiveReplayWithoutGrantingAgain() {
+		AsyncReplayFixture fixture = asyncFixture();
+		org.bukkit.entity.Player player = installReplayOwner(fixture);
+		CompletableFuture<Void> first = fixture.user.offVoteWithCapturedTopVoterIgnoreAsync(false)
+				.toCompletableFuture();
+		java.util.concurrent.atomic.AtomicBoolean continued = new java.util.concurrent.atomic.AtomicBoolean();
+		fixture.user.offVoteAndThen(player, () -> continued.set(true));
+		assertFalse(continued.get());
+		assertFalse(first.isDone());
+		verify(fixture.plugin.getRewardHandler(), org.mockito.Mockito.times(1)).giveRewardAsync(
+				org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+				org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+		fixture.anySiteRewards.complete(null);
+		first.join();
+		assertTrue(continued.get());
+		verify(fixture.site, org.mockito.Mockito.times(1)).giveRewardsAsync(fixture.user, false, false);
+		assertTrue(fixture.queued.get().isEmpty());
+	}
+
+	@Test
+	void failedAlreadyActiveReplayStillSuppressesJoinedDependent() {
+		AsyncReplayFixture fixture = asyncFixture();
+		org.bukkit.entity.Player player = installReplayOwner(fixture);
+		fixture.user.offVoteWithCapturedTopVoterIgnoreAsync(false);
+		java.util.concurrent.atomic.AtomicBoolean continued = new java.util.concurrent.atomic.AtomicBoolean();
+		fixture.user.offVoteAndThen(player, () -> continued.set(true));
+		fixture.anySiteRewards.completeExceptionally(new IllegalStateException("partial earlier delivery"));
+		assertFalse(continued.get());
+		assertEquals(List.of("Site1"), fixture.pending.get());
+		assertFalse(fixture.user.isOfflineVoteRewardReplayActive());
+	}
+
 	private record AsyncReplayFixture(VotingPluginMain plugin, VotingPluginUser user, VoteSite site,
 			AtomicReference<ArrayList<String>> queued,
 			AtomicReference<ArrayList<String>> pending,

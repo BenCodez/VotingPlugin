@@ -14,6 +14,7 @@ import com.bencodez.advancedcore.listeners.AdvancedCoreLoginEvent;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.placeholders.PlaceHolders;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.util.BukkitCompletionScheduler;
 
 public class PlayerJoinEvent implements Listener {
 
@@ -85,23 +86,32 @@ public class PlayerJoinEvent implements Listener {
 			plugin.getPlaceholderPlayerPresence().playerOnline(user.getJavaUUID(), player);
 		}
 
-		if (player != null && player.isOp() && plugin.isYmlError()) {
-			user.sendMessage("&cVotingPlugin: Detected yml error, please check console for details");
+		if (player != null && plugin.isYmlError()) {
+			BukkitCompletionScheduler.run(plugin, player, () -> {
+				if (player.isOp()) {
+					user.sendMessage("&cVotingPlugin: Detected yml error, please check console for details");
+				}
+			}, () -> { }, () -> { });
 		}
 
+		Runnable afterOfflineVotes = () -> {
+			// Replay may finish after quit or a replacement login for the same storage UUID.
+			if (player != null && plugin.getPlaceholderPlayerPresence().schedulerOwner(user.getJavaUUID()) != player) {
+				return;
+			}
+			user.loginRewards();
+			plugin.getPlaceholders().onUpdate(user, true);
+			if (plugin.getBungeeSettings().isUseBungeecoord()) {
+				plugin.getBackendProxyHandler().playerOnline(user.getPlayerName(), user.getUUID());
+			}
+		};
 		if (hasData) {
-			// give offline vote (if they voted offline)
-			user.offVote();
+			// Follow-up work requires confirmed durable replay, not task admission.
+			user.offVoteAndThen(player, afterOfflineVotes);
 		} else {
 			plugin.debug("No data detected for " + user.getUUID() + "/" + user.getPlayerName());
-		}
-
-		user.loginRewards();
-
-		plugin.getPlaceholders().onUpdate(user, true);
-
-		if (plugin.getBungeeSettings().isUseBungeecoord()) {
-			plugin.getBackendProxyHandler().playerOnline(user.getPlayerName(), user.getUUID());
+			// Preserve the no-data replay skip and keep dependent work off entity owners.
+			plugin.getUserManager().getDataManager().getTimer().execute(afterOfflineVotes);
 		}
 	}
 

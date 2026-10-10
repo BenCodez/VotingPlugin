@@ -353,39 +353,34 @@ public class BackendProxyMessageRouter {
 		try {
 			VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(resolved);
 			UserDataManager dataManager = plugin.getUserManager().getDataManager();
-			if (dataManager != null && dataManager.hasSharedSqlBackend()) {
-				// Site resolution may auto-create YAML and reload reward/site registries.
-				// Capture it once on the platform scheduler before entering the SQL worker.
-				VoteSite voteSite = resolveVoteUpdateSite(update);
-				// Capture player state on its owning thread before entering shared SQL.
-				// A retired entity must retry; only a genuinely absent player may skip offline rewards.
-				// Match offVote(): offline-mode identities are looked up by name,
-				// not by their stored UUID. Permission reads still use the entity owner.
-				org.bukkit.entity.Player player = plugin.getOptions().isOnlineMode()
-						? user.getPlayer()
-						: org.bukkit.Bukkit.getPlayer(user.getPlayerName());
-				if (player == null) {
-					deferSharedVoteUpdate(update, user, dataManager, voteSite, false, false, completion);
-				} else {
-					// A cancelled callback retries only on explicit lifecycle retirement.
-					PendingVoteUpdateHandoff handoff = trackVoteUpdateHandoff(completion);
-					if (handoff.isClaimed()) return;
-					com.bencodez.votingplugin.util.BukkitCompletionScheduler.run(plugin, player, () -> {
-						if (!handoff.begin()) return;
-						try {
-							boolean online = player.isOnline();
-							deferSharedVoteUpdate(update, user, dataManager, voteSite, online,
-									online && player.hasPermission("VotingPlugin.TopVoter.Ignore"), completion);
-						} catch (RuntimeException | Error failure) {
-							completion.accept(OrderedVoteOutcome.RETRY);
-							throw failure;
-						}
-					}, handoff::cancel, handoff::cancel);
-				}
-				return;
+			// Site resolution may auto-create YAML and reload reward/site registries.
+			// Capture it once on the platform scheduler before entering the SQL worker.
+			VoteSite voteSite = resolveVoteUpdateSite(update);
+			// Capture player state on its owning thread before entering storage.
+			// A retired entity must retry; only a genuinely absent player may skip offline rewards.
+			// Match offVote(): offline-mode identities are looked up by name,
+			// not by their stored UUID. Permission reads still use the entity owner.
+			org.bukkit.entity.Player player = plugin.getOptions().isOnlineMode()
+					? user.getPlayer()
+					: org.bukkit.Bukkit.getPlayer(user.getPlayerName());
+			if (player == null) {
+				deferVoteUpdate(update, user, dataManager, voteSite, false, false, completion);
+			} else {
+				// A cancelled callback retries only on explicit lifecycle retirement.
+				PendingVoteUpdateHandoff handoff = trackVoteUpdateHandoff(completion);
+				if (handoff.isClaimed()) return;
+				com.bencodez.votingplugin.util.BukkitCompletionScheduler.run(plugin, player, () -> {
+					if (!handoff.begin()) return;
+					try {
+						boolean online = player.isOnline();
+						deferVoteUpdate(update, user, dataManager, voteSite, online,
+								online && player.hasPermission("VotingPlugin.TopVoter.Ignore"), completion);
+					} catch (RuntimeException | Error failure) {
+						completion.accept(OrderedVoteOutcome.RETRY);
+						throw failure;
+					}
+				}, handoff::cancel, handoff::cancel);
 			}
-			user.cache();
-			applyVoteUpdate(update, user, completion);
 		} catch (RuntimeException | Error failure) {
 			completion.accept(OrderedVoteOutcome.RETRY);
 			throw failure;
@@ -427,9 +422,9 @@ public class BackendProxyMessageRouter {
 						plugin.getLogger().warning("Unable to finish offline rewards for UUID VoteUpdate: "
 								+ ServiceSiteValidator.sanitizeForLog(update.uuid));
 						plugin.debug(rewardFailure);
-						// The reward chain may already have emitted external effects.
-						// Never automatically replay the entire ordered envelope.
-						completion.accept(OrderedVoteOutcome.QUARANTINE);
+						// The user API marks any ambiguous pending/effect boundary.
+						completion.accept(effectsMayHaveStarted.get()
+								? OrderedVoteOutcome.QUARANTINE : OrderedVoteOutcome.RETRY);
 						return;
 					}
 					try {
@@ -492,17 +487,67 @@ public class BackendProxyMessageRouter {
 		}
 	}
 
-	private void applyVoteUpdate(VotingPluginWire.VoteUpdate update, VotingPluginUser user,
+	private void deferVoteUpdate(VotingPluginWire.VoteUpdate update, VotingPluginUser user,
+			UserDataManager dataManager, VoteSite site, boolean online, boolean topVoterIgnore,
 			Consumer<OrderedVoteOutcome> completion) {
-		try {
-			user.offVote();
-			applyVoteUpdateTime(update, user, resolveVoteUpdateSite(update), () -> {});
-			plugin.setUpdate(true);
-		} catch (RuntimeException | Error failure) {
-			completion.accept(OrderedVoteOutcome.QUARANTINE);
-			throw failure;
+		if (dataManager.hasSharedSqlBackend()) {
+			deferSharedVoteUpdate(update, user, dataManager, site, online, topVoterIgnore, completion);
+			return;
 		}
-		completion.accept(OrderedVoteOutcome.COMPLETE);
+		AtomicBoolean effectsMayHaveStarted = new AtomicBoolean();
+		try {
+			dataManager.getTimer().execute(() -> {
+				try {
+					user.cache();
+					CompletionStage<Void> replay = online
+							? user.offVoteWithCapturedTopVoterIgnoreAsync(topVoterIgnore,
+									() -> effectsMayHaveStarted.set(true))
+							: CompletableFuture.completedFuture(null);
+					if (replay == null) throw new IllegalStateException("Missing offline replay completion");
+					replay.whenComplete((ignored, failure) -> {
+						if (failure != null) {
+							plugin.debug(failure);
+							completion.accept(effectsMayHaveStarted.get()
+									? OrderedVoteOutcome.QUARANTINE : OrderedVoteOutcome.RETRY);
+							return;
+						}
+						try {
+							// Even an empty replay can finish on an owner callback.
+							dataManager.getTimer().execute(() -> {
+								try {
+									user.cache();
+									applyVoteUpdateTime(update, user, site, () -> effectsMayHaveStarted.set(true));
+									dataManager.dispatchSharedStorageNotification(() -> {
+										try {
+											plugin.setUpdate(true);
+											completion.accept(OrderedVoteOutcome.COMPLETE);
+										} catch (RuntimeException | Error notificationFailure) {
+											plugin.debug(notificationFailure);
+											completion.accept(OrderedVoteOutcome.QUARANTINE);
+										}
+									});
+								} catch (RuntimeException | Error applyFailure) {
+									plugin.debug(applyFailure);
+									completion.accept(effectsMayHaveStarted.get()
+											? OrderedVoteOutcome.QUARANTINE : OrderedVoteOutcome.RETRY);
+								}
+							});
+						} catch (RuntimeException | Error rejected) {
+							plugin.debug(rejected);
+							completion.accept(effectsMayHaveStarted.get()
+									? OrderedVoteOutcome.QUARANTINE : OrderedVoteOutcome.RETRY);
+						}
+					});
+				} catch (RuntimeException | Error failure) {
+					plugin.debug(failure);
+					completion.accept(effectsMayHaveStarted.get()
+							? OrderedVoteOutcome.QUARANTINE : OrderedVoteOutcome.RETRY);
+				}
+			});
+		} catch (RuntimeException | Error rejected) {
+			plugin.debug(rejected);
+			completion.accept(OrderedVoteOutcome.RETRY);
+		}
 	}
 
 	private void handleVoteBroadcast(JsonEnvelope msg) {
