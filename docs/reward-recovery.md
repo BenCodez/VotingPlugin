@@ -13,7 +13,7 @@ stored player UUID, rather than a player name.
 
 ## Before making a recovery change
 
-1. Stop new reward processing and let accepted work finish. In a network, quiesce
+1. Stop new reward processing and let accepted work finish. In a network, stop
    **all** backends using the same user database, including pending callbacks.
    Stopping only the server where the command runs is insufficient.
 2. Check console logs and any affected economy, inventory, or external command
@@ -27,11 +27,20 @@ stored player UUID, rather than a player name.
    guarantee exactly-once execution across different systems.
 
 The local in-flight check blocks recovery while this server is delivering the
-reward. With shared user storage, mutating commands also require the final
-argument `all-backends-quiesced`. This is an **operator assertion**, not a
-server-verified distributed lock or proof that another backend is idle. Keep the
-network quiesced until reconciliation finishes. The shared storage check also
+reward. With shared user storage, the first valid mutation command explains the
+precautions and makes **no changes**. After taking those precautions, repeat the
+**identical command** from the same console within 30 seconds to confirm. No
+extra argument or separate command is needed. The shared-storage check also
 applies to the current shared SQLite runtime.
+
+Confirmation is an **operator acknowledgement**, not a distributed lock or
+server-verified proof that other backends are idle. Keep other database writers
+and vote/reward ingress stopped until reconciliation finishes. The existing
+five-minute, single-use recovery preview token remains mandatory; confirmation
+cannot bypass its state checks. A different action, UUID, or token needs a fresh
+confirmation. Expired confirmations, reloads, and restarts do not authorize a
+mutation. At most 128 pending console identities are retained per confirmation
+owner; excess requests fail without changing data until capacity is available.
 
 ## Offline vote batches
 
@@ -39,9 +48,9 @@ Run from the server console (omit the leading slash there):
 
 ```text
 /av OfflineVoteRecovery <uuid> status
-/av OfflineVoteRecovery <uuid> delivered <token> all-backends-quiesced
-/av OfflineVoteRecovery <uuid> retry <token> all-backends-quiesced
-/av OfflineVoteRecovery <uuid> already-cleared <token> all-backends-quiesced
+/av OfflineVoteRecovery <uuid> delivered <token>
+/av OfflineVoteRecovery <uuid> retry <token>
+/av OfflineVoteRecovery <uuid> already-cleared <token>
 ```
 
 - `delivered`: after verifying all effects were delivered, remove only the
@@ -60,16 +69,16 @@ remove. Retain the quarantine and reconcile using independent evidence.
 `clearOfflineVotes()`, `ClearOfflineVotes`, and `ClearOfflineVoteRewards` cannot
 replace a queue containing an unresolved batch. The bulk commands check stored
 users before clearing any queue. Reconcile the pending batch first; do not
-manually delete its database marker. Normal clears without a pending batch keep
-their existing behavior. Bulk clears on a network likewise require operational
+manually delete its database marker. Non-MySQL bulk clears without a pending batch keep
+their existing single-invocation behavior. Bulk clears on a network likewise require operational
 quiescence; the preflight is not a cross-process lock.
 
 ## NameMC claims
 
 ```text
 /av NameMCLikeRecovery <uuid> status
-/av NameMCLikeRecovery <uuid> delivered <token> all-backends-quiesced
-/av NameMCLikeRecovery <uuid> retry <token> all-backends-quiesced
+/av NameMCLikeRecovery <uuid> delivered <token>
+/av NameMCLikeRecovery <uuid> retry <token>
 ```
 
 - `delivered`: confirm the claim before clearing the pending marker, after
@@ -98,27 +107,31 @@ or its pending marker. Empty queues and
 failed replay release that fence; asynchronous delivery retains it through confirmed
 storage completion. This fence coordinates one JVM, not multiple backends.
 
-`ClearOfflineVotes` and the vote-queue portion of `ClearOfflineVoteRewards` reject
-bulk clearing when the authoritative active storage type is MySQL. SQLite
-remains supported, including AdvancedCore’s shared-runtime SQLite adapter. A scan followed by
-a bulk deletion cannot safely exclude a concurrently starting remote reward batch.
-An operator who has stopped vote ingress and **all other database-writing backends**
-may use these console-only forms for an exclusively owned database (including a
-single-backend MySQL installation):
+`ClearOfflineVotes` and the vote-queue portion of `ClearOfflineVoteRewards` require
+a console confirmation when the authoritative active storage type is MySQL.
+SQLite retains its existing single-invocation bulk-clear behavior, including
+AdvancedCore’s shared-runtime SQLite adapter. A scan followed by a bulk deletion
+cannot safely exclude a concurrently starting remote reward batch.
+
+Use the existing commands (including on a single-backend MySQL installation):
 
 ```text
-/av ClearOfflineVotes all-backends-quiesced
-/av ClearOfflineVoteRewards all-backends-quiesced
+/av ClearOfflineVotes
+/av ClearOfflineVoteRewards
 ```
 
-This is the same explicit operator assertion used for individual recovery. It is
-not automatic detection, a distributed lock, or proof that remote writers stopped.
-Do not use it while another backend can modify the user database. A false assertion
-can race reward delivery or delete concurrent votes. The normal no-argument forms
-remain fail-closed on MySQL; this deliberate maintenance form restores controlled
-bulk clearing without silently assuming that every MySQL installation is shared.
-Single-backend bulk clearing continues to reject active or unresolved batches and
+On MySQL the first invocation makes no changes and asks you to stop other writers
+and vote/reward ingress. Repeat the same command from the same console within
+30 seconds after doing so. Changing from one bulk-clear command to the other
+replaces the previous prompt and cannot confirm it. Confirmation is consumed
+before the attempted write; a failure requires a fresh confirmation. No automatic
+retry is performed. `ClearOfflineVoteRewards` clears both the vote queue and the
+separate generic offline reward queue, only after the vote-queue safeguards pass.
+
+This acknowledgement does not detect or lock other JVMs. Confirming while another
+backend can modify the database can race reward delivery or delete concurrent
+votes. Local bulk clearing continues to reject active or unresolved batches and
 excludes new local replay admissions until the bulk write finishes. No monitor is
 held during storage work; competing replay fails or defers rather than waiting.
-Individual audited recovery remains subject to the all-backends-quiesced requirement
-above; it does not automatically coordinate other JVMs.
+Individual audited recovery uses the same repeat-command acknowledgement above;
+it does not automatically coordinate other JVMs.

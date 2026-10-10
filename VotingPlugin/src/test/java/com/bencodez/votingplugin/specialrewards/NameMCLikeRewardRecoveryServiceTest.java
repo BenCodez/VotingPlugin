@@ -128,7 +128,7 @@ class NameMCLikeRewardRecoveryServiceTest {
 		verify(user, never()).setNameMCLikeRewardPending(false);
 	}
 	@Test
-	void sharedSqlNameMCRecoveryRequiresExplicitNetworkQuiescence() {
+	void sharedSqlNameMCRecoveryRequiresRepeatedIdenticalCommand() {
 		when(plugin.getUserManager().getDataManager().hasSharedSqlBackend()).thenReturn(true);
 		String token = previewToken();
 		AtomicReference<String> result = new AtomicReference<>();
@@ -136,7 +136,7 @@ class NameMCLikeRewardRecoveryServiceTest {
 		assertTrue(result.get().contains("ALL backend servers"));
 		verify(user, never()).setNameMCLikeRewardPending(false);
 
-		service.handle("Console", PLAYER_UUID.toString(), "retry", token, true, result::set);
+		service.handle("Console", PLAYER_UUID.toString(), "retry", token, result::set);
 		assertTrue(result.get().contains("recovery applied"));
 		verify(user).setNameMCLikeRewardPending(false);
 	}

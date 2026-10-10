@@ -104,7 +104,7 @@ class OfflineVoteRewardRecoveryServiceTest {
 		verify(user, never()).reconcileOfflineVoteRewardBatch(any(), any(), any());
 	}
 	@Test
-	void sharedSqlRecoveryRequiresExplicitNetworkQuiescence() {
+	void sharedSqlRecoveryRequiresRepeatedIdenticalCommand() {
 		when(plugin.getUserManager().getDataManager().hasSharedSqlBackend()).thenReturn(true);
 		AtomicReference<String> result = new AtomicReference<>();
 		service.handle("Console", UUID_VALUE.toString(), "status", "", result::set);
@@ -116,10 +116,30 @@ class OfflineVoteRewardRecoveryServiceTest {
 		assertTrue(result.get().contains("ALL backend servers"));
 		verify(user, never()).reconcileOfflineVoteRewardBatch(any(), any(), any());
 
-		service.handle("Console", UUID_VALUE.toString(), "delivered", token, true, result::set);
+		service.handle("Console", UUID_VALUE.toString(), "delivered", token, result::set);
 		assertTrue(result.get().contains("recovery applied"));
 		verify(user).reconcileOfflineVoteRewardBatch(eq(List.of("Site1")),
 				eq(List.of("Site1")), eq("delivered"));
+	}
+
+	@Test
+	void sharedSqlConfirmationCannotTransferActorOrPreviewToken() {
+		when(plugin.getUserManager().getDataManager().hasSharedSqlBackend()).thenReturn(true);
+		AtomicReference<String> result = new AtomicReference<>();
+		service.handle("Console", UUID_VALUE.toString(), "status", "", result::set);
+		String token = result.get().split("delivered ")[1].split(" ")[0];
+		service.handle("Console", UUID_VALUE.toString(), "delivered", token, result::set);
+		service.handle("Rcon", UUID_VALUE.toString(), "delivered", token, result::set);
+		assertTrue(result.get().contains("No changes made"));
+		service.handle("Console", UUID_VALUE.toString(), "status", "", result::set);
+		String replacement = result.get().split("delivered ")[1].split(" ")[0];
+		service.handle("Console", UUID_VALUE.toString(), "delivered", token, result::set);
+		assertTrue(result.get().contains("Invalid or expired"));
+		service.handle("Console", UUID_VALUE.toString(), "delivered", replacement, result::set);
+		assertTrue(result.get().contains("No changes made"));
+		verify(user, never()).reconcileOfflineVoteRewardBatch(any(), any(), any());
+		service.handle("Console", UUID_VALUE.toString(), "delivered", replacement, result::set);
+		verify(user).reconcileOfflineVoteRewardBatch(any(), any(), eq("delivered"));
 	}
 
 }

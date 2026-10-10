@@ -27,62 +27,83 @@ import com.bencodez.votingplugin.user.UserManager;
 
 class OfflineVoteClearCommandRegistrationTest {
 	@Test
-	void registersBothCommandsWithAndWithoutExplicitQuiescenceAssertion() {
+	void registersOnlyTheExistingCommandNames() {
 		Fixture fixture = new Fixture();
 		fixture.loader.registerOfflineVoteClearCommands("VotingPlugin.Admin");
-
-		assertEquals(Arrays.asList(
-				Arrays.asList("ClearOfflineVoteRewards"),
-				Arrays.asList("ClearOfflineVoteRewards", "all-backends-quiesced"),
-				Arrays.asList("ClearOfflineVotes"),
-				Arrays.asList("ClearOfflineVotes", "all-backends-quiesced")), fixture.patterns());
+		assertEquals(List.of(List.of("ClearOfflineVoteRewards"), List.of("ClearOfflineVotes")), fixture.patterns());
 	}
 
 	@Test
-	void registeredHandlersDispatchTheConfirmationAndDoNotAcceptAFalseLiteral() {
+	void nonMysqlCommandsKeepTheirSingleInvocationBehavior() {
 		Fixture fixture = new Fixture();
 		fixture.loader.registerOfflineVoteClearCommands("VotingPlugin.Admin");
 		CommandSender console = mock(CommandSender.class);
-
 		for (CommandHandler handler : fixture.handlers()) {
-			String[] args = handler.getArgs();
-			assertTrue(handler.argsMatch(args[0], 0));
-			if (args.length == 2) {
-				assertTrue(handler.argsMatch(args[1], 1));
-				assertTrue(!handler.argsMatch("not-confirmed", 1));
-			}
-			handler.execute(console, args);
-			fixture.lastMutation.get().run();
+			handler.execute(console, handler.getArgs());
+			assertTrue(fixture.lastMutation.get().getAsBoolean());
 		}
-
 		verify(fixture.votingUsers, times(2)).clearAllOfflineVotes(false);
-		verify(fixture.votingUsers, times(2)).clearAllOfflineVotes(true);
-		verify(fixture.users, times(2)).removeAllKeyValues("OfflineRewards", DataType.STRING);
+		verify(fixture.users).removeAllKeyValues("OfflineRewards", DataType.STRING);
 	}
 
 	@Test
-	void confirmationCannotBeUsedByAPlayerSender() {
+	void mysqlRequiresAnIdenticalSecondInvocationAndConsumesConfirmation() {
 		Fixture fixture = new Fixture();
+		when(fixture.users.getDataManager().effectiveStorageType(fixture.plugin.getStorageType()))
+				.thenReturn(com.bencodez.advancedcore.api.user.UserStorage.MYSQL);
+		fixture.loader.registerOfflineVoteClearCommands("VotingPlugin.Admin");
+		CommandSender console = mock(CommandSender.class);
+		when(console.getName()).thenReturn("Console");
+		CommandHandler handler = fixture.handlers().get(0);
+		handler.execute(console, handler.getArgs());
+		assertTrue(!fixture.lastMutation.get().getAsBoolean());
+		verify(fixture.votingUsers, never()).clearAllOfflineVotes(true);
+		verify(fixture.users, never()).removeAllKeyValues("OfflineRewards", DataType.STRING);
+		handler.execute(console, handler.getArgs());
+		assertTrue(fixture.lastMutation.get().getAsBoolean());
+		verify(fixture.votingUsers).clearAllOfflineVotes(true);
+		verify(fixture.users).removeAllKeyValues("OfflineRewards", DataType.STRING);
+		handler.execute(console, handler.getArgs());
+		assertTrue(!fixture.lastMutation.get().getAsBoolean());
+		verify(fixture.votingUsers, times(1)).clearAllOfflineVotes(true);
+	}
+
+	@Test
+	void differentBulkCommandCannotConfirmThePreviousCommand() {
+		Fixture fixture = new Fixture();
+		when(fixture.users.getDataManager().effectiveStorageType(fixture.plugin.getStorageType()))
+				.thenReturn(com.bencodez.advancedcore.api.user.UserStorage.MYSQL);
+		fixture.loader.registerOfflineVoteClearCommands("VotingPlugin.Admin");
+		CommandSender console = mock(CommandSender.class);
+		for (CommandHandler handler : fixture.handlers()) {
+			handler.execute(console, handler.getArgs());
+			assertTrue(!fixture.lastMutation.get().getAsBoolean());
+		}
+		verify(fixture.votingUsers, never()).clearAllOfflineVotes(true);
+	}
+
+	@Test
+	void mysqlConfirmationCannotBeUsedByAPlayerSender() {
+		Fixture fixture = new Fixture();
+		when(fixture.users.getDataManager().effectiveStorageType(fixture.plugin.getStorageType()))
+				.thenReturn(com.bencodez.advancedcore.api.user.UserStorage.MYSQL);
 		fixture.loader.registerOfflineVoteClearCommands("VotingPlugin.Admin");
 		Player player = mock(Player.class);
-
-		for (CommandHandler handler : fixture.handlers()) {
-			if (handler.getArgs().length == 2) {
-				handler.execute(player, handler.getArgs());
-			}
-		}
-
+		fixture.handlers().get(0).execute(player, new String[] {"ClearOfflineVoteRewards"});
 		assertEquals(null, fixture.lastMutation.get());
+		fixture.handlers().get(1).execute(player, new String[] {"ClearOfflineVotes"});
+		assertTrue(!fixture.lastMutation.get().getAsBoolean());
+		verify(fixture.votingUsers, never()).clearAllOfflineVotes(true);
 	}
 
 	@Test
 	void failedVoteClearNeverClearsTheSeparateGenericRewardQueue() {
 		Fixture fixture = new Fixture();
 		fixture.loader.registerOfflineVoteClearCommands("VotingPlugin.Admin");
-		doThrow(new IllegalStateException("pending batch")).when(fixture.votingUsers).clearAllOfflineVotes(true);
-		CommandHandler confirmed = fixture.handlers().get(1);
-		confirmed.execute(mock(CommandSender.class), confirmed.getArgs());
-		assertThrows(IllegalStateException.class, () -> fixture.lastMutation.get().run());
+		doThrow(new IllegalStateException("pending batch")).when(fixture.votingUsers).clearAllOfflineVotes(false);
+		CommandHandler handler = fixture.handlers().get(0);
+		handler.execute(mock(CommandSender.class), handler.getArgs());
+		assertThrows(IllegalStateException.class, () -> fixture.lastMutation.get().getAsBoolean());
 		verify(fixture.users, never()).removeAllKeyValues("OfflineRewards", DataType.STRING);
 	}
 
@@ -90,8 +111,8 @@ class OfflineVoteClearCommandRegistrationTest {
 		final VotingPluginMain plugin = mock(VotingPluginMain.class);
 		final UserManager votingUsers = mock(UserManager.class);
 		final com.bencodez.advancedcore.api.user.UserManager users =
-				mock(com.bencodez.advancedcore.api.user.UserManager.class);
-		final AtomicReference<Runnable> lastMutation = new AtomicReference<>();
+				mock(com.bencodez.advancedcore.api.user.UserManager.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		final AtomicReference<java.util.function.BooleanSupplier> lastMutation = new AtomicReference<>();
 		final TestLoader loader;
 
 		Fixture() {
@@ -113,15 +134,18 @@ class OfflineVoteClearCommandRegistrationTest {
 	}
 
 	private static final class TestLoader extends CommandLoader {
-		private final AtomicReference<Runnable> mutation;
+		private final AtomicReference<java.util.function.BooleanSupplier> mutation;
 
-		TestLoader(VotingPluginMain plugin, AtomicReference<Runnable> mutation) {
+		TestLoader(VotingPluginMain plugin, AtomicReference<java.util.function.BooleanSupplier> mutation) {
 			super(plugin);
 			this.mutation = mutation;
 		}
 
 		@Override
-		void runBulkStorageMutation(CommandSender sender, Runnable work, Runnable success) {
+		void runForCommandSender(CommandSender sender, Runnable task) { task.run(); }
+
+		@Override
+		void runConfirmedBulkStorageMutation(CommandSender sender, java.util.function.BooleanSupplier work, Runnable success) {
 			mutation.set(work);
 		}
 	}

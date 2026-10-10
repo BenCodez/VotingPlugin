@@ -6,6 +6,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.function.Consumer;
 
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.core.maintenance.MaintenanceConfirmation;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
 /**
@@ -16,6 +17,8 @@ public final class NameMCLikeRewardRecoveryService {
 	private static final long PREVIEW_TTL_MILLIS = 5 * 60 * 1000L;
 
 	private final VotingPluginMain plugin;
+	private final MaintenanceConfirmation confirmations =
+			new MaintenanceConfirmation();
 	private final ConcurrentMap<UUID, Preview> previews = new ConcurrentHashMap<>();
 
 	public NameMCLikeRewardRecoveryService(VotingPluginMain plugin) {
@@ -66,10 +69,20 @@ public final class NameMCLikeRewardRecoveryService {
 					}
 					if (plugin.getUserManager().getDataManager().hasSharedSqlBackend()
 							&& !allBackendsQuiesced) {
-						completion.accept("Shared SQL may have active grants on another backend. "
-								+ "Suspend NameMC reward processing on ALL backend servers, verify the reward, "
-								+ "then repeat with final argument all-backends-quiesced.");
-						return;
+						Preview candidate = previews.get(uuid);
+						if (candidate == null || !candidate.token().equals(token)
+								|| candidate.expiresAt() <= System.currentTimeMillis()) {
+							completion.accept("Invalid or expired recovery token; request status again");
+							return;
+						}
+						String command = "/av NameMCLikeRecovery " + uuid + " " + action.toLowerCase(java.util.Locale.ROOT) + " " + token;
+						var confirmation = confirmations.request(actor, command);
+						if (confirmation != MaintenanceConfirmation.Result.CONFIRMED) {
+							completion.accept(confirmation == MaintenanceConfirmation.Result.FULL
+									? "Confirmation capacity reached; try again in 30 seconds. No changes made."
+									: MaintenanceConfirmation.prompt(command));
+							return;
+						}
 					}
 					completion.accept(resolve(actor, uuid, user, action, token));
 				} catch (RuntimeException | Error failure) {

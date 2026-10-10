@@ -126,7 +126,7 @@ public class UserManager {
 		if (!allBackendsQuiesced && com.bencodez.advancedcore.api.user.UserStorage.MYSQL.equals(
 				plugin.getUserManager().getDataManager().effectiveStorageType(plugin.getStorageType()))) {
 			throw new IllegalStateException("Bulk offline-vote clearing is unavailable with MySQL: "
-					+ "stop other database writers and vote ingress, then explicitly confirm all-backends-quiesced");
+					+ "stop other database writers and vote ingress, then repeat the same console command within 30 seconds to confirm");
 		}
 		VotingPluginUser.beginOfflineVoteBulkClear();
 		try {
