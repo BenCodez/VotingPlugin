@@ -707,7 +707,13 @@ public final class ExperimentalGUIManager implements Listener {
     }
 
     public void list(CommandSender sender) {
-        ExperimentalGUISettings settings = ExperimentalGUISettings.read(plugin.getConfigFile().getData());
+        ExperimentalGUISettings settings;
+        try {
+            settings = ExperimentalGUISettings.read(plugin.getConfigFile().getData());
+        } catch (IllegalArgumentException invalid) {
+            sender.sendMessage("\u00a7cInvalid experimental GUI settings: " + invalid.getMessage());
+            return;
+        }
         for (ExperimentalGUIType type : ExperimentalGUIType.values()) {
             String reason = unsupported(type);
             sender.sendMessage(type.configurationKey() + ": " + (settings.enabled().contains(type) ? "enabled" : "disabled")

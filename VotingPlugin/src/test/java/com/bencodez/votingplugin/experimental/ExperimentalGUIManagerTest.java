@@ -34,6 +34,42 @@ import net.md_5.bungee.api.chat.BaseComponent;
 import net.md_5.bungee.api.chat.ClickEvent;
 
 class ExperimentalGUIManagerTest {
+    @Test void invalidSettingsListReportsValidationToConsoleWithoutListingOrCreatingResources() {
+        try (Fixture f = new Fixture()) {
+            f.config.set("Experimental.VoteGUIs.MaxActiveSessions", 0);
+            var console = mock(org.bukkit.command.ConsoleCommandSender.class);
+            when(console.hasPermission("VotingPlugin.Commands.AdminVote.TestGUI")).thenReturn(true);
+            assertDoesNotThrow(() -> f.manager.control(console, "list"));
+            verify(console, times(1)).sendMessage(contains("Invalid experimental GUI settings: MaxSessions 1..64"));
+            assertTrue(f.owner.isEmpty());
+            assertTrue(f.storage.isEmpty());
+            assertTrue(f.created.isEmpty());
+        }
+    }
+
+    @Test void invalidSettingsListReportsValidationOnPlayerOwnerWithoutCreatingResources() {
+        try (Fixture f = new Fixture()) {
+            f.config.set("Experimental.VoteGUIs.SitesPerPage", 6);
+            f.manager.control(f.player, "list");
+            verify(f.player, never()).sendMessage(anyString());
+            assertDoesNotThrow(f::owner);
+            verify(f.player, times(1)).sendMessage(contains("Invalid experimental GUI settings:"));
+            assertTrue(f.storage.isEmpty());
+            assertTrue(f.created.isEmpty());
+        }
+    }
+
+    @Test void validSettingsListStillReportsEveryStyle() {
+        try (Fixture f = new Fixture()) {
+            var console = mock(org.bukkit.command.ConsoleCommandSender.class);
+            when(console.hasPermission("VotingPlugin.Commands.AdminVote.TestGUI")).thenReturn(true);
+            f.manager.control(console, "list");
+            verify(console, times(ExperimentalGUIType.values().length)).sendMessage(anyString());
+            verify(console, never()).sendMessage(contains("Invalid experimental GUI settings:"));
+            assertTrue(f.storage.isEmpty());
+        }
+    }
+
     static final class Fixture implements AutoCloseable {
         final VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
         final HologramMenuScheduler scheduler = mock(HologramMenuScheduler.class);
