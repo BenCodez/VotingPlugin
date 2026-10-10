@@ -11,13 +11,13 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.util.BukkitCompletionScheduler;
 
 /** Uses entity ownership for players and fixed region ownership for stationary menu entities. */
-class HologramMenuScheduler {
+public class HologramMenuScheduler {
     private final VotingPluginMain plugin;
     private final Method regionExecute;
     private final Object regionScheduler;
     private final Method ownsLocation;
 
-    HologramMenuScheduler(VotingPluginMain plugin) {
+    public HologramMenuScheduler(VotingPluginMain plugin) {
         this.plugin = plugin;
         Method execute = null;
         Method owns = null;
@@ -38,11 +38,14 @@ class HologramMenuScheduler {
         ownsLocation = owns;
     }
 
-    void player(Player player, Runnable action, Runnable retired) {
-        BukkitCompletionScheduler.run(plugin, player, action, retired, retired);
+    public void player(Player player, Runnable action, Runnable retired) {
+        // Bukkit disables the plugin before onDisable. Already-owned cleanup must not
+        // enqueue a task that will be rejected after the inventory listener is removed.
+        if (regionExecute == null && Bukkit.isPrimaryThread()) action.run();
+        else BukkitCompletionScheduler.run(plugin, player, action, retired, retired);
     }
 
-    void region(Location anchor, Runnable action) {
+    public void region(Location anchor, Runnable action) {
         if (regionExecute == null) {
             if (Bukkit.isPrimaryThread()) action.run();
             else plugin.getBukkitScheduler().runTask(plugin, action, anchor);
@@ -58,7 +61,10 @@ class HologramMenuScheduler {
         }
     }
 
-    boolean owns(Location location) {
+    /** Capability selected once without linking Folia classes on other servers. */
+    public boolean regionized() { return regionExecute != null; }
+
+    public boolean owns(Location location) {
         if (ownsLocation == null) return Bukkit.isPrimaryThread();
         try {
             return Boolean.TRUE.equals(ownsLocation.invoke(null, location));
@@ -67,7 +73,7 @@ class HologramMenuScheduler {
         }
     }
 
-    Runnable watchPlayer(Player player, Runnable action, Runnable retired) {
+    public Runnable watchPlayer(Player player, Runnable action, Runnable retired) {
         var task = plugin.getBukkitScheduler().getFoliaLib().getImpl()
                 .runAtEntityTimer(player, action, retired, 20L, 20L);
         return task::cancel;

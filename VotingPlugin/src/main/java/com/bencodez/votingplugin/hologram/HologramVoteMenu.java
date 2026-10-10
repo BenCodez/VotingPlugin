@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.LongSupplier;
+import java.util.function.BooleanSupplier;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -57,6 +58,8 @@ public final class HologramVoteMenu implements Listener {
         volatile Runnable cancelWatch = () -> { };
         int page;
         long version;
+        BooleanSupplier externalGuard = () -> true;
+        Runnable onClosed = () -> {};
         Session(Player player, Location anchor, HologramVoteSettings settings) {
             this(player, anchor, settings, System.nanoTime());
         }
@@ -94,30 +97,38 @@ public final class HologramVoteMenu implements Listener {
     }
 
     public void open(Player player) {
-        scheduler.player(player, () -> openOwned(player), () -> close(player.getUniqueId()));
+        open(player, null, () -> true, () -> {});
     }
 
-    private void openOwned(Player player) {
-        if (stopped || !plugin.isEnabled() || !player.isOnline()) return;
+    /** Shared experimental lifecycle adapter; legacy public opening retains its original settings. */
+    public void open(Player player, HologramVoteSettings override, BooleanSupplier guard, Runnable onClosed) {
+        scheduler.player(player, () -> {
+            if (!guard.getAsBoolean()) { onClosed.run(); return; }
+            if (openOwned(player, override, guard, onClosed) == null) onClosed.run();
+        }, onClosed);
+    }
+
+    private Session openOwned(Player player, HologramVoteSettings override, BooleanSupplier guard, Runnable onClosed) {
+        if (stopped || !plugin.isEnabled() || !player.isOnline()) return null;
         if (!player.hasPermission("VotingPlugin.Admin")
                 && !player.hasPermission("VotingPlugin.Commands.AdminVote.TestHologram")) {
             player.sendMessage("\u00a7cYou do not have permission to use this experimental menu.");
-            return;
+            return null;
         }
         HologramVoteSettings settings;
         try {
-            settings = HologramVoteSettings.read(plugin.getConfigFile().getData());
+            settings = override == null ? HologramVoteSettings.read(plugin.getConfigFile().getData()) : override;
         } catch (IllegalArgumentException invalid) {
             player.sendMessage("\u00a7cInvalid Experimental.HologramVoteGUI settings: " + invalid.getMessage());
-            return;
+            return null;
         }
         if (!settings.enabled()) {
             player.sendMessage("\u00a7eEnable Experimental.HologramVoteGUI.Enabled to test this menu.");
-            return;
+            return null;
         }
         if (!supported()) {
             player.sendMessage("\u00a7cThis experimental menu requires Minecraft 1.19.4+ entity/visibility APIs.");
-            return;
+            return null;
         }
         close(player.getUniqueId());
         Location eyes = player.getEyeLocation();
@@ -125,11 +136,13 @@ public final class HologramVoteMenu implements Listener {
         anchor.setYaw(eyes.getYaw() + 180);
         anchor.setPitch(0);
         Session session = new Session(player, anchor, settings, clock.getAsLong());
+        session.externalGuard = guard;
+        session.onClosed = onClosed;
         synchronized (sessions) {
-            if (stopped) return;
+            if (stopped) return null;
             if (sessions.size() >= MAX_MENUS) {
                 player.sendMessage("\u00a7eToo many experimental menus are open. Please retry shortly.");
-                return;
+                return null;
             }
             sessions.put(session.owner, session);
         }
@@ -141,7 +154,7 @@ public final class HologramVoteMenu implements Listener {
             pendingLoads.decrementAndGet();
             close(session);
             player.sendMessage("\u00a7eVoting data is busy; please retry shortly.");
-            return;
+            return session;
         }
         boolean submitted = false;
         try {
@@ -170,11 +183,12 @@ public final class HologramVoteMenu implements Listener {
             if (!submitted) pendingLoads.decrementAndGet();
             fail(session, "The experimental menu could not be scheduled.", rejected);
         }
+        return session;
     }
 
     private boolean current(Session session) {
         return !stopped && !session.closed.get() && !session.expired(clock.getAsLong())
-                && sessions.get(session.owner) == session;
+                && sessions.get(session.owner) == session && session.externalGuard.getAsBoolean();
     }
 
     private void watch(Session session) {
@@ -277,11 +291,20 @@ public final class HologramVoteMenu implements Listener {
         if (session != null) close(session);
     }
 
+    /** A late cleanup can retire only the hologram associated with this exact lifecycle guard. */
+    public void close(UUID owner, BooleanSupplier guard) {
+        Session session = sessions.get(owner);
+        if (session != null && session.externalGuard == guard) close(session);
+    }
+
     private void close(Session session) {
         if (!session.closed.compareAndSet(false, true)) return;
         sessions.remove(session.owner, session);
         buttons.entrySet().removeIf(entry -> entry.getValue().session() == session);
-        session.cancelWatch.run();
+        try { session.cancelWatch.run(); }
+        catch (RuntimeException cancellationFailure) {
+            plugin.getLogger().warning("Hologram watch cancellation failed; continuing entity cleanup.");
+        }
         try {
             scheduler.region(session.anchor, () -> removeEntities(session));
         } catch (RuntimeException rejected) {
@@ -289,6 +312,7 @@ public final class HologramVoteMenu implements Listener {
             // non-persistent; world teardown discards them rather than serializing orphan menus.
             plugin.getLogger().warning("Hologram cleanup could not be scheduled during shutdown.");
         }
+        session.onClosed.run();
     }
 
     private void removeEntities(Session session) {

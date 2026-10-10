@@ -635,6 +635,14 @@ public class VoteStreakHandler {
 		return readState(user, definition).streakCount;
 	}
 
+	/** Read-only stored presentation; call on the user-storage worker, never a player/region thread. */
+	public record StoredPreview(int amount, int bestAmount, boolean awardRecorded) {}
+
+	public StoredPreview getStoredPreview(VotingPluginUser user, VoteStreakDefinition definition) {
+		StreakState state = readState(user, definition);
+		return new StoredPreview(state.streakCount, state.bestStreakCount, state.hasRewarded(definition));
+	}
+
 	/**
 	 * Gets the highest amount reached for a configured vote streak or progress
 	 * group. Milestone IDs belonging to a progress group return that group's shared

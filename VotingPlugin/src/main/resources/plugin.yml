@@ -198,3 +198,53 @@ permissions:
   VotingPlugin.Commands.AdminVote.TestHologram:
     description: Allows testing the experimental holographic vote menu
     default: op
+    children:
+      VotingPlugin.Commands.AdminVote: true
+
+  VotingPlugin.Commands.AdminVote.testinventorygui:
+    description: Allows the corresponding experimental GUI test command
+    default: op
+    children:
+      VotingPlugin.Commands.AdminVote: true
+
+  VotingPlugin.Commands.AdminVote.testnpcgui:
+    description: Allows the corresponding experimental GUI test command
+    default: op
+    children:
+      VotingPlugin.Commands.AdminVote: true
+
+  VotingPlugin.Commands.AdminVote.teststreakgui:
+    description: Allows the corresponding experimental GUI test command
+    default: op
+    children:
+      VotingPlugin.Commands.AdminVote: true
+
+  VotingPlugin.Commands.AdminVote.testradialgui:
+    description: Allows the corresponding experimental GUI test command
+    default: op
+    children:
+      VotingPlugin.Commands.AdminVote: true
+
+  VotingPlugin.Commands.AdminVote.testdialoggui:
+    description: Allows the corresponding experimental GUI test command
+    default: op
+    children:
+      VotingPlugin.Commands.AdminVote: true
+
+  VotingPlugin.Commands.AdminVote.testshowcasegui:
+    description: Allows the corresponding experimental GUI test command
+    default: op
+    children:
+      VotingPlugin.Commands.AdminVote: true
+
+  VotingPlugin.Commands.AdminVote.testterminalgui:
+    description: Allows the corresponding experimental GUI test command
+    default: op
+    children:
+      VotingPlugin.Commands.AdminVote: true
+
+  VotingPlugin.Commands.AdminVote.TestGUI:
+    description: Allows the corresponding experimental GUI test command
+    default: op
+    children:
+      VotingPlugin.Commands.AdminVote: true

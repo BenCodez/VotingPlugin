@@ -157,6 +157,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private com.bencodez.votingplugin.hologram.HologramVoteMenu hologramVoteMenu;
 
 	public com.bencodez.votingplugin.hologram.HologramVoteMenu getHologramVoteMenu() { return hologramVoteMenu; }
+	private com.bencodez.votingplugin.experimental.ExperimentalGUIManager experimentalGUIManager;
+	public com.bencodez.votingplugin.experimental.ExperimentalGUIManager getExperimentalGUIManager() { return experimentalGUIManager; }
 
 
 	@Getter
@@ -685,6 +687,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	@Override
 	public void onPostLoad() {
 		hologramVoteMenu = new com.bencodez.votingplugin.hologram.HologramVoteMenu(this);
+		experimentalGUIManager = new com.bencodez.votingplugin.experimental.ExperimentalGUIManager(this);
 		ensureCommunicationSecret();
 		// auto conversion for Shop.yml
 		if (plugin.getShopFile().isJustCreated()) {
@@ -1935,6 +1938,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Override
 	public void onDisable() {
+		if (experimentalGUIManager != null) experimentalGUIManager.shutdown();
 		if (hologramVoteMenu != null) hologramVoteMenu.shutdown();
 		try {
 			shutdownVoteReminders();
@@ -2037,6 +2041,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	 */
 	private void registerEvents() {
 		Bukkit.getPluginManager().registerEvents(hologramVoteMenu, this);
+		Bukkit.getPluginManager().registerEvents(experimentalGUIManager, this);
+		Bukkit.getPluginManager().registerEvents(experimentalGUIManager.inventoryListener(), this);
+		Bukkit.getPluginManager().registerEvents(experimentalGUIManager.npcListener(), this);
+		Bukkit.getPluginManager().registerEvents(experimentalGUIManager.displaysListener(), this);
 		PluginManager pm = getServer().getPluginManager();
 
 		pm.registerEvents(new PlayerJoinEvent(this), this);
@@ -2115,6 +2123,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	private void reloadPlugin(boolean userStorage, boolean reconcileHostedControl,
 			boolean updateActiveBackendRuntime) {
+		if (experimentalGUIManager != null) experimentalGUIManager.clear();
 		if (hologramVoteMenu != null) hologramVoteMenu.clear();
 		configFile.reloadData();
 		configFile.loadValues();

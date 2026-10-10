@@ -431,9 +431,42 @@ public class CommandLoader {
                     sender.sendMessage("This test command requires a player.");
                     return;
                 }
-                plugin.getHologramVoteMenu().open(player);
+                plugin.getExperimentalGUIManager().open(player, com.bencodez.votingplugin.experimental.ExperimentalGUIType.HOLOGRAM);
             }
         });
+
+        for (var type : com.bencodez.votingplugin.experimental.ExperimentalGUIType.values()) {
+            if (type == com.bencodez.votingplugin.experimental.ExperimentalGUIType.HOLOGRAM) continue;
+            plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] {type.command()},
+                    "VotingPlugin.Commands.AdminVote." + type.command() + "|" + adminPerm,
+                    "Test experimental " + type.configurationKey() + " voting GUI") {
+                @Override public void execute(CommandSender sender, String[] args) {
+                    if (!(sender instanceof Player player)) {
+                        sender.sendMessage("This test command requires a player.");
+                        return;
+                    }
+                    plugin.getExperimentalGUIManager().open(player, type);
+                }
+            });
+        }
+        for (String action : new String[] {"create", "remove", "list", "inspect"}) {
+            plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] {"testterminalgui", action},
+                    "VotingPlugin.Commands.AdminVote.testterminalgui|" + adminPerm,
+                    "Manage your temporary experimental voting terminal: " + action) {
+                @Override public void execute(CommandSender sender, String[] args) {
+                    plugin.getExperimentalGUIManager().terminalControl(sender, action);
+                }
+            });
+        }
+        for (String action : new String[] {"list", "close", "status", "cleanup"}) {
+            plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] {"TestGUI", action},
+                    "VotingPlugin.Commands.AdminVote.TestGUI|" + adminPerm,
+                    "Manage experimental voting GUI sessions: " + action) {
+                @Override public void execute(CommandSender sender, String[] args) {
+                    plugin.getExperimentalGUIManager().control(sender, action);
+                }
+            });
+        }
 
 
 		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "CurrentPluginTime" },
