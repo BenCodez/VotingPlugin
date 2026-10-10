@@ -73,6 +73,50 @@ class UserManagerOfflineVoteClearTest {
 		verify(fixture.plugin.getUserManager()).removeAllKeyValues("OfflineVotes", DataType.STRING);
 	}
 
+	@Test
+	void explicitlyQuiescedMysqlRetainsBulkClearingForExclusiveOwner() {
+		Fixture fixture = fixture();
+		when(fixture.plugin.getUserManager().getDataManager().effectiveStorageType(any()))
+				.thenReturn(com.bencodez.advancedcore.api.user.UserStorage.MYSQL);
+		fixture.manager.clearAllOfflineVotes(true);
+		verify(fixture.first).cache();
+		verify(fixture.second).cache();
+		verify(fixture.plugin.getUserManager()).removeAllKeyValues("OfflineVotes", DataType.STRING);
+	}
+
+	@Test
+	void quiescenceAssertionCannotDiscardUnresolvedMysqlBatch() {
+		Fixture fixture = fixture();
+		when(fixture.plugin.getUserManager().getDataManager().effectiveStorageType(any()))
+				.thenReturn(com.bencodez.advancedcore.api.user.UserStorage.MYSQL);
+		when(fixture.second.getPendingOfflineVoteRewardBatch()).thenReturn(new ArrayList<>(List.of("Site1")));
+		assertThrows(IllegalStateException.class, () -> fixture.manager.clearAllOfflineVotes(true));
+		verify(fixture.plugin.getUserManager(), never()).removeAllKeyValues(any(), any());
+	}
+
+	@Test
+	void quiescenceAssertionCannotBypassActiveLocalMysqlReplay() {
+		Fixture fixture = fixture();
+		when(fixture.plugin.getUserManager().getDataManager().effectiveStorageType(any()))
+				.thenReturn(com.bencodez.advancedcore.api.user.UserStorage.MYSQL);
+		when(fixture.first.isOfflineVoteRewardReplayActive()).thenReturn(true);
+		assertThrows(IllegalStateException.class, () -> fixture.manager.clearAllOfflineVotes(true));
+		verify(fixture.plugin.getUserManager(), never()).removeAllKeyValues(any(), any());
+	}
+
+	@Test
+	void confirmedBulkClearExcludesCompetingLocalBulkAdmissionAndReleasesAfterFailure() {
+		Fixture fixture = fixture();
+		var storageManager = fixture.plugin.getUserManager();
+		doAnswer(invocation -> {
+			assertThrows(IllegalStateException.class, VotingPluginUser::beginOfflineVoteBulkClear);
+			throw new IllegalStateException("write unavailable");
+		}).when(storageManager).removeAllKeyValues("OfflineVotes", DataType.STRING);
+		assertThrows(IllegalStateException.class, () -> fixture.manager.clearAllOfflineVotes(true));
+		VotingPluginUser.beginOfflineVoteBulkClear();
+		VotingPluginUser.endOfflineVoteBulkClear();
+	}
+
 	private static Fixture fixture() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
 		when(plugin.getLogger()).thenReturn(mock(java.util.logging.Logger.class));

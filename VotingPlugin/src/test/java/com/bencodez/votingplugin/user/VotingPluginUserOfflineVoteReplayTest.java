@@ -367,6 +367,34 @@ class VotingPluginUserOfflineVoteReplayTest {
 		assertFalse(fixture.user.isOfflineVoteRewardReplayActive());
 	}
 
+	@Test
+	void legacyContinuationWaitsForDurableReplayCompletion() {
+		AsyncReplayFixture fixture = asyncFixture();
+		AtomicReference<Boolean> continued = new AtomicReference<>(false);
+
+		fixture.user.offVoteWithCapturedTopVoterIgnoreAndThen(false, () -> continued.set(true));
+		assertFalse(continued.get(), "generic offline rewards must not overtake replay delivery");
+
+		fixture.anySiteRewards.complete(null);
+		assertTrue(continued.get(), "continuation must run after the queue/pending commit");
+		assertTrue(fixture.queued.get().isEmpty());
+		assertTrue(fixture.pending.get().isEmpty());
+	}
+
+	@Test
+	void failedLegacyReplaySkipsContinuationAndReleasesReplayFence() {
+		AsyncReplayFixture fixture = asyncFixture();
+		AtomicReference<Boolean> continued = new AtomicReference<>(false);
+
+		fixture.user.offVoteWithCapturedTopVoterIgnoreAndThen(false, () -> continued.set(true));
+		fixture.anySiteRewards.completeExceptionally(new IllegalStateException("delivery failed"));
+
+		assertFalse(continued.get(), "generic offline rewards must not run after failed replay");
+		assertFalse(fixture.user.isOfflineVoteRewardReplayActive());
+		assertEquals(List.of("Site1"), fixture.queued.get());
+		assertEquals(List.of("Site1"), fixture.pending.get());
+	}
+
 	private record AsyncReplayFixture(VotingPluginMain plugin, VotingPluginUser user, VoteSite site,
 			AtomicReference<ArrayList<String>> queued,
 			AtomicReference<ArrayList<String>> pending,

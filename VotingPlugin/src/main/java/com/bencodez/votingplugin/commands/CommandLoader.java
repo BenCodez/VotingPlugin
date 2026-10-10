@@ -130,6 +130,46 @@ public class CommandLoader {
 		BukkitCompletionScheduler.run(plugin, user.getPlayer(), task);
 	}
 
+	void registerOfflineVoteClearCommands(String adminPerm) {
+		for (boolean confirmed : new boolean[] { false, true }) {
+			plugin.getAdminVoteCommand().add(new CommandHandler(plugin, confirmed ? new String[] { "ClearOfflineVoteRewards", "all-backends-quiesced" } : new String[] { "ClearOfflineVoteRewards" },
+					"VotingPlugin.Commands.AdminVote.ClearOfflineVoteRewards|" + adminPerm, "Reset offline votes/rewards") {
+
+				@Override
+				public void execute(CommandSender sender, String[] args) {
+					if (confirmed && sender instanceof Player) {
+						sender.sendMessage(MessageAPI.colorize("&cQuiescence confirmation is console-only"));
+						return;
+					}
+					if (sender instanceof Player) {
+						sender.sendMessage(MessageAPI.colorize("&cThis command can not be done from ingame"));
+						return;
+					}
+					runBulkStorageMutation(sender, () -> {
+						plugin.getVotingPluginUserManager().clearAllOfflineVotes(confirmed);
+						plugin.getUserManager().removeAllKeyValues(plugin.getUserManager().getOfflineRewardsPath(), DataType.STRING);
+					}, () -> sender.sendMessage(MessageAPI.colorize("&cCleared offline votes/rewards")));
+				}
+			});
+		}
+		for (boolean confirmed : new boolean[] { false, true }) {
+			plugin.getAdminVoteCommand().add(new CommandHandler(plugin, confirmed ? new String[] { "ClearOfflineVotes", "all-backends-quiesced" } : new String[] { "ClearOfflineVotes" },
+					"VotingPlugin.Commands.AdminVote.ClearOfflineVotes|" + adminPerm, "Clear all offline votes") {
+
+				@Override
+				public void execute(CommandSender sender, String[] args) {
+					if (confirmed && sender instanceof Player) {
+						sender.sendMessage(MessageAPI.colorize("&cQuiescence confirmation is console-only"));
+						return;
+					}
+					runBulkStorageMutation(sender,
+							() -> plugin.getVotingPluginUserManager().clearAllOfflineVotes(confirmed),
+							() -> sender.sendMessage(MessageAPI.colorize("&cOffline votes Cleared")));
+				}
+			});
+		}
+	}
+
 	void runBulkStorageMutation(CommandSender sender, Runnable mutation, Runnable success) {
 		try {
 			plugin.getUserManager().getDataManager().getTimer().execute(() -> {
@@ -527,8 +567,8 @@ public class CommandLoader {
 					plugin.getOptions().setPauseRewards(false);
 					for (Player p : Bukkit.getOnlinePlayers()) {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(p);
-						user.offVote();
-						user.checkOfflineRewards();
+						user.offVoteWithCapturedTopVoterIgnoreAndThen(
+								p.hasPermission("VotingPlugin.TopVoter.Ignore"), user::checkOfflineRewards);
 					}
 					plugin.setUpdate(true);
 					sendMessage(sender, "&aRewards resumed");
@@ -1047,21 +1087,7 @@ public class CommandLoader {
 					}
 				});
 
-		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "ClearOfflineVoteRewards" },
-				"VotingPlugin.Commands.AdminVote.ClearOfflineVoteRewards|" + adminPerm, "Reset offline votes/rewards") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				if (sender instanceof Player) {
-					sender.sendMessage(MessageAPI.colorize("&cThis command can not be done from ingame"));
-					return;
-				}
-				runBulkStorageMutation(sender, () -> {
-					plugin.getVotingPluginUserManager().clearAllOfflineVotes();
-					plugin.getUserManager().removeAllKeyValues(plugin.getUserManager().getOfflineRewardsPath(), DataType.STRING);
-				}, () -> sender.sendMessage(MessageAPI.colorize("&cCleared offline votes/rewards")));
-			}
-		});
+		registerOfflineVoteClearCommands(adminPerm);
 
 		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(plugin,
@@ -1838,16 +1864,7 @@ public class CommandLoader {
 			}
 		});
 
-		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "ClearOfflineVotes" },
-				"VotingPlugin.Commands.AdminVote.ClearOfflineVotes|" + adminPerm, "Clear all offline votes") {
 
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				runBulkStorageMutation(sender,
-						() -> plugin.getVotingPluginUserManager().clearAllOfflineVotes(),
-						() -> sender.sendMessage(MessageAPI.colorize("&cOffline votes Cleared")));
-			}
-		});
 
 		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(plugin, new String[] { "Test", "(Player)", "(sitename)", "(number)" },

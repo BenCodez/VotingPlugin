@@ -2059,13 +2059,26 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	public void offVoteWithCapturedTopVoterIgnore(boolean currentTopVoterIgnore) {
 		if (!plugin.getOptions().isProcessRewards()) return;
+		offVoteWithCapturedTopVoterIgnoreAndThen(currentTopVoterIgnore, () -> { });
+	}
+
+	/**
+	 * Schedules legacy replay and invokes the continuation only after the durable
+	 * replay completion. The continuation runs on the storage worker.
+	 */
+	public void offVoteWithCapturedTopVoterIgnoreAndThen(boolean currentTopVoterIgnore, Runnable continuation) {
+		if (!plugin.getOptions().isProcessRewards()) return;
 		plugin.getUserManager().getDataManager().getTimer().execute(() -> {
 			try {
 				cache();
 				offVoteWithCapturedTopVoterIgnoreAsync(currentTopVoterIgnore)
 						.whenComplete((ignored, failure) -> {
-							if (failure != null) plugin.getLogger().warning(
-									"Offline vote replay remains pending for " + getUUID() + ": " + failure);
+							if (failure != null) {
+								plugin.getLogger().warning("Offline vote replay remains pending for "
+										+ getUUID() + ": " + failure);
+							} else {
+								continuation.run();
+							}
 						});
 			} catch (RuntimeException failure) {
 				plugin.getLogger().warning("Offline vote replay could not start for " + getUUID() + ": " + failure);

@@ -96,7 +96,21 @@ storage completion. This fence coordinates one JVM, not multiple backends.
 bulk clearing when the authoritative active storage type is MySQL. SQLite
 remains supported, including AdvancedCore’s shared-runtime SQLite adapter. A scan followed by
 a bulk deletion cannot safely exclude a concurrently starting remote reward batch.
-An operator assertion is not a distributed lock and cannot enable this bulk action.
+An operator who has stopped vote ingress and **all other database-writing backends**
+may use these console-only forms for an exclusively owned database (including a
+single-backend MySQL installation):
+
+```text
+/av ClearOfflineVotes all-backends-quiesced
+/av ClearOfflineVoteRewards all-backends-quiesced
+```
+
+This is the same explicit operator assertion used for individual recovery. It is
+not automatic detection, a distributed lock, or proof that remote writers stopped.
+Do not use it while another backend can modify the user database. A false assertion
+can race reward delivery or delete concurrent votes. The normal no-argument forms
+remain fail-closed on MySQL; this deliberate maintenance form restores controlled
+bulk clearing without silently assuming that every MySQL installation is shared.
 Single-backend bulk clearing continues to reject active or unresolved batches and
 excludes new local replay admissions until the bulk write finishes. No monitor is
 held during storage work; competing replay fails or defers rather than waiting.

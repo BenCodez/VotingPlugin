@@ -114,10 +114,19 @@ public class UserManager {
 	 * Pending batches must be explicitly reconciled, never silently discarded.
 	 */
 	public void clearAllOfflineVotes() {
-		if (com.bencodez.advancedcore.api.user.UserStorage.MYSQL.equals(
+		clearAllOfflineVotes(false);
+	}
+
+	/**
+	 * Explicit operator reconciliation for an exclusively owned user database.
+	 * The flag asserts all other database-writing backends and vote ingress are
+	 * stopped; it is not automatic topology detection or a distributed lock.
+	 */
+	public void clearAllOfflineVotes(boolean allBackendsQuiesced) {
+		if (!allBackendsQuiesced && com.bencodez.advancedcore.api.user.UserStorage.MYSQL.equals(
 				plugin.getUserManager().getDataManager().effectiveStorageType(plugin.getStorageType()))) {
 			throw new IllegalStateException("Bulk offline-vote clearing is unavailable with MySQL: "
-					+ "another backend may start rewards between inspection and deletion");
+					+ "stop other database writers and vote ingress, then explicitly confirm all-backends-quiesced");
 		}
 		VotingPluginUser.beginOfflineVoteBulkClear();
 		try {
