@@ -346,6 +346,38 @@ class ExperimentalGUIManagerTest {
         }
     }
 
+    @Test void longValidSiteKeysRemainDistinctAndSelectCorrectUrlsInBothDisplayStyles() {
+        for (ExperimentalGUIType type : List.of(ExperimentalGUIType.RADIAL, ExperimentalGUIType.REWARD_SHOWCASE)) {
+            AtomicReference<List<ExperimentalDisplays.Target>> targets = new AtomicReference<>();
+            AtomicReference<java.util.function.Consumer<ExperimentalDisplays.Target>> selection = new AtomicReference<>();
+            try (var renderers = mockConstruction(ExperimentalDisplays.class, (renderer, context) -> {
+                doAnswer(inv -> { targets.set(inv.getArgument(3)); selection.set(inv.getArgument(4)); return null; })
+                        .when(renderer).render(any(), any(), any(), anyList(), any());
+            }); Fixture f = new Fixture()) {
+                String firstKey = "x".repeat(2047) + "A";
+                String secondKey = "x".repeat(2047) + "B";
+                when(f.plugin.getSpecialRewardsConfig().getData()).thenReturn(new YamlConfiguration());
+                var sites = new ArrayList<>(List.of(f.site(firstKey, "https://example.test/first"),
+                        f.site(secondKey, "https://example.test/second")));
+                when(f.plugin.getVoteSiteManager().getVoteSitesEnabled()).thenReturn(sites);
+                Inventory production = f.top.get();
+                f.manager.open(f.player, type); f.owner(); f.snapshot();
+                var siteTargets = targets.get().stream().filter(t -> t.action() == ExperimentalDisplays.Action.SITE).toList();
+                assertEquals(2, siteTargets.size(), type.name());
+                assertTrue(siteTargets.stream().allMatch(t -> t.id().length() <= 128));
+                assertNotEquals(siteTargets.get(0).id(), siteTargets.get(1).id());
+                assertEquals(firstKey, siteTargets.get(0).siteKey());
+                assertEquals(secondKey, siteTargets.get(1).siteKey());
+                selection.get().accept(siteTargets.get(1));
+                var captor = org.mockito.ArgumentCaptor.forClass(BaseComponent.class);
+                verify(f.chat).sendMessage(captor.capture());
+                assertEquals("https://example.test/second", captor.getValue().getClickEvent().getValue());
+                assertSame(production, f.top.get());
+                verify(f.player, never()).openInventory(any(Inventory.class));
+            }
+        }
+    }
+
     @Test void radialUsesStableSiteKeysAndNativeTargetsWithoutOpeningInventory() {
         AtomicReference<List<ExperimentalDisplays.Target>> targets = new AtomicReference<>();
         AtomicReference<java.util.function.Consumer<ExperimentalDisplays.Target>> selection = new AtomicReference<>();
@@ -364,7 +396,8 @@ class ExperimentalGUIManagerTest {
             var next = targets.get().stream().filter(t -> t.action() == ExperimentalDisplays.Action.NEXT).findFirst().orElseThrow();
             selection.get().accept(next);
             var site = targets.get().stream().filter(t -> t.action() == ExperimentalDisplays.Action.SITE).findFirst().orElseThrow();
-            assertEquals("site5", site.id());
+            assertEquals("site5", site.siteKey());
+            assertEquals("site-0", site.id());
             when(sites.get(5).getVoteURL(false)).thenReturn("https://example.test/new");
             selection.get().accept(site);
             var captor = org.mockito.ArgumentCaptor.forClass(BaseComponent.class);
@@ -448,7 +481,8 @@ class ExperimentalGUIManagerTest {
             assertTrue(targets.get().getFirst().text().contains("DailyFive"));
             selection.get().accept(targets.get().stream().filter(t -> t.action() == ExperimentalDisplays.Action.SITE_PAGE).findFirst().orElseThrow());
             var site = targets.get().stream().filter(t -> t.action() == ExperimentalDisplays.Action.SITE).findFirst().orElseThrow();
-            assertEquals("site5", site.id());
+            assertEquals("site5", site.siteKey());
+            assertEquals("site-0", site.id());
             selection.get().accept(site);
             verify(f.chat).sendMessage(any(BaseComponent.class));
             f.watches.getFirst().run(); f.owner();

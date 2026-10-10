@@ -38,7 +38,10 @@ public final class ExperimentalDisplays implements Listener {
     private static final int MAX_FRAMES = 64;
     public enum Action { SITE, PREVIOUS, NEXT, CLOSE, INFO, PREVIOUS_REWARD, NEXT_REWARD, SITE_PAGE, TERMINAL_STYLE }
 
-    public record Target(String id, String text, ItemStack icon, double x, double y, Action action) {
+    public record Target(String id, String text, ItemStack icon, double x, double y, Action action, String siteKey) {
+        public Target(String id, String text, ItemStack icon, double x, double y, Action action) {
+            this(id, text, icon, x, y, action, null);
+        }
         public Target {
             if (id == null || id.isBlank() || id.length() > 128) throw new IllegalArgumentException("Invalid display target id");
             if (text == null || text.length() > 256) throw new IllegalArgumentException("Invalid display target text");

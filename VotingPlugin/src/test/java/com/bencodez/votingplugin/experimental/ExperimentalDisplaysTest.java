@@ -180,6 +180,22 @@ class ExperimentalDisplaysTest {
         }
     }
 
+    @Test void changedSiteKeyReplacesFrameEvenWhenVisibleLabelAndTargetIdStayTheSame() {
+        try (Fixture f = new Fixture()) {
+            f.open(List.of(new ExperimentalDisplays.Target("site-0", "Site", null, 0, 0,
+                    ExperimentalDisplays.Action.SITE, "x".repeat(2047) + "A")));
+            f.playerNext(); f.regionNext(); while (!f.players.isEmpty()) f.playerNext();
+            assertEquals(2, f.spawns.get());
+            f.open(List.of(new ExperimentalDisplays.Target("site-0", "Site", null, 0, 0,
+                    ExperimentalDisplays.Action.SITE, "x".repeat(2047) + "B")));
+            while (!f.players.isEmpty()) f.playerNext();
+            while (!f.regions.isEmpty()) f.regionNext();
+            while (!f.players.isEmpty()) f.playerNext();
+            assertEquals(4, f.spawns.get());
+            assertEquals(2, f.displays.entityCount());
+        }
+    }
+
     @Test void completeFootprintIsPreflightedBeforeAnySpawn() {
         try (Fixture f = new Fixture()) {
             f.owns = false;

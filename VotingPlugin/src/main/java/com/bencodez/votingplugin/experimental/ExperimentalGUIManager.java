@@ -403,8 +403,8 @@ public final class ExperimentalGUIManager implements Listener {
         for (int i = 0; i < page.size(); i++) {
             var site = page.get(i);
             double angle = -Math.PI / 2 + i * Math.PI * 2 / page.size();
-            targets.add(new ExperimentalDisplays.Target(site.key(), site.label(), menu.icons.get(site.key()),
-                    Math.cos(angle) * radius, Math.sin(angle) * radius, ExperimentalDisplays.Action.SITE));
+            targets.add(new ExperimentalDisplays.Target("site-" + i, site.label(), menu.icons.get(site.key()),
+                    Math.cos(angle) * radius, Math.sin(angle) * radius, ExperimentalDisplays.Action.SITE, site.key()));
         }
         targets.add(new ExperimentalDisplays.Target("title", "Voting - Page " + (menu.page + 1) + "/"
                 + HologramVoteModel.pages(menu.sites.size(), menu.settings.sitesPerPage())
@@ -423,7 +423,7 @@ public final class ExperimentalGUIManager implements Listener {
                                 HologramVoteModel.pages(menu.sites.size(), menu.settings.sitesPerPage()) - 1);
                         renderRadial(menu);
                     }
-                    case SITE -> sendSiteUrl(menu, target.id());
+                    case SITE -> sendSiteUrl(menu, target.siteKey());
                     default -> { }
                 }
             } catch (RuntimeException failure) { fail(menu.session, menu.player, failure); }
@@ -507,8 +507,8 @@ public final class ExperimentalGUIManager implements Listener {
         var page = HologramVoteModel.page(menu.sites, menu.page, menu.settings.sitesPerPage());
         for (int i = 0; i < page.size(); i++) {
             var site = page.get(i);
-            targets.add(new ExperimentalDisplays.Target(site.key(), site.label(), menu.icons.get(site.key()),
-                    0, -.05 - i * .42, ExperimentalDisplays.Action.SITE));
+            targets.add(new ExperimentalDisplays.Target("site-" + i, site.label(), menu.icons.get(site.key()),
+                    0, -.05 - i * .42, ExperimentalDisplays.Action.SITE, site.key()));
         }
         targets.add(new ExperimentalDisplays.Target("previous-reward", "[Previous reward]", null, -1.25, .85, ExperimentalDisplays.Action.PREVIOUS_REWARD));
         targets.add(new ExperimentalDisplays.Target("next-reward", "[Next reward]", null, 1.25, .85, ExperimentalDisplays.Action.NEXT_REWARD));
@@ -520,7 +520,7 @@ public final class ExperimentalGUIManager implements Listener {
                 if (!sessions.current(menu.session) || !permitted(menu.player, menu.session.type)) return;
                 switch (target.action()) {
                     case CLOSE -> sessions.close(menu.session);
-                    case SITE -> sendSiteUrl(menu, target.id());
+                    case SITE -> sendSiteUrl(menu, target.siteKey());
                     case PREVIOUS_REWARD, NEXT_REWARD -> {
                         menu.rewardPage = Math.min(Math.max(menu.rewardPage + (target.action() == ExperimentalDisplays.Action.PREVIOUS_REWARD ? -1 : 1), 0),
                                 Math.max(0, menu.milestones.size() - 1));
