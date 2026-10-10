@@ -2,6 +2,7 @@ package com.bencodez.votingplugin.specialrewards;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -18,6 +19,10 @@ import java.util.ArrayDeque;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.logging.Logger;
@@ -216,6 +221,99 @@ class NameMCLikeCheckerTaskTest {
 		storageWork.remove().run();
 		verify(user).setClaimedNameMCLikeReward(true);
 		verify(user).setNameMCLikeRewardPending(false);
+	}
+
+	@Test
+	void localClaimReturnsToRealStorageExecutorAfterOwnerThreadRewardCompletion() throws Exception {
+		verifyRealStorageOwnership(false);
+	}
+
+	@Test
+	void sharedClaimReturnsToRealStorageExecutorAfterOwnerThreadRewardCompletion() throws Exception {
+		verifyRealStorageOwnership(true);
+	}
+
+	private void verifyRealStorageOwnership(boolean shared) throws Exception {
+		AtomicReference<Thread> storageThread = new AtomicReference<>();
+		ScheduledExecutorService worker = Executors.newSingleThreadScheduledExecutor(work -> {
+			Thread thread = new Thread(work, "namemc-test-storage");
+			storageThread.set(thread);
+			return thread;
+		});
+		CountDownLatch initialGate = new CountDownLatch(1);
+		CountDownLatch commitGate = new CountDownLatch(1);
+		CompletableFuture<Void> dispatch = new CompletableFuture<>();
+		CompletableFuture<Void> delivery = new CompletableFuture<>();
+		CompletableFuture<Void> claimed = new CompletableFuture<>();
+		try {
+			when(dataManager.getTimer()).thenReturn(worker);
+			when(dataManager.hasSharedSqlBackend()).thenReturn(shared);
+			if (shared) {
+				doAnswer(call -> {
+					Supplier<Boolean> work = call.getArgument(0);
+					Consumer<Boolean> success = call.getArgument(1);
+					Consumer<Throwable> failure = call.getArgument(2);
+					worker.execute(() -> {
+						try { success.accept(work.get()); }
+						catch (Throwable rejected) { failure.accept(rejected); }
+					});
+					return true;
+				}).when(dataManager).deferSharedStorageResultFromPlatform(any(), any(), any());
+			}
+			doAnswer(call -> { assertSame(storageThread.get(), Thread.currentThread()); return null; })
+					.when(user).cache();
+			when(user.hasClaimedNameMCLikeReward()).thenAnswer(call -> {
+				assertSame(storageThread.get(), Thread.currentThread()); return false;
+			});
+			when(user.isNameMCLikeRewardPending()).thenAnswer(call -> {
+				assertSame(storageThread.get(), Thread.currentThread()); return false;
+			});
+			doAnswer(call -> {
+				assertSame(storageThread.get(), Thread.currentThread());
+				if (!call.getArgument(0, Boolean.class)) claimed.complete(null);
+				return null;
+			}).when(user).setNameMCLikeRewardPending(any(Boolean.class));
+			doAnswer(call -> { assertSame(storageThread.get(), Thread.currentThread()); return null; })
+					.when(user).setClaimedNameMCLikeReward(true);
+			when(rewardHandler.giveRewardAsync(eq(user), eq(rewards), eq(REWARD_PATH), any(RewardOptions.class)))
+					.thenAnswer(call -> {
+						assertSame(storageThread.get(), Thread.currentThread());
+						dispatch.complete(null); return delivery;
+					});
+			worker.execute(() -> awaitGate(initialGate));
+			task.processUuid(PLAYER_UUID);
+			verify(user, never()).cache();
+			verify(rewardHandler, never()).giveRewardAsync(any(), any(org.bukkit.configuration.ConfigurationSection.class),
+					any(), any());
+			initialGate.countDown();
+			dispatch.get(5, TimeUnit.SECONDS);
+			CompletableFuture<Void> blocked = new CompletableFuture<>();
+			worker.execute(() -> { blocked.complete(null); awaitGate(commitGate); });
+			blocked.get(5, TimeUnit.SECONDS);
+			// Model completion on an owner/injection thread while persistence is busy.
+			delivery.complete(null);
+			verify(user, never()).setClaimedNameMCLikeReward(true);
+			verify(user, never()).setNameMCLikeRewardPending(false);
+			assertFalse(claimed.isDone());
+			commitGate.countDown();
+			claimed.get(5, TimeUnit.SECONDS);
+			worker.submit(() -> { }).get(5, TimeUnit.SECONDS);
+			verify(user).setClaimedNameMCLikeReward(true);
+			verify(user).setNameMCLikeRewardPending(false);
+			verify(rewardHandler, never()).giveReward(any(), any(org.bukkit.configuration.ConfigurationSection.class),
+					any(), any());
+		} finally {
+			initialGate.countDown(); commitGate.countDown(); worker.shutdownNow();
+			assertTrue(worker.awaitTermination(5, TimeUnit.SECONDS));
+		}
+	}
+
+	private static void awaitGate(CountDownLatch gate) {
+		try {
+			if (!gate.await(5, TimeUnit.SECONDS)) throw new IllegalStateException("Storage test gate timed out");
+		} catch (InterruptedException interrupted) {
+			Thread.currentThread().interrupt(); throw new IllegalStateException(interrupted);
+		}
 	}
 
 	private DeferredCheck captureSharedCheck() {
