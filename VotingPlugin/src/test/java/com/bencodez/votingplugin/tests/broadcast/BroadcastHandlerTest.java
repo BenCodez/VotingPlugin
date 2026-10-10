@@ -16,6 +16,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.Server;
 import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.scheduler.BukkitScheduler;
@@ -172,6 +173,93 @@ public class BroadcastHandlerTest {
 
 		verify(console).sendMessage(org.mockito.ArgumentMatchers.<String>argThat(
 				message -> message.contains("HEADER") && message.contains("%AllTimeTotal%")));
+	}
+
+	@Test
+	public void intervalSummary_usesRecordedNamesWithoutOfflinePlayerLookup() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		BukkitTask task = mock(BukkitTask.class);
+		stubBukkitAndConsole();
+		bukkitStatic.when(Bukkit::getScheduler).thenReturn(scheduler);
+
+		AtomicReference<Runnable> scheduled = new AtomicReference<Runnable>();
+		when(scheduler.runTaskTimer(eq(plugin), any(Runnable.class), anyLong(), anyLong()))
+				.thenAnswer(invocation -> {
+					scheduled.set(invocation.getArgument(1));
+					return task;
+				});
+
+		BroadcastHandler handler = new BroadcastHandler(plugin,
+				settings(VoteBroadcastType.INTERVAL_SUMMARY_GLOBAL, "1s", 10), ZoneId.systemDefault());
+		UUID uuid = UUID.randomUUID();
+		handler.broadcastVote(uuid, "Ben", "SiteA", false);
+		scheduled.get().run();
+
+		verify(console, times(1)).sendMessage(any(String.class));
+		bukkitStatic.verify(() -> Bukkit.getOfflinePlayer(uuid), org.mockito.Mockito.never());
+	}
+
+
+	/** A missing input name is resolved before recording, not during summary flush. */
+	@Test
+	public void intervalSummary_preservesResolvedNameWhenInputNameIsMissing() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		BukkitTask task = mock(BukkitTask.class);
+		stubBukkitAndConsole();
+		bukkitStatic.when(Bukkit::getScheduler).thenReturn(scheduler);
+		AtomicReference<Runnable> scheduled = new AtomicReference<Runnable>();
+		when(scheduler.runTaskTimer(eq(plugin), any(Runnable.class), anyLong(), anyLong()))
+				.thenAnswer(invocation -> {
+					scheduled.set(invocation.getArgument(1));
+					return task;
+				});
+		UUID uuid = UUID.randomUUID();
+		OfflinePlayer offlinePlayer = mock(OfflinePlayer.class);
+		when(offlinePlayer.getName()).thenReturn("ResolvedBen");
+		bukkitStatic.when(() -> Bukkit.getOfflinePlayer(uuid)).thenReturn(offlinePlayer);
+
+		BroadcastHandler handler = new BroadcastHandler(plugin,
+				settings(VoteBroadcastType.INTERVAL_SUMMARY_GLOBAL, "1s", 10), ZoneId.systemDefault());
+		handler.broadcastVote(uuid, null, "SiteA", false);
+		scheduled.get().run();
+
+		verify(console).sendMessage(org.mockito.ArgumentMatchers.<String>argThat(
+				message -> message.contains("ResolvedBen (1)") && message.contains("interval")));
+		bukkitStatic.verify(() -> Bukkit.getOfflinePlayer(uuid), times(1));
+	}
+
+	/** Votes arriving while a summary is emitted must belong to the next interval. */
+	@Test
+	public void intervalSummary_keepsNewVotesForNextInterval() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		BukkitTask task = mock(BukkitTask.class);
+		stubBukkitAndConsole();
+		bukkitStatic.when(Bukkit::getScheduler).thenReturn(scheduler);
+		AtomicReference<Runnable> scheduled = new AtomicReference<Runnable>();
+		when(scheduler.runTaskTimer(eq(plugin), any(Runnable.class), anyLong(), anyLong()))
+				.thenAnswer(invocation -> {
+					scheduled.set(invocation.getArgument(1));
+					return task;
+				});
+		BroadcastHandler handler = new BroadcastHandler(plugin,
+				settings(VoteBroadcastType.INTERVAL_SUMMARY_GLOBAL, "1s", 10), ZoneId.systemDefault());
+		UUID uuid = UUID.randomUUID();
+		handler.broadcastVote(uuid, "FirstName", "SiteA", false);
+		org.mockito.Mockito.doAnswer(invocation -> {
+			handler.broadcastVote(uuid, "SecondName", "SiteB", false);
+			return null;
+		}).doNothing().when(console).sendMessage(any(String.class));
+
+		scheduled.get().run();
+		scheduled.get().run();
+
+		verify(console).sendMessage(org.mockito.ArgumentMatchers.<String>argThat(
+				message -> message.contains("FirstName (1)") && !message.contains("SecondName")));
+		verify(console).sendMessage(org.mockito.ArgumentMatchers.<String>argThat(
+				message -> message.contains("SecondName (1)") && !message.contains("FirstName")));
 	}
 
 	@Test

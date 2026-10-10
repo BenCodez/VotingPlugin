@@ -24,8 +24,7 @@ public class VotingPluginHooks {
 
 	public void backgroundUpdate(Player player) {
 		VotingPluginUser user = getUserManager().getVotingPluginUser(player);
-		user.offVote();
-		user.checkOfflineRewards();
+		user.offVoteAndThen(player, user::checkOfflineRewards);
 	}
 
 	public VotingPluginMain getMainClass() {

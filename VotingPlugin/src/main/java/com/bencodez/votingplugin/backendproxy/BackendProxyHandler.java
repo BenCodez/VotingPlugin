@@ -635,6 +635,10 @@ public class BackendProxyHandler implements Listener {
 	public void pauseOrderedVoteDispatchForReplacement(long deadlineNanos) {
 		synchronized (orderedVoteDispatch) {
 			orderedVoteDispatchPaused = true;
+		}
+		// The cancellation callback re-enters the ordered lane; invoke outside its lock.
+		if (messageRouter != null) messageRouter.cancelPendingVoteUpdateHandoffs();
+		synchronized (orderedVoteDispatch) {
 			while (orderedVoteDispatchActive) {
 				long remaining = deadlineNanos - System.nanoTime();
 				if (remaining <= 0L) {
@@ -652,6 +656,7 @@ public class BackendProxyHandler implements Listener {
 
 	/** Restores the paused predecessor when staged publication is abandoned. */
 	public void resumeOrderedVoteDispatchAfterFailedReplacement() {
+		if (messageRouter != null) messageRouter.resumeVoteUpdateHandoffs();
 		if (orderedVoteOverflow != null) orderedVoteOverflow.bindWakeup(this, this::onOrderedVoteOverflowDurable);
 		synchronized (orderedVoteDispatch) {
 			if (orderedVoteHandoffTarget != null) return;
@@ -706,6 +711,10 @@ public class BackendProxyHandler implements Listener {
 		synchronized (orderedVoteDispatch) {
 			orderedVoteDispatchClosing = true;
 			orderedVoteDispatchPaused = true;
+		}
+		// Resolve accepted-but-cancelled callbacks before bounded shutdown drains.
+		if (messageRouter != null) messageRouter.cancelPendingVoteUpdateHandoffs();
+		synchronized (orderedVoteDispatch) {
 			long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(1);
 			while (orderedVoteDispatchActive) {
 				long remaining = deadline - System.nanoTime();

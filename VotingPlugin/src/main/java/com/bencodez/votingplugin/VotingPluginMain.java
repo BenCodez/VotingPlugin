@@ -14,6 +14,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -246,6 +247,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private final PlaceholderPlayerPresence placeholderPlayerPresence = new PlaceholderPlayerPresence();
 
 	@Getter
+	private final com.bencodez.votingplugin.user.OfflineVoteOwnerHandoffs offlineVoteOwnerHandoffs =
+			new com.bencodez.votingplugin.user.OfflineVoteOwnerHandoffs();
+
+	@Getter
 	private VoteTester voteTester;
 
 
@@ -405,15 +410,24 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		captureOnlineTopVoterIgnore(online -> {
 			try {
 				getUserManager().getDataManager().getTimer().execute(() -> {
-					try {
-						for (java.util.Map.Entry<UUID, Boolean> entry : online.entrySet()) {
+					ArrayList<CompletableFuture<Void>> replays = new ArrayList<>();
+					for (java.util.Map.Entry<UUID, Boolean> entry : online.entrySet()) {
+						try {
 							VotingPluginUser user = getVotingPluginUserManager().getVotingPluginUser(entry.getKey(), false);
 							if (user == null) continue;
 							user.cache();
-							user.offVoteWithCapturedTopVoterIgnore(entry.getValue().booleanValue());
-							user.checkOfflineRewards();
+							replays.add(user.offVoteWithCapturedTopVoterIgnoreAsync(entry.getValue().booleanValue())
+									.thenRun(user::checkOfflineRewards).toCompletableFuture());
+						} catch (RuntimeException failure) {
+							debug(failure);
+							replays.add(CompletableFuture.failedFuture(failure));
 						}
-					} finally { admission.set(false); }
+					}
+					CompletableFuture.allOf(replays.toArray(new CompletableFuture<?>[0]))
+							.whenComplete((ignored, failure) -> {
+								if (failure != null) debug(failure);
+								admission.set(false);
+							});
 				});
 			} catch (RuntimeException failure) {
 				admission.set(false);
@@ -1940,6 +1954,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	public void onDisable() {
 		if (experimentalGUIManager != null) experimentalGUIManager.shutdown();
 		if (hologramVoteMenu != null) hologramVoteMenu.shutdown();
+		if (offlineVoteOwnerHandoffs != null) offlineVoteOwnerHandoffs.close();
 		try {
 			shutdownVoteReminders();
 		} finally {
@@ -2125,6 +2140,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			boolean updateActiveBackendRuntime) {
 		if (experimentalGUIManager != null) experimentalGUIManager.clear();
 		if (hologramVoteMenu != null) hologramVoteMenu.clear();
+		if (offlineVoteOwnerHandoffs != null) offlineVoteOwnerHandoffs.pause();
+		try {
 		configFile.reloadData();
 		configFile.loadValues();
 
@@ -2175,6 +2192,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		if (reconcileHostedControl) restartBackendControlConnector();
 
 		setUpdate(true);
+		} finally {
+			if (offlineVoteOwnerHandoffs != null) offlineVoteOwnerHandoffs.resume();
+		}
 	}
 
 	void reloadBackendProxyRuntime(boolean updateActiveRuntime, boolean userStorage) {

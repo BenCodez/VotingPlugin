@@ -54,6 +54,7 @@ import com.bencodez.simpleapi.valuerequest.InputMethod;
 import com.bencodez.simpleapi.valuerequest.StringListener;
 import com.bencodez.simpleapi.valuerequest.ValueRequest;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.core.maintenance.MaintenanceConfirmation;
 import com.bencodez.votingplugin.commands.executers.CommandAliases;
 import com.bencodez.votingplugin.commands.gui.AdminGUI;
 import com.bencodez.votingplugin.commands.gui.admin.AdminVoteHelp;
@@ -89,6 +90,8 @@ import com.bencodez.votingplugin.specialrewards.votestreak.VoteStreakDefinition;
 import com.bencodez.votingplugin.specialrewards.votestreak.VoteStreakType;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.user.OfflineVoteRewardRecoveryService;
+import com.bencodez.votingplugin.specialrewards.NameMCLikeRewardRecoveryService;
 import com.bencodez.votingplugin.user.PointTransferResult;
 import com.bencodez.votingplugin.util.VoteTaskAdmission;
 import com.bencodez.votingplugin.util.BukkitCompletionScheduler;
@@ -99,6 +102,8 @@ import com.bencodez.votingplugin.votesites.VoteSite;
 
 public class CommandLoader {
 	private static final int BULK_PLAYER_CAPTURE_BATCH_SIZE = 64;
+	private final MaintenanceConfirmation maintenanceConfirmation =
+			new MaintenanceConfirmation();
 
 	private String adminPerm = "VotingPlugin.Admin";
 
@@ -128,11 +133,59 @@ public class CommandLoader {
 		BukkitCompletionScheduler.run(plugin, user.getPlayer(), task);
 	}
 
+	void registerOfflineVoteClearCommands(String adminPerm) {
+		for (String command : new String[] { "ClearOfflineVoteRewards", "ClearOfflineVotes" }) {
+			boolean clearRewards = "ClearOfflineVoteRewards".equals(command);
+			plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { command },
+					"VotingPlugin.Commands.AdminVote." + command + "|" + adminPerm,
+					clearRewards ? "Reset offline votes/rewards" : "Clear all offline votes") {
+				@Override
+				public void execute(CommandSender sender, String[] args) {
+					boolean player = sender instanceof Player;
+					String actor = sender.getName();
+					if (clearRewards && player) {
+						sender.sendMessage(MessageAPI.colorize("&cThis command can not be done from ingame"));
+						return;
+					}
+					runConfirmedBulkStorageMutation(sender, () -> {
+						boolean mysql = UserStorage.MYSQL.equals(plugin.getUserManager().getDataManager()
+								.effectiveStorageType(plugin.getStorageType()));
+						if (mysql) {
+							if (player) {
+								runForCommandSender(sender, () -> sender.sendMessage(MessageAPI.colorize(
+										"&cShared database maintenance must be confirmed from console")));
+								return false;
+							}
+							var result = maintenanceConfirmation.request(actor, command);
+							if (result != MaintenanceConfirmation.Result.CONFIRMED) {
+								String message = result == MaintenanceConfirmation.Result.FULL
+										? "Confirmation capacity reached; try again in 30 seconds. No changes made."
+										: "This clears ALL stored offline votes" + (clearRewards ? " and generic offline rewards. " : ". ")
+										+ MaintenanceConfirmation.prompt("/av " + command);
+								runForCommandSender(sender, () -> sender.sendMessage(MessageAPI.colorize("&e" + message)));
+								return false;
+							}
+						}
+						plugin.getVotingPluginUserManager().clearAllOfflineVotes(mysql);
+						if (clearRewards) plugin.getUserManager().removeAllKeyValues(
+								plugin.getUserManager().getOfflineRewardsPath(), DataType.STRING);
+						return true;
+					}, () -> sender.sendMessage(MessageAPI.colorize(clearRewards
+							? "&cCleared offline votes/rewards" : "&cOffline votes Cleared")));
+				}
+			});
+		}
+	}
+
 	void runBulkStorageMutation(CommandSender sender, Runnable mutation, Runnable success) {
+		runConfirmedBulkStorageMutation(sender, () -> { mutation.run(); return true; }, success);
+	}
+
+	void runConfirmedBulkStorageMutation(CommandSender sender, java.util.function.BooleanSupplier mutation, Runnable success) {
 		try {
 			plugin.getUserManager().getDataManager().getTimer().execute(() -> {
 				try {
-					mutation.run();
+					if (!mutation.getAsBoolean()) return;
 					plugin.getUserManager().getDataManager().clearCacheAsyncCompletion().whenComplete((ignored, failure) ->
 							runForCommandSender(sender, () -> {
 								if (failure != null) {
@@ -571,8 +624,8 @@ public class CommandLoader {
 					plugin.getOptions().setPauseRewards(false);
 					for (Player p : Bukkit.getOnlinePlayers()) {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(p);
-						user.offVote();
-						user.checkOfflineRewards();
+						user.offVoteWithCapturedTopVoterIgnoreAndThen(
+								p.hasPermission("VotingPlugin.TopVoter.Ignore"), user::checkOfflineRewards);
 					}
 					plugin.setUpdate(true);
 					sendMessage(sender, "&aRewards resumed");
@@ -1091,21 +1144,7 @@ public class CommandLoader {
 					}
 				});
 
-		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "ClearOfflineVoteRewards" },
-				"VotingPlugin.Commands.AdminVote.ClearOfflineVoteRewards|" + adminPerm, "Reset offline votes/rewards") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				if (sender instanceof Player) {
-					sender.sendMessage(MessageAPI.colorize("&cThis command can not be done from ingame"));
-					return;
-				}
-				runBulkStorageMutation(sender, () -> {
-					plugin.getUserManager().removeAllKeyValues("OfflineVotes", DataType.STRING);
-					plugin.getUserManager().removeAllKeyValues(plugin.getUserManager().getOfflineRewardsPath(), DataType.STRING);
-				}, () -> sender.sendMessage(MessageAPI.colorize("&cCleared offline votes/rewards")));
-			}
-		});
+		registerOfflineVoteClearCommands(adminPerm);
 
 		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(plugin,
@@ -1829,16 +1868,56 @@ public class CommandLoader {
 			}
 		});
 
-		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "ClearOfflineVotes" },
-				"VotingPlugin.Commands.AdminVote.ClearOfflineVotes|" + adminPerm, "Clear all offline votes") {
-
+		// Console-only manual reconciliation of an offline vote batch whose
+		// asynchronous reward effects may have been partially delivered.
+		OfflineVoteRewardRecoveryService offlineRecovery = new OfflineVoteRewardRecoveryService(plugin);
+		plugin.getAdminVoteCommand().add(new CommandHandler(plugin,
+				new String[] { "OfflineVoteRecovery", "(uuid)", "(list)" },
+				"VotingPlugin.Commands.AdminVote.OfflineVoteRecovery|" + adminPerm,
+				"Console only: /av OfflineVoteRecovery <uuid> status, then delivered|retry|already-cleared <token>",
+				true, true) {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				runBulkStorageMutation(sender,
-						() -> plugin.getUserManager().removeAllKeyValues("OfflineVotes", DataType.STRING),
-						() -> sender.sendMessage(MessageAPI.colorize("&cOffline votes Cleared")));
+				String action = args.length >= 3 ? args[2] : "";
+				boolean preview = "status".equalsIgnoreCase(action);
+				if (args.length < 3 || (preview && args.length != 3)
+						|| (!preview && args.length != 4)) {
+					runForCommandSender(sender, () -> sender.sendMessage(MessageAPI.colorize(
+							"&cUsage: /av OfflineVoteRecovery <uuid> status | delivered|retry|already-cleared <token>")));
+					return;
+				}
+				String token = preview ? "" : args[3];
+				offlineRecovery.handle(sender.getName(), args[1], action, token,
+						message -> runForCommandSender(sender,
+								() -> sender.sendMessage(MessageAPI.colorize("&e" + message))));
 			}
 		});
+
+		// Pending NameMC grants also require an explicit operator decision:
+		// never mark a failed asynchronous delivery claimed or replay it blindly.
+		NameMCLikeRewardRecoveryService nameMCRecovery = new NameMCLikeRewardRecoveryService(plugin);
+		plugin.getAdminVoteCommand().add(new CommandHandler(plugin,
+				new String[] { "NameMCLikeRecovery", "(uuid)", "(list)" },
+				"VotingPlugin.Commands.AdminVote.NameMCLikeRecovery|" + adminPerm,
+				"Console only: /av NameMCLikeRecovery <uuid> status, then delivered|retry <token>",
+				true, true) {
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				String action = args.length >= 3 ? args[2] : "";
+				boolean preview = "status".equalsIgnoreCase(action);
+				if (args.length < 3 || (preview && args.length != 3)
+						|| (!preview && args.length != 4)) {
+					runForCommandSender(sender, () -> sender.sendMessage(MessageAPI.colorize(
+							"&cUsage: /av NameMCLikeRecovery <uuid> status | delivered|retry <token>")));
+					return;
+				}
+				nameMCRecovery.handle(sender.getName(), args[1], action, preview ? "" : args[3],
+						message -> runForCommandSender(sender,
+								() -> sender.sendMessage(MessageAPI.colorize("&e" + message))));
+			}
+		});
+
+
 
 		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(plugin, new String[] { "Test", "(Player)", "(sitename)", "(number)" },

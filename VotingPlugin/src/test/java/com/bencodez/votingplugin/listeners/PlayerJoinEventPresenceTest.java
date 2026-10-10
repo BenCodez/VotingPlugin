@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 
 import org.bukkit.entity.Player;
@@ -27,10 +28,15 @@ import com.bencodez.votingplugin.user.VotingPluginUser;
 class PlayerJoinEventPresenceTest {
 	@Test
 	void advancedCoreLoginRekeysPresenceToTheAuthoritativeStorageUuid() {
-		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
 		PlaceholderPlayerPresence presence = new PlaceholderPlayerPresence();
 		when(plugin.getPlaceholderPlayerPresence()).thenReturn(presence);
 		when(plugin.isMySQLOkay()).thenReturn(true);
+		ScheduledExecutorService storageTimer = plugin.getUserManager().getDataManager().getTimer();
+		doAnswer(call -> {
+			call.getArgument(0, Runnable.class).run();
+			return null;
+		}).when(storageTimer).execute(any(Runnable.class));
 		BungeeSettings bungee = mock(BungeeSettings.class);
 		when(plugin.getBungeeSettings()).thenReturn(bungee);
 		Player player = mock(Player.class);
@@ -42,6 +48,7 @@ class PlayerJoinEventPresenceTest {
 		UserManager userManager = mock(UserManager.class);
 		VotingPluginUser user = mock(VotingPluginUser.class);
 		when(user.getJavaUUID()).thenReturn(storageUuid);
+		when(user.loginRewardsAsync()).thenReturn(CompletableFuture.completedFuture(null));
 		when(plugin.getVotingPluginUserManager()).thenReturn(userManager);
 		when(userManager.getVotingPluginUser(storageUuid.toString())).thenReturn(user);
 		PlaceHolders placeholders = mock(PlaceHolders.class);
@@ -60,6 +67,7 @@ class PlayerJoinEventPresenceTest {
 
 		new PlayerJoinEvent(plugin).onPlayerLogin(login);
 
+		verify(placeholders).onUpdate(user, true);
 		assertTrue(presence.isOnline(storageUuid));
 		assertFalse(presence.isOnline(playerUuid));
 	}
