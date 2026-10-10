@@ -199,7 +199,9 @@ class VotingPluginUserOfflineVoteReplayTest {
 	@Test
 	void transactionalBatchFailureDoesNotClearQueueOrPendingRecoveryState() {
 		AsyncReplayFixture fixture = asyncFixture();
-		doThrow(new IllegalStateException("database write failed")).when(fixture.user.getUserData())
+		// Evaluate the spy getter before starting Mockito's doThrow stubbing.
+		UserData persistedUserData = fixture.user.getUserData();
+		doThrow(new IllegalStateException("database write failed")).when(persistedUserData)
 				.setValues(org.mockito.ArgumentMatchers.any(HashMap.class));
 		fixture.pending.set(new ArrayList<>(List.of("Site1")));
 		assertThrows(IllegalStateException.class, () ->
