@@ -13,6 +13,18 @@ import lombok.Getter;
 import lombok.Setter;
 
 public class PlayerPostVoteEvent extends Event {
+	/** Local recovered ingress cannot prove ordering relative to a new guide. */
+	@Getter @Setter private boolean unconfirmedLocalSessionDelivery;
+
+	/** Backend-local ingress order forwarded by the accepted pipeline. Zero means unknown. */
+	@Getter @Setter private long backendObservationOrder;
+	@Getter @Setter private boolean proxyQueueClassificationKnown;
+	@Getter @Setter private boolean queuedProxyVote;
+	@Getter @Setter private boolean proxySessionDelivery;
+	/** Guide-only provenance; independent of normal reward queue/delay policy. */
+	@Getter @Setter private boolean unconfirmedProxySessionDelivery;
+	/** Fresh local ingress with no supplied historical occurrence timestamp. */
+	@Getter @Setter private boolean liveLocalSessionDelivery;
 
 	/** The Constant handlers. */
 	private static final HandlerList handlers = new HandlerList();

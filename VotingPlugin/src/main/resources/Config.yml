@@ -1253,3 +1253,9 @@ DisableUpdateChecking: false
 # Disable checking permissions on tab complete
 # Could increase performance slightly, but probably not
 DisableAdvancedTab: false
+
+# Observation-only chat guide; normal /vote and reward processing remain unchanged.
+# Progress is local, expires after this interval, and resets on reload/restart.
+GuidedVotingSession:
+  Enabled: false
+  TimeoutMinutes: 30

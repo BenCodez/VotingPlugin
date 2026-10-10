@@ -116,6 +116,8 @@ public final class VotingPluginWire {
 	public static final String K_NUMBER_OF_VOTES = "numberOfVotes";
 	public static final String K_DELAY_VALIDATED = "delayValidated";
 	public static final String K_QUEUED_DELIVERY = "queuedDelivery";
+	/** Guide-only delivery hint; cross-node occurrence order remains unconfirmed. */
+	public static final String K_SESSION_DELIVERY_FRESH = "sessionDeliveryFresh";
 	public static final String K_VOTE_DELIVERY_ACK_VERSION = "voteDeliveryAckVersion";
 	public static final String K_AUTHENTICATED_SOCKET_VOTE_DELIVERY_VERSION =
 			"authenticatedSocketVoteDeliveryVersion";
@@ -181,7 +183,7 @@ public final class VotingPluginWire {
 				.put(K_TIME, time).put(K_WAS_ONLINE, wasOnline).put(K_WAS_ONLINE_KNOWN, true)
 				.put(K_REAL_VOTE, realVote).put(K_TOTALS, safe(totals))
 				.put(K_VOTE_ID, voteId == null ? "" : voteId.toString()).put(K_SET_TOTALS, true)
-				.put(K_MANAGE_TOTALS, manageTotals).put(K_QUEUED_DELIVERY, false)
+				.put(K_MANAGE_TOTALS, manageTotals).put(K_QUEUED_DELIVERY, false).put(K_SESSION_DELIVERY_FRESH, false)
 				.put(K_BUNGEE_BROADCAST, bungeeBroadcast).put(K_NUM, num)
 				.put(K_NUMBER_OF_VOTES, numberOfVotes);
 	}
@@ -245,6 +247,19 @@ public final class VotingPluginWire {
 			builder.put(field.getKey(), field.getValue());
 		}
 		return builder.put(K_QUEUED_DELIVERY, true).build();
+	}
+
+	/**
+	 * Retains origin provenance for guide observations without changing reward queue
+	 * classification. An empty origin explicitly means the original ingress is unknown
+	 * (for example a cached delivery); it does not claim a reliable multi-proxy sender.
+	 */
+	public static JsonEnvelope unconfirmedSessionDelivery(JsonEnvelope envelope, String origin) {
+		JsonEnvelope.Builder builder = JsonEnvelope.builder(envelope.getSubChannel()).schema(envelope.getSchema());
+		for (Map.Entry<String, String> field : envelope.getFields().entrySet()) {
+			builder.put(field.getKey(), field.getValue());
+		}
+		return builder.put(K_MULTI_PROXY_ORIGIN, safe(origin)).put(K_SESSION_DELIVERY_FRESH, false).build();
 	}
 
 	/** Removes the additive queue marker for cache rows created by pre-marker proxies. */

@@ -66,6 +66,22 @@ public class VotingPluginWireTest {
 	}
 
 	@Test
+	public void observationProvenancePreservesAllRewardFieldsAndEnvelopeIdentity() {
+		JsonEnvelope live = VotingPluginWire.voteOnline("Player", UUID.randomUUID().toString(), "Service",
+				100L, true, true, "totals", UUID.randomUUID(), true, false, 1, 1, true);
+		for (String origin : new String[] { "Primary", "" }) {
+			JsonEnvelope forwarded = VotingPluginWire.unconfirmedSessionDelivery(live, origin);
+			assertEquals(live.getSchema(), forwarded.getSchema());
+			assertEquals(live.getSubChannel(), forwarded.getSubChannel());
+			java.util.Map<String, String> fields = new java.util.LinkedHashMap<>(forwarded.getFields());
+			assertEquals(origin, fields.remove(VotingPluginWire.K_MULTI_PROXY_ORIGIN));
+			fields.put(VotingPluginWire.K_SESSION_DELIVERY_FRESH, "false");
+			assertEquals(live.getFields(), fields);
+		}
+		assertFalse(live.getFields().containsKey(VotingPluginWire.K_MULTI_PROXY_ORIGIN));
+	}
+
+	@Test
 	public void legacyUnclassifiedDeliveryRemovesOnlyQueueClassification() {
 		UUID voteId = UUID.randomUUID();
 		JsonEnvelope current = VotingPluginWire.vote("Player", UUID.randomUUID().toString(), "Service", 100L,

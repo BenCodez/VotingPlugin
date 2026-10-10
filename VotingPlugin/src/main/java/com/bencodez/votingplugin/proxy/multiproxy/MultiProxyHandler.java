@@ -1276,6 +1276,8 @@ public abstract class MultiProxyHandler {
 				if (origin.isBlank()) {
 					triggerVote(player, service, realVote, true, 0L, VoteTotalsSnapshot.parseStorage(totals), uuid);
 				} else {
+					// Preserve the receiver-local time used by ordinary backend cooldowns.
+					// Guide confirmation rejects forwarded ingress independently of this time.
 					triggerVote(player, service, realVote, true, 0L, VoteTotalsSnapshot.parseStorage(totals), uuid,
 							wireVote.voteId, origin, wireVote.delayValidated, wireVote.delayValidationKnown);
 				}

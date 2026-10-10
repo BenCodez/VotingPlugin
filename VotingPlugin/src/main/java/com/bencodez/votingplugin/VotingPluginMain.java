@@ -155,6 +155,13 @@ import lombok.Getter;
 import lombok.Setter;
 
 public class VotingPluginMain extends AdvancedCorePlugin {
+	private final com.bencodez.votingplugin.session.GuidedVotingSessions guidedVotingSessions =
+			new com.bencodez.votingplugin.session.GuidedVotingSessions(this);
+
+	public com.bencodez.votingplugin.session.GuidedVotingSessions getGuidedVotingSessions() {
+		return guidedVotingSessions;
+	}
+
 
 	@Getter
 	public static VotingPluginMain plugin;
@@ -1946,6 +1953,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	public void onDisable() {
 		if (offlineVoteOwnerHandoffs != null) offlineVoteOwnerHandoffs.close();
 		try {
+			guidedVotingSessions.clear();
 			shutdownVoteReminders();
 		} finally {
 			super.onDisable();
@@ -2050,10 +2058,11 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		pm.registerEvents(new PlayerJoinEvent(this), this);
 		if (isVotifierLoaded()) {
 			VotiferEvent votifierEvent = new VotiferEvent(this);
-			votifierVoteOverflowQueue = new VotifierVoteOverflowQueue(this, votifierEvent::processVote);
+			votifierVoteOverflowQueue = VotifierVoteOverflowQueue.withObservations(this, votifierEvent::processVote);
 			pm.registerEvents(votifierEvent, this);
 		}
 		pm.registerEvents(new PlayerVoteListener(this), this);
+		pm.registerEvents(guidedVotingSessions, this);
 		pm.registerEvents(new PlayerPostVoteLoggerListener(this), this);
 		pm.registerEvents(new PlayerSpecialRewardLoggerListener(this), this);
 		pm.registerEvents(new VoteShopPurchaseLoggerListener(this), this);
@@ -2104,7 +2113,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				player -> placeholderStorageUuid(player, onlineMode));
 	}
 
-	static UUID placeholderStorageUuid(Player player, boolean onlineMode) {
+	/** Snapshot-only UUID resolution; call while owning the player, before storage work. */
+	public static UUID placeholderStorageUuid(Player player, boolean onlineMode) {
 		if (onlineMode) return player.getUniqueId();
 		String cachedUuid = UuidLookup.getInstance().getCachedUUID(player.getName());
 		try {
@@ -2125,6 +2135,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			boolean updateActiveBackendRuntime) {
 		if (offlineVoteOwnerHandoffs != null) offlineVoteOwnerHandoffs.pause();
 		try {
+		guidedVotingSessions.clear();
 		configFile.reloadData();
 		configFile.loadValues();
 

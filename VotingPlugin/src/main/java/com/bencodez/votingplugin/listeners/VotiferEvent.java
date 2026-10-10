@@ -36,6 +36,10 @@ public class VotiferEvent implements Listener {
 	 * @param voteUsername the validated player name
 	 */
 	public void processVote(String voteSite, String voteUsername) {
+        processVote(voteSite, voteUsername, 0L);
+    }
+    /** Original process-local ingress order; zero identifies recovered or unknown ordering. */
+    public void processVote(String voteSite, String voteUsername, long observationOrder) {
 		try {
 			plugin.getServerData().addServiceSite(voteSite);
 			if (plugin.getBungeeSettings().isUseBungeecoord() && !plugin.getBungeeSettings().isVotifierBypass()
@@ -85,6 +89,7 @@ public class VotiferEvent implements Listener {
 
 			PlayerVoteEvent voteEvent = new PlayerVoteEvent(
 					plugin.getVoteSiteManager().getVoteSite(voteSiteName, true), voteUsername, voteSite, true);
+            voteEvent.setBackendObservationOrder(observationOrder);
 			plugin.getServer().getPluginManager().callEvent(voteEvent);
 
 			if (voteEvent.isCancelled()) {
@@ -135,11 +140,12 @@ public class VotiferEvent implements Listener {
 		plugin.debug("VoteSite: " + voteSite);
 		plugin.debug("IP: " + IP);
 
+        final long observationOrder = com.bencodez.votingplugin.core.session.VoteObservationSequence.next();
 		try {
-			plugin.getVoteTimer().submit(() -> processVote(voteSite, voteUsername));
+			plugin.getVoteTimer().submit(() -> processVote(voteSite, voteUsername, observationOrder));
 		} catch (RejectedExecutionException rejected) {
 			VotifierVoteOverflowQueue overflow = plugin.getVotifierVoteOverflowQueue();
-			if (overflow == null || !overflow.enqueue(voteUsername, voteSite)) {
+			if (overflow == null || !overflow.enqueue(voteUsername, voteSite, observationOrder)) {
 				plugin.getLogger().severe("Votifier vote queue is full; vote was not admitted for "
 						+ MinecraftUsernameValidator.sanitizeForLog(voteUsername));
 			} else {

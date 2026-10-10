@@ -698,10 +698,14 @@ public class BackendProxyMessageRouter {
 		user.cache();
 		boolean wasOnline = vote.wasOnlineKnown ? vote.wasOnline : user.isOnline();
 		boolean queuedDelivery = vote.queuedDeliveryKnown ? vote.queuedDelivery : vote.delayValidated;
+		// Even an immediate proxy send can arrive after a guide opened on this backend.
+		// No cross-node ordering handshake exists, so transport freshness flags cannot
+		// establish original occurrence order. This affects only guide confirmation.
 		user.bungeeVotePluginMessaging(vote.service, vote.time, totals, !vote.manageTotals,
 				wasOnline, vote.broadcast, vote.num, queuedDelivery, vote.delayValidationKnown,
 				vote.queuedDeliveryKnown, voteId,
-				VotingPluginWire.SUB_VOTE_ONLINE.equals(msg.getSubChannel()));
+				VotingPluginWire.SUB_VOTE_ONLINE.equals(msg.getSubChannel()),
+				true);
 		if (plugin.getBungeeSettings().isPerServerPoints()) {
 			user.addPoints(plugin.getConfigFile().getPointsOnVote());
 		}

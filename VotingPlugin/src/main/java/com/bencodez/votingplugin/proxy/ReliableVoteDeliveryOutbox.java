@@ -48,6 +48,7 @@ final class ReliableVoteDeliveryOutbox {
 		if (key == null) return false;
 		if (entries.containsKey(key)) return true;
 		if (entries.size() >= MAX_ENTRIES) return false;
+		envelope = retryEnvelope(envelope);
 		String record = addRecord(server, envelope);
 		Entry entry = new Entry(server, envelope, false, false, false);
 		long remainingReserve = terminalRecordReserve() + terminalRecordReserve(entry);
@@ -178,7 +179,7 @@ final class ReliableVoteDeliveryOutbox {
 			try {
 				if (parts.length == 3 && ADD.equals(parts[0])) {
 					String server = decode(parts[1]);
-					JsonEnvelope envelope = JsonEnvelopeCodec.decode(decode(parts[2]));
+					JsonEnvelope envelope = retryEnvelope(JsonEnvelopeCodec.decode(decode(parts[2])));
 					String key = key(server, envelope);
 					if (key == null) throw new IllegalArgumentException("Invalid vote envelope");
 					entries.put(key, new Entry(server, envelope, false, false, false));
@@ -315,6 +316,15 @@ final class ReliableVoteDeliveryOutbox {
 
 	private static int utf8Length(String value) {
 		return value.getBytes(StandardCharsets.UTF_8).length;
+	}
+
+	/** A retained delivery is no longer an immediate live observation, including pre-upgrade rows. */
+	private static JsonEnvelope retryEnvelope(JsonEnvelope envelope) {
+		if (!VotingPluginWire.SUB_VOTE.equals(envelope.getSubChannel())
+				&& !VotingPluginWire.SUB_VOTE_ONLINE.equals(envelope.getSubChannel())) return envelope;
+		var copy = JsonEnvelope.builder(envelope.getSubChannel()).schema(envelope.getSchema());
+		envelope.getFields().forEach(copy::put);
+		return copy.put(VotingPluginWire.K_SESSION_DELIVERY_FRESH, false).build();
 	}
 
 	private static String key(String server, JsonEnvelope envelope) {

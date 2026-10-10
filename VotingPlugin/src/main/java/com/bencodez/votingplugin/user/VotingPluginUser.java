@@ -1003,6 +1003,15 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			boolean wasOnline, boolean broadcast, int num, boolean queuedProxyVote,
 			boolean proxyDelayValidationKnown, boolean proxyQueueClassificationKnown, UUID proxyVoteId,
 			boolean targetedProxyVote) {
+		bungeeVotePluginMessaging(service, time, text, setTotals, wasOnline, broadcast, num, queuedProxyVote,
+				proxyDelayValidationKnown, proxyQueueClassificationKnown, proxyVoteId, targetedProxyVote, false);
+	}
+
+	/** Supplies guide-only provenance independently of the established reward/delay flags. */
+	public void bungeeVotePluginMessaging(String service, long time, VoteTotalsSnapshot text, boolean setTotals,
+			boolean wasOnline, boolean broadcast, int num, boolean queuedProxyVote,
+			boolean proxyDelayValidationKnown, boolean proxyQueueClassificationKnown, UUID proxyVoteId,
+			boolean targetedProxyVote, boolean unconfirmedProxySessionDelivery) {
 			if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			plugin.debug("Pluginmessaging vote for " + getPlayerName() + " on " + service);
 
@@ -1022,6 +1031,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 				voteEvent.setProxyQueueClassificationKnown(proxyQueueClassificationKnown);
 				voteEvent.setProxyDelayValidationKnown(proxyDelayValidationKnown);
 				voteEvent.setTargetedProxyVote(targetedProxyVote);
+				voteEvent.setUnconfirmedProxySessionDelivery(unconfirmedProxySessionDelivery);
 				plugin.getServer().getPluginManager().callEvent(voteEvent);
 		}
 	}
@@ -1067,7 +1077,11 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @return true, if the user can vote on the site
 	 */
 	public boolean canVoteSite(VoteSite voteSite) {
-		long time = getTime(voteSite);
+		return canVoteSite(voteSite, getTime(voteSite));
+	}
+
+	/** Same cooldown decision using an already loaded last-vote snapshot; performs no storage read. */
+	public boolean canVoteSite(VoteSite voteSite, long time) {
 		if (time == 0) {
 			return true;
 		}

@@ -2726,6 +2726,8 @@ public abstract class VotingPluginProxy {
 			@Override
 			public void triggerVote(String player, String service, boolean realVote, boolean timeQueue, long queueTime,
 					VoteTotalsSnapshot text, String uuid) {
+				// Legacy callbacks have no ACK/retirement owner. Preserve their ordinary
+				// delivery path rather than creating permanent multi-proxy completion files.
 				vote(player, service, realVote, timeQueue, queueTime, text, uuid);
 			}
 
@@ -5676,6 +5678,14 @@ public abstract class VotingPluginProxy {
 		return sendVoteEnvelopeAccepted(playerServer, 1, envelope);
 	}
 
+	/** Backend ingress cannot establish original freshness after a forwarding hop or replay. */
+	private JsonEnvelope withSessionDeliveryProvenance(JsonEnvelope envelope, UUID voteId, VoteTimeQueue queuedVote) {
+		MultiProxyVoteRetry forwarded = multiProxyVoteRetries.get(voteId);
+		if (forwarded != null) return VotingPluginWire.unconfirmedSessionDelivery(envelope, forwarded.origin);
+		if (queuedVote != null) return VotingPluginWire.unconfirmedSessionDelivery(envelope, queuedVote.getMultiProxyOrigin());
+		return envelope;
+	}
+
 	private JsonEnvelope cachedVoteEnvelope(OfflineBungeeVote vote, boolean online, boolean broadcast,
 			int num, int numberOfVotes) {
 		JsonEnvelope envelope;
@@ -5696,6 +5706,9 @@ public abstract class VotingPluginProxy {
 							resolveCachedWasOnline(vote), vote.isRealVote(), vote.getText(), vote.getVoteId(),
 							getConfig().getBungeeManageTotals(), broadcast, num, numberOfVotes);
 		}
+		// Cached delivery cannot prove fresh original ingress in the backend's clock
+		// domain, even when the reward policy correctly classifies it as non-queued.
+		envelope = VotingPluginWire.unconfirmedSessionDelivery(envelope, "");
 		// A cache entry is only known to have passed the proxy's delay gate when
 		// that decision was persisted with it. Unknown legacy entries must still
 		// be checked by the receiving backend.
@@ -6383,6 +6396,7 @@ public abstract class VotingPluginProxy {
 										authoritativeDelayValidated)
 								: VotingPluginWire.vote(player, uuid, service, time, playerOnline, realVote, text.toString(),
 										voteId, getConfig().getBungeeManageTotals(), broadcastHere, 1, 1);
+						rewardEnvelope = withSessionDeliveryProvenance(rewardEnvelope, voteId, queuedVote);
 						boolean rewardAccepted = sendVoteEnvelopeAccepted(s, 2, rewardEnvelope, pendingVote);
 						if (!rewardAccepted) {
 							pendingVote.setRewardDelivered(false);
@@ -6435,6 +6449,7 @@ public abstract class VotingPluginProxy {
 										authoritativeDelayValidated)
 								: VotingPluginWire.voteOnline(player, uuid, service, time, playerOnline, realVote,
 										text.toString(), voteId, getConfig().getBungeeManageTotals(), broadcastHere, 1, 1);
+						rewardEnvelope = withSessionDeliveryProvenance(rewardEnvelope, voteId, queuedVote);
 						rewardAccepted = sendVoteEnvelopeAccepted(server, 1, rewardEnvelope, pendingVote);
 						if (rewardAccepted) retryState.deliveredRewardServers.add(server);
 					}

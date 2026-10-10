@@ -3551,6 +3551,16 @@ public class CommandLoader {
 			}
 		});
 
+        for (String action : java.util.List.of("", "next", "previous", "skip", "check", "finish", "restart")) {
+            String[] path = action.isEmpty() ? new String[] { "Session" } : new String[] { "Session", action };
+            plugin.getVoteCommand().add(new CommandHandler(plugin, path,
+                    "VotingPlugin.Commands.Vote.Session|" + playerPerm, "Guided voting session", false) {
+                @Override public void execute(CommandSender sender, String[] args) {
+                    plugin.getGuidedVotingSessions().command((Player) sender, action);
+                }
+            });
+        }
+
 		plugin.getVoteCommand().add(new CommandHandler(plugin, new String[] { "URL", "(SiteName)" },
 				"VotingPlugin.Commands.Vote.URL.VoteSite", "Open VoteURL GUI for VoteSite", false) {
 

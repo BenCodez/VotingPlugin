@@ -144,15 +144,37 @@ public class VotiferEventDisabledVoteSiteTest {
 		verify(pluginManager).callEvent(any(PlayerVoteEvent.class));
 	}
 
+    @Test public void voteAdmissionBeforeGuideKeepsItsOrderWhenProcessingRunsAfterGuideOpens() {
+        var pending=new java.util.ArrayDeque<Runnable>();
+        doAnswer(call->{pending.add(call.getArgument(0));return CompletableFuture.completedFuture(null);})
+                .when(voteTimer).submit(any(Runnable.class));
+        listener.onVotiferEvent(createVoteEvent(SERVICE_SITE));
+        var guide=new com.bencodez.votingplugin.core.session.GuidedVoteSession(System.currentTimeMillis());
+        guide.bindCandidates(java.util.List.of(new com.bencodez.votingplugin.core.session.GuidedVoteSession.Site("site","Site","https://example.org",true,0)));
+        guide.refresh(java.util.List.of(new com.bencodez.votingplugin.core.session.GuidedVoteSession.Site("site","Site","https://example.org",true,0)));
+        pending.remove().run();
+        var events=org.mockito.ArgumentCaptor.forClass(PlayerVoteEvent.class);
+        verify(pluginManager).callEvent(events.capture());
+        long original=events.getValue().getBackendObservationOrder();
+        org.junit.jupiter.api.Assertions.assertTrue(original>0);
+        guide.acceptedObserved("site",java.util.UUID.randomUUID(),original);
+        org.junit.jupiter.api.Assertions.assertEquals(0,guide.view("").received());
+        listener.onVotiferEvent(createVoteEvent(SERVICE_SITE)); pending.remove().run();
+        verify(pluginManager,org.mockito.Mockito.times(2)).callEvent(events.capture());
+        guide.acceptedObserved("site",java.util.UUID.randomUUID(),events.getValue().getBackendObservationOrder());
+        org.junit.jupiter.api.Assertions.assertEquals(1,guide.view("").received());
+    }
 	@Test
 	public void testVoteIsQueuedWhenBoundedExecutorRejectsIt() {
 		doThrow(new RejectedExecutionException("capacity exhausted"))
 				.when(voteTimer).submit(any(Runnable.class));
-		when(overflowQueue.enqueue("Steve", SERVICE_SITE)).thenReturn(true);
+		when(overflowQueue.enqueue(org.mockito.ArgumentMatchers.eq("Steve"), org.mockito.ArgumentMatchers.eq(SERVICE_SITE), org.mockito.ArgumentMatchers.anyLong())).thenReturn(true);
 
 		listener.onVotiferEvent(createVoteEvent(SERVICE_SITE));
 
-		verify(overflowQueue).enqueue("Steve", SERVICE_SITE);
+		var order=org.mockito.ArgumentCaptor.forClass(Long.class);
+        verify(overflowQueue).enqueue(org.mockito.ArgumentMatchers.eq("Steve"), org.mockito.ArgumentMatchers.eq(SERVICE_SITE), order.capture());
+        org.junit.jupiter.api.Assertions.assertTrue(order.getValue()>0);
 		verify(pluginManager, never()).callEvent(any(PlayerVoteEvent.class));
 	}
 }
