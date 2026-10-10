@@ -3,6 +3,10 @@ package com.bencodez.votingplugin.backendproxy.messaging;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
@@ -37,6 +41,9 @@ public class BackendProxyMessageRouter {
 	private final BackendVotePartySync votePartySync;
 	private final ProcessedVoteCache processedVoteCache;
 	private final AtomicBoolean voteReplayCacheSaturationLogged = new AtomicBoolean();
+	private final Object pendingVoteUpdateLock = new Object();
+	private final Set<PendingVoteUpdateHandoff> pendingVoteUpdateHandoffs = new HashSet<>();
+	private boolean pendingVoteUpdateHandoffsClosing;
 	private GlobalMessageHandler messages;
 
 	public BackendProxyMessageRouter(VotingPluginMain plugin, BackendPresenceManager presenceManager,
@@ -233,11 +240,72 @@ public class BackendProxyMessageRouter {
 			return;
 		}
 
+		// Track admission until execution starts; ordinary lag is not cancellation.
+		PendingVoteUpdateHandoff handoff = trackVoteUpdateHandoff(complete);
+		if (handoff.isClaimed()) return;
 		try {
-			plugin.getBukkitScheduler().runTask(plugin, () -> beginVoteUpdateOnPlatform(update, complete));
+			plugin.getBukkitScheduler().runTask(plugin, () -> {
+				if (handoff.begin()) beginVoteUpdateOnPlatform(update, complete);
+			});
 		} catch (RuntimeException | Error failure) {
-			complete.accept(OrderedVoteOutcome.RETRY);
+			handoff.cancel();
 			throw failure;
+		}
+	}
+
+	/** Cancel only unstarted VoteUpdates when the ordered lane retires. */
+	public void cancelPendingVoteUpdateHandoffs() {
+		Set<PendingVoteUpdateHandoff> waiting;
+		synchronized (pendingVoteUpdateLock) {
+			pendingVoteUpdateHandoffsClosing = true;
+			waiting = new HashSet<>(pendingVoteUpdateHandoffs);
+		}
+		// Completion can acquire the ordered-lane lock; never hold ours here.
+		for (PendingVoteUpdateHandoff handoff : waiting) handoff.cancel();
+	}
+
+	/** Resume admission when a staged replacement is rolled back. */
+	public void resumeVoteUpdateHandoffs() {
+		synchronized (pendingVoteUpdateLock) {
+			pendingVoteUpdateHandoffsClosing = false;
+		}
+	}
+
+	private PendingVoteUpdateHandoff trackVoteUpdateHandoff(Consumer<OrderedVoteOutcome> completion) {
+		PendingVoteUpdateHandoff handoff = new PendingVoteUpdateHandoff(completion);
+		boolean rejected;
+		synchronized (pendingVoteUpdateLock) {
+			rejected = pendingVoteUpdateHandoffsClosing;
+			if (!rejected) pendingVoteUpdateHandoffs.add(handoff);
+		}
+		if (rejected) handoff.cancel();
+		return handoff;
+	}
+
+	private final class PendingVoteUpdateHandoff {
+		private final AtomicBoolean claimed = new AtomicBoolean();
+		private final Consumer<OrderedVoteOutcome> completion;
+
+		private PendingVoteUpdateHandoff(Consumer<OrderedVoteOutcome> completion) {
+			this.completion = completion;
+		}
+
+		private boolean isClaimed() { return claimed.get(); }
+
+		private boolean begin() {
+			if (!claimed.compareAndSet(false, true)) return false;
+			synchronized (pendingVoteUpdateLock) {
+				pendingVoteUpdateHandoffs.remove(this);
+			}
+			return true;
+		}
+
+		private void cancel() {
+			if (!claimed.compareAndSet(false, true)) return;
+			synchronized (pendingVoteUpdateLock) {
+				pendingVoteUpdateHandoffs.remove(this);
+			}
+			completion.accept(OrderedVoteOutcome.RETRY);
 		}
 	}
 
@@ -282,55 +350,204 @@ public class BackendProxyMessageRouter {
 
 	private void cacheVoteUpdateUser(VotingPluginWire.VoteUpdate update, AdvancedCoreUser resolved,
 			Consumer<OrderedVoteOutcome> completion) {
-		VotingPluginUser user;
 		try {
-			user = plugin.getVotingPluginUserManager().getVotingPluginUser(resolved);
+			VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(resolved);
 			UserDataManager dataManager = plugin.getUserManager().getDataManager();
-			if (dataManager != null && dataManager.hasSharedSqlBackend()) {
-				boolean deferred = dataManager.deferSharedStorageResultFromPlatform(() -> {
-					user.cache();
-					return Boolean.TRUE;
-				}, ignored -> applyVoteUpdate(update, user, completion), failure -> {
+			// Site resolution may auto-create YAML and reload reward/site registries.
+			// Capture it once on the platform scheduler before entering the SQL worker.
+			VoteSite voteSite = resolveVoteUpdateSite(update);
+			// Capture player state on its owning thread before entering storage.
+			// A retired entity must retry; only a genuinely absent player may skip offline rewards.
+			// Match offVote(): offline-mode identities are looked up by name,
+			// not by their stored UUID. Permission reads still use the entity owner.
+			org.bukkit.entity.Player player = plugin.getOptions().isOnlineMode()
+					? user.getPlayer()
+					: org.bukkit.Bukkit.getPlayer(user.getPlayerName());
+			if (player == null) {
+				deferVoteUpdate(update, user, dataManager, voteSite, false, false, completion);
+			} else {
+				// A cancelled callback retries only on explicit lifecycle retirement.
+				PendingVoteUpdateHandoff handoff = trackVoteUpdateHandoff(completion);
+				if (handoff.isClaimed()) return;
+				com.bencodez.votingplugin.util.BukkitCompletionScheduler.run(plugin, player, () -> {
+					if (!handoff.begin()) return;
 					try {
-						plugin.getLogger().warning("Unable to cache UUID user in VoteUpdate: " + update.uuid);
-						plugin.debug(failure);
-					} finally {
+						boolean online = player.isOnline();
+						deferVoteUpdate(update, user, dataManager, voteSite, online,
+								online && player.hasPermission("VotingPlugin.TopVoter.Ignore"), completion);
+					} catch (RuntimeException | Error failure) {
 						completion.accept(OrderedVoteOutcome.RETRY);
+						throw failure;
 					}
-				});
-				if (deferred) return;
+				}, handoff::cancel, handoff::cancel);
 			}
-			user.cache();
-			applyVoteUpdate(update, user, completion);
 		} catch (RuntimeException | Error failure) {
 			completion.accept(OrderedVoteOutcome.RETRY);
 			throw failure;
 		}
 	}
 
-	private void applyVoteUpdate(VotingPluginWire.VoteUpdate update, VotingPluginUser user,
+	/**
+	 * The cache must be populated and LastVotes read/updated on the same storage
+	 * worker. A platform callback between those steps permits another storage
+	 * operation to retire the published cache and makes setTime() fail on Bukkit.
+	 */
+	private void deferSharedVoteUpdate(VotingPluginWire.VoteUpdate update, VotingPluginUser user,
+			UserDataManager dataManager, VoteSite voteSite, boolean processOfflineVotes, boolean topVoterIgnore,
 			Consumer<OrderedVoteOutcome> completion) {
+		AtomicBoolean effectsMayHaveStarted = new AtomicBoolean();
 		try {
-			user.offVote();
-
-			if (update.service != null && !update.service.isEmpty() && update.time > 0) {
-				VoteSite voteSite = plugin.getVoteSiteManager().getVoteSite(update.service, true);
-				if (voteSite == null) {
-					plugin.getLogger().warning("Ignoring VoteUpdate last vote time for unresolved or disabled service site: "
-							+ ServiceSiteValidator.sanitizeForLog(update.service));
-				} else {
-					user.setTime(voteSite, update.time);
+			boolean deferred = dataManager.deferSharedStorageResultFromPlatform(() -> {
+				user.cache();
+				CompletionStage<Void> rewards = CompletableFuture.completedFuture(null);
+				if (processOfflineVotes) {
+					// Persistent reads and cache publication may fail before any
+					// reward begins. The async user API signals only the first
+					// potentially nontransactional reward/pending grant boundary.
+					rewards = user.offVoteWithCapturedTopVoterIgnoreAsync(topVoterIgnore,
+							() -> effectsMayHaveStarted.set(true));
+					if (rewards == null) throw new IllegalStateException("Offline vote reward chain was null");
 				}
-			} else if (update.service != null && !update.service.isEmpty() && update.time <= 0
-					&& plugin.getBungeeSettings().isBungeeDebug()) {
-				plugin.debug("Invalid last vote time received from bungee: " + update.time);
-			}
-			plugin.setUpdate(true);
+				applyVoteUpdateTime(update, user, voteSite, () -> effectsMayHaveStarted.set(true));
+				return rewards;
+			}, rewards -> {
+				if (rewards == null) {
+					completion.accept(OrderedVoteOutcome.QUARANTINE);
+					return;
+				}
+				// This stage may finish on an injection/region thread. Only the
+				// ordered result and update flag return to the platform scheduler.
+				rewards.whenComplete((ignored, rewardFailure) -> {
+					if (rewardFailure != null) {
+						plugin.getLogger().warning("Unable to finish offline rewards for UUID VoteUpdate: "
+								+ ServiceSiteValidator.sanitizeForLog(update.uuid));
+						plugin.debug(rewardFailure);
+						// The user API marks any ambiguous pending/effect boundary.
+						completion.accept(effectsMayHaveStarted.get()
+								? OrderedVoteOutcome.QUARANTINE : OrderedVoteOutcome.RETRY);
+						return;
+					}
+					try {
+						dataManager.dispatchSharedStorageNotification(() -> {
+							try {
+								plugin.setUpdate(true);
+								completion.accept(OrderedVoteOutcome.COMPLETE);
+							} catch (RuntimeException | Error failure) {
+								completion.accept(OrderedVoteOutcome.QUARANTINE);
+								throw failure;
+							}
+						});
+					} catch (RuntimeException | Error failure) {
+						plugin.debug(failure);
+						completion.accept(OrderedVoteOutcome.QUARANTINE);
+					}
+				});
+			}, failure -> {
+				try {
+					plugin.getLogger().warning("Unable to apply UUID user VoteUpdate: "
+							+ ServiceSiteValidator.sanitizeForLog(update.uuid));
+					plugin.debug(failure);
+				} finally {
+					// Pre-effect read/cache failures retry; possible external
+					// effects or a vote-time write require quarantine.
+					completion.accept(effectsMayHaveStarted.get()
+							? OrderedVoteOutcome.QUARANTINE : OrderedVoteOutcome.RETRY);
+				}
+			});
+			if (!deferred) completion.accept(OrderedVoteOutcome.RETRY);
 		} catch (RuntimeException | Error failure) {
-			completion.accept(OrderedVoteOutcome.QUARANTINE);
+			completion.accept(effectsMayHaveStarted.get()
+					? OrderedVoteOutcome.QUARANTINE : OrderedVoteOutcome.RETRY);
 			throw failure;
 		}
-		completion.accept(OrderedVoteOutcome.COMPLETE);
+	}
+
+	/** May mutate VoteSites.yml when auto-create is enabled; never call on the SQL worker. */
+	private VoteSite resolveVoteUpdateSite(VotingPluginWire.VoteUpdate update) {
+		if (update.service != null && !update.service.isEmpty() && update.time > 0) {
+			return plugin.getVoteSiteManager().getVoteSite(update.service, true);
+		}
+		return null;
+	}
+
+	private void applyVoteUpdateTime(VotingPluginWire.VoteUpdate update, VotingPluginUser user,
+			VoteSite voteSite, Runnable beforeTimeWrite) {
+		if (update.service != null && !update.service.isEmpty() && update.time > 0) {
+			if (voteSite == null) {
+				plugin.getLogger().warning("Ignoring VoteUpdate last vote time for unresolved or disabled service site: "
+						+ ServiceSiteValidator.sanitizeForLog(update.service));
+			} else {
+				// Lookups and validation may fail without any effect to replay.
+				beforeTimeWrite.run();
+				user.setTime(voteSite, update.time);
+			}
+		} else if (update.service != null && !update.service.isEmpty() && update.time <= 0
+				&& plugin.getBungeeSettings().isBungeeDebug()) {
+			plugin.debug("Invalid last vote time received from bungee: " + update.time);
+		}
+	}
+
+	private void deferVoteUpdate(VotingPluginWire.VoteUpdate update, VotingPluginUser user,
+			UserDataManager dataManager, VoteSite site, boolean online, boolean topVoterIgnore,
+			Consumer<OrderedVoteOutcome> completion) {
+		if (dataManager.hasSharedSqlBackend()) {
+			deferSharedVoteUpdate(update, user, dataManager, site, online, topVoterIgnore, completion);
+			return;
+		}
+		AtomicBoolean effectsMayHaveStarted = new AtomicBoolean();
+		try {
+			dataManager.getTimer().execute(() -> {
+				try {
+					user.cache();
+					CompletionStage<Void> replay = online
+							? user.offVoteWithCapturedTopVoterIgnoreAsync(topVoterIgnore,
+									() -> effectsMayHaveStarted.set(true))
+							: CompletableFuture.completedFuture(null);
+					if (replay == null) throw new IllegalStateException("Missing offline replay completion");
+					replay.whenComplete((ignored, failure) -> {
+						if (failure != null) {
+							plugin.debug(failure);
+							completion.accept(effectsMayHaveStarted.get()
+									? OrderedVoteOutcome.QUARANTINE : OrderedVoteOutcome.RETRY);
+							return;
+						}
+						try {
+							// Even an empty replay can finish on an owner callback.
+							dataManager.getTimer().execute(() -> {
+								try {
+									user.cache();
+									applyVoteUpdateTime(update, user, site, () -> effectsMayHaveStarted.set(true));
+									dataManager.dispatchSharedStorageNotification(() -> {
+										try {
+											plugin.setUpdate(true);
+											completion.accept(OrderedVoteOutcome.COMPLETE);
+										} catch (RuntimeException | Error notificationFailure) {
+											plugin.debug(notificationFailure);
+											completion.accept(OrderedVoteOutcome.QUARANTINE);
+										}
+									});
+								} catch (RuntimeException | Error applyFailure) {
+									plugin.debug(applyFailure);
+									completion.accept(effectsMayHaveStarted.get()
+											? OrderedVoteOutcome.QUARANTINE : OrderedVoteOutcome.RETRY);
+								}
+							});
+						} catch (RuntimeException | Error rejected) {
+							plugin.debug(rejected);
+							completion.accept(effectsMayHaveStarted.get()
+									? OrderedVoteOutcome.QUARANTINE : OrderedVoteOutcome.RETRY);
+						}
+					});
+				} catch (RuntimeException | Error failure) {
+					plugin.debug(failure);
+					completion.accept(effectsMayHaveStarted.get()
+							? OrderedVoteOutcome.QUARANTINE : OrderedVoteOutcome.RETRY);
+				}
+			});
+		} catch (RuntimeException | Error rejected) {
+			plugin.debug(rejected);
+			completion.accept(OrderedVoteOutcome.RETRY);
+		}
 	}
 
 	private void handleVoteBroadcast(JsonEnvelope msg) {
