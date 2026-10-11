@@ -27,7 +27,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: BenCodez/AdvancedCore
-          ref: 4ca3d3530e002bcafd0d815e752d4f61c9bd0a8f
+          ref: d09f0d891127952f0787aef879380a0b8ee0dde8
           path: .ci/advancedcore
           persist-credentials: false
       - name: Build and install AdvancedCore dependency

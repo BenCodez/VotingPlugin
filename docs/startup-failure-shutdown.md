@@ -10,7 +10,7 @@ the interrupt flag when shutdown is interrupted. Repeated unload callbacks are s
 The shutdown change works independently, but the MySQL authentication-failure regression also exercises the corrected
 SimpleAPI and AdvancedCore constructors. SimpleAPI PR #111 is merged; AdvancedCore PR #361 supplies the remaining SQL
 initialization fix. The POM pins published SimpleAPI `1.0.2-20261011.161601-40`, so no manual SimpleAPI source installation is needed. CI builds AdvancedCore revision
-`4ca3d3530e002bcafd0d815e752d4f61c9bd0a8f` while that PR remains under review.
+`d09f0d891127952f0787aef879380a0b8ee0dde8` while that PR remains under review.
 
 With that AdvancedCore revision checked out in a sibling directory, run:
 
