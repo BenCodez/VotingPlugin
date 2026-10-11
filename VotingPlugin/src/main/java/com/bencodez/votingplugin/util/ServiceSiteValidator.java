@@ -66,11 +66,12 @@ public final class ServiceSiteValidator {
 	}
 
 	/** Display-only representation; raw identifiers remain authoritative for matching/actions.
-	 * Uses printable ASCII labels rather than invisible or font-dependent characters. */
+	 * Uses printable ASCII labels and space boundaries rather than font-dependent guards.
+	 * Boundaries prevent surrounding template text from completing interpreter tokens. */
 	public static String inertForFormatting(String value) {
-		if (value == null) return "";
-		return value.replace("&", "(ampersand)").replace("%", "(percent)")
-				.replace("§", "(section)").replace("{", "(open brace)").replace("}", "(close brace)");
+		if (value == null || value.isEmpty()) return "";
+		return " " + value.replace("&", "(ampersand)").replace("%", "(percent)")
+				.replace("§", "(section)").replace("{", "(open brace)").replace("}", "(close brace)") + " ";
 	}
 
 	private static boolean isDisallowed(int codePoint) {

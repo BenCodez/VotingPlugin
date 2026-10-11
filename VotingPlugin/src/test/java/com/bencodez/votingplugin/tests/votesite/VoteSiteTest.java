@@ -86,7 +86,7 @@ public class VoteSiteTest {
 	public void serviceSiteFormattingCannotJoinSurroundingColorCodes() {
 		VoteSite voteSite = new VoteSite(plugin, "site.test");
 
-		assertEquals("ServiceSite", voteSite.getServiceSiteForFormatting().replace("\u2060", ""));
+		assertEquals(" ServiceSite ", voteSite.getServiceSiteForFormatting());
 		assertFalse(voteSite.getServiceSiteForFormatting().contains("\u2060"));
 	}
 
@@ -100,8 +100,8 @@ public class VoteSiteTest {
 		RewardBuilder builder = (RewardBuilder) factory.invoke(voteSite, "Rewards", true, false);
 
 		assertEquals("ServiceSite", builder.getRewardOptions().getPlaceholders().get("ServiceSite"));
-		assertEquals("ServiceSite", RewardDisplayPlaceholders
-				.forDisplay(builder.getRewardOptions().getPlaceholders()).get("ServiceSite").replace("\u2060", ""));
+		assertEquals(" ServiceSite ", RewardDisplayPlaceholders
+				.forDisplay(builder.getRewardOptions().getPlaceholders()).get("ServiceSite"));
 	}
 
 	@Test
@@ -115,7 +115,7 @@ public class VoteSiteTest {
 
 		assertEquals("site_test", voteSite.getDisplayName());
 		assertEquals("site_test", builder.getRewardOptions().getPlaceholders().get("SiteName"));
-		assertEquals("site_test", voteSite.getDisplayNameForFormatting().replace("\u2060", ""));
+		assertEquals(" site_test ", voteSite.getDisplayNameForFormatting());
 		assertFalse(voteSite.getDisplayNameForFormatting().contains("\u2060"));
 		assertEquals(voteSite.getDisplayNameForFormatting(), RewardDisplayPlaceholders
 				.forDisplay(builder.getRewardOptions().getPlaceholders()).get("SiteName"));

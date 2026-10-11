@@ -1,10 +1,14 @@
 package com.bencodez.votingplugin.tests;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 import org.junit.jupiter.api.Test;
 
+import com.bencodez.advancedcore.api.javascript.JavascriptTextTemplate;
 import com.bencodez.votingplugin.util.ServiceSiteValidator;
 
 class ServiceSiteValidatorTest {
@@ -29,6 +33,29 @@ class ServiceSiteValidatorTest {
 					|| display.contains("{") || display.contains("}"));
 			assertFalse(display.contains("\u2060"));
 		}
+	}
+
+	@Test
+	void formattingGuardPreventsTokensAcrossTemplateBoundaries() {
+		AtomicInteger executions = new AtomicInteger();
+		for (String[] layout : new String[][] {
+				{ "[%SiteName%]", "Javascript=1" },
+				{ "[Java%SiteName%]", "script=1" },
+				{ "[%SiteName%script=1]", "Java" } }) {
+			assertTrue(ServiceSiteValidator.isValid(layout[1]));
+			String rendered = layout[0].replace("%SiteName%",
+					ServiceSiteValidator.inertForFormatting(layout[1]));
+			assertEquals(rendered, JavascriptTextTemplate.parse(rendered).evaluate(text -> text, script -> {
+				executions.incrementAndGet();
+				return "executed";
+			}));
+		}
+		assertEquals(0, executions.get());
+		assertEquals("& kSpoofed ", "&%SiteName%".replace("%SiteName%",
+				ServiceSiteValidator.inertForFormatting("kSpoofed")));
+		assertEquals("% player_name %", "%" + ServiceSiteValidator.inertForFormatting("player_name") + "%");
+		assertEquals("", ServiceSiteValidator.inertForFormatting(null));
+		assertEquals("", ServiceSiteValidator.inertForFormatting(""));
 	}
 
 	@Test

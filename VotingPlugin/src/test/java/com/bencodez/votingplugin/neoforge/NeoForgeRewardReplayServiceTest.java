@@ -834,7 +834,7 @@ class NeoForgeRewardReplayServiceTest {
             runtime.scheduler().onServerTick();
             assertEquals(NeoForgeRewardReplayService.Status.COMPLETED,
                     completion.get(5, TimeUnit.SECONDS).get(0).status());
-            assertEquals(List.of("Thanks Alex from Service at Supported Display"), actions.rendered);
+            assertEquals(List.of("Thanks Alex from  Service  at Supported Display"), actions.rendered);
         }
     }
 
@@ -878,7 +878,7 @@ class NeoForgeRewardReplayServiceTest {
 
             assertEquals(NeoForgeRewardReplayService.Status.COMPLETED,
                     runOne(runtime, replay, actions).status());
-            assertEquals(List.of("Thanks Alex from (ampersand)aService"), actions.rendered);
+            assertEquals(List.of("Thanks Alex from  (ampersand)aService "), actions.rendered);
             assertTrue(runtime.deferredVotes().pending(playerId).isEmpty());
         }
     }
@@ -900,7 +900,7 @@ class NeoForgeRewardReplayServiceTest {
 
             assertEquals(NeoForgeRewardReplayService.Status.COMPLETED,
                     runOne(runtime, replay, actions).status());
-            assertEquals(List.of("Thanks Alex from (percent)player(percent)"), actions.rendered);
+            assertEquals(List.of("Thanks Alex from  (percent)player(percent) "), actions.rendered);
             assertTrue(runtime.deferredVotes().pending(playerId).isEmpty());
         }
     }
@@ -923,7 +923,7 @@ class NeoForgeRewardReplayServiceTest {
 
             assertEquals(NeoForgeRewardReplayService.Status.COMPLETED,
                     runOne(runtime, replay, actions).status());
-            assertEquals(List.of("Thanks Alex from (percent)player(percent)"), actions.rendered);
+            assertEquals(List.of("Thanks Alex from  (percent)player(percent) "), actions.rendered);
             assertTrue(runtime.deferredVotes().pending(playerId).isEmpty());
         }
     }

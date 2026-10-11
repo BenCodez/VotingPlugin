@@ -1,7 +1,10 @@
 # Voting-service identifiers and displayed names
 
-Ordinary voting-site names display directly, without WORD JOINER or other
-invisible characters. Administrator-authored display-name colors and placeholders
+Ordinary voting-site names retain their text, without WORD JOINER or other
+font-dependent guards. External display values have an ASCII space on each side
+to prevent adjacent template text from completing a formatting token. For example,
+`[%SiteName%]` renders `[ Javascript=1 ]` for the literal service `Javascript=1`,
+rather than creating an executable rich-format token. Administrator-authored display-name colors and placeholders
 remain supported. The exact service identifier is preserved for matching,
 action placeholders, and queued-vote recovery.
 
