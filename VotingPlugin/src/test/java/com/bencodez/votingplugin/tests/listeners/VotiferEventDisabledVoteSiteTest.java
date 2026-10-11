@@ -103,6 +103,18 @@ public class VotiferEventDisabledVoteSiteTest {
 		return event;
 	}
 
+    @Test
+    void rejectsStructurallyInvalidServiceNamesBeforeSchedulingOrAutomaticCreation() {
+        when(plugin.getConfigFile().isAutoCreateVoteSites()).thenReturn(true);
+        for (String service : new String[] { "[Javascript=1]", "§kSpoofed", "bad\\name", "bad\nname" }) {
+            listener.onVotiferEvent(createVoteEvent(service));
+        }
+        verify(voteTimer, never()).submit(any(Runnable.class));
+        verify(overflowQueue, never()).enqueue(anyString(), anyString());
+        verify(configVoteSites, never()).tryAutoGenerateVoteSite(anyString());
+        verify(pluginManager, never()).callEvent(any(PlayerVoteEvent.class));
+    }
+
 	@Test
 	public void testDisabledConfiguredSiteIsNotGeneratedByVotifierPath() {
 		when(plugin.getConfigFile().isAutoCreateVoteSites()).thenReturn(true);
