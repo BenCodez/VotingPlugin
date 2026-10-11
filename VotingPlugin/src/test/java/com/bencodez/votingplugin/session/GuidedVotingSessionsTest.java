@@ -748,6 +748,50 @@ class GuidedVotingSessionsTest {
         }
     }
 
+    @Test void rejectedInitialWorkerAdmissionAllowsNormalReopenToNegotiateProxyFence() {
+        try (var f = new Fixture()) {
+            var sent = enableProxyRequests(f);
+            var timer = f.plugin.getTimer();
+            doThrow(new java.util.concurrent.RejectedExecutionException("busy"))
+                    .doAnswer(i -> { f.worker.add(i.getArgument(0)); return null; })
+                    .when(timer).execute(any(Runnable.class));
+            f.sessions.command(f.player, ""); f.entity.remove().run();
+            assertTrue(f.worker.isEmpty()); assertTrue(sent.isEmpty());
+            verify(f.player).sendMessage("Voting status is temporarily unavailable. Please try again.");
+            openGuide(f, "");
+            assertEquals(1, sent.size(), "ordinary reopen must send a fresh fence after rejected creation");
+            var request = com.bencodez.votingplugin.proxy.VotingPluginWire.readSessionFenceRequest(sent.get(0));
+            var source = new com.bencodez.votingplugin.core.session.ProxyVoteSequence(UUID.randomUUID());
+            var fence = source.fence(); var occurrence = source.next();
+            f.sessions.proxyFence(com.bencodez.votingplugin.proxy.VotingPluginWire.sessionFenceReply(request, fence));
+            var event = f.event(f.uuid, 1, occurrence); event.setProxySessionDelivery(true);
+            f.sessions.credited(event); openGuide(f, "check");
+            verify(f.player).sendMessage("Voting session: 1/1 votes received.");
+            assertEquals(1, sent.size());
+        }
+    }
+
+    @Test void rejectedStatusWorkerAdmissionPreservesExistingProxyProgressAndFence() {
+        try (var f = new Fixture()) {
+            var sent = enableProxyRequests(f); openGuide(f, "");
+            var request = com.bencodez.votingplugin.proxy.VotingPluginWire.readSessionFenceRequest(sent.get(0));
+            var source = new com.bencodez.votingplugin.core.session.ProxyVoteSequence(UUID.randomUUID());
+            var fence = source.fence(); var occurrence = source.next();
+            f.sessions.proxyFence(com.bencodez.votingplugin.proxy.VotingPluginWire.sessionFenceReply(request, fence));
+            var event = f.event(f.uuid, 1, occurrence); event.setProxySessionDelivery(true);
+            f.sessions.credited(event);
+            var timer = f.plugin.getTimer();
+            doThrow(new java.util.concurrent.RejectedExecutionException("busy"))
+                    .doAnswer(i -> { f.worker.add(i.getArgument(0)); return null; })
+                    .when(timer).execute(any(Runnable.class));
+            f.sessions.command(f.player, "check"); f.entity.remove().run();
+            assertTrue(f.worker.isEmpty());
+            openGuide(f, "check");
+            verify(f.player).sendMessage("Voting session: 1/1 votes received.");
+            assertEquals(1, sent.size(), "failed status admission must not reset a settled fence");
+        }
+    }
+
     @Test void proxyFenceRejectsWrongPlayerNonceServerAndExpiredRequest() throws Exception {
         for (String mismatch : new String[] {"player", "nonce", "server", "timeout"}) try (var f = new Fixture()) {
             var sent = enableProxyRequests(f);

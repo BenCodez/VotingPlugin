@@ -105,6 +105,7 @@ public final class GuidedVotingSessions implements Listener {
             if (visible.size() >= 100) break;
         }
         GuidedVoteSession session;
+        boolean creating;
         long request;
         com.bencodez.votingplugin.proxy.VotingPluginWire.SessionFenceRequest proxyRequest;
         synchronized (this) {
@@ -117,7 +118,7 @@ public final class GuidedVotingSessions implements Listener {
                 player.sendMessage("Voting sessions are busy. Please try again later."); return;
             }
             if (action.equals("restart")) { sessions.remove(uuid); storageIds.remove(uuid); early.remove(uuid); proxyRequests.remove(uuid); }
-            boolean creating = !sessions.containsKey(uuid);
+            creating = !sessions.containsKey(uuid);
             session = sessions.computeIfAbsent(uuid, ignored -> new GuidedVoteSession(now));
             proxyRequest = null;
             if (creating && plugin.getBungeeSettings().isUseBungeecoord()) {
@@ -198,7 +199,15 @@ public final class GuidedVotingSessions implements Listener {
                 }
             });
         } catch (RejectedExecutionException unavailable) {
-            synchronized (this) { pending.remove(uuid, request); outstanding.remove(request); }
+            synchronized (this) {
+                pending.remove(uuid, request); outstanding.remove(request);
+                // No worker ran to send the initial fence. Retire only this new guide,
+                // so an ordinary reopen retries creation without resetting existing progress.
+                if (creating && sessions.get(uuid) == session && Long.valueOf(request).equals(requests.get(uuid))) {
+                    sessions.remove(uuid); requests.remove(uuid); storageIds.remove(uuid);
+                    playerNames.remove(uuid); early.remove(uuid); proxyRequests.remove(uuid);
+                }
+            }
             player.sendMessage("Voting status is temporarily unavailable. Please try again.");
         }
     }
