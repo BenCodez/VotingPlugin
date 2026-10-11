@@ -72,6 +72,25 @@ class GuidedVoteSessionTest {
         s.refresh(List.of(new GuidedVoteSession.Site("a", "a", "https://example.org/a", false, 101)));
         assertTrue(s.view("check").complete());
     }
+    @Test void preSessionIngressProcessedLaterCannotAdmitAnInitiallyCoolingSite() {
+        for (long order : new long[] {99, 100}) {
+            var s = new GuidedVoteSession(100, 100);
+            s.bindCandidates(List.of(site("a", false)));
+            s.acceptedObserved("a", UUID.randomUUID(), order);
+            s.refresh(List.of(new GuidedVoteSession.Site("a", "a", "https://example.org/a", false, 101)));
+            assertTrue(s.view("check").entries().isEmpty(), "processing time cannot replace ingress order " + order);
+            assertEquals(0, s.view("check").received());
+            assertFalse(s.view("check").complete());
+        }
+    }
+    @Test void freshObservedReceiptBeforeInitialCooldownSampleAdmitsItsBoundSite() {
+        var s = new GuidedVoteSession(100, 100);
+        s.bindCandidates(List.of(site("a", false)));
+        s.acceptedObserved("a", UUID.randomUUID(), 101);
+        s.refresh(List.of(new GuidedVoteSession.Site("a", "a", "https://example.org/a", false, 100)));
+        assertEquals(1, s.view("check").entries().size());
+        assertTrue(s.view("check").complete());
+    }
     @Test void olderCachedVoteCannotEraseAnEarlyConfirmedReceipt() {
         var s = new GuidedVoteSession(100);
         s.bindCandidates(List.of(site("a", true)));
@@ -95,20 +114,42 @@ class GuidedVoteSessionTest {
                 .filter(e -> e.site().key().equals("a")).findFirst().orElseThrow().status());
     }
     @Test void receiptAfterFirstIneligibleSampleRestoresBoundCandidate() {
-        var s = new GuidedVoteSession(100);
+        var s = new GuidedVoteSession(100, 100);
         s.bindCandidates(List.of(site("a", false)));
         s.refresh(List.of(new GuidedVoteSession.Site("a", "a", "https://example.org/a", false, 101)));
-        assertEquals(GuidedVoteSession.Status.UNAVAILABLE, s.view("check").current().status());
-        for (int i = 0; i < 101; i++) s.accepted("unrelated" + i, UUID.randomUUID(), 101, true, false);
-        s.accepted("a", UUID.randomUUID(), 101, true, false);
+        assertTrue(s.view("check").entries().isEmpty());
+        for (int i = 0; i < 101; i++) s.acceptedObserved("unrelated" + i, UUID.randomUUID(), 101);
+        s.acceptedObserved("a", UUID.randomUUID(), 101);
         assertTrue(s.view("check").complete());
         assertEquals(1, s.view("check").entries().size());
     }
-    @Test void initiallyCoolingDownSiteCannotJoinAfterLaterVote() {
+    @Test void originalTimestampReceiptAfterFirstIneligibleSampleRestoresOnlyItsBoundCandidate() {
+        var s = new GuidedVoteSession(100);
+        s.bindCandidates(List.of(site("a", false), site("b", false)));
+        s.refresh(List.of(new GuidedVoteSession.Site("a", "a", "https://example.org/a", false, 101), site("b", false)));
+        assertTrue(s.view("check").entries().isEmpty());
+        UUID occurrence = UUID.randomUUID();
+        s.accepted("a", occurrence, 99, true, false);
+        s.accepted("a", occurrence, 100, true, false);
+        s.accepted("a", null, 101, true, false);
+        s.accepted("a", occurrence, 101, false, false);
+        s.accepted("a", occurrence, 101, true, true);
+        s.accepted("unrelated", occurrence, 101, true, false);
+        assertTrue(s.view("check").entries().isEmpty());
+        s.accepted("a", occurrence, 101, true, false);
+        s.accepted("a", occurrence, 101, true, false);
+        s.accepted("b", occurrence, 102, true, false);
+        s.accepted("a", UUID.randomUUID(), 99, true, false);
+        assertTrue(s.view("check").complete());
+        assertEquals(1, s.view("check").entries().size());
+        assertEquals("a", s.view("check").current().site().key());
+    }
+    @Test void initiallyCoolingDownSiteCannotJoinFromPreSessionTimestampReceipts() {
         var s = new GuidedVoteSession(100);
         s.bindCandidates(List.of(site("a", false)));
         s.refresh(List.of(new GuidedVoteSession.Site("a", "a", "https://example.org/a", false, 99)));
-        s.accepted("a", UUID.randomUUID(), 101, true, false);
+        s.accepted("a", UUID.randomUUID(), 99, true, false);
+        s.accepted("a", UUID.randomUUID(), 100, true, false);
         assertTrue(s.view("check").entries().isEmpty());
     }
     @Test void oneCanonicalOccurrenceCannotConfirmTwoSites() {

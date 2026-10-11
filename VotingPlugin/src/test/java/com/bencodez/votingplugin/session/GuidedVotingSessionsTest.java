@@ -86,6 +86,26 @@ class GuidedVotingSessionsTest {
             verify(f.player, times(2)).sendMessage("Voting session: 1/1 votes received.");
         }
     }
+    @Test void preSessionLocalIngressProcessedDuringInitialSampleCannotAdmitItsCoolingSite() throws Exception {
+        try (var f = new Fixture()) {
+            var ingress = new com.bencodez.votingplugin.events.PlayerVoteEvent(null, "Alice", "a", true);
+            f.sessions.command(f.player, ""); f.entity.remove().run();
+            var sessionsField = GuidedVotingSessions.class.getDeclaredField("sessions"); sessionsField.setAccessible(true);
+            var active = (java.util.Map<?, ?>) sessionsField.get(f.sessions);
+            long started = ((com.bencodez.votingplugin.core.session.GuidedVoteSession) active.get(f.uuid)).started();
+            long processed = started + 1;
+            when(f.user.canVoteSite(f.site, processed)).thenReturn(false); f.lastVotes.put(f.site, processed);
+            var credited = f.event(f.uuid, processed, UUID.randomUUID());
+            credited.setLiveLocalSessionDelivery(true); credited.setBackendObservationOrder(ingress.getBackendObservationOrder());
+            f.sessions.credited(credited);
+            f.worker.remove().run(); f.entity.remove().run();
+            verify(f.player).sendMessage("No eligible, visible voting sites. Try /vote session restart after your cooldowns end.");
+            verify(f.player).sendMessage("Voting session: 0/0 votes received.");
+            verify(f.player, never()).sendMessage("Voting session: 0/1 votes received.");
+            openGuide(f, "check");
+            verify(f.player, times(2)).sendMessage("No eligible, visible voting sites. Try /vote session restart after your cooldowns end.");
+        }
+    }
     @Test void unknownRecoveredLocalIngressCannotConfirmEvenWithFreshProcessingTimestamp() {
         try(var f=new Fixture()) {
             f.sessions.command(f.player, ""); f.entity.remove().run(); f.worker.remove().run(); f.entity.remove().run();
@@ -254,14 +274,72 @@ class GuidedVotingSessionsTest {
             verify(f.player, never()).sendMessage(contains("Site A"));
         }
     }
-    @Test void receiptAfterEligibilitySampleIsVisibleOnReopen() {
+    @Test void receiptAfterEligibilitySampleIsVisibleOnReopen() throws Exception {
         try (var f = new Fixture()) {
-            when(f.user.canVoteSite(eq(f.site), anyLong())).thenReturn(false);
-            f.lastVotes.put(f.site, System.currentTimeMillis() + 1000);
-            f.sessions.command(f.player, ""); f.entity.remove().run(); f.worker.remove().run(); f.entity.remove().run();
-            f.sessions.credited(f.event(f.uuid, System.currentTimeMillis() + 1000, UUID.randomUUID()));
-            f.sessions.command(f.player, "check"); f.entity.remove().run(); f.worker.remove().run(); f.entity.remove().run();
+            f.sessions.command(f.player, ""); f.entity.remove().run();
+            var sessionsField = GuidedVotingSessions.class.getDeclaredField("sessions"); sessionsField.setAccessible(true);
+            var active = (java.util.Map<?, ?>) sessionsField.get(f.sessions);
+            long started = ((com.bencodez.votingplugin.core.session.GuidedVoteSession) active.get(f.uuid)).started();
+            var ingress = new com.bencodez.votingplugin.events.PlayerVoteEvent(null, "Alice", "a", true);
+            long processed = started + 1;
+            when(f.user.canVoteSite(f.site, processed)).thenReturn(false); f.lastVotes.put(f.site, processed);
+            f.worker.remove().run(); f.entity.remove().run();
+            verify(f.player).sendMessage("No eligible, visible voting sites. Try /vote session restart after your cooldowns end.");
+            var credited = f.event(f.uuid, processed, UUID.randomUUID());
+            credited.setLiveLocalSessionDelivery(true); credited.setBackendObservationOrder(ingress.getBackendObservationOrder());
+            f.sessions.credited(credited); f.sessions.credited(credited);
+            openGuide(f, "check");
             verify(f.player).sendMessage("Voting session: 1/1 votes received.");
+        }
+    }
+    @Test void originalTimestampPipelineReceiptAfterCooldownSampleRestoresOnlyPostStartVotes() throws Exception {
+        for (long offset : new long[] {-1, 0, 1}) try (var f = new Fixture()) {
+            when(f.plugin.isEnabled()).thenReturn(true);
+            when(f.plugin.getOptions().isProcessRewards()).thenReturn(true);
+            when(f.plugin.getConfigFile().isAddTotals()).thenReturn(true);
+            when(f.plugin.getUserManager().getProperName("Alice")).thenReturn("Alice");
+            var validation = mock(com.bencodez.advancedcore.api.user.validation.UserValidationResult.class);
+            when(validation.isValid()).thenReturn(true); when(validation.getNormalizedName()).thenReturn("Alice");
+            when(validation.getSource()).thenReturn(com.bencodez.advancedcore.api.user.validation.ValidationSource.STORAGE);
+            when(f.plugin.getUserManager().getValidationService().validate("Alice", false)).thenReturn(validation);
+            when(f.user.isOnline()).thenReturn(true); when(f.user.getUUID()).thenReturn(f.uuid.toString());
+            when(f.site.getServiceSite()).thenReturn("service");
+            f.sessions.command(f.player, ""); f.entity.remove().run();
+            var sessionsField = GuidedVotingSessions.class.getDeclaredField("sessions"); sessionsField.setAccessible(true);
+            var active = (java.util.Map<?, ?>) sessionsField.get(f.sessions);
+            long started = ((com.bencodez.votingplugin.core.session.GuidedVoteSession) active.get(f.uuid)).started();
+            long originalTime = started + offset;
+            when(f.user.canVoteSite(f.site, originalTime)).thenReturn(false);
+            doAnswer(i -> {
+                f.lastVotes.put(f.site, i.getArgument(1));
+                // Sample the persisted cooldown before the actual post-vote notification.
+                f.worker.remove().run(); f.entity.remove().run();
+                verify(f.player).sendMessage("No eligible, visible voting sites. Try /vote session restart after your cooldowns end.");
+                return null;
+            }).when(f.user).setTime(f.site, originalTime);
+            var posts = new java.util.ArrayList<PlayerPostVoteEvent>();
+            var pluginManager = f.plugin.getServer().getPluginManager();
+            doAnswer(i -> {
+                if (i.getArgument(0) instanceof PlayerPostVoteEvent post) {
+                    posts.add(post); f.sessions.credited(post);
+                }
+                return null;
+            }).when(pluginManager).callEvent(any(org.bukkit.event.Event.class));
+            var input = new com.bencodez.votingplugin.events.PlayerVoteEvent(null, "Alice", "service", true);
+            input.setVotingPluginUser(f.user); input.setVoteSite(f.site); input.setTime(originalTime);
+            new com.bencodez.votingplugin.listeners.PlayerVoteListener(f.plugin).onplayerVote(input);
+            assertEquals(1, posts.size());
+            var post = posts.get(0);
+            assertEquals(originalTime, post.getVoteTime());
+            assertFalse(post.isLiveLocalSessionDelivery()); assertFalse(post.isUnconfirmedLocalSessionDelivery());
+            f.sessions.credited(post); f.sessions.credited(post);
+            openGuide(f, "check");
+            if (offset > 0) verify(f.player).sendMessage("Voting session: 1/1 votes received.");
+            else {
+                verify(f.player, times(2)).sendMessage("No eligible, visible voting sites. Try /vote session restart after your cooldowns end.");
+                verify(f.player, never()).sendMessage("Voting session: 1/1 votes received.");
+            }
+            verify(f.user).addTotal(); verify(f.user).addPoints();
         }
     }
 

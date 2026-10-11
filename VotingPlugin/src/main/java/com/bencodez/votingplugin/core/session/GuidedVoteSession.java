@@ -44,7 +44,8 @@ public final class GuidedVoteSession {
     public synchronized void refresh(List<Site> available) {
         bindCandidates(available);
         if (!initialized) {
-            for (Site site : available) if (candidates.containsKey(site.key()) && (site.eligible() || site.lastVote() > started || received.containsKey(site.key())) && sites.size() < 100) sites.put(site.key(), site);
+            // A cooldown timestamp alone does not establish original ingress order.
+            for (Site site : available) if (candidates.containsKey(site.key()) && (site.eligible() || received.containsKey(site.key())) && sites.size() < 100) sites.put(site.key(), site);
             // A temporarily hidden/removed site can be absent from the worker sample.
             // Keep its confirmed identity so visibility restoration can recover progress.
             for (Site candidate : candidates.values()) if (received.containsKey(candidate.key()))
@@ -63,8 +64,7 @@ public final class GuidedVoteSession {
     /** The accepted pipeline supplies stable IDs and its authoritative occurrence time. */
     public synchronized void accepted(String site, UUID occurrence, long time, boolean real, boolean cancelled) {
         if (real && !cancelled && occurrence != null && time > started && candidates.containsKey(site)
-                && (!initialized || sites.containsKey(site)) && !received.containsKey(site)
-                && !occurrences.containsKey(occurrence)) {
+                && !received.containsKey(site) && !occurrences.containsKey(occurrence)) {
             received.put(site, time);
             occurrences.put(occurrence, site);
             // A credited vote may make the first asynchronous eligibility sample unavailable.
