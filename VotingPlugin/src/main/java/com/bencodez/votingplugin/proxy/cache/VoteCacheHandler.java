@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin.proxy.cache;
 
 import java.io.IOException;
+import java.sql.SQLException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -10,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -163,6 +165,106 @@ public abstract class VoteCacheHandler {
 		return stored;
 	}
 
+	/** Journals replay positions before any transport can consume this cache snapshot. */
+	public synchronized boolean prepareCachedVoteBatch(String owner, boolean online,
+			Collection<OfflineBungeeVote> eligible, int size) {
+		if (owner == null || eligible == null || size < 0 || jsonStorage == null || jsonStorageQuarantined)
+			return false;
+		Map<OfflineBungeeVote, OfflineBungeeVote> staged = new LinkedHashMap<>();
+		Collection<OfflineBungeeVote> owned = online ? getOnlineVotes(owner) : getVotes(owner);
+		int unassigned = 0;
+		boolean hasAssigned = false;
+		for (OfflineBungeeVote vote : eligible) {
+			if (vote == null || !owned.contains(vote) || !vote.isCachedVoteBatchValid()) return false;
+			if (vote.hasCachedVoteBatch()) hasAssigned = true;
+			else unassigned++;
+		}
+		// A surviving batch keeps its original positions; newly cached votes form a complete new batch.
+		int assignedSize = hasAssigned ? unassigned : size;
+		int next = 0;
+		for (OfflineBungeeVote vote : eligible) {
+			if (vote.hasCachedVoteBatch() && vote.isCachedBatchDurable() && vote.getVoteId() != null) continue;
+			OfflineBungeeVote copy = copyForBatch(vote);
+			if (!copy.hasCachedVoteBatch()) copy.setCachedVoteBatch(++next, assignedSize);
+			if (!copy.isCachedVoteBatchValid() || !copy.hasCachedVoteBatch()) return false;
+			int row = online ? vote.getOnlineVoteCacheRowId() : vote.getServerVoteCacheRowId();
+			if (row > 0) copy.setCachedBatchSourceRowId(row);
+			staged.put(vote, copy);
+		}
+		if (staged.isEmpty()) return true;
+		synchronized (jsonStorage) {
+			if (!ensureEmergencyJournalMarker()) return false;
+			try {
+				for (Entry<OfflineBungeeVote, OfflineBungeeVote> entry : staged.entrySet()) {
+					OfflineBungeeVote copy = entry.getValue();
+					Collection<String> keys = online ? jsonStorage.getOnlineVotes(owner) : jsonStorage.getServerVotes(owner);
+					String key = online ? entry.getKey().getOnlineVoteCacheJsonKey()
+							: entry.getKey().getServerVoteCacheJsonKey();
+					if (key != null) {
+						DataNode stored = online ? jsonStorage.getOnlineVotes(owner, key) : jsonStorage.getServerVotes(owner, key);
+						if (stored == null || !stored.isObject() || !matchesStoredVote(stored, entry.getKey())
+								&& !(entry.getKey().getVoteId() == null && sameStoredLegacyPayload(stored, entry.getKey())))
+							throw new IllegalStateException("Cached replay no longer owns its JSON entry");
+					} else if (keys != null) {
+						for (String candidateKey : keys) {
+							DataNode data = online ? jsonStorage.getOnlineVotes(owner, candidateKey)
+									: jsonStorage.getServerVotes(owner, candidateKey);
+							OfflineBungeeVote stored = decodeJsonVote(data);
+							if (stored != null && matchesSqlBatchTwin(stored, entry.getKey(), copy.getCachedBatchSourceRowId())) {
+								key = candidateKey;
+								break;
+							}
+						}
+					}
+					if (copy.getVoteId() == null) {
+						OfflineBungeeVote prior = key == null ? null : decodeJsonVote(online
+								? jsonStorage.getOnlineVotes(owner, key) : jsonStorage.getServerVotes(owner, key));
+						copy.assignCachedVoteId(prior != null && prior.getVoteId() != null ? prior.getVoteId() : UUID.randomUUID());
+					}
+					int index = key == null ? nextCacheIndex(keys) : Integer.parseInt(key);
+					if (online) {
+						copy.setOnlineVoteCacheJsonKey(String.valueOf(index));
+						jsonStorage.addVoteOnline(owner, index, copy);
+					} else {
+						copy.setServerVoteCacheJsonKey(String.valueOf(index));
+						jsonStorage.addVote(owner, index, copy);
+					}
+				}
+				if (!VoteCacheDurability.saveAndVerifyCachedBatch(jsonStorage, owner, online, staged.values())) return false;
+			} catch (VoteCacheDurability.ReloadFailedException failure) {
+				jsonStorageQuarantined = true;
+				debug1(failure);
+				return false;
+			} catch (RuntimeException failure) {
+				debug1(failure);
+				try { jsonStorage.reload(); }
+				catch (RuntimeException reloadFailure) { jsonStorageQuarantined = true; debug1(reloadFailure); }
+				return false;
+			}
+			for (Entry<OfflineBungeeVote, OfflineBungeeVote> entry : staged.entrySet()) {
+				OfflineBungeeVote copy = entry.getValue();
+				copy.setCachedBatchDurable(true);
+				entry.getKey().assignCachedVoteId(copy.getVoteId());
+				entry.getKey().copyCachedVoteBatch(copy);
+				if (online) entry.getKey().setOnlineVoteCacheJsonKey(copy.getOnlineVoteCacheJsonKey());
+				else entry.getKey().setServerVoteCacheJsonKey(copy.getServerVoteCacheJsonKey());
+			}
+		}
+		return true;
+	}
+
+	private OfflineBungeeVote copyForBatch(OfflineBungeeVote vote) {
+		OfflineBungeeVote copy = new OfflineBungeeVote(vote.getVoteId(), vote.getPlayerName(), vote.getUuid(),
+				vote.getService(), vote.getTime(), vote.isRealVote(), vote.getText(), vote.isBroadcastForwarded(),
+				vote.isProxyBroadcastHandled(), vote.getBroadcastTargets(), vote.getBroadcastForwardedServers(),
+				vote.isRewardDelivered(), vote.getHttpDeliveryIds(), vote.getHttpBroadcastDeliveryIds());
+		if (vote.isWasOnlineKnown()) copy.setWasOnline(vote.isWasOnline());
+		if (vote.isDelayValidationKnown()) copy.setDelayValidated(vote.isDelayValidated());
+		else if (!vote.isQueueClassificationKnown()) copy.clearDelayValidation();
+		copy.copyCachedVoteBatch(vote);
+		return copy;
+	}
+
 	/** Retains a failed server-cache insert for a later durability retry. */
 	public synchronized boolean retainServerVoteForPersistenceRetry(String server, OfflineBungeeVote vote) {
 		if (server == null || vote == null) return false;
@@ -184,6 +286,8 @@ public abstract class VoteCacheHandler {
 	 */
 	public synchronized boolean updateServerVote(String server, OfflineBungeeVote vote) {
 		if (useMySQL) {
+			if (vote.getServerVoteCacheRowId() <= 0 && vote.getCachedBatchSourceRowId() > 0)
+				return updateServerVoteJson(server, vote);
 			if (voteCacheTable.updateProxyBroadcastState(vote, server)) {
 				// SQL rows can have an emergency JSON twin after a mixed-version or
 				// recovery path. Keep that exact twin current before publishing again.
@@ -194,31 +298,7 @@ public abstract class VoteCacheHandler {
 			if (vote.getServerVoteCacheRowId() > 0) return false;
 			return updateServerVoteJson(server, vote);
 		}
-		if (jsonStorage == null || jsonStorageQuarantined) return false;
-
-		Collection<String> keys = jsonStorage.getServerVotes(server);
-		if (keys == null) {
-			return false;
-		}
-		for (String key : keys) {
-			DataNode data = jsonStorage.getServerVotes(server, key);
-			if (data == null || !data.isObject() || !data.has("UUID") || !data.has("Service")
-					|| !data.has("Time")) {
-				continue;
-			}
-			if (matchesStoredServerVote(key, data, vote)) {
-				try {
-					int index = Integer.parseInt(key);
-					vote.setServerVoteCacheJsonKey(key);
-					jsonStorage.addVote(server, index, vote);
-					return verifyJsonServerVote(server, index, vote);
-				} catch (RuntimeException e) {
-					debug1(e);
-					return false;
-				}
-			}
-		}
-		return false;
+		return updateServerVoteJson(server, vote);
 	}
 
 	/**
@@ -386,6 +466,8 @@ public abstract class VoteCacheHandler {
 	 */
 	public synchronized boolean updateOnlineVote(String uuid, OfflineBungeeVote vote) {
 		if (useMySQL) {
+			if (vote.getOnlineVoteCacheRowId() <= 0 && vote.getCachedBatchSourceRowId() > 0)
+				return updateOnlineVoteJson(uuid, vote);
 			if (onlineVoteCacheTable.updateProxyBroadcastState(vote)) {
 				return !hasJsonOnlineVote(vote, uuid) || updateOnlineVoteJson(uuid, vote);
 			}
@@ -394,31 +476,7 @@ public abstract class VoteCacheHandler {
 			if (vote.getOnlineVoteCacheRowId() > 0) return false;
 			return updateOnlineVoteJson(uuid, vote);
 		}
-		if (jsonStorage == null || jsonStorageQuarantined) return false;
-
-		Collection<String> keys = jsonStorage.getOnlineVotes(uuid);
-		if (keys == null) {
-			return false;
-		}
-		for (String key : keys) {
-			DataNode data = jsonStorage.getOnlineVotes(uuid, key);
-			if (data == null || !data.isObject() || !data.has("UUID") || !data.has("Service")
-					|| !data.has("Time")) {
-				continue;
-			}
-			if (matchesStoredOnlineVote(key, data, vote)) {
-				try {
-					int index = Integer.parseInt(key);
-					vote.setOnlineVoteCacheJsonKey(key);
-					jsonStorage.addVoteOnline(uuid, index, vote);
-					return verifyJsonOnlineVote(uuid, index, vote);
-				} catch (RuntimeException e) {
-					debug1(e);
-					return false;
-				}
-			}
-		}
-		return false;
+		return updateOnlineVoteJson(uuid, vote);
 	}
 
 	/**
@@ -473,7 +531,9 @@ public abstract class VoteCacheHandler {
 		if (votes == null || votes.isEmpty()) {
 			return true;
 		}
-		boolean mysqlRemoved = !useMySQL || onlineVoteCacheTable.tryRemoveVote(removedVote);
+		boolean mysqlRemoved = !useMySQL
+				|| removedVote.getOnlineVoteCacheRowId() <= 0 && removedVote.getCachedBatchSourceRowId() > 0
+				|| onlineVoteCacheTable.tryRemoveVote(removedVote);
 		boolean jsonRemoved = jsonStorage == null;
 		if (jsonStorage != null && !jsonStorageQuarantined
 				&& (!useMySQL || removedVote.getOnlineVoteCacheRowId() <= 0
@@ -492,6 +552,11 @@ public abstract class VoteCacheHandler {
 	}
 
 	protected boolean removeJsonOnlineVoteDurably(String uuid, OfflineBungeeVote removedVote) {
+		if (jsonStorage == null || jsonStorageQuarantined) return false;
+		synchronized (jsonStorage) { return removeJsonOnlineVoteDurablyLocked(uuid, removedVote); }
+	}
+
+	private boolean removeJsonOnlineVoteDurablyLocked(String uuid, OfflineBungeeVote removedVote) {
 		jsonStorage.removeOnlineVote(removedVote);
 		try {
 			return VoteCacheDurability.saveAndVerifyRemoval(jsonStorage,
@@ -605,21 +670,40 @@ public abstract class VoteCacheHandler {
 	}
 
 	private OfflineBungeeVote findServerVoteSqlTwin(String server, OfflineBungeeVote emergency) {
-		if (emergency.getVoteId() == null) return null;
 		for (OfflineBungeeVote candidate : getVotes(server)) {
 			if (candidate.getServerVoteCacheRowId() > 0 && candidate.getServerVoteCacheJsonKey() == null
-					&& emergency.getVoteId().equals(candidate.getVoteId())) return candidate;
+					&& matchesSqlBatchTwin(emergency, candidate, candidate.getServerVoteCacheRowId())) return candidate;
 		}
 		return null;
 	}
 
 	private OfflineBungeeVote findOnlineVoteSqlTwin(String uuid, OfflineBungeeVote emergency) {
-		if (emergency.getVoteId() == null) return null;
 		for (OfflineBungeeVote candidate : getOnlineVotes(uuid)) {
 			if (candidate.getOnlineVoteCacheRowId() > 0 && candidate.getOnlineVoteCacheJsonKey() == null
-					&& emergency.getVoteId().equals(candidate.getVoteId())) return candidate;
+					&& matchesSqlBatchTwin(emergency, candidate, candidate.getOnlineVoteCacheRowId())) return candidate;
 		}
 		return null;
+	}
+
+	private boolean matchesSqlBatchTwin(OfflineBungeeVote emergency, OfflineBungeeVote sql, int rowId) {
+		if (!emergency.isCachedVoteBatchValid()) return false;
+		if (emergency.getVoteId() != null && sql.getVoteId() != null)
+			return emergency.getVoteId().equals(sql.getVoteId());
+		return rowId > 0 && emergency.getCachedBatchSourceRowId() == rowId
+				&& Objects.equals(emergency.getPlayerName(), sql.getPlayerName())
+				&& Objects.equals(emergency.getUuid(), sql.getUuid())
+				&& Objects.equals(emergency.getService(), sql.getService()) && emergency.getTime() == sql.getTime()
+				&& emergency.isRealVote() == sql.isRealVote() && Objects.equals(emergency.getText(), sql.getText());
+	}
+
+	private boolean sameStoredLegacyPayload(DataNode data, OfflineBungeeVote vote) {
+		return data.has("UUID") && data.has("Service") && data.has("Time")
+				&& Objects.equals(vote.getUuid(), data.get("UUID").asString())
+				&& Objects.equals(vote.getService(), data.get("Service").asString())
+				&& vote.getTime() == data.get("Time").asLong()
+				&& Objects.equals(vote.getPlayerName(), data.has("Name") ? data.get("Name").asString() : "")
+				&& Objects.equals(vote.getText(), data.has("Text") ? data.get("Text").asString() : "")
+				&& vote.isRealVote() == (data.has("Real") && data.get("Real").asBoolean());
 	}
 
 	/**
@@ -662,10 +746,12 @@ public abstract class VoteCacheHandler {
 
 	private boolean matchesStoredVote(DataNode data, OfflineBungeeVote vote) {
 		String storedVoteId = readVoteId(data);
-		if (vote.getVoteId() != null && storedVoteId != null && !storedVoteId.isEmpty()) {
-			return vote.getVoteId().toString().equals(storedVoteId);
-		}
-		return vote.getUuid().equals(data.get("UUID").asString())
+		if (vote.getVoteId() != null) return vote.getVoteId().toString().equals(storedVoteId);
+		return (storedVoteId == null || storedVoteId.isEmpty())
+				&& Objects.equals(vote.getPlayerName(), data.has("Name") ? data.get("Name").asString() : "")
+				&& Objects.equals(vote.getText(), data.has("Text") ? data.get("Text").asString() : "")
+				&& vote.isRealVote() == (data.has("Real") && data.get("Real").asBoolean())
+				&& vote.getUuid().equals(data.get("UUID").asString())
 				&& vote.getService().equals(data.get("Service").asString())
 				&& vote.getTime() == data.get("Time").asLong();
 	}
@@ -694,6 +780,11 @@ public abstract class VoteCacheHandler {
 
 	/** Persists a server vote in the JSON emergency journal. */
 	private boolean persistServerVoteToJson(String server, OfflineBungeeVote vote) {
+		if (jsonStorage == null || jsonStorageQuarantined) return false;
+		synchronized (jsonStorage) { return persistServerVoteToJsonLocked(server, vote); }
+	}
+
+	private boolean persistServerVoteToJsonLocked(String server, OfflineBungeeVote vote) {
 		if (jsonStorage == null || jsonStorageQuarantined) {
 			return false;
 		}
@@ -714,6 +805,11 @@ public abstract class VoteCacheHandler {
 
 	/** Persists an online vote in the JSON emergency journal. */
 	private boolean persistOnlineVoteToJson(String uuid, OfflineBungeeVote vote) {
+		if (jsonStorage == null || jsonStorageQuarantined) return false;
+		synchronized (jsonStorage) { return persistOnlineVoteToJsonLocked(uuid, vote); }
+	}
+
+	private boolean persistOnlineVoteToJsonLocked(String uuid, OfflineBungeeVote vote) {
 		if (jsonStorage == null || jsonStorageQuarantined) {
 			return false;
 		}
@@ -771,6 +867,11 @@ public abstract class VoteCacheHandler {
 	}
 
 	private boolean updateServerVoteJson(String server, OfflineBungeeVote vote) {
+		if (jsonStorage == null || jsonStorageQuarantined) return false;
+		synchronized (jsonStorage) { return updateServerVoteJsonLocked(server, vote); }
+	}
+
+	private boolean updateServerVoteJsonLocked(String server, OfflineBungeeVote vote) {
 		if (jsonStorage == null || jsonStorageQuarantined) {
 			return false;
 		}
@@ -796,6 +897,11 @@ public abstract class VoteCacheHandler {
 	}
 
 	private boolean updateOnlineVoteJson(String uuid, OfflineBungeeVote vote) {
+		if (jsonStorage == null || jsonStorageQuarantined) return false;
+		synchronized (jsonStorage) { return updateOnlineVoteJsonLocked(uuid, vote); }
+	}
+
+	private boolean updateOnlineVoteJsonLocked(String uuid, OfflineBungeeVote vote) {
 		if (jsonStorage == null || jsonStorageQuarantined) {
 			return false;
 		}
@@ -940,6 +1046,11 @@ public abstract class VoteCacheHandler {
 
 	/** Persists a timed vote in the JSON emergency journal. */
 	private boolean persistTimeVoteToJson(VoteTimeQueue vote) {
+		if (jsonStorage == null || jsonStorageQuarantined) return false;
+		synchronized (jsonStorage) { return persistTimeVoteToJsonLocked(vote); }
+	}
+
+	private boolean persistTimeVoteToJsonLocked(VoteTimeQueue vote) {
 		if (jsonStorage == null || jsonStorageQuarantined) return false;
 		if (!ensureEmergencyJournalMarker()) {
 			return false;
@@ -1266,10 +1377,27 @@ public abstract class VoteCacheHandler {
 	/**
 	 * Loads vote cache from storage.
 	 */
-	public void load() {
+	public synchronized void load() {
+		if (jsonStorage != null) {
+			try { jsonStorage.reload(); jsonStorageQuarantined = false; }
+			catch (RuntimeException failure) { jsonStorageQuarantined = true; throw failure; }
+		}
 		if (useMySQL) {
+			final List<ProxyVoteCacheTable.VoteRow> serverRows;
+			final List<ProxyOnlineVoteCacheTable.VoteRow> onlineRows;
+			final List<ProxyTimedVoteCacheTable.TimedVoteRow> timedRows;
+			try {
+				serverRows = voteCacheTable.getAllVotesChecked();
+				onlineRows = onlineVoteCacheTable.getAllVotesChecked();
+				timedRows = timedVoteCacheTable.getAllVotesChecked();
+			} catch (SQLException failure) {
+				throw new IllegalStateException("Unable to read proxy vote cache snapshot", failure);
+			}
+			cachedVotes.clear();
+			cachedOnlineVotes.clear();
+			timeChangeQueue.clear();
 			// Load votes from MySQL
-			voteCacheTable.getAllVotes().forEach(voteRow -> {
+			serverRows.forEach(voteRow -> {
 				OfflineBungeeVote vote = new OfflineBungeeVote(voteRow.getVoteId(), voteRow.getPlayerName(),
 						voteRow.getUuid(), voteRow.getService(), voteRow.getTime(), voteRow.isRealVote(),
 						voteRow.getText(), voteRow.isBroadcastForwarded(), voteRow.isProxyBroadcastHandled(),
@@ -1287,7 +1415,7 @@ public abstract class VoteCacheHandler {
 			});
 
 			// Load online votes from MySQL
-			onlineVoteCacheTable.getAllVotes().forEach(voteRow -> {
+			onlineRows.forEach(voteRow -> {
 				OfflineBungeeVote vote = new OfflineBungeeVote(voteRow.getVoteId(), voteRow.getPlayerName(),
 						voteRow.getUuid(), voteRow.getService(), voteRow.getTime(), voteRow.isRealVote(),
 						voteRow.getText(), voteRow.isBroadcastForwarded(), voteRow.isProxyBroadcastHandled(),
@@ -1306,7 +1434,7 @@ public abstract class VoteCacheHandler {
 
 			// Load timed votes from MySQL
 			ArrayList<VoteTimeQueue> timedVotes = new ArrayList<>();
-			timedVoteCacheTable.getAllVotes().forEach(timedVoteRow -> {
+			timedRows.forEach(timedVoteRow -> {
 				VoteTimeQueue voteTimeQueue = new VoteTimeQueue(timedVoteRow.getVoteId(), timedVoteRow.getPlayerName(),
 						timedVoteRow.getService(), timedVoteRow.getTime(), timedVoteRow.isProxyBroadcastHandled(),
 						VoteTimeQueue.decodeBroadcastForwardedServers(timedVoteRow.getBroadcastTargets()),
@@ -1341,6 +1469,9 @@ public abstract class VoteCacheHandler {
 			loadJsonEmergencyVotes();
 
 		} else {
+			cachedVotes.clear();
+			cachedOnlineVotes.clear();
+			timeChangeQueue.clear();
 			try {
 				for (String key : jsonStorage.getTimedVoteCache()) {
 					DataNode data = jsonStorage.getTimedVoteCache(key);
@@ -1397,6 +1528,7 @@ public abstract class VoteCacheHandler {
 							if (data.has("DelayValidationKnown") && data.get("DelayValidationKnown").asBoolean())
 								vote.setDelayValidated(data.has("DelayValidated") && data.get("DelayValidated").asBoolean());
 							else vote.clearDelayValidation();
+							restoreCachedVoteBatch(vote, data);
 							vote.setServerVoteCacheJsonKey(num);
 							votes.add(vote);
 						}
@@ -1451,6 +1583,7 @@ public abstract class VoteCacheHandler {
 							if (data.has("DelayValidationKnown") && data.get("DelayValidationKnown").asBoolean())
 								vote.setDelayValidated(data.has("DelayValidated") && data.get("DelayValidated").asBoolean());
 							else vote.clearDelayValidation();
+							restoreCachedVoteBatch(vote, data);
 							vote.setOnlineVoteCacheJsonKey(num);
 							votes.add(vote);
 						}
@@ -1479,9 +1612,8 @@ public abstract class VoteCacheHandler {
 
 	/**
 	 * Loads entries written to the JSON emergency journal while MySQL was
-	 * unavailable. Entries already present in SQL are de-duplicated only by vote
-	 * ID. Legacy entries without an ID remain distinct because equal fields cannot
-	 * prove that two durable rows represent the same vote.
+	 * unavailable. Stable vote IDs bind duplicates; legacy twins require the exact
+	 * persisted SQL source row and complete original vote identity.
 	 */
 	private void loadJsonEmergencyVotes() {
 		if (jsonStorage == null || !jsonStorage.hasEmergencyJournalMarker()) {
@@ -1521,7 +1653,11 @@ public abstract class VoteCacheHandler {
 						if (vote == null) continue;
 						vote.setServerVoteCacheJsonKey(key);
 						OfflineBungeeVote sqlTwin = findServerVoteSqlTwin(server, vote);
-						if (sqlTwin != null) sqlTwin.setServerVoteCacheJsonKey(key);
+						if (sqlTwin != null) {
+							sqlTwin.setServerVoteCacheJsonKey(key);
+							sqlTwin.copyCachedVoteBatch(vote);
+							if (vote.getVoteId() != null) sqlTwin.assignCachedVoteId(vote.getVoteId());
+						}
 						else cachedVotes.computeIfAbsent(server, ignored -> new ArrayList<>()).add(vote);
 					}
 				}
@@ -1538,7 +1674,11 @@ public abstract class VoteCacheHandler {
 						if (vote == null) continue;
 						vote.setOnlineVoteCacheJsonKey(key);
 						OfflineBungeeVote sqlTwin = findOnlineVoteSqlTwin(player, vote);
-						if (sqlTwin != null) sqlTwin.setOnlineVoteCacheJsonKey(key);
+						if (sqlTwin != null) {
+							sqlTwin.setOnlineVoteCacheJsonKey(key);
+							sqlTwin.copyCachedVoteBatch(vote);
+							if (vote.getVoteId() != null) sqlTwin.assignCachedVoteId(vote.getVoteId());
+						}
 						else cachedOnlineVotes.computeIfAbsent(player, ignored -> new ArrayList<>()).add(vote);
 					}
 				}
@@ -1655,7 +1795,43 @@ public abstract class VoteCacheHandler {
 		if (data.has("DelayValidationKnown") && data.get("DelayValidationKnown").asBoolean())
 			vote.setDelayValidated(data.has("DelayValidated") && data.get("DelayValidated").asBoolean());
 		else vote.clearDelayValidation();
+		restoreCachedVoteBatch(vote, data);
 		return vote;
+	}
+
+	private void restoreCachedVoteBatch(OfflineBungeeVote vote, DataNode data) {
+		if (!data.has("CachedBatchNumber") && !data.has("CachedBatchSize")
+				&& !data.has("CachedBatchSourceRowId")) return;
+		try {
+			int number = batchInteger(data, "CachedBatchNumber");
+			int size = batchInteger(data, "CachedBatchSize");
+			int source = batchInteger(data, "CachedBatchSourceRowId");
+			if (source > 0) {
+				for (String field : new String[] {"Name", "UUID", "Service", "Text"})
+					if (!data.has(field) || !data.get(field).isPrimitive()
+							|| !(data.get(field).asPrimitive() instanceof String))
+						throw new IllegalArgumentException("Missing cached replay identity");
+				if (!data.has("Real") || !(data.get("Real").asPrimitive() instanceof Boolean)
+						|| !data.has("Time") || !(data.get("Time").asPrimitive() instanceof Number))
+					throw new IllegalArgumentException("Invalid cached replay identity");
+				new java.math.BigDecimal(data.get("Time").asString()).longValueExact();
+			}
+			vote.setCachedVoteBatch(number, size);
+			vote.setCachedBatchSourceRowId(source);
+			if (!vote.isCachedVoteBatchValid()) throw new IllegalArgumentException("Invalid cached replay metadata");
+			vote.setCachedBatchDurable(vote.hasCachedVoteBatch());
+		} catch (RuntimeException invalid) {
+			// Preserve the row for recovery, but make it ineligible for replay.
+			vote.setCachedVoteBatch(-1, -1);
+			debug1(new IllegalStateException("Invalid cached replay metadata"));
+		}
+	}
+
+	private int batchInteger(DataNode data, String field) {
+		if (!data.has(field) || !data.get(field).isPrimitive()
+				|| !(data.get(field).asPrimitive() instanceof Number))
+			throw new IllegalArgumentException("Missing or invalid cached replay field");
+		return new java.math.BigDecimal(data.get(field).asString()).intValueExact();
 	}
 
 	private final boolean useMySQL;
@@ -1871,7 +2047,9 @@ public abstract class VoteCacheHandler {
 	 */
 	public synchronized void removeServerVotes(String server, ArrayList<OfflineBungeeVote> removed) {
 		for (OfflineBungeeVote vote : removed) {
-			boolean mysqlRemoved = !useMySQL || voteCacheTable.tryRemoveVote(vote, server);
+			boolean mysqlRemoved = !useMySQL
+					|| vote.getServerVoteCacheRowId() <= 0 && vote.getCachedBatchSourceRowId() > 0
+					|| voteCacheTable.tryRemoveVote(vote, server);
 			boolean jsonRemoved = jsonStorage == null;
 			if (jsonStorage != null && !jsonStorageQuarantined
 					&& (!useMySQL || vote.getServerVoteCacheRowId() <= 0
@@ -1893,6 +2071,11 @@ public abstract class VoteCacheHandler {
 	}
 
 	protected boolean removeJsonServerVoteDurably(String server, OfflineBungeeVote vote) {
+		if (jsonStorage == null || jsonStorageQuarantined) return false;
+		synchronized (jsonStorage) { return removeJsonServerVoteDurablyLocked(server, vote); }
+	}
+
+	private boolean removeJsonServerVoteDurablyLocked(String server, OfflineBungeeVote vote) {
 		jsonStorage.removeVote(server, vote);
 		try {
 			return VoteCacheDurability.saveAndVerifyRemoval(jsonStorage,

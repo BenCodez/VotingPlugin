@@ -458,6 +458,11 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 		return selectVotes("SELECT * FROM " + qi(getTableName()) + ";", null);
 	}
 
+	/** Reads the complete cache snapshot, preserving SQL failures for callers that need certainty. */
+	public List<TimedVoteRow> getAllVotesChecked() throws SQLException {
+		return selectVotesChecked("SELECT * FROM " + qi(getTableName()) + ";", null);
+	}
+
 	/**
 	 * Gets expired votes before a given time.
 	 * @param now the current time in milliseconds
@@ -588,6 +593,28 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 			}
 		} catch (SQLException e) {
 			debug(e);
+		}
+		return list;
+	}
+
+	private List<TimedVoteRow> selectVotesChecked(String sql, Object[] params) throws SQLException {
+		List<TimedVoteRow> list = new ArrayList<>();
+		try (Connection conn = mysql.getConnectionManager().getConnection();
+				PreparedStatement ps = conn.prepareStatement(sql)) {
+			if (params != null) for (int i = 0; i < params.length; i++) ps.setObject(i + 1, params[i]);
+			try (ResultSet rs = ps.executeQuery()) {
+				while (rs.next()) list.add(new TimedVoteRow(rs.getInt("id"), rs.getString("playerName"),
+						rs.getString("service"), rs.getLong("time"), parseUuid(rs.getString("voteId")),
+						rs.getString("uuid"), rs.getBoolean("proxyBroadcastHandled"), rs.getString("broadcastTargets"),
+						rs.getString("broadcastForwardedServers"), rs.getString("totals"), rs.getBoolean("processed"),
+						rs.getBoolean("multiProxyForwardingHandled"), rs.getBoolean("multiProxyForwardingRequired"),
+						rs.getBoolean("multiProxyCapabilityDiscoveryPending"), rs.getBoolean("realVote"),
+						rs.getString("multiProxyOrigin"), rs.getBoolean("multiProxyCompletionPending"),
+						rs.getString("multiProxyRecipients"), rs.getString("multiProxyAcknowledgedServers"),
+						rs.getString("httpBroadcastDeliveryIds"), rs.getString("multiProxyLegacyPendingRecipients"),
+						rs.getBoolean("wasOnline"), rs.getBoolean("wasOnlineKnown"), rs.getInt("delayValidation"),
+						rs.getBoolean("votePartyApplied"), rs.getBoolean("totalsApplied")));
+			}
 		}
 		return list;
 	}

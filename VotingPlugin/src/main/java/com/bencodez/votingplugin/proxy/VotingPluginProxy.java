@@ -141,6 +141,9 @@ public abstract class VotingPluginProxy {
 	private final Set<String> legacyVoteDeliveryServers = ConcurrentHashMap.newKeySet();
 	private final Set<String> rejectedLegacyVoteDeliveries = ConcurrentHashMap.newKeySet();
 	private ReliableVoteDeliveryOutbox reliableVoteDeliveryOutbox;
+	private boolean pluginMessageStopped;
+	private final PluginMessageDispatcher pluginMessageDispatcher = new PluginMessageDispatcher(
+			this::pluginMessageNanoTime, this::getScheduler, this::retryPluginMessageOwners);
 	// Set only after all replacement gates have succeeded. Vote entry points are
 	// synchronized, so no new side-effecting vote can race the handoff window.
 	private boolean runtimeReplacementPrepared;
@@ -156,6 +159,9 @@ public abstract class VotingPluginProxy {
 		private final Map<String, OfflineBungeeVote> rewardStates = new LinkedHashMap<>();
 		private Set<String> rewardServers;
 		private boolean rewardJournalsDurable;
+		private JsonEnvelope voteUpdateEnvelope;
+		private Set<String> voteUpdateTargets;
+		private boolean voteUpdatesAdmitted;
 		private boolean multiProxyForwardingHandled;
 		private OfflineBungeeVote standaloneBroadcastState;
 		private OfflineBungeeVote rewardJournalOwner;
@@ -890,11 +896,11 @@ public abstract class VotingPluginProxy {
 	 * journaled until negotiation completes. HTTP exposes its bounded-queue result
 	 * so a vote is never discarded when the queue is full.
 	 */
-	protected boolean sendVoteEnvelopeAccepted(String server, int delay, JsonEnvelope envelope) {
+	protected synchronized boolean sendVoteEnvelopeAccepted(String server, int delay, JsonEnvelope envelope) {
 		return sendVoteEnvelopeAccepted(server, delay, envelope, null);
 	}
 
-	protected boolean sendVoteEnvelopeAccepted(String server, int delay, JsonEnvelope envelope,
+	protected synchronized boolean sendVoteEnvelopeAccepted(String server, int delay, JsonEnvelope envelope,
 			OfflineBungeeVote cachedVote) {
 		boolean reliable = supportsReliableVoteDelivery(server, envelope.getSubChannel());
 		boolean legacy = isLegacyVoteDelivery(server, envelope.getSubChannel());
@@ -922,6 +928,7 @@ public abstract class VotingPluginProxy {
 		if (method == BungeeMethod.HTTP) {
 			return sendHttpEnvelopeWithRecovery(server, envelope, cachedVote);
 		}
+		if (method == BungeeMethod.PLUGINMESSAGING) return sendPluginMessageServerNow(server, envelope);
 		GlobalMessageProxyHandler handler = globalMessageProxyHandler;
 		if (handler == null) return false;
 		handler.sendMessage(server, delay, envelope);
@@ -949,7 +956,7 @@ public abstract class VotingPluginProxy {
 						&& !supportsReliableVoteDelivery(server, subChannel));
 	}
 
-	private void updateReliableVoteDeliveryCapability(String server, JsonEnvelope message) {
+	private synchronized void updateReliableVoteDeliveryCapability(String server, JsonEnvelope message) {
 		if (server == null || server.isBlank() || !isServerValid(server)) return;
 		String key = server.trim().toLowerCase(Locale.ROOT);
 		boolean authenticatedSocket = method == BungeeMethod.SOCKETS && socketAuthenticators.containsKey(key);
@@ -975,7 +982,7 @@ public abstract class VotingPluginProxy {
 		retryReliableVoteDeliveries(null);
 	}
 
-	private void retryReliableVoteDeliveries(String onlyServer) {
+	private synchronized void retryReliableVoteDeliveries(String onlyServer) {
 		ReliableVoteDeliveryOutbox outbox = reliableVoteDeliveryOutbox;
 		if (outbox == null) return;
 		int delay = 1;
@@ -994,7 +1001,7 @@ public abstract class VotingPluginProxy {
 						if (sendReliableVoteDelivery(entry.server(), delay, "release", parsedVoteId,
 								entry.envelope().getSubChannel(), release)) delay++;
 					} else if (isLegacyVoteDelivery(entry.server(), entry.envelope().getSubChannel())
-							&& !outbox.retireLegacyDelivery(entry.server(), parsedVoteId,
+							&& !retireLegacyPluginMessageDelivery(outbox, entry.server(), parsedVoteId,
 									entry.envelope().getSubChannel())) {
 						debug("Completed legacy vote remains queued until its local retirement is durable for "
 								+ entry.server());
@@ -1009,7 +1016,7 @@ public abstract class VotingPluginProxy {
 						}
 						continue;
 					}
-					if (!outbox.retireLegacyDelivery(entry.server(), parsedVoteId,
+					if (!retireLegacyPluginMessageDelivery(outbox, entry.server(), parsedVoteId,
 							entry.envelope().getSubChannel())) {
 						debug("Accepted legacy vote remains fenced until its local retirement is durable for "
 								+ entry.server());
@@ -1039,7 +1046,7 @@ public abstract class VotingPluginProxy {
 						continue;
 					}
 					delay++;
-					if (!outbox.retireLegacyDelivery(entry.server(), parsedVoteId,
+					if (!retireLegacyPluginMessageDelivery(outbox, entry.server(), parsedVoteId,
 							entry.envelope().getSubChannel())) {
 						debug("Legacy vote delivery was accepted but remains fenced until its local retirement is durable for "
 								+ entry.server());
@@ -1053,16 +1060,40 @@ public abstract class VotingPluginProxy {
 		}
 	}
 
-	private boolean sendReliableVoteDelivery(String server, int delay, String phase, UUID voteId,
+	private boolean retireLegacyPluginMessageDelivery(ReliableVoteDeliveryOutbox outbox,
+			String server, UUID voteId, String subChannel) {
+		if (!outbox.retireLegacyDelivery(server, voteId, subChannel)) return false;
+		pluginMessageDispatcher.acknowledge(server, pluginMessageAttemptKey("vote", voteId, subChannel));
+		pluginMessageDispatcher.acknowledge(server, pluginMessageAttemptKey("release", voteId, subChannel));
+		return true;
+	}
+
+	private synchronized boolean sendReliableVoteDelivery(String server, int delay, String phase, UUID voteId,
 			String subChannel, JsonEnvelope envelope) {
 		if (method == BungeeMethod.HTTP) {
 			return sendStableHttpEnvelope(server,
 					reliableHttpDeliveryId(phase, server, voteId, subChannel), envelope);
 		}
+		if (method == BungeeMethod.PLUGINMESSAGING) {
+			ReliableVoteDeliveryOutbox outbox = reliableVoteDeliveryOutbox;
+			ReliableVoteDeliveryOutbox.Entry current = outbox == null ? null
+					: outbox.find(server, voteId, subChannel).orElse(null);
+			if (current == null || current.awaitingReceiptRelease() != "release".equals(phase)
+					|| !supportsReliableVoteDelivery(server, subChannel)) return false;
+			if (!pluginMessageDispatcher.hasBudget(server, pluginMessageAttemptKey(phase, voteId, subChannel),
+					"release".equals(phase))) return false;
+			if (encodePluginMessage(envelope) == null) return false;
+			return pluginMessageDispatcher.trySend(server, pluginMessageAttemptKey(phase, voteId, subChannel),
+					"release".equals(phase), () -> handoffPluginMessage(server, envelope));
+		}
 		GlobalMessageProxyHandler handler = globalMessageProxyHandler;
 		if (handler == null) return false;
 		handler.sendMessage(server, delay, envelope);
 		return true;
+	}
+
+	private String pluginMessageAttemptKey(String phase, UUID voteId, String subChannel) {
+		return phase + '\0' + subChannel + '\0' + voteId;
 	}
 
 	private String reliableHttpDeliveryId(String phase, String server, UUID voteId, String subChannel) {
@@ -1088,7 +1119,7 @@ public abstract class VotingPluginProxy {
 		}
 	}
 
-	private void handleVoteDeliveryAcknowledgement(JsonEnvelope message) {
+	private synchronized void handleVoteDeliveryAcknowledgement(JsonEnvelope message) {
 		if (!VotingPluginWire.advertisesVoteDeliveryAcknowledgement(message)) return;
 		String server = message.getFields().getOrDefault(VotingPluginWire.K_SERVER, "");
 		String voteId = message.getFields().getOrDefault(VotingPluginWire.K_VOTE_ID, "");
@@ -1100,6 +1131,7 @@ public abstract class VotingPluginProxy {
 			if (outbox != null && !outbox.acknowledgeCompletion(server, parsedVoteId, subChannel)) {
 				debug("Ignored unmatched or unpersisted vote delivery acknowledgement from " + server);
 			} else if (outbox != null) {
+				pluginMessageDispatcher.acknowledge(server, pluginMessageAttemptKey("vote", parsedVoteId, subChannel));
 				try {
 					ReliableVoteDeliveryOutbox.Entry completed = outbox.find(
 							server, parsedVoteId, subChannel).orElse(null);
@@ -1118,7 +1150,7 @@ public abstract class VotingPluginProxy {
 		}
 	}
 
-	private void handleVoteDeliveryReceiptReleaseAcknowledgement(JsonEnvelope message) {
+	private synchronized void handleVoteDeliveryReceiptReleaseAcknowledgement(JsonEnvelope message) {
 		if (!VotingPluginWire.advertisesVoteDeliveryAcknowledgement(message)) return;
 		String server = message.getFields().getOrDefault(VotingPluginWire.K_SERVER, "");
 		String voteId = message.getFields().getOrDefault(VotingPluginWire.K_VOTE_ID, "");
@@ -1129,6 +1161,9 @@ public abstract class VotingPluginProxy {
 			if (outbox != null && !outbox.acknowledgeReceiptRelease(
 					server, UUID.fromString(voteId), subChannel)) {
 				debug("Ignored unmatched or unpersisted vote receipt release acknowledgement from " + server);
+			} else if (outbox != null) {
+				pluginMessageDispatcher.acknowledge(server,
+						pluginMessageAttemptKey("release", UUID.fromString(voteId), subChannel));
 			}
 		} catch (IllegalArgumentException invalidVoteId) {
 			debug("Ignored vote receipt release acknowledgement with invalid vote ID from " + server);
@@ -1143,9 +1178,15 @@ public abstract class VotingPluginProxy {
 					ArrayList<OfflineBungeeVote> c = getVoteCacheHandler().getVotes(server);
 					ArrayList<OfflineBungeeVote> removed = new ArrayList<>();
 					if (!c.isEmpty()) {
+						List<OfflineBungeeVote> pendingBatch = c.stream()
+								.filter(vote -> !vote.isRewardDelivered() && vote.isCachedVoteBatchValid()
+                                && isCachedVotePlayerEligible(server, vote)).toList();
+						if (!getVoteCacheHandler().prepareCachedVoteBatch(server, false,
+								pendingBatch, pendingBatch.size())) return;
 						int num = 1;
 						int numberOfVotes = c.size();
 						for (OfflineBungeeVote cache : c) {
+							if (!cache.isCachedVoteBatchValid()) continue;
 							if (cache.isDeliveryStateDirty() && !persistServerVoteDelivery(server, cache)) {
 								continue;
 							}
@@ -1166,15 +1207,7 @@ public abstract class VotingPluginProxy {
 								continue;
 							}
 
-							boolean toSend = true;
-							if (getConfig().getWaitForUserOnline()) {
-								if (!isPlayerOnlineForVoteRouting(cache.getPlayerName())) {
-									toSend = false;
-								} else if (isPlayerOnlineForVoteRouting(cache.getPlayerName())
-										&& !getCurrentPlayerServerForVoteRouting(cache.getPlayerName()).equals(server)) {
-									toSend = false;
-								}
-							}
+							boolean toSend = isCachedVotePlayerEligible(server, cache);
 							if (toSend) {
 								boolean broadcastHere = !cache.isProxyBroadcastHandled() && cache.needsBroadcastOn(server);
 								if (!cache.isProxyBroadcastHandled() && broadcastHere
@@ -1222,6 +1255,12 @@ public abstract class VotingPluginProxy {
 		}
 	}
 
+    private boolean isCachedVotePlayerEligible(String server, OfflineBungeeVote vote) {
+        return !getConfig().getWaitForUserOnline()
+                || isPlayerOnlineForVoteRouting(vote.getPlayerName())
+                && server.equals(getCurrentPlayerServerForVoteRouting(vote.getPlayerName()));
+    }
+
 	public synchronized void checkOnlineVotes(String player, String uuid, String server) {
 		int delay = 1;
 		if (isPlayerOnlineForVoteRouting(player) && getVoteCacheHandler().hasOnlineVotes(uuid)) {
@@ -1233,8 +1272,11 @@ public abstract class VotingPluginProxy {
 				if (!getConfig().getBlockedServers().contains(server)) {
 					int num = 1;
 					int numberOfVotes = (int) c.stream().filter(vote -> !vote.isRewardDelivered()).count();
+					List<OfflineBungeeVote> pendingBatch = c.stream().filter(vote -> !vote.isRewardDelivered() && vote.isCachedVoteBatchValid()).toList();
+					if (!getVoteCacheHandler().prepareCachedVoteBatch(uuid, true, pendingBatch, pendingBatch.size())) return;
 					boolean deliveredReward = false;
 					for (OfflineBungeeVote cache : new ArrayList<>(c)) {
+						if (!cache.isCachedVoteBatchValid()) continue;
 						if (isIncompleteRewardJournalOwner(cache)) {
 							if (!materializeRewardJournalOwner(uuid, cache)) continue;
 							if (!cache.isProxyBroadcastHandled() || cache.isProxyBroadcastComplete()) {
@@ -1310,7 +1352,11 @@ public abstract class VotingPluginProxy {
 		if (server == null || (blockedServers != null && blockedServers.contains(server))) {
 			return;
 		}
-		for (String cachedUuid : getVoteCacheHandler().getOnlineVoteUUIDs()) {
+		ArrayList<String> broadcastOwners = new ArrayList<>(getVoteCacheHandler().getOnlineVoteUUIDs());
+		if (method == BungeeMethod.PLUGINMESSAGING) {
+			Collections.rotate(broadcastOwners, -pluginMessageDispatcher.cacheTurn(server, true, broadcastOwners.size()));
+		}
+		for (String cachedUuid : broadcastOwners) {
 			for (OfflineBungeeVote cache : new ArrayList<>(getVoteCacheHandler().getOnlineVotes(cachedUuid))) {
 				if (isIncompleteRewardJournalOwner(cache) && !materializeRewardJournalOwner(cachedUuid, cache)) {
 					continue;
@@ -1528,6 +1574,7 @@ public abstract class VotingPluginProxy {
 	}
 
 	public synchronized void checkVoteParty() {
+		if (runtimeReplacementPrepared) return;
 		if (!getConfig().getVotePartyEnabled()) return;
 		if (votePartyVotes < currentVotePartyVotesRequired) {
 			saveVoteCacheFile();
@@ -1551,6 +1598,15 @@ public abstract class VotingPluginProxy {
 		Collection<String> targets = getConfig().getVotePartySendToAllServers()
 				? getAllAvailableServers() : getConfig().getVotePartyServersToSend();
 		Map<String, String> onlineTargets = onlineVotePartyTargets(targets);
+		PluginMessageDispatcher.Batch pluginParty = null;
+		if (method == BungeeMethod.PLUGINMESSAGING) {
+			JsonEnvelope party = VotingPluginWire.votePartyBungee();
+			byte[] frame = encodePluginMessage(party);
+			Map<String, java.util.function.BooleanSupplier> sends = new LinkedHashMap<>();
+			for (String target : onlineTargets.values()) sends.put(target, () -> handoffPluginMessage(target, party));
+			pluginParty = frame == null ? null : pluginMessageDispatcher.reserveBatch(sends, frame.length);
+			if (pluginParty == null) { persistRetainedVotePartyThreshold(); return; }
+		}
 		if (method == BungeeMethod.HTTP && !canQueueVotePartyRewards(onlineTargets)) {
 			try {
 				saveVotePartyStateDurably();
@@ -1580,9 +1636,10 @@ public abstract class VotingPluginProxy {
 		setVoteCacheVotePartyIncreaseVotesRequired(
 				previousIncrease + getConfig().getVotePartyIncreaseVotesRequired());
 		try {
-			if (method == BungeeMethod.HTTP) saveVotePartyStateDurably();
+			if (method == BungeeMethod.HTTP || method == BungeeMethod.PLUGINMESSAGING) saveVotePartyStateDurably();
 			else saveVoteCacheFile();
 		} catch (IOException | RuntimeException failure) {
+			if (pluginParty != null) pluginParty.cancel();
 			votePartyVotes = previousVotes;
 			setVoteCacheVotePartyCurrentVotes(previousVotes);
 			currentVotePartyVotesRequired = previousRequired;
@@ -1597,9 +1654,10 @@ public abstract class VotingPluginProxy {
 		if (method == BungeeMethod.HTTP) {
 			if (retryPendingVotePartyProxyEffects()) retryPendingVotePartyRewards();
 		} else {
+			if (pluginParty != null) pluginParty.activate();
 			if (!getConfig().getVotePartyBroadcast().isEmpty()) broadcast(getConfig().getVotePartyBroadcast());
 			for (String command : getConfig().getVotePartyBungeeCommands()) runConsoleCommand(command);
-			for (String server : targets) sendVoteParty(server);
+			if (pluginParty == null) for (String server : targets) sendVoteParty(server);
 		}
 	}
 
@@ -3514,6 +3572,8 @@ public abstract class VotingPluginProxy {
 
 	/** Fail-closed gate that must complete before a replacement proxy runtime is created. */
 	public synchronized void prepareForRuntimeReplacement() {
+		if (pluginMessageDispatcher.hasPendingEffects())
+			throw new IllegalStateException("Queued plugin-message controls must settle before proxy runtime replacement");
 		// Live retry markers fence side effects (including vote-party and totals) that
 		// have already run but whose durable outbox write has not. They are owned by
 		// this runtime only, so replacing it would let the scheduled listener retry
@@ -3540,7 +3600,13 @@ public abstract class VotingPluginProxy {
 
 	/** Best-effort remainder of runtime teardown after the Control overlap gate has succeeded. */
 	public void completeRuntimeReplacementShutdown() {
-		enabled = false;
+		synchronized (this) {
+			enabled = false;
+			pluginMessageStopped = true;
+			if (pluginMessageDispatcher.hasPendingEffects())
+				logSevere("Stopping with pending best-effort plugin-message controls; durable votes remain owned by their journals");
+			pluginMessageDispatcher.close();
+		}
 		cancelCommunicationTests("Proxy runtime stopped before the backend replied");
 		runCleanup("vote cache", () -> {
 			VoteCacheHandler cache = getVoteCacheHandler();
@@ -3967,6 +4033,9 @@ public abstract class VotingPluginProxy {
 				configuredMethod);
 		TransportEnvelopeEncryption replacementEncryption = createCommunicationEncryption();
 		synchronized (this) {
+			if (method == BungeeMethod.PLUGINMESSAGING && configuredMethod != method
+					&& pluginMessageDispatcher.hasPendingEffects())
+				throw new IllegalStateException("Queued plugin-message controls must settle before changing transport");
 			method = retainHttpForPendingDeliveries(configuredMethod);
 		}
 		installTransportSecurity(replacementAuthenticator, replacementEncryption);
@@ -4941,72 +5010,104 @@ public abstract class VotingPluginProxy {
 	private static final int PLUGIN_MESSAGE_HARD_LIMIT = 32767;
 	private static final int PLUGIN_MESSAGE_SOFT_LIMIT = 30000;
 
-	public void sendPluginMessageServer(String server, int delay, JsonEnvelope envelope) {
-		getScheduler().schedule(() -> sendPluginMessageServerNow(server, envelope), delay * 5L, TimeUnit.MILLISECONDS);
+	protected long pluginMessageNanoTime() { return System.nanoTime(); }
+
+	private synchronized void retryPluginMessageOwners(String server) {
+		if (method != BungeeMethod.PLUGINMESSAGING) return;
+		VoteCacheHandler cache = getVoteCacheHandler();
+		if (cache == null) return;
+		int start = pluginMessageDispatcher.ownerTurn(server, 5);
+		for (int i = 0; i < 5; i++) {
+			switch ((start + i) % 5) {
+			case 0 -> retryReliableVoteDeliveries(server);
+			case 1 -> checkCachedVotes(server);
+			case 2 -> retryPendingOnlineBroadcasts(server);
+			case 3 -> retryPendingTimeBroadcasts(server);
+			case 4 -> {
+				ArrayList<String> owners = new ArrayList<>(cache.getOnlineVoteUUIDs());
+				int offset = pluginMessageDispatcher.cacheTurn(server, false, owners.size());
+				Collections.rotate(owners, -offset);
+				for (String uuid : owners) {
+					ArrayList<OfflineBungeeVote> votes = cache.getOnlineVotes(uuid);
+					if (!votes.isEmpty() && server.equalsIgnoreCase(
+							getCurrentPlayerServerForVoteRouting(votes.get(0).getPlayerName()))) {
+						checkOnlineVotes(votes.get(0).getPlayerName(), uuid, server);
+					}
+				}
+			}
+			default -> throw new IllegalStateException();
+			}
+		}
 	}
 
-	/**
-	 * Sends a plugin-message envelope immediately and reports whether the proxy
-	 * accepted it for delivery.
-	 *
-	 * @param server target backend server
-	 * @param envelope envelope to send
-	 * @return true when the proxy accepted the message for delivery
-	 */
+	public synchronized void sendPluginMessageServer(String server, int delay, JsonEnvelope envelope) {
+		if (runtimeReplacementPrepared)
+			throw new java.util.concurrent.RejectedExecutionException("Proxy runtime replacement has already been prepared");
+		byte[] frame = encodePluginMessage(envelope);
+		if (frame == null) return;
+		if (!pluginMessageDispatcher.enqueue(server, frame.length, Math.max(0L, delay) * 5L * 1_000_000L,
+                !isReplaceablePluginMessageMetadata(envelope),
+				() -> handoffPluginMessageControl(server, envelope))) {
+			throw new java.util.concurrent.RejectedExecutionException("Plugin-message control was not admitted; transport backpressure or scheduler unavailable");
+		}
+	}
+
+    private static boolean isReplaceablePluginMessageMetadata(JsonEnvelope envelope) {
+        // Only known, effect-free metadata may be discarded with the old runtime.
+        // Unknown controls remain fenced, including independently added message families.
+        return VotingPluginWire.SUB_SERVER_NAME.equals(envelope.getSubChannel())
+                || VotingPluginWire.SUB_STATUS.equals(envelope.getSubChannel())
+                || VotingPluginWire.SUB_STATUS_OKAY.equals(envelope.getSubChannel());
+    }
+
+	/** Reports an actual paced handoff, never volatile queue admission. */
 	protected boolean sendPluginMessageServerNow(String server, JsonEnvelope envelope) {
-		envelope = encryptCommunicationEnvelope(envelope);
-		final String subChannel = envelope.getSubChannel();
-		final String payload = JsonEnvelopeCodec.encode(envelope);
+		if (!pluginMessageDispatcher.hasBudget(server, null, false)) return false;
+		if (encodePluginMessage(envelope) == null) return false;
+		return pluginMessageDispatcher.trySend(server, () -> handoffPluginMessage(server, envelope));
+	}
 
-		final byte[] subChannelBytes = subChannel.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-		final byte[] payloadBytes = payload.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-
-		// Estimate bytes written:
-		// - writeUTF adds 2-byte length prefix + UTF-8 bytes
-		// - writeInt is 4 bytes
-		int estimatedSize = 2 + subChannelBytes.length + // subChannel UTF (len prefix + bytes)
-				4 + // payload length int
-				2 + payloadBytes.length; // payload UTF (len prefix + bytes)
-
-		if (estimatedSize > PLUGIN_MESSAGE_SOFT_LIMIT) {
-			debug("[PluginMessage] Payload nearing limit (" + estimatedSize + " bytes) server=" + server
-					+ " subChannel=" + subChannel + " — consider Redis instead");
+	private synchronized boolean handoffPluginMessageControl(String server, JsonEnvelope envelope) {
+		if (pluginMessageStopped) return false;
+		byte[] frame = encodePluginMessage(envelope);
+		if (frame == null) {
+			logSevere("Queued plugin-message control is no longer encodable under current settings; retiring the invalid control without sending it");
+			return true;
 		}
+		return sendPluginMessageData(server,
+				getConfig().getPluginMessageChannel().toLowerCase(Locale.ROOT), frame, false);
+	}
 
-		if (estimatedSize > PLUGIN_MESSAGE_HARD_LIMIT) {
-			debug("[PluginMessage] Payload TOO LARGE (" + estimatedSize + " bytes, max=" + PLUGIN_MESSAGE_HARD_LIMIT
-					+ ") server=" + server + " subChannel=" + subChannel + " — NOT sent");
-			return false;
-		}
+	private synchronized boolean handoffPluginMessage(String server, JsonEnvelope envelope) {
+		if (pluginMessageStopped) return false;
+		byte[] frame = encodePluginMessage(envelope);
+		return frame != null && sendPluginMessageData(server,
+				getConfig().getPluginMessageChannel().toLowerCase(Locale.ROOT), frame, false);
+	}
 
-		try (ByteArrayOutputStream byteOutStream = new ByteArrayOutputStream();
-				DataOutputStream out = new DataOutputStream(byteOutStream)) {
-			if (getConfig().getPluginMessageEncryption() && encryptionHandler != null) {
-				out.writeUTF(encryptionHandler.encrypt(subChannel));
-			} else {
-				out.writeUTF(subChannel);
+	private byte[] encodePluginMessage(JsonEnvelope original) {
+		try {
+			JsonEnvelope envelope = encryptCommunicationEnvelope(original);
+			String subChannel = envelope.getSubChannel();
+			String payload = JsonEnvelopeCodec.encode(envelope);
+			int payloadBytes = payload.getBytes(StandardCharsets.UTF_8).length;
+			try (ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+					DataOutputStream output = new DataOutputStream(bytes)) {
+				boolean encrypted = getConfig().getPluginMessageEncryption() && encryptionHandler != null;
+				output.writeUTF(encrypted ? encryptionHandler.encrypt(subChannel) : subChannel);
+				output.writeInt(payloadBytes);
+				output.writeUTF(encrypted ? encryptionHandler.encrypt(payload) : payload);
+				output.flush();
+				if (bytes.size() > PLUGIN_MESSAGE_HARD_LIMIT) {
+					debug("Plugin-message encoded frame exceeds the transport limit; owner retained");
+					return null;
+				}
+				if (bytes.size() > PLUGIN_MESSAGE_SOFT_LIMIT) debug("Plugin-message encoded frame is near the transport limit");
+				return bytes.toByteArray();
 			}
-
-			// sanity only: MUST be bytes, not chars
-			out.writeInt(payloadBytes.length);
-
-			if (getConfig().getPluginMessageEncryption() && encryptionHandler != null) {
-				out.writeUTF(encryptionHandler.encrypt(payload));
-			} else {
-				out.writeUTF(payload);
-			}
-			out.flush();
-
-			boolean sent = sendPluginMessageData(server, getConfig().getPluginMessageChannel().toLowerCase(),
-					byteOutStream.toByteArray(), false);
-			if (getConfig().getDebug()) {
-				debug((sent ? "Sent" : "Could not send") + " plugin envelope (" + estimatedSize + " bytes) " + server
-						+ " " + subChannel + " " + envelope.getFields());
-			}
-			return sent;
-		} catch (Exception e) {
-			e.printStackTrace();
-			return false;
+		} catch (Exception invalid) {
+			debug("Plugin-message frame could not be encoded; owner retained");
+			return null;
 		}
 	}
 
@@ -5678,6 +5779,10 @@ public abstract class VotingPluginProxy {
 
 	private JsonEnvelope cachedVoteEnvelope(OfflineBungeeVote vote, boolean online, boolean broadcast,
 			int num, int numberOfVotes) {
+		if (vote.hasCachedVoteBatch()) {
+			num = vote.getCachedBatchNumber();
+			numberOfVotes = vote.getCachedBatchSize();
+		}
 		JsonEnvelope envelope;
 		if (vote.isDelayValidationKnown()) {
 			envelope = online
@@ -6491,6 +6596,10 @@ public abstract class VotingPluginProxy {
 								retryState.broadcastForwardedServers.add(targetServer);
 							} else {
 								globalMessageProxyHandler.sendMessage(targetServer, bDelay, broadcast);
+								if (method == BungeeMethod.PLUGINMESSAGING) {
+									broadcastForwardedServers.add(targetServer);
+									retryState.broadcastForwardedServers.add(targetServer);
+								}
 							}
 							bDelay++;
 						}
@@ -6531,11 +6640,31 @@ public abstract class VotingPluginProxy {
 					debug("Caching online vote for " + player + " on " + service);
 				}
 
-				int delay = 2;
-				for (String s : getAllAvailableServers()) {
-					globalMessageProxyHandler.sendMessage(s, delay + 1, VotingPluginWire.voteUpdate(uuid,
-							votePartyVotes, currentVotePartyVotesRequired, service, time, text.toString()));
-					delay += 2;
+				if (method == BungeeMethod.PLUGINMESSAGING) {
+					if (!retryState.voteUpdatesAdmitted) {
+						if (retryState.voteUpdateEnvelope == null) {
+							retryState.voteUpdateEnvelope = VotingPluginWire.voteUpdate(uuid, votePartyVotes,
+									currentVotePartyVotesRequired, service, time, text.toString());
+							retryState.voteUpdateTargets = new LinkedHashSet<>(getAllAvailableServers());
+						}
+						byte[] frame = encodePluginMessage(retryState.voteUpdateEnvelope);
+						if (frame == null) return QueuedVoteResult.RETRY;
+						JsonEnvelope update = retryState.voteUpdateEnvelope;
+						Map<String, java.util.function.BooleanSupplier> sends = new LinkedHashMap<>();
+						for (String target : retryState.voteUpdateTargets)
+							sends.put(target, () -> handoffPluginMessageControl(target, update));
+						PluginMessageDispatcher.Batch batch = pluginMessageDispatcher.reserveBatch(sends, frame.length);
+						if (batch == null) return QueuedVoteResult.RETRY;
+						retryState.voteUpdatesAdmitted = true;
+						batch.activate();
+					}
+				} else {
+					int delay = 2;
+					for (String s : getAllAvailableServers()) {
+						globalMessageProxyHandler.sendMessage(s, delay + 1, VotingPluginWire.voteUpdate(uuid,
+								votePartyVotes, currentVotePartyVotesRequired, service, time, text.toString()));
+						delay += 2;
+					}
 				}
 			}
 

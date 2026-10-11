@@ -61,3 +61,57 @@ missing, unreadable, or malformed, reload logs a failure and keeps the previous
 active configuration and runtime. It does not rewrite the invalid file or
 substitute default transport settings. Repair the file and reload again.
 This preservation contract is distinct from initial startup default handling.
+
+## Plugin-message pacing and cached batches
+
+Plugin-message handoffs share one dispatcher for each backend, including control
+messages, cache replay, capability probes and reliable delivery retries. The
+minimum interval is 20 milliseconds after an accepted handoff; a failed carrier
+attempt backs off for one second. Overdue scheduler tasks do not catch up by
+sending a burst. This paces proxy API handoffs, not measured network arrival.
+HTTP, Redis, MQTT, MySQL and socket transports keep their existing send paths.
+
+The dispatcher has bounded queues and a 32-vote in-flight window per backend.
+Receipt releases use separate headroom so completed receipts can progress while
+that vote window is full. Reliable entries retain their original IDs and durable
+outbox ownership until the existing acknowledgement protocol completes. Cache
+entries remain owned by the cache when no carrier, send budget or durable outbox
+capacity is available. Ready controls and durable replay alternate; a future
+control does not block a ready control behind it.
+
+Ordinary controls retain their existing best-effort semantics. Queue admission
+is not backend acknowledgement. Effect-bearing update batches are admitted
+atomically, and live retries remember admitted updates. Full runtime replacement
+and a change away from plugin messaging fail closed while admitted effect-bearing
+controls are pending; retry the reload after they drain. Effect-free server-name
+and status metadata do not block replacement when a backend has no carrier or
+has been removed. Normal shutdown remains bounded and warns if effect-bearing
+best-effort controls are still pending. It does not make these controls
+restart-durable. An admitted control that becomes unencodable after settings
+change is reported and retired without a handoff; durable votes remain queued.
+
+Cached replay writes and verifies original batch number, batch size and SQL
+source-row identity in the existing JSON journal before delivery. When waiting
+for players to be online, only currently eligible player/backend rows receive
+new batch positions. Existing durable positions are retained. Partial replay
+and restarts preserve those positions instead of producing a new position-one
+vote. Legacy SQL recovery associates an emergency JSON entry only with its
+positive source-row ID and matching original vote fields; matching-looking
+independent votes remain separate. Existing cache files remain readable and no
+SQL schema migration is required. SQL cache snapshots must be read completely
+before recovery replaces live cache maps or merges emergency journals. A failed
+or partial read retains prior ownership instead of treating missing rows as
+confirmed absence.
+
+BungeeCord and Velocity JSON cache loads reject malformed, duplicate-field and
+trailing-token documents. A failed reload keeps the last loaded in-memory state
+and prevents writes until valid data can be loaded; it does not overwrite the
+unreadable file with defaults. Repair or restore the cache file before retrying
+recovery. Saves publish atomically and durable vote transitions verify the
+journal before exposing staged state.
+
+Frame validation uses the actual `writeUTF` encoding and encryption overhead,
+including supplementary Unicode, before a platform handoff. Oversized durable
+votes are retained for correction rather than discarded. Tests use controlled
+clocks, schedulers and synthetic payloads; they do not establish live network
+rate-limit or production delivery measurements.

@@ -444,6 +444,15 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 		return pluginMessageDeliveryResult;
 	}
 
+	private long pluginMessageClockOffset;
+
+	@Override
+	protected long pluginMessageNanoTime() { return System.nanoTime() + pluginMessageClockOffset; }
+
+	public void advancePluginMessageClock(long milliseconds) {
+		pluginMessageClockOffset += java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(milliseconds);
+	}
+
 	public void setPluginMessageDeliveryResult(boolean pluginMessageDeliveryResult) {
 		this.pluginMessageDeliveryResult = pluginMessageDeliveryResult;
 	}

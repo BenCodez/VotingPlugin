@@ -1,7 +1,21 @@
 package com.bencodez.votingplugin.proxy.cache;
 
 import java.nio.file.Path;
+import java.nio.file.Files;
+import java.nio.charset.StandardCharsets;
+import java.io.IOException;
+import java.util.Collection;
+import java.util.Objects;
 import java.util.function.BooleanSupplier;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonNull;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
+import com.google.gson.Strictness;
+import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonToken;
 
 import com.bencodez.votingplugin.proxy.OfflineBungeeVote;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
@@ -20,6 +34,94 @@ public final class VoteCacheDurability {
 
 	private VoteCacheDurability() { }
 
+	/** Reads a complete strict JSON object without silently recovering a partial journal. */
+	public static JsonObject readJournal(Path path) throws IOException {
+		try (JsonReader reader = new JsonReader(Files.newBufferedReader(path, StandardCharsets.UTF_8))) {
+			reader.setStrictness(Strictness.STRICT);
+			JsonElement document = readValue(reader, 0);
+			if (!document.isJsonObject() || reader.peek() != JsonToken.END_DOCUMENT)
+				throw new IOException("Vote cache must contain one JSON object");
+			return document.getAsJsonObject();
+		}
+	}
+
+	private static JsonElement readValue(JsonReader reader, int depth) throws IOException {
+		if (depth > 64) throw new IOException("Vote cache JSON nesting exceeds the supported depth");
+		switch (reader.peek()) {
+		case BEGIN_OBJECT:
+			JsonObject object = new JsonObject();
+			reader.beginObject();
+			while (reader.hasNext()) {
+				String name = reader.nextName();
+				if (object.has(name)) throw new IOException("Duplicate field in vote cache JSON");
+				object.add(name, readValue(reader, depth + 1));
+			}
+			reader.endObject();
+			return object;
+		case BEGIN_ARRAY:
+			JsonArray array = new JsonArray();
+			reader.beginArray();
+			while (reader.hasNext()) array.add(readValue(reader, depth + 1));
+			reader.endArray();
+			return array;
+		case STRING: return new JsonPrimitive(reader.nextString());
+		case NUMBER: return new JsonPrimitive(new java.math.BigDecimal(reader.nextString()));
+		case BOOLEAN: return new JsonPrimitive(reader.nextBoolean());
+		case NULL: reader.nextNull(); return JsonNull.INSTANCE;
+		default: throw new IOException("Incomplete vote cache JSON");
+		}
+	}
+
+	/** Commits all replay positions together and verifies their exact journal owners. */
+	public static boolean saveAndVerifyCachedBatch(IVoteCache cache, String owner, boolean online,
+			Collection<OfflineBungeeVote> expected) {
+		return saveAndVerify(cache, () -> {
+			for (OfflineBungeeVote vote : expected) {
+				DataNode stored = online ? cache.getOnlineVotes(owner, vote.getOnlineVoteCacheJsonKey())
+						: cache.getServerVotes(owner, vote.getServerVoteCacheJsonKey());
+				if (!matches(stored, vote) || !sameField(stored, "Name", vote.getPlayerName())
+						|| !sameField(stored, "Text", vote.getText()) || !stored.has("Real")
+						|| stored.get("Real").asBoolean() != vote.isRealVote()
+						|| !sameBoolean(stored, "WasOnline", vote.isWasOnline())
+						|| !sameBoolean(stored, "WasOnlineKnown", vote.isWasOnlineKnown())
+						|| !sameBoolean(stored, "DelayValidated", vote.isDelayValidated())
+						|| !sameBoolean(stored, "DelayValidationKnown", vote.isQueueClassificationKnown())
+						|| !sameBoolean(stored, "BroadcastForwarded", vote.isBroadcastForwarded())
+						|| !sameBoolean(stored, "ProxyBroadcastHandled", vote.isProxyBroadcastHandled())
+						|| !sameBoolean(stored, "RewardDelivered", vote.isRewardDelivered())
+						|| !sameField(stored, "BroadcastTargets", vote.encodeBroadcastTargets())
+						|| !sameField(stored, "BroadcastForwardedServers", vote.encodeBroadcastForwardedServers())
+						|| !sameField(stored, "HttpDeliveryIds", vote.encodeHttpDeliveryIds())
+						|| !sameField(stored, "HttpBroadcastDeliveryIds", vote.encodeHttpBroadcastDeliveryIds())
+						|| !sameInteger(stored, "CachedBatchNumber", vote.getCachedBatchNumber())
+						|| !sameInteger(stored, "CachedBatchSize", vote.getCachedBatchSize())
+						|| !sameInteger(stored, "CachedBatchSourceRowId", vote.getCachedBatchSourceRowId()))
+					return false;
+			}
+			return true;
+		});
+	}
+
+	private static boolean sameField(DataNode data, String field, String expected) {
+		return data.has(field) && Objects.equals(data.get(field).asString(), expected);
+	}
+
+	private static boolean sameBoolean(DataNode data, String field, boolean expected) {
+		return data.has(field) && data.get(field).isPrimitive()
+				&& data.get(field).asPrimitive() instanceof Boolean && data.get(field).asBoolean() == expected;
+	}
+
+	private static boolean sameInteger(DataNode data, String field, int expected) {
+		if (!data.has(field) || !data.get(field).isPrimitive()
+				|| !(data.get(field).asPrimitive() instanceof Number)) return false;
+		try { return new java.math.BigDecimal(data.get(field).asString()).intValueExact() == expected; }
+		catch (RuntimeException invalid) { return false; }
+	}
+
+	private static boolean saveAndVerify(IVoteCache cache, BooleanSupplier verify) {
+		return saveAndVerify(cache, () -> null, ignored -> verify.getAsBoolean());
+	}
+
 	public static boolean saveAndVerifyServerVote(IVoteCache cache, String server, int index,
 			OfflineBungeeVote expected) {
 		return saveAndVerify(cache, () -> cache.getServerVotes(server, String.valueOf(index)), expected);
@@ -37,23 +139,8 @@ public final class VoteCacheDurability {
 
 	/** Publishes a cache deletion and verifies the removed identity remains absent after reload. */
 	public static boolean saveAndVerifyRemoval(IVoteCache cache, BooleanSupplier isAbsent) {
-		if (cache == null || isAbsent == null || cache.getStoragePath() == null) return false;
-		try {
-			try {
-				cache.saveDurably();
-			} catch (DurableFiles.PublishedException published) {
-				// The replacement is active; verification below determines the result.
-			}
-			cache.reload();
-			return isAbsent.getAsBoolean();
-		} catch (RuntimeException | java.io.IOException failure) {
-			try {
-				cache.reload();
-			} catch (RuntimeException reloadFailure) {
-				throw new ReloadFailedException(failure, reloadFailure);
-			}
-			return false;
-		}
+		if (isAbsent == null) return false;
+		return saveAndVerify(cache, isAbsent);
 	}
 
 	private static boolean saveAndVerify(IVoteCache cache, java.util.function.Supplier<DataNode> read,
@@ -66,25 +153,28 @@ public final class VoteCacheDurability {
 		if (cache == null || verify == null) return false;
 		Path path = cache.getStoragePath();
 		if (path == null) return false;
-		try {
+		synchronized (cache) {
 			try {
-				cache.saveDurably();
-			} catch (DurableFiles.PublishedException published) {
-				// The new file is already active. Verify and keep its matching in-memory
-				// state rather than rolling back and later overwriting the publication.
-			}
-			cache.reload();
-			return verify.test(read.get());
-		} catch (RuntimeException | java.io.IOException failure) {
-			// addVote* mutates the JSON object before saveDurably runs. Discard that
-			// uncommitted mutation so a later retry reuses the same slot instead of
-			// eventually publishing both the failed attempt and its retry.
-			try {
+				try {
+					cache.saveDurably();
+				} catch (DurableFiles.PublishedException published) {
+					// The new file is already active. Verify and keep its matching in-memory
+					// state rather than rolling back and later overwriting the publication.
+				}
 				cache.reload();
-			} catch (RuntimeException reloadFailure) {
-				throw new ReloadFailedException(failure, reloadFailure);
+				return verify.test(read.get());
+			} catch (RuntimeException | java.io.IOException failure) {
+				// addVote* mutates the JSON object before saveDurably runs. Discard that
+				// uncommitted mutation so a later retry reuses the same slot instead of
+				// eventually publishing both the failed attempt and its retry.
+				try {
+					cache.reload();
+				} catch (RuntimeException reloadFailure) {
+					throw new ReloadFailedException(failure, reloadFailure);
+				}
+				return false;
 			}
-			return false;
+
 		}
 	}
 
@@ -106,9 +196,9 @@ public final class VoteCacheDurability {
 		if (!expected.getUuid().equals(data.get("UUID").asString())
 				|| !expected.getService().equals(data.get("Service").asString())
 				|| expected.getTime() != data.get("Time").asLong()) return false;
-		if (expected.getVoteId() == null) return true;
 		String voteId = data.has("VoteId") ? data.get("VoteId").asString()
 				: data.has("VoteID") ? data.get("VoteID").asString() : "";
-		return expected.getVoteId().toString().equals(voteId);
+		return expected.getVoteId() == null ? voteId == null || voteId.isEmpty()
+				: expected.getVoteId().toString().equals(voteId);
 	}
 }

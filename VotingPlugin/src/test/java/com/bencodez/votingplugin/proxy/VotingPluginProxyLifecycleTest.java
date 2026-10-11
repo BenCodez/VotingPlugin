@@ -406,6 +406,7 @@ class VotingPluginProxyLifecycleTest {
 		assertEquals(1, outbox.size());
 
 		proxy.setPluginMessageDeliveryResult(true);
+		proxy.advancePluginMessageClock(1000);
 		retry.invoke(proxy, "survival");
 
 		assertEquals(0, outbox.size());
@@ -592,8 +593,8 @@ class VotingPluginProxyLifecycleTest {
 				proxy.sendVoteEnvelopeAcceptedForTest("survival", 1, rejection));
 
 		assertEquals(0, outbox.size());
-		verify(messages).sendMessage(org.mockito.ArgumentMatchers.eq("survival"),
-				org.mockito.ArgumentMatchers.eq(1), org.mockito.ArgumentMatchers.eq(rejection));
+		assertEquals(1, proxy.getVoteEnvelopeDeliveryAttempts());
+		org.mockito.Mockito.verifyNoInteractions(messages);
 	}
 
 	@Test
