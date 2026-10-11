@@ -15,6 +15,7 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.listeners.VotiferEvent;
 import com.bencodez.votingplugin.listeners.VotifierVoteOverflowQueue;
+import com.bencodez.votingplugin.util.BoundedScheduledExecutor;
 import com.vexsoftware.votifier.model.Vote;
 
 /** Real ingress callback, real executor cancellation, real overflow publication/restart. */
@@ -39,8 +40,14 @@ class VotifierStartedCaptureOwnershipTest {
         when(plugin.getDataFolder()).thenReturn(directory.toFile()); when(plugin.getLogger()).thenReturn(Logger.getAnonymousLogger());
         when(plugin.getOptions().getBedrockPlayerPrefix()).thenReturn(".");
         when(plugin.getBungeeSettings().isUseBungeecoord()).thenReturn(false);
+        // Finish mock creation before overflow admission and normal processing
+        // concurrently use this plugin; deep-stub creation itself is not safe then.
+        when(plugin.getConfigFile()).thenReturn(mock(com.bencodez.votingplugin.config.Config.class));
+        when(plugin.getTimeChecker()).thenReturn(mock(com.bencodez.advancedcore.api.time.TimeChecker.class));
         when(plugin.getVoteSiteManager().getVoteSiteName(anyBoolean(), anyString(), anyString())).thenAnswer(call -> call.getArgument(1));
         when(plugin.getVoteSiteManager().hasVoteSite(anyString())).thenReturn(true);
+        when(plugin.getVoteSiteManager().getVoteSite(anyString(), anyBoolean()))
+                .thenReturn(mock(com.bencodez.votingplugin.votesites.VoteSite.class));
         events = mock(PluginManager.class); when(plugin.getServer().getPluginManager()).thenReturn(events);
         doAnswer(call -> { processed.add(call.getArgument(0)); return null; }).when(events).callEvent(any(PlayerVoteEvent.class));
         serverData = plugin.getServerData();
@@ -62,6 +69,102 @@ class VotifierStartedCaptureOwnershipTest {
     private static void workerTurn(VotifierVoteOverflowQueue queue) throws Exception { worker(queue).submit(() -> {}).get(5, TimeUnit.SECONDS); }
     private void processingTurn() throws Exception { timer.submit(() -> {}).get(5, TimeUnit.SECONDS); }
     private List<Map<?, ?>> disk() { return YamlConfiguration.loadConfiguration(directory.resolve("VotifierVoteQueue.yml").toFile()).getMapList("Votes"); }
+    private record CapturedReceipt(UUID id, long time) { }
+    private CapturedReceipt retainedReceipt() throws Exception {
+        var field = VotiferEvent.class.getDeclaredField("captured"); field.setAccessible(true);
+        var entries = (Map<?, ?>) field.get(listener); assertEquals(1, entries.size());
+        var vote = entries.values().iterator().next();
+        var time = vote.getClass().getDeclaredField("occurredAt"); time.setAccessible(true);
+        return new CapturedReceipt((UUID) entries.keySet().iterator().next(), time.getLong(vote));
+    }
+    private List<UUID> recoverFullQueue() throws Exception {
+        var ids = new ArrayList<UUID>();
+        for (int index = 0; index < 256; index++) {
+            UUID id = UUID.randomUUID(); ids.add(id);
+            assertTrue(overflow.enqueue("Steve", SITE, 123L, id));
+        }
+        overflow.close();
+        overflow = VotifierVoteOverflowQueue.initializeAsync(plugin, listener::processVote, ready::get);
+        when(plugin.getVotifierVoteOverflowQueue()).thenReturn(overflow); workerTurn(overflow);
+        assertEquals(256, overflow.size());
+        return ids;
+    }
+    @Test void saturatedCapturesUseAllIndependentOverflowSlotsWithoutChangingReceiptIdentity() throws Exception {
+        when(plugin.getLogger()).thenReturn(mock(Logger.class));
+        timer.shutdownNow(); timer = new BoundedScheduledExecutor(1, 256);
+        when(plugin.getVoteTimer()).thenReturn(timer);
+        var entered = new CountDownLatch(1); var release = new CountDownLatch(1);
+        doAnswer(call -> {
+            entered.countDown();
+            if (!release.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("test processing timeout");
+            return null;
+        }).when(serverData).addServiceSite(SITE);
+        var delivered = new CountDownLatch(512);
+        doAnswer(call -> { processed.add(call.getArgument(0)); delivered.countDown(); return null; })
+                .when(events).callEvent(any(PlayerVoteEvent.class));
+        try {
+            listener.onVotiferEvent(receipt()); assertTrue(entered.await(5, TimeUnit.SECONDS));
+            for (int index = 1; index < 256; index++) listener.onVotiferEvent(receipt());
+            assertEquals(256, listener.getPendingCaptureCount());
+            long before = System.currentTimeMillis();
+            for (int index = 0; index < 256; index++) listener.onVotiferEvent(receipt());
+            long after = System.currentTimeMillis(); workerTurn(overflow);
+            assertEquals(256, overflow.size(), "Normal capture saturation must use the independent overflow capacity");
+            assertEquals(256, listener.getPendingCaptureCount()); assertTrue(processed.isEmpty());
+            listener.onVotiferEvent(receipt()); workerTurn(overflow);
+            assertEquals(256, overflow.size()); assertEquals(256, listener.getPendingCaptureCount());
+            overflow.close(); var rows = disk(); assertEquals(256, rows.size());
+            var occurrences = new HashMap<UUID, Long>();
+            for (var row : rows) {
+                long time = ((Number) row.get("Time")).longValue(); assertTrue(time >= before && time <= after);
+                assertNull(occurrences.put(UUID.fromString((String) row.get("LocalOccurrenceId")), time));
+            }
+            overflow = VotifierVoteOverflowQueue.initializeAsync(plugin, listener::processVote, ready::get);
+            when(plugin.getVotifierVoteOverflowQueue()).thenReturn(overflow); workerTurn(overflow); overflow.start();
+            release.countDown(); assertTrue(delivered.await(10, TimeUnit.SECONDS)); processingTurn(); workerTurn(overflow);
+            assertEquals(512, processed.size()); assertEquals(512, processed.stream().map(PlayerVoteEvent::getLocalOccurrenceId).distinct().count());
+            for (var event : processed) if (occurrences.containsKey(event.getLocalOccurrenceId()))
+                assertEquals(occurrences.get(event.getLocalOccurrenceId()).longValue(), event.getCanonicalOccurrenceTime());
+            assertEquals(0, listener.getPendingCaptureCount()); assertEquals(0, overflow.size());
+        } finally { release.countDown(); }
+    }
+    @Test void rejectedTransferRetriesAfterRecoveredFullQueueDrains() throws Exception {
+        when(plugin.getLogger()).thenReturn(mock(Logger.class));
+        var recovered = recoverFullQueue();
+        var admissions = new AtomicInteger(); var wrapper = mock(ScheduledExecutorService.class);
+        doAnswer(call -> {
+            if (admissions.getAndIncrement() == 0) throw new RejectedExecutionException("initial admission rejected");
+            return timer.submit(call.getArgument(0, Runnable.class));
+        }).when(wrapper).submit(any(Runnable.class)); when(plugin.getVoteTimer()).thenReturn(wrapper);
+        var delivered = new CountDownLatch(257);
+        doAnswer(call -> { processed.add(call.getArgument(0)); delivered.countDown(); return null; })
+                .when(events).callEvent(any(PlayerVoteEvent.class));
+        listener.onVotiferEvent(receipt()); workerTurn(overflow);
+        var original = retainedReceipt(); assertEquals(256, overflow.size()); assertTrue(processed.isEmpty());
+        overflow.start(); assertTrue(delivered.await(5, TimeUnit.SECONDS), "Rejected capture must retry when recovered entries drain");
+        processingTurn(); workerTurn(overflow);
+        assertEquals(0, listener.getPendingCaptureCount()); assertEquals(0, overflow.size());
+        assertEquals(257, processed.size()); assertEquals(257, processed.stream().map(PlayerVoteEvent::getLocalOccurrenceId).distinct().count());
+        assertTrue(processed.stream().map(PlayerVoteEvent::getLocalOccurrenceId).toList().containsAll(recovered));
+        var retry = processed.stream().filter(event -> original.id().equals(event.getLocalOccurrenceId())).toList();
+        assertEquals(1, retry.size()); assertEquals(original.time(), retry.getFirst().getCanonicalOccurrenceTime());
+    }
+    @Test void stopRetriesRejectedTransferAfterCapacityReturnsWithExactReceipt() throws Exception {
+        when(plugin.getLogger()).thenReturn(mock(Logger.class));
+        var recovered = recoverFullQueue();
+        var rejecting = mock(ScheduledExecutorService.class);
+        when(rejecting.submit(any(Runnable.class))).thenThrow(new RejectedExecutionException("vote worker full"));
+        when(plugin.getVoteTimer()).thenReturn(rejecting);
+        listener.onVotiferEvent(receipt()); workerTurn(overflow); var original = retainedReceipt();
+        overflow.acknowledgeOccurrence(recovered.getFirst());
+        listener.stop(); workerTurn(overflow);
+        assertEquals(0, listener.getPendingCaptureCount(), "Stop must retry a transfer previously rejected for capacity");
+        assertEquals(256, overflow.size()); assertTrue(processed.isEmpty()); overflow.close();
+        var rows = disk(); assertEquals(256, rows.size());
+        var retained = rows.stream().filter(row -> original.id().toString().equals(row.get("LocalOccurrenceId"))).toList();
+        assertEquals(1, retained.size()); assertEquals(original.time(), ((Number) retained.getFirst().get("Time")).longValue());
+        assertTrue(rows.stream().noneMatch(row -> recovered.getFirst().toString().equals(row.get("LocalOccurrenceId"))));
+    }
     @Test void startedBlockedBeforeAcceptedPipelineSurvivesStopCancellationAndRestart() throws Exception {
         var entered = new CountDownLatch(1); var release = new CountDownLatch(1);
         doAnswer(call -> {

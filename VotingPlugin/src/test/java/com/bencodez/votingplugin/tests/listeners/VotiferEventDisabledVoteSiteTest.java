@@ -154,11 +154,14 @@ public class VotiferEventDisabledVoteSiteTest {
         for (int index = 0; index < 257; index++) listener.onVotiferEvent(createVoteEvent(SERVICE_SITE));
         org.junit.jupiter.api.Assertions.assertEquals(256, listener.getPendingCaptureCount());
         org.junit.jupiter.api.Assertions.assertEquals(256, tasks.size());
+        // The 257th receipt uses the independently bounded overflow directly.
+        verify(overflowQueue).enqueueAfterInitialization(anyString(), anyString(),
+                org.mockito.ArgumentMatchers.anyLong(), any(java.util.UUID.class), any(java.util.function.BooleanSupplier.class), any());
         listener.stop(); listener.stop();
         org.junit.jupiter.api.Assertions.assertEquals(0, listener.getPendingCaptureCount());
         // Cancelled callbacks that later run cannot transfer or process again.
         tasks.forEach(Runnable::run);
-        verify(overflowQueue, org.mockito.Mockito.times(256)).enqueueAfterInitialization(anyString(), anyString(),
+        verify(overflowQueue, org.mockito.Mockito.times(257)).enqueueAfterInitialization(anyString(), anyString(),
                 org.mockito.ArgumentMatchers.anyLong(), any(java.util.UUID.class), any(java.util.function.BooleanSupplier.class), any());
         verify(pluginManager, never()).callEvent(any(PlayerVoteEvent.class));
     }

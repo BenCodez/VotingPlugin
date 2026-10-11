@@ -56,6 +56,7 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 	private final Object persistenceWriteLock = new Object();
 	private final ArrayDeque<PendingVote> entries = new ArrayDeque<>();
 	private boolean drainScheduled;
+	private boolean captureRetryScheduled;
 	private boolean persistenceScheduled;
 	private boolean persistenceDirty;
 	private boolean started;
@@ -294,6 +295,24 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
     }
     /** Wake the same bounded drain when an original transferred callback finishes uncertainly. */
     public void resumeTransfers() { scheduleDrain(); }
+
+    /** One wakeup for the ingress listener's bounded failed-transfer captures.
+     * Retry runs outside the queue monitor and never adds another executor or waiter list. */
+    public void retryCaptureTransfers(Runnable retry) {
+        synchronized (lock) {
+            if (closed || closing || captureRetryScheduled) return;
+            captureRetryScheduled = true;
+            try {
+                worker.schedule(() -> {
+                    synchronized (lock) {
+                        captureRetryScheduled = false;
+                        if (closed || closing) return;
+                    }
+                    retry.run();
+                }, RETRY_DELAY_MILLIS, TimeUnit.MILLISECONDS);
+            } catch (RejectedExecutionException rejected) { captureRetryScheduled = false; }
+        }
+    }
 
 	private void requestPersistenceLocked() {
 		persistenceDirty = true;

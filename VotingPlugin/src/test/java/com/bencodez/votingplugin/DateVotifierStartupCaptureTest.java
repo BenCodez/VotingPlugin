@@ -57,6 +57,13 @@ class DateVotifierStartupCaptureTest {
             when(plugin.getOptions().getBedrockPlayerPrefix()).thenReturn(".");
             when(plugin.getOptions().isProcessRewards()).thenReturn(true);
             when(plugin.getConfigFile().isAddTotals()).thenReturn(true);
+            // Create worker-used deep stubs before concurrent overflow admission
+            // and ordinary processing; Mockito cannot safely stub on both workers.
+            plugin.getServerData(); plugin.getBungeeSettings(); plugin.getTimeChecker();
+            plugin.getBroadcastHandler(); plugin.getVoteParty(); plugin.getCoolDownCheck();
+            plugin.getVoteMilestonesManager(); plugin.getVoteStreakHandler();
+            plugin.getPlaceholders(); plugin.getConfigFile().getPlaceholderCacheLevel();
+            plugin.getRewardHandler();
             when(plugin.getUserManager().getProperName("Steve")).thenReturn("Steve");
             when(plugin.getUserManager().getValidationService().validate("Steve", false)).thenReturn(
                     new UserValidationResult(ValidationStatus.VALID, "Steve", ValidationSource.STORAGE, "fixture", false));
@@ -230,6 +237,50 @@ class DateVotifierStartupCaptureTest {
 
     @Test void blockedExecutorCannotLoseReadyCaptureOnCancellation() throws Exception {
         capturedAdmissionSurvivesCancellation(true);
+    }
+
+    @Test void fullRecoveredStartupQueueRetriesNewCaptureAndCountsItsOriginalReceiptOnce() throws Exception {
+        var rows = new ArrayList<Map<String, Object>>();
+        var recoveredIds = new HashSet<UUID>();
+        long recoveredTime = System.currentTimeMillis() - 1000;
+        for (int index = 0; index < 256; index++) {
+            UUID id = UUID.randomUUID(); recoveredIds.add(id);
+            rows.add(Map.of("Username", "Steve", "ServiceSite", SERVICE, "Time", recoveredTime,
+                    "LocalOccurrenceId", id.toString()));
+        }
+        var yaml = new YamlConfiguration(); yaml.set("Votes", rows);
+        yaml.save(root.resolve("VotifierVoteQueue.yml").toFile());
+        try (var fixture = new Fixture(root, 257)) {
+            when(fixture.plugin.getLogger()).thenReturn(mock(Logger.class));
+            fixture.plugin.registerEarlyVotifierIngress(); fixture.drain();
+            var overflow = fixture.plugin.getVotifierVoteOverflowQueue(); assertEquals(256, overflow.size());
+            fixture.vote(); fixture.timer.submit(() -> { }).get(3, TimeUnit.SECONDS);
+            var workerField = VotifierVoteOverflowQueue.class.getDeclaredField("worker"); workerField.setAccessible(true);
+            var worker = (ScheduledExecutorService) workerField.get(overflow);
+            worker.submit(() -> { }).get(3, TimeUnit.SECONDS);
+            assertEquals(1, fixture.capture().getPendingCaptureCount()); assertTrue(fixture.accepted.isEmpty());
+            var capturesField = VotiferEvent.class.getDeclaredField("captured"); capturesField.setAccessible(true);
+            var captures = (Map<?, ?>) capturesField.get(fixture.capture());
+            UUID original = (UUID) captures.keySet().iterator().next();
+            var capture = captures.values().iterator().next();
+            var timeField = capture.getClass().getDeclaredField("occurredAt"); timeField.setAccessible(true);
+            long originalTime = timeField.getLong(capture);
+            fixture.open();
+            assertTrue(fixture.delivered.await(10, TimeUnit.SECONDS), "Startup must retry capture after recovered overflow drains");
+            fixture.drain(); assertEquals(257, fixture.accepted.size()); assertEquals(257, fixture.posted.size());
+            assertEquals(257, fixture.accepted.stream().map(PlayerVoteEvent::getLocalOccurrenceId).distinct().count());
+            assertTrue(fixture.accepted.stream().map(PlayerVoteEvent::getLocalOccurrenceId).toList().containsAll(recoveredIds));
+            var retried = fixture.accepted.stream().filter(event -> original.equals(event.getLocalOccurrenceId())).toList();
+            assertEquals(1, retried.size()); assertEquals(originalTime, retried.getFirst().getCanonicalOccurrenceTime());
+            assertEquals(0L, retried.getFirst().getTime()); assertNull(retried.getFirst().getProxyVoteId());
+            var post = fixture.posted.stream().filter(event -> original.equals(event.getVoteUUID())).toList();
+            assertEquals(1, post.size()); assertEquals(originalTime, post.getFirst().getCanonicalOccurrenceTime());
+            assertEquals(257, fixture.progress().votes());
+            verify(fixture.user, times(257)).setTime(fixture.site);
+            verify(fixture.user, times(257)).addTotal(); verify(fixture.user, times(257)).playerVote(fixture.site, true, false);
+            verify(fixture.plugin.getRewardHandler(), times(1)).giveReward(eq(fixture.user), any(), startsWith("DateVoteMilestonesRuntime."), any());
+            assertEquals(0, overflow.size());
+        }
     }
 
     private void capturedAdmissionSurvivesCancellation(boolean readyFirst) throws Exception {

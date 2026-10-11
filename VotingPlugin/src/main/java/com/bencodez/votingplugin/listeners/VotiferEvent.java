@@ -32,7 +32,7 @@ public class VotiferEvent implements Listener {
         final String username, site;
         final long occurredAt;
         final UUID id;
-        boolean transferring;
+        boolean transferring, transferFailureReported;
         volatile boolean started, completed, finished, transferred;
         VotifierVoteOverflowQueue recoveryOwner;
         CapturedVote(String username, String site, long occurredAt, UUID id) {
@@ -98,16 +98,32 @@ public class VotiferEvent implements Listener {
     }
 
     private void transferred(CapturedVote vote, boolean admitted) {
-        boolean completed;
+        boolean completed, retry, reportFailure;
         synchronized (captureLock) {
             vote.transferred = admitted; completed = vote.completed;
+            if (!admitted) vote.transferring = false;
             if (admitted || completed) captured.remove(vote.id);
+            retry = !admitted && !completed && captured.get(vote.id) == vote;
+            reportFailure = !admitted && !completed && !vote.transferFailureReported;
+            if (reportFailure) vote.transferFailureReported = true;
         }
         if (admitted && completed) vote.recoveryOwner.acknowledgeOccurrence(vote.id);
         if (completed) return; // Current normal processing won; do not leave an ordinary duplicate retry.
-        if (!admitted) plugin.getLogger().severe("Votifier vote queue unavailable or full; vote was not admitted for "
+        if (reportFailure) plugin.getLogger().severe("Votifier vote queue unavailable or full; "
+                + (retry ? "captured receipt retained for retry for " : "vote was not admitted for ")
                 + MinecraftUsernameValidator.sanitizeForLog(vote.username));
-        else plugin.getLogger().warning("Vote pipeline unavailable or retiring; queued Votifier vote for retry");
+        else if (admitted) plugin.getLogger().warning("Vote pipeline unavailable or retiring; queued Votifier vote for retry");
+        if (retry && vote.recoveryOwner != null) vote.recoveryOwner.retryCaptureTransfers(this::retryCapturedTransfers);
+    }
+
+    private void retryCapturedTransfers() {
+        synchronized (captureLock) {
+            for (CapturedVote vote : java.util.List.copyOf(captured.values())) {
+                // Ordinary queued/running callbacks retain their original execution.
+                // Only receipts which already attempted a failed handoff need retry.
+                if (vote.recoveryOwner != null && !vote.transferring) transferLocked(vote);
+            }
+        }
     }
 
 	/**
@@ -239,8 +255,9 @@ public class VotiferEvent implements Listener {
         synchronized (captureLock) {
             if (!accepting) return;
             if (captured.size() >= MAX_CAPTURED) {
-                plugin.getLogger().severe("Votifier capture capacity exhausted; vote was not admitted for "
-                        + MinecraftUsernameValidator.sanitizeForLog(voteUsername));
+                // The overflow owns a separate bounded admission lane; do not
+                // require another normal capture/executor slot to reach it.
+                transferLocked(capturedVote);
                 return;
             }
             captured.put(localOccurrenceId, capturedVote);
