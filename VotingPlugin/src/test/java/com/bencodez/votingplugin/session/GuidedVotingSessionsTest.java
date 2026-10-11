@@ -264,6 +264,40 @@ class GuidedVotingSessionsTest {
             verify(f.player).sendMessage("Voting session: 1/1 votes received.");
         }
     }
+
+    @Test void finishedGuideReopensWithProgressWithoutReopeningVotingLinkOrRewards() {
+        try (var f = new Fixture()) {
+            openGuide(f, "");
+            var occurrence = UUID.randomUUID();
+            f.sessions.credited(f.event(f.uuid, System.currentTimeMillis() + 1, occurrence));
+            openGuide(f, "check");
+            clearInvocations(f.player);
+            clearInvocations(f.player.spigot());
+
+            openGuide(f, "finish");
+            verify(f.player).sendMessage("Voting session: 1/1 votes received.");
+            verify(f.player).sendMessage("All session votes were received. Thank you!");
+            verify(f.player, never()).sendMessage(startsWith("Open voting link:"));
+            var finishedButtons = org.mockito.ArgumentCaptor.forClass(net.md_5.bungee.api.chat.BaseComponent.class);
+            verify(f.player.spigot(), atLeastOnce()).sendMessage(finishedButtons.capture());
+            assertTrue(finishedButtons.getAllValues().stream().noneMatch(c -> c.getClickEvent() != null
+                    && c.getClickEvent().getAction() == net.md_5.bungee.api.chat.ClickEvent.Action.OPEN_URL));
+
+            clearInvocations(f.player);
+            clearInvocations(f.player.spigot());
+            openGuide(f, "");
+            verify(f.player).sendMessage("Voting session: 1/1 votes received.");
+            verify(f.player).sendMessage("All session votes were received. Thank you!");
+            verify(f.player, never()).sendMessage(startsWith("Open voting link:"));
+            var reopenedButtons = org.mockito.ArgumentCaptor.forClass(net.md_5.bungee.api.chat.BaseComponent.class);
+            verify(f.player.spigot(), atLeastOnce()).sendMessage(reopenedButtons.capture());
+            assertTrue(reopenedButtons.getAllValues().stream().noneMatch(c -> c.getClickEvent() != null
+                    && c.getClickEvent().getAction() == net.md_5.bungee.api.chat.ClickEvent.Action.OPEN_URL));
+            verify(f.user, never()).playerVote(any(), anyBoolean(), anyBoolean());
+            verify(f.user, never()).addTotal();
+            verify(f.user, never()).addPoints();
+        }
+    }
     @Test void reloadFencesQueuedFailureNotification() {
         try (var f = new Fixture()) {
             when(f.user.canVoteSite(eq(f.site), anyLong())).thenThrow(new IllegalStateException("fixture"));
