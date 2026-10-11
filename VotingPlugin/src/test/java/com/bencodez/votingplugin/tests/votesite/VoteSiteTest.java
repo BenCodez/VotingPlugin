@@ -65,6 +65,21 @@ public class VoteSiteTest {
 		assertEquals(12L * 60L * 60L * 1000L, d.getMillis(), "VoteDelay millis should be 12h");
 	}
 
+    @Test
+    void ordinaryFallbackNameContainsNoFormattingGuardsAndIdentifierRemainsExact() {
+        when(plugin.getConfigVoteSites().getDisplayName(anyString())).thenReturn("");
+        when(plugin.getConfigVoteSites().getServiceSite(anyString())).thenReturn("PlanetMinecraft.com");
+        VoteSite site = new VoteSite(plugin, "PlanetMinecraft_com");
+        assertEquals("PlanetMinecraft_com", site.getDisplayName());
+        assertEquals("PlanetMinecraft.com", site.getServiceSite());
+    }
+    @Test
+    void ownerConfiguredDisplayColorRemainsSupported() {
+        when(plugin.getConfigVoteSites().getDisplayName(anyString())).thenReturn("&aConfigured Name");
+        VoteSite site = new VoteSite(plugin, "configured");
+        assertEquals("&aConfigured Name", site.getDisplayName());
+    }
+
 	@Test
 	public void testGetVoteURLJson() {
 		VoteSite voteSite = new VoteSite(plugin, "site.test");

@@ -1067,6 +1067,29 @@ class BackendProxyMessageRouterTest {
 	}
 
 	@Test
+	void delayRejectionRejectsInterpreterDelimitersBeforeResolvingUsersOrSites() {
+		ProcessedVoteCache cache = mock(ProcessedVoteCache.class);
+		when(cache.complete(any(UUID.class))).thenReturn(true);
+		BackendProxyMessageRouter voteRouter = new BackendProxyMessageRouter(plugin,
+				mock(BackendPresenceManager.class), mock(BackendGlobalDataSync.class),
+				mock(BackendVotePartySync.class), cache);
+		for (String service : new String[] { "&kSpoofed", "%player_name%", "§kSpoofed", "{RED}" }) {
+			for (boolean reliable : new boolean[] { false, true }) {
+				configureDelayRejection(true);
+				JsonEnvelope rejection = VotingPluginWire.voteDelayRejected("Player", PLAYER_UUID.toString(),
+						service, true, UUID.randomUUID());
+				if (reliable) rejection = VotingPluginWire.requestVoteDeliveryAcknowledgement(rejection);
+				AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
+				voteRouter.handleOrderedVote(rejection, outcome::set);
+				assertEquals(OrderedVoteOutcome.COMPLETE, outcome.get());
+				verify(voteSiteManager, never()).getVoteSiteName(true, service);
+			}
+		}
+		verify(plugin.getVotingPluginUserManager(), never()).getVotingPluginUser(PLAYER_UUID, "Player");
+		verify(user, never()).cache();
+	}
+
+	@Test
 	void reliableDelayRejectionExecutesOnceAndPersistsItsVoteId() {
 		UUID voteId = UUID.randomUUID();
 		ProcessedVoteCache cache = mock(ProcessedVoteCache.class);

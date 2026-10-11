@@ -16,7 +16,7 @@ public final class ServiceSiteValidator {
 	 *
 	 * @param serviceSite service-site name supplied by a vote source
 	 * @return {@code true} for a bounded, visible service-site name that does not
-	 *         contain unsupported delimiters
+	 *         contain interpreter delimiters
 	 */
 	public static boolean isValid(String serviceSite) {
 		if (serviceSite == null || serviceSite.length() > MAX_LENGTH) {
@@ -67,7 +67,8 @@ public final class ServiceSiteValidator {
 
 	private static boolean isDisallowed(int codePoint) {
 		if (codePoint == '[' || codePoint == ']' || codePoint == '\'' || codePoint == '"' || codePoint == '`'
-				|| codePoint == '\\') {
+				|| codePoint == '\\' || codePoint == '&' || codePoint == '%' || codePoint == '\u00A7'
+				|| codePoint == '{' || codePoint == '}') {
 			return true;
 		}
 

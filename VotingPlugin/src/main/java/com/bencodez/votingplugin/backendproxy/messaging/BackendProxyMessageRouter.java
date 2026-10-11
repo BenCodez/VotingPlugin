@@ -612,6 +612,10 @@ public class BackendProxyMessageRouter {
 		if (rejected.uuid.isEmpty() || rejected.service.isEmpty()) {
 			return new WireVoteResult(rejected.voteId, true);
 		}
+		if (!ServiceSiteValidator.isValid(rejected.service)) {
+			plugin.getLogger().warning("Rejected VoteDelayRejected with invalid service site");
+			return new WireVoteResult(rejected.voteId, true);
+		}
 		UUID javaUuid;
 		try {
 			javaUuid = UUID.fromString(rejected.uuid);
