@@ -2138,6 +2138,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		guidedVotingSessions.clear();
 		configFile.reloadData();
 		configFile.loadValues();
+		if (commandLoader != null) commandLoader.refreshGuidedSessionCommands();
 
 		configVoteSites.reloadData();
 

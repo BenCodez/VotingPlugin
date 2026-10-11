@@ -8,6 +8,8 @@ GuidedVotingSession:
   TimeoutMinutes: 30
 ```
 
+When disabled, the guide registers no command handlers, so existing custom `/vote session` commands retain their behavior. Enabling the feature reserves `/vote session` and its navigation subcommands; disabling it and reloading restores custom routing.
+
 Enable it in `Config.yml`, reload, and grant `VotingPlugin.Commands.Vote.Session` or the established `VotingPlugin.Player` permission. The timeout is bounded to 1–120 minutes. At most 2,048 local sessions and 100 visible sites per session are retained.
 
 ## Player controls
