@@ -32,6 +32,9 @@ public class PlayerVoteListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onplayerVote(PlayerVoteEvent event) {
+        // Keep the production boundary defensive for direct/custom dispatchers
+        // as well as Bukkit's Cancellable-aware event dispatcher.
+        if (event.isCancelled()) return;
         SharedVoteProcessor.process(new BukkitOperations(plugin, event));
     }
 
