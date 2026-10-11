@@ -59,6 +59,21 @@ class ServiceSiteValidatorTest {
 	}
 
 	@Test
+	void legacyConfiguredValidationAllowsPunctuationButKeepsBoundsAndControlChecks() {
+		for (String service : new String[] { "Old's Site", "[Javascript=1]", "Old`Site", "Old\\Site" }) {
+			assertFalse(ServiceSiteValidator.isValid(service));
+			assertTrue(ServiceSiteValidator.isValidConfiguredLegacyIdentifier(service));
+			String display = ServiceSiteValidator.inertForFormatting(service);
+			assertFalse(display.contains("[") || display.contains("]") || display.contains("'")
+					|| display.contains("`") || display.contains("\\"));
+		}
+		for (String service : new String[] { "bad\nsite", "bad\u2060site", "x".repeat(2049), " " }) {
+			assertFalse(ServiceSiteValidator.isValidConfiguredLegacyIdentifier(service));
+		}
+		assertFalse(ServiceSiteValidator.isValidConfiguredLegacyIdentifier(null));
+	}
+
+	@Test
 	void rejectsUnsupportedCharacters() {
 		for (String value : new String[] { "[Javascript=1]", "Site's", "\"Site\"", "Site`Name",
 				"Site\\Name", "Site\nName", "Site\tName", "Site\u0000Name", "Site\u200BName" }) {

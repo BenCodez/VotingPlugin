@@ -612,7 +612,10 @@ public class BackendProxyMessageRouter {
 		if (rejected.uuid.isEmpty() || rejected.service.isEmpty()) {
 			return new WireVoteResult(rejected.voteId, true);
 		}
-		if (!ServiceSiteValidator.isValid(rejected.service)) {
+		boolean configuredLegacy = !ServiceSiteValidator.isValid(rejected.service)
+				&& ServiceSiteValidator.isValidConfiguredLegacyIdentifier(rejected.service)
+				&& plugin.getVoteSiteManager().hasConfiguredVoteSite(rejected.service);
+		if (!ServiceSiteValidator.isValid(rejected.service) && !configuredLegacy) {
 			plugin.getLogger().warning("Rejected VoteDelayRejected with invalid service site");
 			return new WireVoteResult(rejected.voteId, true);
 		}
@@ -624,8 +627,10 @@ public class BackendProxyMessageRouter {
 					+ ServiceSiteValidator.sanitizeForLog(rejected.uuid));
 			return new WireVoteResult(rejected.voteId, true);
 		}
-		VoteSite voteSite = plugin.getVoteSiteManager()
-				.getVoteSite(plugin.getVoteSiteManager().getVoteSiteName(true, rejected.service), true);
+		VoteSite voteSite = configuredLegacy
+				? plugin.getVoteSiteManager().resolveVoteSite(rejected.service, true)
+				: plugin.getVoteSiteManager()
+						.getVoteSite(plugin.getVoteSiteManager().getVoteSiteName(true, rejected.service), true);
 		if (voteSite == null) {
 			plugin.getLogger().warning("No voting site with the service site: '"
 					+ ServiceSiteValidator.sanitizeForLog(rejected.service) + "'");

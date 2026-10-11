@@ -21,8 +21,10 @@ keys or change reward action identifiers. Existing service-name acceptance and
 persisted ingress journals remain compatible: names containing `&` or `%`,
 including legacy URL-shaped identifiers, remain replayable. Structural delimiters
 such as quotes, brackets, backticks and backslashes, control characters and
-oversized identifiers retain their existing rejection rules. The same validation
-applies before delayed-vote reward site/user lookup. `VoteURL` is unchanged.
+oversized identifiers retain their existing rejection rules. Delayed-vote rejection messages additionally accept bounded legacy punctuation
+for an already-configured site, resolved without auto-creation; unknown malformed
+names, control characters and oversized values remain rejected before user lookup.
+Legacy brackets, quotes, backticks and backslashes use printable display labels too. `VoteURL` is unchanged.
 
 No configuration or data migration is required. Minecraft client rendering of
 the new printable labels has not been visually verified; automated tests cover

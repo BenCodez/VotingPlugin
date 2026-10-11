@@ -19,6 +19,15 @@ public final class ServiceSiteValidator {
 	 *         contain unsupported delimiters
 	 */
 	public static boolean isValid(String serviceSite) {
+		return isValid(serviceSite, false);
+	}
+
+	/** Bounded legacy identifier validation; only use for an already-configured site. */
+	public static boolean isValidConfiguredLegacyIdentifier(String serviceSite) {
+		return isValid(serviceSite, true);
+	}
+
+	private static boolean isValid(String serviceSite, boolean allowLegacyDelimiters) {
 		if (serviceSite == null || serviceSite.length() > MAX_LENGTH) {
 			return false;
 		}
@@ -26,7 +35,7 @@ public final class ServiceSiteValidator {
 		boolean hasVisibleCharacter = false;
 		for (int offset = 0; offset < serviceSite.length();) {
 			int codePoint = serviceSite.codePointAt(offset);
-			if (isDisallowed(codePoint)) {
+			if (isDisallowed(codePoint) && !(allowLegacyDelimiters && isLegacyDelimiter(codePoint))) {
 				return false;
 			}
 			if (isVisibleBaseCharacter(codePoint)) {
@@ -71,7 +80,15 @@ public final class ServiceSiteValidator {
 	public static String inertForFormatting(String value) {
 		if (value == null || value.isEmpty()) return "";
 		return " " + value.replace("&", "(ampersand)").replace("%", "(percent)")
-				.replace("§", "(section)").replace("{", "(open brace)").replace("}", "(close brace)") + " ";
+				.replace("§", "(section)").replace("{", "(open brace)").replace("}", "(close brace)")
+				.replace("[", "(open bracket)").replace("]", "(close bracket)")
+				.replace("\"", "(double quote)").replace("'", "(quote)")
+				.replace("`", "(backtick)").replace("\\", "(backslash)") + " ";
+	}
+
+	private static boolean isLegacyDelimiter(int codePoint) {
+		return codePoint == '[' || codePoint == ']' || codePoint == '\'' || codePoint == '"'
+				|| codePoint == '`' || codePoint == '\\';
 	}
 
 	private static boolean isDisallowed(int codePoint) {

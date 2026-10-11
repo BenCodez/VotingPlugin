@@ -1090,6 +1090,33 @@ class BackendProxyMessageRouterTest {
 	}
 
 	@Test
+	void configuredLegacyDelayRejectionNamesKeepRewardsWithoutCreatingSites() {
+		for (String service : new String[] { "Old's Site", "[Old]", "Old`Site", "Old\\Site", "Old\"Site" }) {
+			for (boolean reliable : new boolean[] { false, true }) {
+				VoteSite site = configureDelayRejection(true);
+				when(voteSiteManager.hasConfiguredVoteSite(service)).thenReturn(true);
+				when(voteSiteManager.resolveVoteSite(service, true)).thenReturn(site);
+				UUID id = UUID.randomUUID();
+				ProcessedVoteCache cache = mock(ProcessedVoteCache.class);
+				when(cache.reserveWithOutcome(id)).thenReturn(Reservation.RESERVED);
+				when(cache.complete(id)).thenReturn(true);
+				BackendProxyMessageRouter voteRouter = new BackendProxyMessageRouter(plugin,
+						mock(BackendPresenceManager.class), mock(BackendGlobalDataSync.class),
+						mock(BackendVotePartySync.class), cache);
+				JsonEnvelope message = VotingPluginWire.voteDelayRejected("Player", PLAYER_UUID.toString(),
+						service, true, id);
+				if (reliable) message = VotingPluginWire.requestVoteDeliveryAcknowledgement(message);
+				AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
+				voteRouter.handleOrderedVote(message, outcome::set);
+				assertEquals(OrderedVoteOutcome.COMPLETE, outcome.get());
+				verify(site).giveWaitUntilVoteDelayRewards(user, false, true);
+				verify(voteSiteManager, never()).getVoteSiteName(true, service);
+				verify(voteSiteManager, never()).getVoteSite(service, true);
+			}
+		}
+	}
+
+	@Test
 	void reliableDelayRejectionExecutesOnceAndPersistsItsVoteId() {
 		UUID voteId = UUID.randomUUID();
 		ProcessedVoteCache cache = mock(ProcessedVoteCache.class);
