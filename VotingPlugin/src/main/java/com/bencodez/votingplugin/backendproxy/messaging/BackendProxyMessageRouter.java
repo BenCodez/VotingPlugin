@@ -595,7 +595,7 @@ public class BackendProxyMessageRouter {
 		boolean online = fields.containsKey(VotingPluginWire.K_WAS_ONLINE)
 				? Boolean.parseBoolean(fields.get(VotingPluginWire.K_WAS_ONLINE)) : user.isOnline();
 		plugin.getBroadcastHandler().broadcastVote(user.getJavaUUID(), user.getPlayerName(),
-				voteSite.getDisplayNameForFormatting(), online, totals);
+				voteSite.getDisplayName(), online, totals);
 	}
 
 	private WireVoteResult handleWireVoteDelayRejected(JsonEnvelope msg) {

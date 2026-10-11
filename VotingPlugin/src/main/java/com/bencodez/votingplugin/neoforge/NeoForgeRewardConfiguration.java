@@ -8,7 +8,6 @@ import java.util.regex.Pattern;
 
 import org.spongepowered.configurate.ConfigurationNode;
 
-import com.bencodez.votingplugin.util.ServiceSiteValidator;
 
 /** Parses the first NeoForge-safe subset of existing VotingPlugin reward YAML. */
 final class NeoForgeRewardConfiguration {
@@ -72,14 +71,34 @@ final class NeoForgeRewardConfiguration {
 
     private static NeoForgeRewardPlan.Action expand(NeoForgeRewardPlan.Action action,
             NeoForgeDeferredVote vote, NeoForgeVoteSite site) {
+        // NeoForge's message isolation was added after #1643. Preserve that
+        // independent safety contract when reverting the Bukkit formatting
+        // change; command arguments still receive the raw identifier.
         String serviceSite = action.type() == NeoForgeRewardPlan.ActionType.PLAYER_MESSAGE
-                ? ServiceSiteValidator.inertForFormatting(vote.serviceSite()) : vote.serviceSite();
+                ? inertMessageIdentifier(vote.serviceSite()) : vote.serviceSite();
         String siteName = action.type() == NeoForgeRewardPlan.ActionType.PLAYER_MESSAGE
                 && site.displayNameFallback()
-                        ? ServiceSiteValidator.inertForFormatting(site.displayName()) : site.displayName();
+                        ? inertMessageIdentifier(site.displayName()) : site.displayName();
         return new NeoForgeRewardPlan.Action(action.type(), action.value()
                 .replace("%SiteName%", siteName).replace("%sitename%", siteName)
                 .replace("%ServiceSite%", serviceSite).replace("%servicesite%", serviceSite));
+    }
+
+    /**
+     * Prevents interpreted formatting and placeholders in NeoForge player
+     * messages. This later-added adapter intentionally retains its own
+     * untrusted-message guards independently of Bukkit's reverted UI path.
+     */
+    private static String inertMessageIdentifier(String value) {
+        if (value == null || value.isEmpty()) return value == null ? "" : value;
+        StringBuilder inert = new StringBuilder(value.length() + 2).append('\u2060');
+        for (int offset = 0; offset < value.length();) {
+            int codePoint = value.codePointAt(offset);
+            inert.appendCodePoint(codePoint);
+            if (codePoint == '%' || codePoint == '&') inert.append('\u2060');
+            offset += Character.charCount(codePoint);
+        }
+        return inert.append('\u2060').toString();
     }
 
     private String unsupportedGlobalBehavior() {
