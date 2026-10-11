@@ -22,8 +22,27 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
           cache: maven
+      # Build the corrected SQL lifecycle dependencies until their published snapshots catch up.
+      - name: Check out SimpleAPI SQL lifecycle dependency
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: BenCodez/SimpleAPI
+          ref: fdbf26eec885ec3f1c1dbd937a243a0acfaa0a5e
+          path: .ci/simpleapi
+          persist-credentials: false
+      - name: Build and install SimpleAPI dependency
+        run: mvn -B -f .ci/simpleapi/SimpleAPI/pom.xml clean install
+      - name: Check out AdvancedCore SQL lifecycle dependency
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: BenCodez/AdvancedCore
+          ref: a68cc2dfe6e44c1c0854e659c614708492fcd58d
+          path: .ci/advancedcore
+          persist-credentials: false
+      - name: Build and install AdvancedCore dependency
+        run: mvn -B -nsu -f .ci/advancedcore/AdvancedCore/pom.xml clean install
       - name: Build with Maven
-        run: mvn -B -f VotingPlugin/pom.xml package
+        run: mvn -B -nsu -f VotingPlugin/pom.xml package
 
   dependency-submission:
     if: github.event_name == 'push'
