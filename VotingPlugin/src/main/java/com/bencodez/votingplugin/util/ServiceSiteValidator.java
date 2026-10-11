@@ -83,6 +83,15 @@ public final class ServiceSiteValidator {
 		return inert.append(FORMATTING_BOUNDARY).toString();
 	}
 
+	/**
+	 * Restores the literal display value after all placeholder and formatting
+	 * parsers have run. Do not call this on an intermediate template: it would
+	 * allow untrusted identifiers to complete formatting tokens again.
+	 */
+	public static String literalAfterFormatting(String value) {
+		return value == null ? null : value.replace(FORMATTING_BOUNDARY, "");
+	}
+
 	private static boolean isDisallowed(int codePoint) {
 		if (codePoint == '[' || codePoint == ']' || codePoint == '\'' || codePoint == '"' || codePoint == '`'
 				|| codePoint == '\u00A7'
