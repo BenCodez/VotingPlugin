@@ -20,7 +20,7 @@ This also protects already-persisted auto-created sites. It does not rename site
 keys or change reward action identifiers. Existing service-name acceptance and
 persisted ingress journals remain compatible: names containing `&` or `%`,
 including legacy URL-shaped identifiers, remain replayable. Structural delimiters
-such as quotes, brackets, backticks and backslashes, control characters and
+such as quotes, brackets, backticks and backslashes, section-sign formatting codes, control characters and
 oversized identifiers retain their existing rejection rules. Delayed-vote rejection messages additionally accept bounded legacy punctuation
 for an already-configured site, resolved without auto-creation; unknown malformed
 names, control characters and oversized values remain rejected before user lookup.

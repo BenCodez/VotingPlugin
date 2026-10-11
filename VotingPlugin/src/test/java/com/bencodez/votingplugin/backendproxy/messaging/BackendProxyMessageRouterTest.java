@@ -1091,7 +1091,7 @@ class BackendProxyMessageRouterTest {
 
 	@Test
 	void configuredLegacyDelayRejectionNamesKeepRewardsWithoutCreatingSites() {
-		for (String service : new String[] { "Old's Site", "[Old]", "Old`Site", "Old\\Site", "Old\"Site" }) {
+		for (String service : new String[] { "Old's Site", "[Old]", "Old`Site", "Old\\Site", "Old\"Site", "§kOldSite" }) {
 			for (boolean reliable : new boolean[] { false, true }) {
 				VoteSite site = configureDelayRejection(true);
 				when(voteSiteManager.hasConfiguredVoteSite(service)).thenReturn(true);

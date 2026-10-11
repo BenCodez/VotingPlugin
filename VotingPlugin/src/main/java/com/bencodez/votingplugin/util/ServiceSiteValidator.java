@@ -88,12 +88,12 @@ public final class ServiceSiteValidator {
 
 	private static boolean isLegacyDelimiter(int codePoint) {
 		return codePoint == '[' || codePoint == ']' || codePoint == '\'' || codePoint == '"'
-				|| codePoint == '`' || codePoint == '\\';
+				|| codePoint == '`' || codePoint == '\\' || codePoint == '\u00A7';
 	}
 
 	private static boolean isDisallowed(int codePoint) {
 		if (codePoint == '[' || codePoint == ']' || codePoint == '\'' || codePoint == '"' || codePoint == '`'
-				|| codePoint == '\\') {
+				|| codePoint == '\\' || codePoint == '\u00A7') {
 			return true;
 		}
 
