@@ -400,7 +400,8 @@ public class VoteTimeQueue {
 
 	/** Returns whether any standalone HTTP broadcast still has to be delivered. */
 	public boolean hasPendingHttpBroadcastDeliveryIds() {
-		return !httpBroadcastDeliveryIds.isEmpty();
+		return httpBroadcastDeliveryIds.keySet().stream().anyMatch(key -> !key.startsWith(
+				com.bencodez.votingplugin.proxy.VotingPluginWire.ACCEPTED_REWARD_TARGET_PREFIX));
 	}
 
 	public String encodeHttpBroadcastDeliveryIds() {

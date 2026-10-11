@@ -474,6 +474,270 @@ class VotingPluginProxyPacingTest {
     }
 
     @Test
+    void rejectedLiveBroadcastRemainsPendingWithoutRepeatingTheAcceptedReward(@TempDir Path directory) throws Exception {
+        CapturingProxy proxy = new CapturingProxy(directory);
+        proxy.broadcastValidationEnabled = true;
+        proxy.legacy().addAll(List.of(BACKEND, "backend-b"));
+        when(proxy.getConfig().getOnlineMode()).thenReturn(true);
+        when(proxy.getConfig().getProxyBroadcastEnabled()).thenReturn(true);
+        when(proxy.getConfig().getProxyBroadcastScopeMode()).thenReturn("ALL_SERVERS");
+        setField(proxy, "proxyBroadcastDecider", new com.bencodez.votingplugin.proxy.broadcast.ProxyBroadcastDecider(
+                proxy::getConfig, proxy::getAllAvailableServers, proxy::isServerValid, ignored -> false));
+        for (int i = 0; i < PluginMessageDispatcher.MAX_LANE_CONTROLS; i++)
+            proxy.sendPluginMessageServer("backend-b", 0, control("occupied"));
+        UUID id = new UUID(2, 503);
+        String player = new UUID(1, 503).toString();
+
+        assertDoesNotThrow(
+                () -> proxy.vote("Synthetic", "synthetic-service", true, false, 1L, null, player, id));
+        assertTrue(proxy.handoffs.stream().noneMatch(h -> VotingPluginWire.SUB_VOTE_BROADCAST
+                .equals(h.envelope().getSubChannel())));
+        proxy.time.advance(TimeUnit.SECONDS.toNanos(6));
+        proxy.playerServer = "backend-b";
+        proxy.retryPendingOnlineBroadcasts();
+        proxy.time.advance(TimeUnit.SECONDS.toNanos(1));
+        assertEquals(1, proxy.handoffs.stream().filter(h -> VotingPluginWire.SUB_VOTE_BROADCAST
+                .equals(h.envelope().getSubChannel()) && "backend-b".equals(h.server())).count());
+        assertEquals(1, proxy.handoffs.stream().filter(h -> VotingPluginWire.SUB_VOTE_ONLINE
+                .equals(h.envelope().getSubChannel())).count(), "broadcast retry repeated the accepted reward");
+        assertPaced(proxy.handoffs);
+    }
+
+    private static void enableLiveBroadcasts(CapturingProxy proxy) throws Exception {
+        proxy.broadcastValidationEnabled = true;
+        proxy.legacy().addAll(proxy.availableTargets);
+        when(proxy.getConfig().getOnlineMode()).thenReturn(true);
+        when(proxy.getConfig().getProxyBroadcastEnabled()).thenReturn(true);
+        when(proxy.getConfig().getProxyBroadcastScopeMode()).thenReturn("ALL_SERVERS");
+        setField(proxy, "proxyBroadcastDecider", new com.bencodez.votingplugin.proxy.broadcast.ProxyBroadcastDecider(
+                proxy::getConfig, proxy::getAllAvailableServers, proxy::isServerValid, ignored -> false));
+    }
+
+    @Test
+    void unavailableBroadcastTargetDoesNotBlockAnotherBackendOrVoteUpdates(@TempDir Path directory) throws Exception {
+        CapturingProxy proxy = new CapturingProxy(directory);
+        proxy.availableTargets.add("backend-c");
+        proxy.setAvailableServers(BACKEND, "backend-b", "backend-c");
+        proxy.unavailableBackends.add("backend-b");
+        enableLiveBroadcasts(proxy);
+        UUID id = new UUID(2, 504);
+        assertDoesNotThrow(() -> proxy.vote("Synthetic", "synthetic-service", true, false,
+                1L, null, new UUID(1, 504).toString(), id));
+        proxy.time.advance(TimeUnit.SECONDS.toNanos(1));
+        assertEquals(1, proxy.handoffs.stream().filter(h -> VotingPluginWire.SUB_VOTE_BROADCAST
+                .equals(h.envelope().getSubChannel()) && "backend-c".equals(h.server())).count());
+        assertTrue(updateHandoffs(proxy).stream().anyMatch(h -> "backend-c".equals(h.server())));
+        assertTrue(proxy.cache.getOnlineVotes(new UUID(1, 504).toString()).stream()
+                .anyMatch(v -> v.isRewardDelivered() && v.needsBroadcastOn("backend-b")));
+    }
+
+    @Test
+    void restartPreservesCompletedRewardAndItsOriginalSingleServer(@TempDir Path directory) throws Exception {
+        CapturingProxy proxy = new CapturingProxy(directory);
+        enableLiveBroadcasts(proxy);
+        proxy.unavailableBackends.add("backend-b");
+        when(proxy.getConfig().getVoteLoggingEnabled()).thenReturn(true);
+        VoteLogMysqlTable log = mock(VoteLogMysqlTable.class);
+        UUID id = new UUID(2, 505);
+        when(log.logVote(eq(id), any(VoteLogMysqlTable.VoteLogStatus.class), anyString(), anyString(),
+                anyString(), anyLong(), anyInt())).thenThrow(new IllegalStateException("synthetic log failure"));
+        setField(proxy, "voteLogMysqlTable", log);
+        String player = new UUID(1, 505).toString();
+        assertThrows(VotingPluginProxy.VoteRetryException.class,
+                () -> proxy.vote("Synthetic", "synthetic-service", true, false, 1L, null, player, id));
+        com.bencodez.votingplugin.timequeue.VoteTimeQueue snapshot = proxy.snapshotIncomingVoteForRestart(
+                new PendingIncomingVote(id, "Synthetic", "synthetic-service", 1L));
+        assertFalse(snapshot.hasPendingHttpBroadcastDeliveryIds(), "completion marker became a transport owner");
+        PendingIncomingVoteJournal emergency = PendingIncomingVoteJournal.rescue(directory);
+        emergency.merge(List.of(snapshot));
+        proxy.closeDispatcher();
+
+        CapturingProxy restarted = new CapturingProxy(directory);
+        enableLiveBroadcasts(restarted);
+        restarted.playerServer = "backend-b";
+        restarted.cache.load();
+        assertTrue(restarted.retainIncomingVoteForRestart(emergency.load().get(0)));
+        com.bencodez.votingplugin.timequeue.VoteTimeQueue recovered = restarted.cache.getTimeChangeQueue().peek();
+        assertEquals(VotingPluginProxy.QueuedVoteResult.SUCCESS, restarted.replayQueuedVote(recovered,
+                VoteTotalsSnapshot.parseStorage(recovered.getTotals()), true));
+        restarted.time.advance(TimeUnit.SECONDS.toNanos(1));
+        assertTrue(restarted.handoffs.stream().noneMatch(h -> VotingPluginWire.SUB_VOTE_ONLINE
+                .equals(h.envelope().getSubChannel()) || VotingPluginWire.SUB_VOTE.equals(h.envelope().getSubChannel())),
+                "restart or backend movement repeated a completed reward");
+    }
+
+    @Test
+    void existingTimedQueuePersistsAcceptedRewardBeforeLaterWorkFails(@TempDir Path directory) throws Exception {
+        CapturingProxy proxy = new CapturingProxy(directory);
+        enableLiveBroadcasts(proxy);
+        proxy.unavailableBackends.add("backend-b");
+        when(proxy.getConfig().getVoteLoggingEnabled()).thenReturn(true);
+        VoteLogMysqlTable log = mock(VoteLogMysqlTable.class);
+        UUID id = new UUID(2, 506);
+        when(log.logVote(eq(id), any(VoteLogMysqlTable.VoteLogStatus.class), anyString(), anyString(),
+                anyString(), anyLong(), anyInt())).thenThrow(new IllegalStateException("synthetic log failure"));
+        setField(proxy, "voteLogMysqlTable", log);
+        com.bencodez.votingplugin.timequeue.VoteTimeQueue original =
+                new com.bencodez.votingplugin.timequeue.VoteTimeQueue(id, "Synthetic", "synthetic-service", 1L);
+        original.setUuid(new UUID(1, 506).toString());
+        original.setWasOnline(true);
+        VoteTotalsSnapshot totals = new VoteTotalsSnapshot(25, 10, 7, 2, 11, 3, 50, 10);
+        original.setTotals(totals.toString());
+        original.setTotalsApplied(true);
+        assertTrue(proxy.cache.addTimeVoteToCache(original));
+        assertEquals(VotingPluginProxy.QueuedVoteResult.RETRY, proxy.replayQueuedVote(original, totals, true));
+        proxy.closeDispatcher();
+
+        CapturingProxy restarted = new CapturingProxy(directory);
+        restarted.cache.load();
+        enableLiveBroadcasts(restarted);
+        restarted.playerServer = "backend-b";
+        com.bencodez.votingplugin.timequeue.VoteTimeQueue recovered = restarted.cache.getTimeChangeQueue().peek();
+        assertNotNull(recovered);
+        assertEquals(VotingPluginProxy.QueuedVoteResult.SUCCESS, restarted.replayQueuedVote(recovered,
+                VoteTotalsSnapshot.parseStorage(recovered.getTotals()), true));
+        restarted.time.advance(TimeUnit.SECONDS.toNanos(1));
+        assertTrue(restarted.handoffs.stream().noneMatch(h -> VotingPluginWire.SUB_VOTE_ONLINE
+                .equals(h.envelope().getSubChannel()) || VotingPluginWire.SUB_VOTE.equals(h.envelope().getSubChannel())));
+        assertFalse(updateHandoffs(restarted).isEmpty());
+        assertTrue(updateHandoffs(restarted).stream().allMatch(h -> totals.toString().equals(
+                h.envelope().getFields().get(VotingPluginWire.K_TOTALS))), "restart replaced saved totals with zero");
+    }
+
+    @Test
+    void independentlyCompletedBroadcastIsNotRepeatedAfterRestart(@TempDir Path directory) throws Exception {
+        CapturingProxy proxy = new CapturingProxy(directory);
+        enableLiveBroadcasts(proxy);
+        proxy.unavailableBackends.add("backend-b");
+        when(proxy.getConfig().getVoteLoggingEnabled()).thenReturn(true);
+        VoteLogMysqlTable log = mock(VoteLogMysqlTable.class);
+        UUID id = new UUID(2, 507);
+        when(log.logVote(eq(id), any(VoteLogMysqlTable.VoteLogStatus.class), anyString(), anyString(),
+                anyString(), anyLong(), anyInt())).thenThrow(new IllegalStateException("synthetic log failure"));
+        setField(proxy, "voteLogMysqlTable", log);
+        String player = new UUID(1, 507).toString();
+        assertThrows(VotingPluginProxy.VoteRetryException.class,
+                () -> proxy.vote("Synthetic", "synthetic-service", true, false, 1L, null, player, id));
+        proxy.unavailableBackends.clear();
+        proxy.time.advance(TimeUnit.SECONDS.toNanos(1));
+        proxy.time.advance(INTERVAL);
+        proxy.retryPendingOnlineBroadcasts();
+        assertEquals(1, proxy.handoffs.stream().filter(h -> VotingPluginWire.SUB_VOTE_BROADCAST
+                .equals(h.envelope().getSubChannel()) && "backend-b".equals(h.server())).count());
+        com.bencodez.votingplugin.timequeue.VoteTimeQueue snapshot = proxy.snapshotIncomingVoteForRestart(
+                new PendingIncomingVote(id, "Synthetic", "synthetic-service", 1L));
+        assertTrue(snapshot.getBroadcastForwardedServers().contains("backend-b"));
+        assertTrue(proxy.cache.addTimeVoteToCache(snapshot));
+        proxy.closeDispatcher();
+
+        CapturingProxy restarted = new CapturingProxy(directory);
+        enableLiveBroadcasts(restarted);
+        restarted.cache.load();
+        com.bencodez.votingplugin.timequeue.VoteTimeQueue recovered = restarted.cache.getTimeChangeQueue().peek();
+        assertEquals(VotingPluginProxy.QueuedVoteResult.SUCCESS, restarted.replayQueuedVote(recovered,
+                VoteTotalsSnapshot.parseStorage(recovered.getTotals()), true));
+        restarted.time.advance(TimeUnit.SECONDS.toNanos(1));
+        restarted.retryPendingOnlineBroadcasts();
+        assertTrue(restarted.handoffs.stream().noneMatch(h -> VotingPluginWire.SUB_VOTE_BROADCAST
+                .equals(h.envelope().getSubChannel())), "restart repeated an independently completed broadcast");
+    }
+
+    @Test
+    void restartReusesCanonicalBroadcastOwnerAndIndependentCompletion(@TempDir Path directory) throws Exception {
+        for (boolean finishBeforeReplay : List.of(false, true)) {
+            Path data = directory.resolve(Boolean.toString(finishBeforeReplay));
+            CapturingProxy proxy = new CapturingProxy(data);
+            enableLiveBroadcasts(proxy);
+            proxy.unavailableBackends.add("backend-b");
+            when(proxy.getConfig().getVoteLoggingEnabled()).thenReturn(true);
+            VoteLogMysqlTable log = mock(VoteLogMysqlTable.class);
+            UUID id = UUID.randomUUID();
+            when(log.logVote(eq(id), any(VoteLogMysqlTable.VoteLogStatus.class), anyString(), anyString(),
+                    anyString(), anyLong(), anyInt())).thenThrow(new IllegalStateException("synthetic log failure"));
+            setField(proxy, "voteLogMysqlTable", log);
+            String player = UUID.randomUUID().toString();
+            assertThrows(VotingPluginProxy.VoteRetryException.class,
+                    () -> proxy.vote("Synthetic", "synthetic-service", true, false, 1L, null, player, id));
+            assertTrue(proxy.cache.addTimeVoteToCache(proxy.snapshotIncomingVoteForRestart(
+                    new PendingIncomingVote(id, "Synthetic", "synthetic-service", 1L))));
+            proxy.closeDispatcher();
+
+            CapturingProxy restarted = new CapturingProxy(data);
+            enableLiveBroadcasts(restarted);
+            restarted.cache.load();
+            if (finishBeforeReplay) restarted.checkOnlineVotes("Synthetic", player, BACKEND);
+            restarted.time.advance(TimeUnit.SECONDS.toNanos(1));
+            com.bencodez.votingplugin.timequeue.VoteTimeQueue recovered = restarted.cache.getTimeChangeQueue().peek();
+            assertEquals(VotingPluginProxy.QueuedVoteResult.SUCCESS, restarted.replayQueuedVote(recovered,
+                    VoteTotalsSnapshot.parseStorage(recovered.getTotals()), true));
+            restarted.time.advance(TimeUnit.SECONDS.toNanos(1));
+            restarted.retryPendingOnlineBroadcasts();
+            restarted.time.advance(TimeUnit.SECONDS.toNanos(1));
+            restarted.retryPendingOnlineBroadcasts();
+            assertEquals(1, restarted.handoffs.stream().filter(h -> VotingPluginWire.SUB_VOTE_BROADCAST
+                    .equals(h.envelope().getSubChannel()) && "backend-b".equals(h.server())).count(),
+                    "canonical and timed-source recovery repeated the same broadcast");
+        }
+    }
+
+    @Test
+    void rejectedRewardCacheBecomesTheDurableBroadcastOwnerOnSuccessfulRetry(@TempDir Path directory) throws Exception {
+        CapturingProxy proxy = new CapturingProxy(directory);
+        enableLiveBroadcasts(proxy);
+        proxy.deliveryAccepted = false;
+        when(proxy.getConfig().getVoteLoggingEnabled()).thenReturn(true);
+        VoteLogMysqlTable log = mock(VoteLogMysqlTable.class);
+        UUID id = UUID.randomUUID();
+        when(log.logVote(eq(id), any(VoteLogMysqlTable.VoteLogStatus.class), anyString(), anyString(),
+                anyString(), anyLong(), anyInt())).thenThrow(new IllegalStateException("synthetic log failure"));
+        setField(proxy, "voteLogMysqlTable", log);
+        String player = UUID.randomUUID().toString();
+        assertThrows(VotingPluginProxy.VoteRetryException.class,
+                () -> proxy.vote("Synthetic", "synthetic-service", true, false, 1L, null, player, id));
+        assertFalse(proxy.cache.getOnlineVotes(player).get(0).isProxyBroadcastHandled());
+        proxy.deliveryAccepted = true;
+        proxy.unavailableBackends.add("backend-b");
+        proxy.time.advance(TimeUnit.SECONDS.toNanos(2));
+        doReturn("synthetic-entry").when(log).logVote(eq(id), any(VoteLogMysqlTable.VoteLogStatus.class), anyString(), anyString(),
+                anyString(), anyLong(), anyInt());
+        assertDoesNotThrow(() -> proxy.vote("Synthetic", "synthetic-service", true, false, 1L, null, player, id));
+        assertEquals(1, proxy.cache.getOnlineVotes(player).size());
+        assertTrue(proxy.cache.getOnlineVotes(player).get(0).isRewardDelivered());
+        assertTrue(proxy.cache.getOnlineVotes(player).get(0).needsBroadcastOn("backend-b"));
+        proxy.closeDispatcher();
+
+        CapturingProxy restarted = new CapturingProxy(directory);
+        enableLiveBroadcasts(restarted);
+        restarted.cache.load();
+        restarted.retryPendingOnlineBroadcasts();
+        restarted.time.advance(TimeUnit.SECONDS.toNanos(1));
+        restarted.retryPendingOnlineBroadcasts();
+        assertEquals(1, restarted.handoffs.stream().filter(h -> VotingPluginWire.SUB_VOTE_BROADCAST
+                .equals(h.envelope().getSubChannel()) && "backend-b".equals(h.server())).count());
+        assertTrue(restarted.handoffs.stream().noneMatch(h -> VotingPluginWire.SUB_VOTE_ONLINE
+                .equals(h.envelope().getSubChannel())));
+    }
+
+    @Test
+    void offlineAcceptedMarkersAreNotPendingHttpButRealBroadcastIdsAre(@TempDir Path directory) throws Exception {
+        CapturingProxy proxy = new CapturingProxy(directory);
+        UUID id = new UUID(2, 508);
+        String player = new UUID(1, 508).toString();
+        OfflineBungeeVote vote = new OfflineBungeeVote(id, "Synthetic", player, "synthetic-service", 1L,
+                true, "", false, true, Set.of("backend-b"), Set.of(), true, Map.of(),
+                Map.of(VotingPluginWire.ACCEPTED_REWARD_TARGET_PREFIX + BACKEND, id.toString()));
+        assertFalse(vote.hasPendingHttpDeliveryIds());
+        assertTrue(proxy.cache.addOnlineVoteDurably(player, vote));
+        Method pending = VotingPluginProxy.class.getDeclaredMethod("hasPendingCachedHttpDeliveries");
+        pending.setAccessible(true);
+        assertEquals(false, pending.invoke(proxy));
+        vote.setHttpBroadcastDeliveryId("backend-b", UUID.randomUUID().toString());
+        assertTrue(vote.hasPendingHttpDeliveryIds());
+        assertTrue(proxy.cache.updateOnlineVote(player, vote));
+        assertEquals(true, pending.invoke(proxy));
+    }
+
+    @Test
     void fullControlLaneDoesNotPreventDurableVoteUpdateAdmission(@TempDir Path directory) throws Exception {
         CapturingProxy proxy = new CapturingProxy(directory);
         proxy.legacy().addAll(List.of(BACKEND, "backend-b"));
@@ -588,7 +852,9 @@ class VotingPluginProxyPacingTest {
         final VoteCacheHandler cache;
         final ReliableVoteDeliveryOutbox outbox;
         boolean carrier = true;
+        boolean broadcastValidationEnabled;
         final Set<String> unavailableBackends = new LinkedHashSet<>();
+        final Set<String> availableTargets = new LinkedHashSet<>(List.of(BACKEND, "backend-b"));
         boolean failDurablePartySave;
         boolean deliveryAccepted = true;
         String playerServer = BACKEND;
@@ -632,8 +898,11 @@ class VotingPluginProxyPacingTest {
         }
 
         @Override protected long pluginMessageNanoTime() { return time.now; }
+        @Override protected boolean canForwardStandaloneBroadcast(boolean managesTotals) {
+            return broadcastValidationEnabled || super.canForwardStandaloneBroadcast(managesTotals);
+        }
         @Override public ScheduledExecutorService getScheduler() { return time.executor; }
-        @Override public Set<String> getAllAvailableServers() { return new LinkedHashSet<>(List.of(BACKEND, "backend-b")); }
+        @Override public Set<String> getAllAvailableServers() { return new LinkedHashSet<>(availableTargets); }
         @Override public boolean isSomeoneOnlineServer(String server) { return carrier && !unavailableBackends.contains(server); }
         @Override public String getCurrentPlayerServer(String player) { return playerRoutes.getOrDefault(player, playerServer); }
         @Override public boolean isPlayerOnline(String player) { return !offlinePlayers.contains(player) && super.isPlayerOnline(player); }

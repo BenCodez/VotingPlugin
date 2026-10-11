@@ -398,7 +398,13 @@ public class OfflineBungeeVote {
 
 	/** Returns whether any reward or standalone HTTP delivery is still pending. */
 	public boolean hasPendingHttpDeliveryIds() {
-		return !httpDeliveryIds.isEmpty() || !httpBroadcastDeliveryIds.isEmpty();
+		return !httpDeliveryIds.isEmpty() || hasPendingHttpBroadcastDeliveryIds();
+	}
+
+	/** Returns whether standalone HTTP broadcasts, rather than internal markers, remain. */
+	public boolean hasPendingHttpBroadcastDeliveryIds() {
+		return httpBroadcastDeliveryIds.keySet().stream().anyMatch(key -> !key.startsWith(
+				VotingPluginWire.ACCEPTED_REWARD_TARGET_PREFIX));
 	}
 
 	/**

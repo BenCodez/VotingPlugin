@@ -67,6 +67,38 @@ class PendingIncomingVoteJournalTest {
 	}
 
 	@Test
+	void primaryAndRescueJournalsPreserveAcceptedTargetsWithoutInventingHttpWork() throws Exception {
+		Path data = temporaryDirectory.resolve("plugin-data");
+		for (PendingIncomingVoteJournal journal : List.of(new PendingIncomingVoteJournal(data),
+				PendingIncomingVoteJournal.rescue(data))) {
+			UUID id = UUID.randomUUID();
+			VoteTimeQueue vote = new VoteTimeQueue(id, "Player", "Service", 1L);
+			vote.setHttpBroadcastDeliveryId(VotingPluginWire.ACCEPTED_REWARD_TARGET_PREFIX + "backend-a", id.toString());
+			journal.merge(List.of(vote));
+			VoteTimeQueue recovered = journal.load().get(0);
+			assertEquals(vote.getHttpBroadcastDeliveryIds(), recovered.getHttpBroadcastDeliveryIds());
+			assertFalse(recovered.hasPendingHttpBroadcastDeliveryIds());
+			vote.setHttpBroadcastDeliveryId("backend-b", UUID.randomUUID().toString());
+			journal.replace(List.of(vote));
+			assertEquals(vote.getHttpBroadcastDeliveryIds(), journal.load().get(0).getHttpBroadcastDeliveryIds());
+			assertTrue(journal.load().get(0).hasPendingHttpBroadcastDeliveryIds());
+		}
+	}
+
+	@Test
+	void malformedDeliveryMetadataFailsClosedWithoutReplacingTheJournal() throws Exception {
+		Path file = temporaryDirectory.resolve("pending-incoming-votes-v1.json");
+		String contents = "[{\"voteId\":\"" + UUID.randomUUID() + "\",\"player\":\"Player\","
+				+ "\"service\":\"Service\",\"acceptedAt\":1,\"httpBroadcastDeliveryIds\":\"invalid\"}]";
+		Files.writeString(file, contents);
+		PendingIncomingVoteJournal journal = new PendingIncomingVoteJournal(temporaryDirectory);
+		assertThrows(java.io.IOException.class, journal::load);
+		assertThrows(java.io.IOException.class, () -> journal.merge(List.of(
+				new VoteTimeQueue(UUID.randomUUID(), "Player", "Service", 2L))));
+		assertEquals(contents, Files.readString(file));
+	}
+
+	@Test
 	void mergeDeduplicatesTheSameVoteId() throws Exception {
 		PendingIncomingVoteJournal journal = new PendingIncomingVoteJournal(temporaryDirectory);
 		UUID voteId = UUID.randomUUID();

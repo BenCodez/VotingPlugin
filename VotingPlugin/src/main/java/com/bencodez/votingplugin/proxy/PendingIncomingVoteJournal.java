@@ -84,6 +84,11 @@ public final class PendingIncomingVoteJournal {
 				vote.setTotalsApplied(value.has("totalsApplied") && value.get("totalsApplied").getAsBoolean());
 				vote.getBroadcastForwardedServers().addAll(VoteTimeQueue.decodeBroadcastForwardedServers(
 						optional(value, "broadcastForwardedServers", 16384)));
+				String deliveryIds = optional(value, "httpBroadcastDeliveryIds", 16384);
+				VoteTimeQueue.decodeHttpBroadcastDeliveryIds(deliveryIds).forEach(vote::setHttpBroadcastDeliveryId);
+				if (!deliveryIds.equals(vote.encodeHttpBroadcastDeliveryIds())) {
+					throw new IOException("Pending vote journal contains invalid delivery metadata");
+				}
 				vote.setMultiProxyForwardingHandled(value.has("multiProxyForwardingHandled")
 						&& value.get("multiProxyForwardingHandled").getAsBoolean());
 				if (value.has("delayValidationKnown") && value.get("delayValidationKnown").getAsBoolean()) {
@@ -134,6 +139,7 @@ public final class PendingIncomingVoteJournal {
 			value.addProperty("votePartyApplied", vote.isVotePartyApplied());
 			value.addProperty("totalsApplied", vote.isTotalsApplied());
 			value.addProperty("broadcastForwardedServers", vote.encodeBroadcastForwardedServers());
+			value.addProperty("httpBroadcastDeliveryIds", vote.encodeHttpBroadcastDeliveryIds());
 			value.addProperty("multiProxyForwardingHandled", vote.isMultiProxyForwardingHandled());
 			value.addProperty("delayValidated", vote.isDelayValidated());
 			value.addProperty("delayValidationKnown", vote.isDelayValidationKnown());
@@ -160,6 +166,9 @@ public final class PendingIncomingVoteJournal {
 		}
 		if (vote.getUuid() != null && vote.getUuid().length() > 36) throw new IOException("Invalid UUID field");
 		if (vote.getTotals() != null && vote.getTotals().length() > 4096) throw new IOException("Invalid totals field");
+		if (vote.encodeHttpBroadcastDeliveryIds().length() > 16384) {
+			throw new IOException("Invalid delivery metadata");
+		}
 		if (vote.encodeBroadcastForwardedServers().length() > 16384) {
 			throw new IOException("Invalid forwarded-server state");
 		}

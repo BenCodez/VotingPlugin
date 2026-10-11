@@ -132,3 +132,11 @@ execution. An ambiguous interrupted one-way attempt is not automatically
 replayed, to avoid repeating external reward work. Pending plugin-message updates
 remain retained when another transport is configured and resume when plugin
 messaging is used again. Other transports keep their existing update behavior.
+
+Live extra-target plugin-message broadcasts use the existing durable broadcast
+journal. Targets are recorded as forwarded only after actual paced handoff;
+unavailable targets stay pending without blocking other backends or later vote
+work. Accepted reward target markers survive graceful restart in existing queue
+metadata and keep a single-server reward on its original backend. They do not
+represent a backend completion receipt or a pending HTTP transmission. No SQL
+schema or owner configuration migration is needed.

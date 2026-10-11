@@ -150,6 +150,8 @@ public abstract class VotingPluginProxy {
 	// synchronized, so no new side-effecting vote can race the handoff window.
 	private boolean runtimeReplacementPrepared;
 
+	private static final String ACCEPTED_REWARD_PREFIX = VotingPluginWire.ACCEPTED_REWARD_TARGET_PREFIX;
+
 	private static final class LiveVoteRetryState {
 		private String requestIdentity;
 		private VoteTotalsSnapshot totals;
@@ -1198,17 +1200,18 @@ public abstract class VotingPluginProxy {
 						int num = 1;
 						int numberOfVotes = c.size();
 						for (OfflineBungeeVote cache : c) {
-							if (!cache.isCachedVoteBatchValid()) continue;
+							if (!cache.isCachedVoteBatchValid() || !retainStandaloneBroadcastProgress(cache)) continue;
 							if (cache.isDeliveryStateDirty() && !persistServerVoteDelivery(server, cache)) {
 								continue;
 							}
 							if (cache.isProxyBroadcastHandled() && cache.needsBroadcastOn(server)) {
 								Set<String> forwarded = sendProxyBroadcast(Collections.singleton(server),
 										cache.getUuid(), cache.getPlayerName(), cache.getService(), cache.getTime(),
-										cache.getText(), false, cache);
+										cache.getText(), cache.isWasOnlineKnown() && cache.isWasOnline(), cache);
 								boolean broadcastChanged = cache.getBroadcastForwardedServers().addAll(forwarded);
 								if (broadcastChanged) {
 									cache.setBroadcastForwarded(cache.isProxyBroadcastComplete());
+									if (!retainStandaloneBroadcastProgress(cache)) continue;
 								}
 								if ((broadcastChanged || cache.isDeliveryStateDirty())
 										&& !persistServerVoteDelivery(server, cache)) continue;
@@ -1288,7 +1291,7 @@ public abstract class VotingPluginProxy {
 					if (!getVoteCacheHandler().prepareCachedVoteBatch(uuid, true, pendingBatch, pendingBatch.size())) return;
 					boolean deliveredReward = false;
 					for (OfflineBungeeVote cache : new ArrayList<>(c)) {
-						if (!cache.isCachedVoteBatchValid()) continue;
+						if (!cache.isCachedVoteBatchValid() || !retainStandaloneBroadcastProgress(cache)) continue;
 						if (isIncompleteRewardJournalOwner(cache)) {
 							if (!materializeRewardJournalOwner(uuid, cache)) continue;
 							if (!cache.isProxyBroadcastHandled() || cache.isProxyBroadcastComplete()) {
@@ -1310,8 +1313,9 @@ public abstract class VotingPluginProxy {
 							}
 							boolean broadcastChanged = cache.getBroadcastForwardedServers().addAll(sendProxyBroadcast(pendingTargets,
 									cache.getUuid(), cache.getPlayerName(), cache.getService(), cache.getTime(),
-									cache.getText(), false, cache));
+									cache.getText(), cache.isWasOnlineKnown() && cache.isWasOnline(), cache));
 							cache.setBroadcastForwarded(cache.isProxyBroadcastComplete());
+							if (!retainStandaloneBroadcastProgress(cache)) continue;
 							if ((broadcastChanged || cache.isDeliveryStateDirty())
 									&& !persistOnlineVoteDelivery(uuid, cache)) continue;
 						}
@@ -1370,6 +1374,7 @@ public abstract class VotingPluginProxy {
 		}
 		for (String cachedUuid : broadcastOwners) {
 			for (OfflineBungeeVote cache : new ArrayList<>(getVoteCacheHandler().getOnlineVotes(cachedUuid))) {
+				if (!retainStandaloneBroadcastProgress(cache)) continue;
 				if (isIncompleteRewardJournalOwner(cache) && !materializeRewardJournalOwner(cachedUuid, cache)) {
 					continue;
 				}
@@ -1383,9 +1388,11 @@ public abstract class VotingPluginProxy {
 					continue;
 				}
 				Set<String> forwarded = sendProxyBroadcast(Collections.singleton(server), cache.getUuid(),
-					cache.getPlayerName(), cache.getService(), cache.getTime(), cache.getText(), false, cache);
+					cache.getPlayerName(), cache.getService(), cache.getTime(), cache.getText(),
+						cache.isWasOnlineKnown() && cache.isWasOnline(), cache);
 				if (cache.getBroadcastForwardedServers().addAll(forwarded)) {
 					cache.setBroadcastForwarded(cache.isProxyBroadcastComplete());
+					if (!retainStandaloneBroadcastProgress(cache)) continue;
 					if (cache.isRewardDelivered() && cache.isProxyBroadcastComplete()) {
 						getVoteCacheHandler().removeOnlineVote(cachedUuid, cache);
 					} else {
@@ -1433,6 +1440,7 @@ public abstract class VotingPluginProxy {
 		}
 		for (String cachedUuid : new LinkedHashSet<>(getVoteCacheHandler().getOnlineVoteUUIDs())) {
 			for (OfflineBungeeVote cache : new ArrayList<>(getVoteCacheHandler().getOnlineVotes(cachedUuid))) {
+				if (!retainStandaloneBroadcastProgress(cache)) continue;
 				if (isIncompleteRewardJournalOwner(cache) && !materializeRewardJournalOwner(cachedUuid, cache)) {
 					continue;
 				}
@@ -1457,9 +1465,11 @@ public abstract class VotingPluginProxy {
 					pendingTargets.removeAll(blockedServers);
 				}
 				Set<String> forwarded = sendProxyBroadcast(pendingTargets, cache.getUuid(), cache.getPlayerName(),
-					cache.getService(), cache.getTime(), cache.getText(), false, cache);
+					cache.getService(), cache.getTime(), cache.getText(),
+						cache.isWasOnlineKnown() && cache.isWasOnline(), cache);
 				if (cache.getBroadcastForwardedServers().addAll(forwarded)) {
 					cache.setBroadcastForwarded(cache.isProxyBroadcastComplete());
+					if (!retainStandaloneBroadcastProgress(cache)) continue;
 					if (cache.isRewardDelivered() && cache.isProxyBroadcastComplete()) {
 						getVoteCacheHandler().removeOnlineVote(cachedUuid, cache);
 					} else {
@@ -4359,7 +4369,7 @@ public abstract class VotingPluginProxy {
 		for (OfflineBungeeVote vote : votes) {
 			// HttpDeliveryIds is also the legacy reward journal. Only the
 			// standalone HTTP broadcast map proves that HTTP owned this work.
-			if (vote != null && !vote.getHttpBroadcastDeliveryIds().isEmpty()) return true;
+			if (vote != null && vote.hasPendingHttpBroadcastDeliveryIds()) return true;
 		}
 		return false;
 	}
@@ -6002,6 +6012,14 @@ public abstract class VotingPluginProxy {
 			queued.setVotePartyApplied(retry.votePartyApplied);
 			queued.setTotalsApplied(retry.totalsApplied);
 			queued.getBroadcastForwardedServers().addAll(retry.broadcastForwardedServers);
+			if (retry.standaloneBroadcastState != null) {
+				queued.getBroadcastForwardedServers().addAll(
+						retry.standaloneBroadcastState.getBroadcastForwardedServers());
+			}
+			if (method == BungeeMethod.PLUGINMESSAGING) {
+				for (String server : retry.deliveredRewardServers)
+					queued.setHttpBroadcastDeliveryId(ACCEPTED_REWARD_PREFIX + server, pending.getVoteId().toString());
+			}
 			queued.setMultiProxyForwardingHandled(retry.multiProxyForwardingHandled);
 			if (retry.delayValidationKnown) queued.setDelayValidated(retry.delayValidated);
 			if (retry.totals != null) queued.setTotals(retry.totals.toString());
@@ -6040,6 +6058,9 @@ public abstract class VotingPluginProxy {
 		queued.setTotalsApplied(state.isTotalsApplied());
 		queued.setTotals(state.getTotals());
 		queued.getBroadcastForwardedServers().addAll(state.getBroadcastForwardedServers());
+		for (Map.Entry<String, String> marker : state.getHttpBroadcastDeliveryIds().entrySet())
+			if (marker.getKey().startsWith(ACCEPTED_REWARD_PREFIX))
+				queued.setHttpBroadcastDeliveryId(marker.getKey(), marker.getValue());
 		queued.setMultiProxyForwardingHandled(state.isMultiProxyForwardingHandled());
 		if (state.isDelayValidationKnown()) queued.setDelayValidated(state.isDelayValidated());
 		queued.setDeliveryStateDirty(true);
@@ -6103,7 +6124,8 @@ public abstract class VotingPluginProxy {
 			if (retryState != null && !requestIdentity.equals(retryState.requestIdentity)) {
 				throw new IllegalArgumentException("Retry ID does not match the original vote");
 			}
-			boolean resumingAfterTotals = retryState != null;
+			boolean resumingAfterTotals = retryState != null
+					|| queuedVote != null && queuedVote.isTotalsApplied();
 
 			// UUID resolution
 			if (!getConfig().getOnlineMode()) {
@@ -6174,7 +6196,16 @@ public abstract class VotingPluginProxy {
 					: queuedVote != null && queuedVote.isWasOnlineKnown()
 							? queuedVote.isWasOnline()
 							: isPlayerOnlineForVoteRouting(player);
-			final String playerServer = playerOnline ? getCurrentPlayerServerForVoteRouting(player) : null;
+			Set<String> restoredAcceptedServers = restoreAcceptedRewardServers(queuedVote, voteId);
+			String acceptedRewardServer = null;
+			if (!getConfig().getSendVotesToAllServers()) {
+				if (retryState != null && !retryState.deliveredRewardServers.isEmpty())
+					acceptedRewardServer = retryState.deliveredRewardServers.iterator().next();
+				else if (!restoredAcceptedServers.isEmpty())
+					acceptedRewardServer = restoredAcceptedServers.iterator().next();
+			}
+			final String playerServer = acceptedRewardServer != null ? acceptedRewardServer
+					: playerOnline ? getCurrentPlayerServerForVoteRouting(player) : null;
 			long time = retryState != null ? retryState.time
 					: (queueTime != 0 ? queueTime
 							: LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli());
@@ -6279,6 +6310,9 @@ public abstract class VotingPluginProxy {
 				retryState = new LiveVoteRetryState();
 				retryState.requestIdentity = requestIdentity;
 				retryState.totalsInput = data;
+				if (queuedVote != null && queuedVote.isTotalsApplied()) {
+					retryState.totals = text != null ? text : VoteTotalsSnapshot.parseStorage(queuedVote.getTotals());
+				}
 				retryState.player = requestPlayer;
 				retryState.service = service;
 				retryState.uuid = uuid;
@@ -6294,6 +6328,7 @@ public abstract class VotingPluginProxy {
 				retryState.multiProxyForwardingHandled |= queuedVote.isMultiProxyForwardingHandled();
 				retryState.votePartyApplied |= queuedVote.isVotePartyApplied();
 				retryState.totalsApplied |= queuedVote.isTotalsApplied();
+				retryState.deliveredRewardServers.addAll(restoredAcceptedServers);
 			}
 			if (!retryState.votePartyApplied) {
 				// Fence the side effect before invoking it. If the call reports an
@@ -6523,6 +6558,7 @@ public abstract class VotingPluginProxy {
 							pendingVote.setRewardDelivered(true);
 							retryState.deliveredRewardServers.add(s);
 							pendingVote.setDeliveryStateDirty(true);
+							if (!persistQueuedRewardAcceptance(retryState, voteId)) return QueuedVoteResult.RETRY;
 							if (!persistServerVoteDelivery(s, pendingVote)) return QueuedVoteResult.RETRY;
 							getVoteCacheHandler().removeServerVotes(s,
 									new ArrayList<>(Collections.singletonList(pendingVote)));
@@ -6562,7 +6598,14 @@ public abstract class VotingPluginProxy {
 								: VotingPluginWire.voteOnline(player, uuid, service, time, playerOnline, realVote,
 										text.toString(), voteId, getConfig().getBungeeManageTotals(), broadcastHere, 1, 1);
 						rewardAccepted = sendVoteEnvelopeAccepted(server, 1, rewardEnvelope, pendingVote);
-						if (rewardAccepted) retryState.deliveredRewardServers.add(server);
+						if (rewardAccepted) {
+							retryState.deliveredRewardServers.add(server);
+						}
+					}
+					if (rewardAccepted) {
+						pendingVote.setRewardDelivered(true);
+						pendingVote.setDeliveryStateDirty(true);
+						if (!persistQueuedRewardAcceptance(retryState, voteId)) return QueuedVoteResult.RETRY;
 					}
 					if (!rewardAccepted) {
 						if (standaloneBroadcastState != null) {
@@ -6591,41 +6634,69 @@ public abstract class VotingPluginProxy {
 							&& !standaloneProxyBroadcast) {
 						Set<String> targets = proxyBroadcastDecider.resolveTargets(true, playerServer);
 
-						int bDelay = 2;
-						for (String targetServer : targets) {
-							// avoid double-broadcast on the same server that already got the voteOnline
-							if (targetServer.equalsIgnoreCase(server)) {
-								continue;
-							}
-							if (getConfig().getBlockedServers().contains(targetServer)) {
-								continue;
-							}
-							if (broadcastForwardedServers.contains(targetServer)) {
-								continue;
-							}
-
-							JsonEnvelope broadcast = VotingPluginWire.voteBroadcast(uuid, player, service, time,
-									text == null ? "" : text.toString(), true);
-							if (method == BungeeMethod.HTTP) {
-								String deliveryId = stableLiveHttpBroadcastDeliveryId(voteId, targetServer);
-								if (!sendStableHttpEnvelope(targetServer, deliveryId, broadcast)) {
-									retryState.broadcastForwardedServers.addAll(broadcastForwardedServers);
-									return queuedVote == null ? QueuedVoteResult.RETRY
-											: QueuedVoteResult.RETRY_NONBLOCKING;
+						if (method == BungeeMethod.PLUGINMESSAGING) {
+							targets = new LinkedHashSet<>(targets);
+							targets.removeIf(target -> target.equalsIgnoreCase(server)
+									|| getConfig().getBlockedServers().contains(target));
+							standaloneBroadcastState = retryState.standaloneBroadcastState;
+							if (standaloneBroadcastState == null) {
+								standaloneBroadcastState = findCachedBroadcastOwner(uuid, voteId);
+								if (standaloneBroadcastState != null) {
+									if (!standaloneBroadcastState.isProxyBroadcastHandled()) {
+										standaloneBroadcastState.setProxyBroadcastHandled(true);
+										standaloneBroadcastState.setBroadcastTargets(targets);
+										standaloneBroadcastState.setRewardDelivered(true);
+										standaloneBroadcastState.setDeliveryStateDirty(true);
+									}
+									retryState.standaloneBroadcastState = standaloneBroadcastState;
 								}
-								broadcastForwardedServers.add(targetServer);
-								retryState.broadcastForwardedServers.add(targetServer);
-							} else {
-								globalMessageProxyHandler.sendMessage(targetServer, bDelay, broadcast);
-								if (method == BungeeMethod.PLUGINMESSAGING) {
+							}
+							if (standaloneBroadcastState == null) {
+								standaloneBroadcastState = new OfflineBungeeVote(voteId, player, uuid, service, time,
+										realVote, text.toString(), false, true, targets, broadcastForwardedServers,
+										true, Collections.emptyMap(), Collections.emptyMap());
+								standaloneBroadcastState.setWasOnline(true);
+								retryState.standaloneBroadcastState = standaloneBroadcastState;
+							}
+							Set<String> remaining = new LinkedHashSet<>(standaloneBroadcastState.getBroadcastTargets());
+							remaining.removeAll(standaloneBroadcastState.getBroadcastForwardedServers());
+							standaloneBroadcastStatePersisted = persistAndSendStandaloneBroadcast(uuid,
+									standaloneBroadcastState, remaining, broadcastForwardedServers);
+							retryState.broadcastForwardedServers.addAll(broadcastForwardedServers);
+							if (!standaloneBroadcastStatePersisted) return QueuedVoteResult.RETRY;
+						} else {
+							int bDelay = 2;
+							for (String targetServer : targets) {
+								// avoid double-broadcast on the same server that already got the voteOnline
+								if (targetServer.equalsIgnoreCase(server)) {
+									continue;
+								}
+								if (getConfig().getBlockedServers().contains(targetServer)) {
+									continue;
+								}
+								if (broadcastForwardedServers.contains(targetServer)) {
+									continue;
+								}
+
+								JsonEnvelope broadcast = VotingPluginWire.voteBroadcast(uuid, player, service, time,
+										text == null ? "" : text.toString(), true);
+								if (method == BungeeMethod.HTTP) {
+									boolean forwarded = sendStableHttpEnvelope(targetServer,
+											stableLiveHttpBroadcastDeliveryId(voteId, targetServer), broadcast);
+									if (!forwarded) {
+										retryState.broadcastForwardedServers.addAll(broadcastForwardedServers);
+										return queuedVote == null ? QueuedVoteResult.RETRY
+												: QueuedVoteResult.RETRY_NONBLOCKING;
+									}
 									broadcastForwardedServers.add(targetServer);
 									retryState.broadcastForwardedServers.add(targetServer);
+								} else {
+									globalMessageProxyHandler.sendMessage(targetServer, bDelay, broadcast);
 								}
+								bDelay++;
 							}
-							bDelay++;
 						}
 					}
-
 					// multiproxy: envelope-only clear vote
 					if (rewardAccepted && getConfig().getMultiProxySupport() && getConfig().getMultiProxyOneGlobalReward()) {
 						multiProxyHandler.sendClearVote(uuid, player);
@@ -7206,6 +7277,46 @@ public abstract class VotingPluginProxy {
 		return false;
 	}
 
+	private boolean retainStandaloneBroadcastProgress(OfflineBungeeVote owner) {
+		if (method != BungeeMethod.PLUGINMESSAGING || owner.getVoteId() == null) return true;
+		LiveVoteRetryState retry = liveVoteRetries.get(owner.getVoteId());
+		if (retry != null) retry.broadcastForwardedServers.addAll(owner.getBroadcastForwardedServers());
+		VoteTimeQueue source = findQueuedVote(owner.getVoteId());
+		if (source == null) return true;
+		boolean changed = source.getBroadcastForwardedServers().addAll(owner.getBroadcastForwardedServers());
+		return !changed && !source.isDeliveryStateDirty() || persistTimeVoteDelivery(source);
+	}
+
+	private OfflineBungeeVote findCachedBroadcastOwner(String uuid, UUID voteId) {
+		for (OfflineBungeeVote cached : getVoteCacheHandler().getOnlineVotes(uuid))
+			if (voteId.equals(cached.getVoteId())) return cached;
+		return null;
+	}
+
+	private boolean persistQueuedRewardAcceptance(LiveVoteRetryState retry, UUID voteId) {
+		if (method != BungeeMethod.PLUGINMESSAGING || retry.queuedVote == null) return true;
+		return retainIncomingVoteForRestart(new PendingIncomingVote(voteId, retry.player, retry.service, retry.time));
+	}
+
+	private Set<String> restoreAcceptedRewardServers(VoteTimeQueue queued, UUID voteId) {
+		Set<String> accepted = new LinkedHashSet<>();
+		if (queued == null) return accepted;
+		for (Map.Entry<String, String> marker : queued.getHttpBroadcastDeliveryIds().entrySet()) {
+			if (!marker.getKey().startsWith(ACCEPTED_REWARD_PREFIX)) continue;
+			if (!voteId.toString().equals(marker.getValue()))
+				throw new IllegalStateException("Accepted reward marker does not match its vote occurrence");
+			accepted.add(resolveAcceptedRewardServer(marker.getKey()));
+		}
+		return accepted;
+	}
+
+	private String resolveAcceptedRewardServer(String key) {
+		String stored = key.substring(ACCEPTED_REWARD_PREFIX.length());
+		for (String configured : getAllConfiguredServers())
+			if (configured.equalsIgnoreCase(stored)) return configured;
+		return stored;
+	}
+
 	private String rewardJournalDeliveryId(OfflineBungeeVote owner, String server) {
 		String encoded = owner.getHttpDeliveryId(REWARD_JOURNAL_TARGET_PREFIX + server);
 		return encoded;
@@ -7294,12 +7405,16 @@ public abstract class VotingPluginProxy {
 			if (retained) scheduleCachedVoteDeliveryRetry();
 			return false;
 		}
+		if (state.isDeliveryStateDirty() && !persistOnlineVoteDelivery(uuid, state)) return false;
+		if (!retainStandaloneBroadcastProgress(state)) return false;
 		for (String target : remainingTargets) {
 			Set<String> forwarded = sendProxyBroadcast(Collections.singleton(target), uuid, state.getPlayerName(),
-					state.getService(), state.getTime(), state.getText(), false, state);
+					state.getService(), state.getTime(), state.getText(),
+					state.isWasOnlineKnown() && state.isWasOnline(), state);
 			forwardedServers.addAll(forwarded);
 			if (state.getBroadcastForwardedServers().addAll(forwarded) || state.isDeliveryStateDirty()) {
 				state.setBroadcastForwarded(state.isProxyBroadcastComplete());
+				if (!retainStandaloneBroadcastProgress(state)) return false;
 				if (!persistOnlineVoteDelivery(uuid, state)) return false;
 			}
 		}
