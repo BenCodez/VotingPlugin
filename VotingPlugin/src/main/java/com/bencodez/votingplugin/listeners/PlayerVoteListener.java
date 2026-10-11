@@ -194,8 +194,8 @@ public class PlayerVoteListener implements Listener {
         post.setProxySessionDelivery(input.isBungee());
         post.setProxySessionRealVote(input.isProxySessionRealVote());
         post.setUnconfirmedProxySessionDelivery(input.isUnconfirmedProxySessionDelivery());
-        post.setLiveLocalSessionDelivery(!input.isBungee() && input.getTime() == 0 && input.getBackendObservationOrder() > 0);
-        post.setUnconfirmedLocalSessionDelivery(!input.isBungee() && input.getTime() == 0 && input.getBackendObservationOrder() <= 0);
+        post.setLiveLocalSessionDelivery(!input.isBungee() && (input.getTime() == 0 || input.isTimeQueuedLocalSessionDelivery()) && input.getBackendObservationOrder() > 0);
+        post.setUnconfirmedLocalSessionDelivery(!input.isBungee() && (input.getTime() == 0 || input.isTimeQueuedLocalSessionDelivery()) && input.getBackendObservationOrder() <= 0);
         post.setBackendObservationOrder(input.getBackendObservationOrder());
         post.setProxyQueueClassificationKnown(input.isProxyQueueClassificationKnown());
         post.setQueuedProxyVote(input.isQueuedProxyVote());

@@ -177,4 +177,15 @@ public class VotiferEventDisabledVoteSiteTest {
         org.junit.jupiter.api.Assertions.assertTrue(order.getValue()>0);
 		verify(pluginManager, never()).callEvent(any(PlayerVoteEvent.class));
 	}
+    @Test public void timeChangeQueueReceivesCapturedIngressOrderBeforeDeferredProcessing() {
+        when(plugin.getTimeChecker().isActiveProcessing()).thenReturn(true);
+        when(plugin.getConfigFile().isQueueVotesDuringTimeChange()).thenReturn(true);
+        var queue = mock(com.bencodez.votingplugin.timequeue.TimeQueueHandler.class);
+        when(plugin.getTimeQueueHandler()).thenReturn(queue);
+        listener.onVotiferEvent(createVoteEvent(SERVICE_SITE));
+        var order = org.mockito.ArgumentCaptor.forClass(Long.class);
+        verify(queue).addVote(org.mockito.ArgumentMatchers.eq("Steve"), org.mockito.ArgumentMatchers.eq(SERVICE_SITE), order.capture());
+        org.junit.jupiter.api.Assertions.assertTrue(order.getValue() > 0);
+        verify(pluginManager, never()).callEvent(any(PlayerVoteEvent.class));
+    }
 }

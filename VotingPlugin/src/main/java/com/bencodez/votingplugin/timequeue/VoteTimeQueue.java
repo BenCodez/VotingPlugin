@@ -27,6 +27,10 @@ public class VoteTimeQueue {
 	@Getter
 	@Setter
 	private long time;
+	/** Process-local original ingress order; intentionally excluded from persisted cache rows. */
+	@Getter
+	@Setter
+	private transient long backendObservationOrder;
 	@Getter
 	@Setter
 	private UUID voteId;

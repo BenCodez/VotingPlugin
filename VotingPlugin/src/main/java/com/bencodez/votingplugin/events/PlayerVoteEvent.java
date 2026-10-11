@@ -19,6 +19,10 @@ public class PlayerVoteEvent extends Event {
 	@Getter
 	@Setter
 	private long backendObservationOrder = com.bencodez.votingplugin.core.session.VoteObservationSequence.next();
+    /** Guide-only marker; preserves normal original vote timestamp and accounting semantics. */
+    @Getter
+    @Setter
+    private boolean timeQueuedLocalSessionDelivery;
 
 	/** The Constant handlers. */
 	private static final HandlerList handlers = new HandlerList();

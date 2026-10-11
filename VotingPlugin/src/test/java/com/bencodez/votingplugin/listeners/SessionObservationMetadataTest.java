@@ -35,4 +35,20 @@ class SessionObservationMetadataTest {
         assertFalse(post.isLiveLocalSessionDelivery()); assertTrue(post.isUnconfirmedLocalSessionDelivery());
         assertEquals(0,post.getBackendObservationOrder()); assertTrue(post.getVoteTime()>0);
     }
+    @Test void timeQueuedLiveVoteRetainsOrderDespiteHistoricalWallClock() {
+        var input = new PlayerVoteEvent(null, "Alex", "a", true);
+        input.setTime(1L); input.setBackendObservationOrder(42L); input.setTimeQueuedLocalSessionDelivery(true);
+        var post = new PlayerPostVoteEvent(null, null, true, false, 1L, false, "a", UUID.randomUUID(), "Alex", UUID.randomUUID());
+        PlayerVoteListener.copySessionObservation(post, input);
+        assertTrue(post.isLiveLocalSessionDelivery()); assertFalse(post.isUnconfirmedLocalSessionDelivery());
+        assertEquals(42L, post.getBackendObservationOrder()); assertEquals(1L, post.getVoteTime());
+    }
+    @Test void recoveredTimeQueueCannotInventFreshnessFromFutureTimestamp() {
+        var input = new PlayerVoteEvent(null, "Alex", "a", true);
+        input.setTime(Long.MAX_VALUE); input.setBackendObservationOrder(0L); input.setTimeQueuedLocalSessionDelivery(true);
+        var post = new PlayerPostVoteEvent(null, null, true, false, Long.MAX_VALUE, false, "a", UUID.randomUUID(), "Alex", UUID.randomUUID());
+        PlayerVoteListener.copySessionObservation(post, input);
+        assertFalse(post.isLiveLocalSessionDelivery()); assertTrue(post.isUnconfirmedLocalSessionDelivery());
+        assertEquals(0L, post.getBackendObservationOrder()); assertEquals(Long.MAX_VALUE, post.getVoteTime());
+    }
 }
