@@ -95,7 +95,7 @@ public class PlayerVoteListener implements Listener {
         }
         @Override public boolean siteEnabled(VoteSite site) { return site.isEnabled(); }
         @Override public String siteKey(VoteSite site) { return site.getKey(); }
-        @Override public String siteDisplayName(VoteSite site) { return site.getDisplayName(); }
+        @Override public String siteDisplayName(VoteSite site) { return site.getDisplayNameForFormatting(); }
         @Override public VotingPluginUser resolveUser(String name) {
             if (event.getVotingPluginUser() != null) return event.getVotingPluginUser();
             Player player = Bukkit.getPlayerExact(name);

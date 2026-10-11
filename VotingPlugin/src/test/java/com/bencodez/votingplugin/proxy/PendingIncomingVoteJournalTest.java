@@ -20,6 +20,20 @@ class PendingIncomingVoteJournalTest {
 	Path temporaryDirectory;
 
 	@Test
+	void legacyDelimiterBearingVotesRemainReplayableWithOtherQueuedVotes() throws Exception {
+		var journal = new PendingIncomingVoteJournal(temporaryDirectory);
+		var votes = List.of(new VoteTimeQueue(UUID.randomUUID(), "Player", "R&D", 1L),
+				new VoteTimeQueue(UUID.randomUUID(), "Player", "https://example.com/site%20name", 2L),
+				new VoteTimeQueue(UUID.randomUUID(), "Player", "NormalSite", 3L));
+		journal.merge(votes);
+		var recovered = journal.load();
+		assertEquals(votes.stream().map(VoteTimeQueue::getService).toList(),
+				recovered.stream().map(VoteTimeQueue::getService).toList());
+		assertEquals(votes.stream().map(VoteTimeQueue::getVoteId).toList(),
+				recovered.stream().map(VoteTimeQueue::getVoteId).toList());
+	}
+
+	@Test
 	void atomicJournalPreservesStableIdAndPartialEffectFences() throws Exception {
 		PendingIncomingVoteJournal journal = new PendingIncomingVoteJournal(temporaryDirectory);
 		UUID voteId = UUID.randomUUID();

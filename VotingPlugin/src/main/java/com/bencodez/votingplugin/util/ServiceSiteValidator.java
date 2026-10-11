@@ -16,7 +16,7 @@ public final class ServiceSiteValidator {
 	 *
 	 * @param serviceSite service-site name supplied by a vote source
 	 * @return {@code true} for a bounded, visible service-site name that does not
-	 *         contain interpreter delimiters
+	 *         contain unsupported delimiters
 	 */
 	public static boolean isValid(String serviceSite) {
 		if (serviceSite == null || serviceSite.length() > MAX_LENGTH) {
@@ -65,10 +65,17 @@ public final class ServiceSiteValidator {
 		return sanitized.toString();
 	}
 
+	/** Display-only representation; raw identifiers remain authoritative for matching/actions.
+	 * Uses printable ASCII labels rather than invisible or font-dependent characters. */
+	public static String inertForFormatting(String value) {
+		if (value == null) return "";
+		return value.replace("&", "(ampersand)").replace("%", "(percent)")
+				.replace("§", "(section)").replace("{", "(open brace)").replace("}", "(close brace)");
+	}
+
 	private static boolean isDisallowed(int codePoint) {
 		if (codePoint == '[' || codePoint == ']' || codePoint == '\'' || codePoint == '"' || codePoint == '`'
-				|| codePoint == '\\' || codePoint == '&' || codePoint == '%' || codePoint == '\u00A7'
-				|| codePoint == '{' || codePoint == '}') {
+				|| codePoint == '\\') {
 			return true;
 		}
 

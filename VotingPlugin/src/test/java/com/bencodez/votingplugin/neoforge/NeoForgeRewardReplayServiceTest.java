@@ -834,7 +834,7 @@ class NeoForgeRewardReplayServiceTest {
             runtime.scheduler().onServerTick();
             assertEquals(NeoForgeRewardReplayService.Status.COMPLETED,
                     completion.get(5, TimeUnit.SECONDS).get(0).status());
-            assertEquals(List.of("Thanks Alex from \u2060Service\u2060 at Supported Display"), actions.rendered);
+            assertEquals(List.of("Thanks Alex from Service at Supported Display"), actions.rendered);
         }
     }
 
@@ -862,7 +862,7 @@ class NeoForgeRewardReplayServiceTest {
     }
 
     @Test
-    void configuredServiceFormattingIsRejectedBeforeRewards() throws Exception {
+    void playerMessageKeepsConfiguredServiceFormattingLiteral() throws Exception {
         writeConfiguration(false);
         String sites = Files.readString(directory.resolve("VoteSites.yml"));
         Files.writeString(directory.resolve("VoteSites.yml"), sites
@@ -874,18 +874,17 @@ class NeoForgeRewardReplayServiceTest {
         try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory);
                 NeoForgeRewardReplayService replay = service(runtime, actions)) {
             runtime.players().joined(new SharedVoteIdentity(playerId, "Alex", true));
-            assertEquals(NeoForgeVoteResult.Status.UNKNOWN_SITE,
-                    runtime.voteProcessor().process(new NeoForgeVoteRequest(UUID.randomUUID(), playerId,
-                            "Alex", "&aService", 100L, true, true, true,
-                            NeoForgeVoteRequest.Scope.COMPLETE)).status());
-            assertEquals(0, actions.calls.get());
-            assertTrue(actions.rendered.isEmpty());
+            retain(runtime, UUID.randomUUID(), playerId, "&aService");
+
+            assertEquals(NeoForgeRewardReplayService.Status.COMPLETED,
+                    runOne(runtime, replay, actions).status());
+            assertEquals(List.of("Thanks Alex from (ampersand)aService"), actions.rendered);
             assertTrue(runtime.deferredVotes().pending(playerId).isEmpty());
         }
     }
 
     @Test
-    void configuredServicePlaceholderIsRejectedBeforeRewards() throws Exception {
+    void playerMessageKeepsServicePlaceholderTextInert() throws Exception {
         writeConfiguration(false);
         String sites = Files.readString(directory.resolve("VoteSites.yml"));
         Files.writeString(directory.resolve("VoteSites.yml"), sites
@@ -897,12 +896,11 @@ class NeoForgeRewardReplayServiceTest {
         try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory);
                 NeoForgeRewardReplayService replay = service(runtime, actions)) {
             runtime.players().joined(new SharedVoteIdentity(playerId, "Alex", true));
-            assertEquals(NeoForgeVoteResult.Status.UNKNOWN_SITE,
-                    runtime.voteProcessor().process(new NeoForgeVoteRequest(UUID.randomUUID(), playerId,
-                            "Alex", "%player%", 100L, true, true, true,
-                            NeoForgeVoteRequest.Scope.COMPLETE)).status());
-            assertEquals(0, actions.calls.get());
-            assertTrue(actions.rendered.isEmpty());
+            retain(runtime, UUID.randomUUID(), playerId, "%player%");
+
+            assertEquals(NeoForgeRewardReplayService.Status.COMPLETED,
+                    runOne(runtime, replay, actions).status());
+            assertEquals(List.of("Thanks Alex from (percent)player(percent)"), actions.rendered);
             assertTrue(runtime.deferredVotes().pending(playerId).isEmpty());
         }
     }
@@ -925,7 +923,7 @@ class NeoForgeRewardReplayServiceTest {
 
             assertEquals(NeoForgeRewardReplayService.Status.COMPLETED,
                     runOne(runtime, replay, actions).status());
-            assertEquals(List.of("Thanks Alex from \u2060%\u2060player%\u2060\u2060"), actions.rendered);
+            assertEquals(List.of("Thanks Alex from (percent)player(percent)"), actions.rendered);
             assertTrue(runtime.deferredVotes().pending(playerId).isEmpty());
         }
     }

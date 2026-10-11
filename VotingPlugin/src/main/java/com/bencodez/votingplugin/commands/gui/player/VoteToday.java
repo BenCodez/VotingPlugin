@@ -52,9 +52,9 @@ public class VoteToday extends GUIHandler {
 				final UUID uuid = topPlayer.getUuid();
 
 				dialog.placeholder("player", topPlayer.getPlayerName()).placeholder("votesite", voteSite.getKey())
-						.placeholder("sitename", voteSite.getDisplayName())
-						.placeholder("SiteName", voteSite.getDisplayName())
-						.placeholder("VoteSite", voteSite.getDisplayName()).placeholder("time", timeString)
+						.placeholder("sitename", voteSite.getDisplayNameForFormatting())
+						.placeholder("SiteName", voteSite.getDisplayNameForFormatting())
+						.placeholder("VoteSite", voteSite.getDisplayNameForFormatting()).placeholder("time", timeString)
 						.placeholder("Time", timeString).button("&e" + topPlayer.getPlayerName(),
 								plugin.getConfigFile().getFormatCommandsVoteTodayLine(), payload -> {
 									Player clicked = player.getServer().getPlayer(payload.owner());
@@ -136,9 +136,9 @@ public class VoteToday extends GUIHandler {
 				HashMap<String, String> placeholders = new HashMap<>();
 				placeholders.put("player", user.getPlayerName());
 				placeholders.put("votesite", voteSite.getKey());
-				placeholders.put("sitename", voteSite.getDisplayName());
-				placeholders.put("SiteName", voteSite.getDisplayName());
-				placeholders.put("VoteSite", voteSite.getDisplayName());
+				placeholders.put("sitename", voteSite.getDisplayNameForFormatting());
+				placeholders.put("SiteName", voteSite.getDisplayNameForFormatting());
+				placeholders.put("VoteSite", voteSite.getDisplayNameForFormatting());
 				placeholders.put("time", timeString);
 				placeholders.put("Time", timeString);
 
@@ -204,7 +204,7 @@ public class VoteToday extends GUIHandler {
 				HashMap<String, String> placeholders = new HashMap<>();
 				placeholders.put("player", user.getPlayerName());
 				placeholders.put("votesite", voteSite.getKey());
-				placeholders.put("sitename", voteSite.getDisplayName());
+				placeholders.put("sitename", voteSite.getDisplayNameForFormatting());
 				placeholders.put("time", timeString);
 				msg.add(PlaceholderUtils.replacePlaceHolder(plugin.getConfigFile().getFormatCommandsVoteTodayLine(),
 						placeholders));
@@ -234,7 +234,7 @@ public class VoteToday extends GUIHandler {
 				HashMap<String, String> placeholders = new HashMap<>();
 				placeholders.put("player", user.getPlayerName());
 				placeholders.put("votesite", mostRecentSite.getKey());
-				placeholders.put("sitename", mostRecentSite.getDisplayName());
+				placeholders.put("sitename", mostRecentSite.getDisplayNameForFormatting());
 				placeholders.put("time", timeString);
 				msg.add(PlaceholderUtils.replacePlaceHolder(plugin.getConfigFile().getFormatCommandsVoteTodayLine(),
 						placeholders));

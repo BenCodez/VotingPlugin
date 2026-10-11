@@ -104,9 +104,9 @@ public class VotiferEventDisabledVoteSiteTest {
 	}
 
     @Test
-    void rejectsInterpreterServiceNamesBeforeSchedulingOrAutomaticCreation() {
+    void rejectsStructurallyInvalidServiceNamesBeforeSchedulingOrAutomaticCreation() {
         when(plugin.getConfigFile().isAutoCreateVoteSites()).thenReturn(true);
-        for (String service : new String[] { "&kSpoofed", "%player_name%", "{RED}", "\u00A7rSpoofed", "unfinished%", "trailing&" }) {
+        for (String service : new String[] { "[Javascript=1]", "bad\\name", "bad\nname" }) {
             listener.onVotiferEvent(createVoteEvent(service));
         }
         verify(voteTimer, never()).submit(any(Runnable.class));

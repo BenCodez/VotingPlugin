@@ -20,12 +20,22 @@ class ServiceSiteValidatorTest {
 	}
 
 	@Test
-	void rejectsUnsupportedCharacters() {
-		for (String serviceSite : new String[] { "[Javascript=1]", "Site's", "\"Site\"", "Site`Name",
-				"Site\\Name", "Site\nName", "Site\tName", "Site\u0000Name", "Site\u200BName", "&kSpoofed", "&rReset", "&#abcdef",
-				"%player_name%", "unfinished%", "trailing&", "\u00A7kSpoofed", "{RED}", "Site}",
+	void acceptsLegacyFormattingIdentifiersWithoutChangingMatching() {
+		for (String value : new String[] { "R&D", "&kSpoofed", "%player_name%", "§kSpoofed", "{RED}",
 				"https://list.example/vote?id=1&source=proxy", "https://example.com/site%20name" }) {
-			assertFalse(ServiceSiteValidator.isValid(serviceSite), serviceSite);
+			assertTrue(ServiceSiteValidator.isValid(value), value);
+			String display = ServiceSiteValidator.inertForFormatting(value);
+			assertFalse(display.contains("&") || display.contains("%") || display.contains("§")
+					|| display.contains("{") || display.contains("}"));
+			assertFalse(display.contains("\u2060"));
+		}
+	}
+
+	@Test
+	void rejectsUnsupportedCharacters() {
+		for (String value : new String[] { "[Javascript=1]", "Site's", "\"Site\"", "Site`Name",
+				"Site\\Name", "Site\nName", "Site\tName", "Site\u0000Name", "Site\u200BName" }) {
+			assertFalse(ServiceSiteValidator.isValid(value), value);
 		}
 	}
 

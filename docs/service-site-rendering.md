@@ -1,27 +1,26 @@
 # Voting-service identifiers and displayed names
 
-VotingPlugin displays ordinary configured names directly, without WORD JOINER or
-other invisible formatting guards. Existing administrator-authored `DisplayName`
-colors remain supported. The exact accepted `ServiceSite` is still used for vote
-matching; no escaping or rewriting is applied to that identifier.
+Ordinary voting-site names display directly, without WORD JOINER or other
+invisible characters. Administrator-authored display-name colors and placeholders
+remain supported. The exact service identifier is preserved for matching,
+action placeholders, and queued-vote recovery.
 
-External vote-service identifiers must be bounded, visible names without
-interpreter delimiters. `&`, `%`, the section-sign color character, braces,
-quotes, brackets, backticks, backslashes and control/format characters are
-rejected by the shared validator before vote scheduling or automatic site
-creation. This applies to Bukkit Votifier ingress, backend/proxy messages,
-NeoForge ingress and the existing validation of persisted ingress queues.
-A rejected service does not receive vote credit or rewards.
+Display-only values originating from external service identifiers or fallback
+site keys use printable ASCII labels for interpreter delimiters: `&` becomes
+`(ampersand)`, `%` becomes `(percent)`, `§` becomes `(section)`, and braces become
+`(open brace)` / `(close brace)`. This avoids executing color/placeholder syntax
+without relying on font support for hidden Unicode guards. For example, a legacy
+`R&D` identifier matches exactly as before but its fallback display is
+`R(ampersand)D`. An explicit trusted `DisplayName` can provide a preferred label.
 
-Use a plain service identifier such as `PlanetMinecraft.com` or
-`Minecraft Server List`. The service field is not the voting URL: encoded URLs
-or query strings containing `%` or `&` are rejected too. Keep the clickable
-voting URL in the site's `VoteURL` setting, whose URL behavior is unchanged.
-These restrictions do not rewrite or migrate configured sites or saved player
-records. A previously accepted delimiter-bearing service must be corrected at
-its vote source before new votes from that source can be accepted. Malformed
-persisted ingress queues retain their existing fail-closed recovery behavior;
-no unsafe records are silently awarded or reinterpreted.
+This also protects already-persisted auto-created sites. It does not rename site
+keys or change reward action identifiers. Existing service-name acceptance and
+persisted ingress journals remain compatible: names containing `&` or `%`,
+including legacy URL-shaped identifiers, remain replayable. Structural delimiters
+such as quotes, brackets, backticks and backslashes, control characters and
+oversized identifiers retain their existing rejection rules. The same validation
+applies before delayed-vote reward site/user lookup. `VoteURL` is unchanged.
 
-This is an intentional ingress compatibility restriction instead of the old
-invisible display guards. Live client rendering has not been visually verified.
+No configuration or data migration is required. Minecraft client rendering of
+the new printable labels has not been visually verified; automated tests cover
+literal display values, trusted labels, queued-vote recovery and reward routing.

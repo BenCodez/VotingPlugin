@@ -1073,7 +1073,7 @@ class BackendProxyMessageRouterTest {
 		BackendProxyMessageRouter voteRouter = new BackendProxyMessageRouter(plugin,
 				mock(BackendPresenceManager.class), mock(BackendGlobalDataSync.class),
 				mock(BackendVotePartySync.class), cache);
-		for (String service : new String[] { "&kSpoofed", "%player_name%", "§kSpoofed", "{RED}" }) {
+		for (String service : new String[] { "[Spoofed]", "bad\\name", "bad\nname", "bad\u2060name" }) {
 			for (boolean reliable : new boolean[] { false, true }) {
 				configureDelayRejection(true);
 				JsonEnvelope rejection = VotingPluginWire.voteDelayRejected("Player", PLAYER_UUID.toString(),
