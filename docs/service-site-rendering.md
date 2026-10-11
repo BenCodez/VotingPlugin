@@ -22,7 +22,9 @@ persisted ingress journals remain compatible: names containing `&` or `%`,
 including legacy URL-shaped identifiers, remain replayable. Structural delimiters
 such as quotes, brackets, backticks and backslashes, section-sign formatting codes, control characters and
 oversized identifiers retain their existing rejection rules. Delayed-vote rejection messages additionally accept bounded legacy punctuation
-for an already-configured site, resolved without auto-creation; unknown malformed
+for an enabled, loaded site whose configured `ServiceSite` matches (case-insensitively),
+resolved without auto-creation. Display-name and YAML-key aliases alone cannot
+authorize these legacy rejection rewards; unknown malformed
 names, control characters and oversized values remain rejected before user lookup.
 Legacy brackets, quotes, backticks and backslashes use printable display labels too. `VoteURL` is unchanged.
 
