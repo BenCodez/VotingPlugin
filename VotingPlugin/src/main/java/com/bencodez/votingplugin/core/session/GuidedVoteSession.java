@@ -25,6 +25,8 @@ public final class GuidedVoteSession {
     private final Map<String, Long> received = new LinkedHashMap<>();
     private final java.util.Set<String> skipped = new java.util.HashSet<>();
     private final Map<UUID, String> occurrences = new LinkedHashMap<>();
+    private final Map<UUID, ProxyVoteSequence.Fence> proxyFences = new LinkedHashMap<>();
+    private final Map<UUID, String> pendingProxy = new LinkedHashMap<>();
     private boolean initialized;
     private boolean finished;
     private int index;
@@ -70,8 +72,7 @@ public final class GuidedVoteSession {
             if (initialized) sites.putIfAbsent(site, candidates.get(site));
         }
     }
-    /** Fresh local ingress and explicitly live identified proxy delivery use backend-local order.
-     * Queued/legacy proxy delivery has unknown original age and must not confirm a fresh session. */
+    /** Fresh local ingress uses backend-local order; proxy occurrences require their source fence. */
     public synchronized void acceptedObserved(String site, UUID occurrence, long order) {
         if (order > observationOrder && occurrence != null && candidates.containsKey(site)
                 && !received.containsKey(site) && !occurrences.containsKey(occurrence)) {
@@ -79,6 +80,32 @@ public final class GuidedVoteSession {
             occurrences.put(occurrence, site);
             if (initialized) sites.putIfAbsent(site, candidates.get(site));
         }
+    }
+    /** A negotiated source fence is fixed for the entire session, not advanced by status checks. */
+    public synchronized void bindProxyFence(ProxyVoteSequence.Fence fence) {
+        if (!proxyFences.containsKey(fence.incarnation()) && proxyFences.size() < 32) {
+            proxyFences.put(fence.incarnation(), fence);
+            var pending = new ArrayList<>(pendingProxy.entrySet());
+            for (var receipt : pending) acceptedProxy(receipt.getValue(), receipt.getKey());
+        }
+    }
+    public synchronized boolean hasProxyFence() { return !proxyFences.isEmpty(); }
+    /** The normal credited pipeline supplies the original canonical identity, including delayed votes. */
+    public synchronized void acceptedProxy(String site, UUID occurrence) {
+        if (occurrence == null || occurrence.version() != 8 || occurrence.variant() != 2
+                || !candidates.containsKey(site) || received.containsKey(site) || occurrences.containsKey(occurrence)) return;
+        UUID source = new UUID(occurrence.getMostSignificantBits(), 0x8000000000000000L);
+        ProxyVoteSequence.Fence fence = proxyFences.get(source);
+        if (fence == null) {
+            // Bounded provisional receipts cover a new occurrence overtaking its fence reply.
+            if (pendingProxy.size() < 400) pendingProxy.putIfAbsent(occurrence, site);
+            return;
+        }
+        pendingProxy.remove(occurrence);
+        if (!fence.newer(occurrence)) return;
+        received.put(site, occurrence.getLeastSignificantBits() & 0x3fffffffffffffffL);
+        occurrences.put(occurrence, site);
+        if (initialized) sites.putIfAbsent(site, candidates.get(site));
     }
     public synchronized View view(String action) {
         if (!sites.isEmpty()) {

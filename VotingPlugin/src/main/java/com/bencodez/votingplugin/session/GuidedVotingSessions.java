@@ -23,25 +23,27 @@ public final class GuidedVotingSessions implements Listener {
     private final VotingPluginMain plugin;
     private final Map<UUID, GuidedVoteSession> sessions = new LinkedHashMap<>();
     private final Map<UUID, Long> requests = new LinkedHashMap<>();
-    private record EarlyReceipt(UUID storageId, String site, UUID occurrence, long time, boolean observed) { }
+    private record EarlyReceipt(UUID storageId, String site, UUID occurrence, long time, boolean observed, boolean proxy) { }
     private final Map<UUID, UUID> storageIds = new LinkedHashMap<>();
     private final Map<UUID, String> playerNames = new LinkedHashMap<>();
     private final Map<UUID, Map<String, List<EarlyReceipt>>> early = new LinkedHashMap<>();
+    private record ProxyRequest(UUID nonce, String server, long startedNanos) { }
+    private final Map<UUID, ProxyRequest> proxyRequests = new LinkedHashMap<>();
     private long lifecycle;
     private final java.util.Set<Long> outstanding = new java.util.HashSet<>();
     private final Map<UUID, Long> pending = new LinkedHashMap<>();
     private long generation;
 
     public GuidedVotingSessions(VotingPluginMain plugin) { this.plugin = plugin; }
-    public synchronized void clear() { sessions.clear(); requests.clear(); storageIds.clear(); playerNames.clear(); early.clear(); pending.clear(); generation++; lifecycle++; }
+    public synchronized void clear() { sessions.clear(); proxyRequests.clear(); requests.clear(); storageIds.clear(); playerNames.clear(); early.clear(); pending.clear(); generation++; lifecycle++; }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public synchronized void credited(PlayerPostVoteEvent event) {
         if (event.getVoteSite() == null || !event.isRealVote() || event.isCancelled()
                 || event.getVoteUUID() == null || event.getUuid() == null) return;
         boolean proxy = event.isProxySessionDelivery() || event.isBungee();
-        // Older adapters can report a positive hint without proving original cross-node order.
-        if (proxy || event.isUnconfirmedLocalSessionDelivery()) return;
+        // Proxy transport flags and clocks prove no original order; negotiated source fences do.
+        if (proxy ? !event.isProxySessionRealVote() : event.isUnconfirmedLocalSessionDelivery()) return;
         boolean observed = event.isLiveLocalSessionDelivery() && event.getBackendObservationOrder() != 0;
         long time = observed ? event.getBackendObservationOrder() : event.getVoteTime();
         expire(System.currentTimeMillis());
@@ -49,21 +51,35 @@ public final class GuidedVotingSessions implements Listener {
         for (var entry : sessions.entrySet()) {
             UUID owner = entry.getKey(); GuidedVoteSession session = entry.getValue();
             if (event.getUuid().equals(storageIds.get(owner))) {
-                if (observed) session.acceptedObserved(key, event.getVoteUUID(), time);
+                if (proxy) session.acceptedProxy(key, event.getVoteUUID());
+                else if (observed) session.acceptedObserved(key, event.getVoteUUID(), time);
                 else session.accepted(key, event.getVoteUUID(), time, true, false);
             } else if (!storageIds.containsKey(owner) && pending.containsKey(owner) && session.candidate(key)
-                    && (observed || time > session.started()) && event.getPlayerName() != null
+                    && (proxy || observed || time > session.started()) && event.getPlayerName() != null
                     && event.getPlayerName().equalsIgnoreCase(playerNames.get(owner))) {
                 // Name only routes a bounded provisional receipt. Resolved storage UUID must
                 // match before it can confirm progress; no player/entity access occurs here.
                 var receipts = early.computeIfAbsent(owner, ignored -> new LinkedHashMap<>())
                         .computeIfAbsent(key, ignored -> new ArrayList<>());
-                receipts.removeIf(receipt -> receipt.storageId().equals(event.getUuid()));
+                receipts.removeIf(receipt -> receipt.occurrence().equals(event.getVoteUUID()));
                 if (receipts.size() >= 4) receipts.remove(0);
-                receipts.add(new EarlyReceipt(event.getUuid(), key, event.getVoteUUID(), time, observed));
+                receipts.add(new EarlyReceipt(event.getUuid(), key, event.getVoteUUID(), time, observed, proxy));
             }
         }
         // Never reopen an interface or execute rewards from a notification.
+    }
+
+    /** Transport callback: bounded identities only; no Bukkit, user storage or reward execution. */
+    public synchronized void proxyFence(com.bencodez.simpleapi.servercomm.codec.JsonEnvelope message) {
+        var reply = com.bencodez.votingplugin.proxy.VotingPluginWire.readSessionFenceReply(message);
+        if (reply == null) return;
+        UUID owner = reply.request().player();
+        ProxyRequest request = proxyRequests.get(owner);
+        GuidedVoteSession session = sessions.get(owner);
+        if (request == null || session == null || !request.nonce().equals(reply.request().nonce())
+                || !request.server().equals(reply.request().server())
+                || System.nanoTime() - request.startedNanos() > java.util.concurrent.TimeUnit.SECONDS.toNanos(30)) return;
+        session.bindProxyFence(reply.fence());
     }
 
     public void command(Player player, String action) {
@@ -90,6 +106,7 @@ public final class GuidedVotingSessions implements Listener {
         }
         GuidedVoteSession session;
         long request;
+        com.bencodez.votingplugin.proxy.VotingPluginWire.SessionFenceRequest proxyRequest;
         synchronized (this) {
             long now = System.currentTimeMillis();
             expire(now);
@@ -99,8 +116,16 @@ public final class GuidedVotingSessions implements Listener {
             if (!sessions.containsKey(uuid) && sessions.size() >= 2048) {
                 player.sendMessage("Voting sessions are busy. Please try again later."); return;
             }
-            if (action.equals("restart")) { sessions.remove(uuid); storageIds.remove(uuid); early.remove(uuid); }
+            if (action.equals("restart")) { sessions.remove(uuid); storageIds.remove(uuid); early.remove(uuid); proxyRequests.remove(uuid); }
+            boolean creating = !sessions.containsKey(uuid);
             session = sessions.computeIfAbsent(uuid, ignored -> new GuidedVoteSession(now));
+            proxyRequest = null;
+            if (creating && plugin.getBungeeSettings().isUseBungeecoord()) {
+                var fenceRequest = new ProxyRequest(UUID.randomUUID(), plugin.getOptions().getServer(), System.nanoTime());
+                proxyRequests.put(uuid, fenceRequest);
+                proxyRequest = new com.bencodez.votingplugin.proxy.VotingPluginWire.SessionFenceRequest(
+                        uuid, fenceRequest.nonce(), fenceRequest.server(), "");
+            }
             session.bindCandidates(visible.stream().map(site -> new GuidedVoteSession.Site(site.getKey(),
                     site.getDisplayName(), site.getVoteURL(true), false, 0)).toList());
             playerNames.put(uuid, name);
@@ -109,10 +134,17 @@ public final class GuidedVotingSessions implements Listener {
             pending.put(uuid, request);
             outstanding.add(request);
         }
+        final var requestToSend = proxyRequest;
         try {
             plugin.getTimer().execute(() -> {
                 try {
                     synchronized (this) { if (!current(uuid, session, request)) return; }
+                    if (requestToSend != null) {
+                        var handler = plugin.getBackendProxyHandler();
+                        if (handler != null && handler.getGlobalMessageHandler() != null)
+                            handler.getGlobalMessageHandler().sendMessage(
+                                    com.bencodez.votingplugin.proxy.VotingPluginWire.sessionFenceRequest(requestToSend));
+                    }
                     var currentSites = new java.util.HashMap<String, VoteSite>();
                     for (VoteSite site : plugin.getVoteSiteManager().getVoteSites()) currentSites.put(site.getKey(), site);
                     var sampledSites = new java.util.HashMap<String, VoteSite>();
@@ -139,7 +171,8 @@ public final class GuidedVotingSessions implements Listener {
                         var provisional = early.remove(uuid);
                         if (provisional != null) for (var receipts : provisional.values()) for (var receipt : receipts) {
                             if (receipt.storageId().equals(storageId)) {
-                                if (receipt.observed()) session.acceptedObserved(receipt.site(), receipt.occurrence(), receipt.time());
+                                if (receipt.proxy()) session.acceptedProxy(receipt.site(), receipt.occurrence());
+                                else if (receipt.observed()) session.acceptedObserved(receipt.site(), receipt.occurrence(), receipt.time());
                                 else session.accepted(receipt.site(), receipt.occurrence(), receipt.time(), true, false);
                             }
                         }
@@ -178,6 +211,7 @@ public final class GuidedVotingSessions implements Listener {
         storageIds.keySet().retainAll(sessions.keySet());
         playerNames.keySet().retainAll(sessions.keySet());
         early.keySet().retainAll(sessions.keySet());
+        proxyRequests.keySet().retainAll(sessions.keySet());
     }
     private synchronized boolean current(UUID uuid, GuidedVoteSession session, long request) {
         expire(System.currentTimeMillis());
@@ -197,6 +231,11 @@ public final class GuidedVotingSessions implements Listener {
         return new GuidedVoteSession.View(List.copyOf(entries), view.index(), view.finished());
     }
     private void render(Player player, GuidedVoteSession.View view) {
+        if (plugin.getBungeeSettings().isUseBungeecoord()) {
+            GuidedVoteSession session = sessions.get(player.getUniqueId());
+            if (session != null && !session.hasProxyFence()) player.sendMessage(
+                    "Proxy confirmation is pending or unavailable. Only votes after a supporting proxy acknowledges this session can be confirmed.");
+        }
         player.sendMessage("Voting session: " + view.received() + "/" + view.entries().size() + " votes received.");
         if (view.entries().isEmpty()) {
             player.sendMessage("No eligible, visible voting sites. Try /vote session restart after your cooldowns end."); return;

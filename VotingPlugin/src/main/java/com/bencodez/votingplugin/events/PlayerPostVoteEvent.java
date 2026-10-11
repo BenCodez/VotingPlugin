@@ -13,6 +13,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 public class PlayerPostVoteEvent extends Event {
+	@Getter @Setter private boolean proxySessionRealVote = true;
 	/** Local recovered ingress cannot prove ordering relative to a new guide. */
 	@Getter @Setter private boolean unconfirmedLocalSessionDelivery;
 

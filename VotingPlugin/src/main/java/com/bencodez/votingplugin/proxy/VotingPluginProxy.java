@@ -2084,7 +2084,10 @@ public abstract class VotingPluginProxy {
 		votePartyVotes = getVoteCacheCurrentVotePartyVotes();
 
 		globalMessageProxyHandler = new VotingPluginGlobalMessageProxyHandler();
-		registerControlEnrollmentListener(globalMessageProxyHandler);
+        registerControlEnrollmentListener(globalMessageProxyHandler);
+        globalMessageProxyHandler.addListener(new GlobalMessageListener(VotingPluginWire.SUB_VOTE_SESSION_FENCE_REQUEST) {
+            @Override public void onReceive(JsonEnvelope message) { handleSessionFenceRequest(message); }
+        });
 
 		globalMessageProxyHandler.addListener(new GlobalMessageListener(VotingPluginWire.SUB_LOGIN) {
 			@Override
@@ -2575,7 +2578,14 @@ public abstract class VotingPluginProxy {
 		// encryption policy during a soft reload.
 		SharedTransportEnvelopeAuthenticator multiProxyAuthenticator = getConfig().getMultiProxySupport()
 				? sharedTransportAuthenticator() : sharedTransportAuthenticator;
-		multiProxyHandler = new MultiProxyHandler() {
+        multiProxyHandler = new MultiProxyHandler() {
+            @Override protected void onSessionFenceReply(JsonEnvelope message) {
+                var reply = VotingPluginWire.readSessionFenceReply(message);
+                if (reply != null && reply.request().origin().equals(getConfig().getProxyServerName())
+                        && isServerValid(reply.request().server()))
+                    globalMessageProxyHandler.sendMessage(reply.request().server(), 0, message);
+            }
+
 
 			@Override
 			public void addNonVotedPlayerCache(String uuid, String player) {
@@ -5621,6 +5631,18 @@ public abstract class VotingPluginProxy {
 		return sendProxyBroadcastEnvelopeNow(server, envelope);
 	}
 
+    /** Read-only session negotiation uses existing encrypted/authenticated transports. */
+    protected void handleSessionFenceRequest(JsonEnvelope message) {
+        var request = VotingPluginWire.readSessionFenceRequest(message);
+        if (request == null || !request.origin().isEmpty() || !isServerValid(request.server())) return;
+        var fence = com.bencodez.votingplugin.core.session.ProxyVoteSequence.currentFence();
+        globalMessageProxyHandler.sendMessage(request.server(), 0, VotingPluginWire.sessionFenceReply(request, fence));
+        if (multiProxyHandler != null && getConfig().getMultiProxySupport()) {
+            var relayed = new VotingPluginWire.SessionFenceRequest(request.player(), request.nonce(),
+                    request.server(), getConfig().getProxyServerName());
+            multiProxyHandler.sendMultiProxyEnvelopeAccepted(VotingPluginWire.sessionFenceRequest(relayed));
+        }
+    }
 	protected void handleStatusOkay(JsonEnvelope message) {
 		String server = message.getFields().getOrDefault(VotingPluginWire.K_SERVER, "");
 		String request = message.getFields().getOrDefault(VotingPluginWire.K_REQUEST_ID, "");

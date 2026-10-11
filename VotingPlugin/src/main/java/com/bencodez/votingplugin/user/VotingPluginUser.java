@@ -1011,8 +1011,18 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	public void bungeeVotePluginMessaging(String service, long time, VoteTotalsSnapshot text, boolean setTotals,
 			boolean wasOnline, boolean broadcast, int num, boolean queuedProxyVote,
 			boolean proxyDelayValidationKnown, boolean proxyQueueClassificationKnown, UUID proxyVoteId,
-			boolean targetedProxyVote, boolean unconfirmedProxySessionDelivery) {
-			if (plugin.getBungeeSettings().isUseBungeecoord()) {
+            boolean targetedProxyVote, boolean unconfirmedProxySessionDelivery) {
+        bungeeVotePluginMessaging(service, time, text, setTotals, wasOnline, broadcast, num, queuedProxyVote,
+                proxyDelayValidationKnown, proxyQueueClassificationKnown, proxyVoteId, targetedProxyVote,
+                unconfirmedProxySessionDelivery, true);
+    }
+
+    /** Guide-only real/test classification; preserve the established normal vote pipeline semantics. */
+    public void bungeeVotePluginMessaging(String service, long time, VoteTotalsSnapshot text, boolean setTotals,
+            boolean wasOnline, boolean broadcast, int num, boolean queuedProxyVote,
+            boolean proxyDelayValidationKnown, boolean proxyQueueClassificationKnown, UUID proxyVoteId,
+            boolean targetedProxyVote, boolean unconfirmedProxySessionDelivery, boolean sessionRealVote) {
+            if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			plugin.debug("Pluginmessaging vote for " + getPlayerName() + " on " + service);
 
 			PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSiteManager().getVoteSite(service, true),
@@ -1032,6 +1042,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 				voteEvent.setProxyDelayValidationKnown(proxyDelayValidationKnown);
 				voteEvent.setTargetedProxyVote(targetedProxyVote);
 				voteEvent.setUnconfirmedProxySessionDelivery(unconfirmedProxySessionDelivery);
+                voteEvent.setProxySessionRealVote(sessionRealVote);
 				plugin.getServer().getPluginManager().callEvent(voteEvent);
 		}
 	}

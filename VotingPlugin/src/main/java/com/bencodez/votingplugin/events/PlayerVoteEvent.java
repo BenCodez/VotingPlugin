@@ -13,6 +13,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 public class PlayerVoteEvent extends Event {
+	@Getter @Setter private boolean proxySessionRealVote = true;
 
 	/** Backend-local strictly increasing observation, never a timestamp from another node. */
 	@Getter

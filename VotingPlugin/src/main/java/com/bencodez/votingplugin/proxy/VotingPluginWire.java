@@ -35,10 +35,59 @@ public final class VotingPluginWire {
 
 	public static final int SCHEMA_VERSION = 1;
 
+    /** Additive request/reply negotiation; old peers simply ignore these subchannels. */
+    public record SessionFenceRequest(UUID player, UUID nonce, String server, String origin) { }
+    public record SessionFenceReply(SessionFenceRequest request,
+            com.bencodez.votingplugin.core.session.ProxyVoteSequence.Fence fence) { }
+    public static JsonEnvelope sessionFenceRequest(SessionFenceRequest request) {
+        return sessionFenceBuilder(SUB_VOTE_SESSION_FENCE_REQUEST, request).build();
+    }
+    public static JsonEnvelope sessionFenceReply(SessionFenceRequest request,
+            com.bencodez.votingplugin.core.session.ProxyVoteSequence.Fence fence) {
+        return sessionFenceBuilder(SUB_VOTE_SESSION_FENCE_REPLY, request)
+                .put(K_SESSION_INCARNATION, fence.incarnation().toString())
+                .put(K_SESSION_WATERMARK, Long.toString(fence.watermark())).build();
+    }
+    private static JsonEnvelope.Builder sessionFenceBuilder(String sub, SessionFenceRequest request) {
+        return base(sub).put(K_SESSION_FENCE_VERSION, 1).put(K_UUID, request.player().toString())
+                .put(K_SESSION_NONCE, request.nonce().toString()).put(K_SERVER, request.server())
+                .put(K_SESSION_ORIGIN, request.origin());
+    }
+    public static SessionFenceRequest readSessionFenceRequest(JsonEnvelope message) {
+        if (message == null || message.getSchema() != SCHEMA_VERSION
+                || !(SUB_VOTE_SESSION_FENCE_REQUEST.equals(message.getSubChannel())
+                    || SUB_VOTE_SESSION_FENCE_REPLY.equals(message.getSubChannel()))
+                || !"1".equals(message.getFields().get(K_SESSION_FENCE_VERSION))) return null;
+        var fields = message.getFields();
+        try {
+            String server = fields.getOrDefault(K_SERVER, "");
+            String origin = fields.getOrDefault(K_SESSION_ORIGIN, "");
+            if (server.isBlank() || server.length() > 128 || origin.length() > 128) return null;
+            return new SessionFenceRequest(UUID.fromString(fields.get(K_UUID)),
+                    UUID.fromString(fields.get(K_SESSION_NONCE)), server, origin);
+        } catch (IllegalArgumentException | NullPointerException invalid) { return null; }
+    }
+    public static SessionFenceReply readSessionFenceReply(JsonEnvelope message) {
+        SessionFenceRequest request = readSessionFenceRequest(message);
+        if (request == null || !SUB_VOTE_SESSION_FENCE_REPLY.equals(message.getSubChannel())) return null;
+        try {
+            return new SessionFenceReply(request, new com.bencodez.votingplugin.core.session.ProxyVoteSequence.Fence(
+                    UUID.fromString(message.getFields().get(K_SESSION_INCARNATION)),
+                    Long.parseLong(message.getFields().get(K_SESSION_WATERMARK))));
+        } catch (IllegalArgumentException | NullPointerException invalid) { return null; }
+    }
+
 	// =========================
 	// Subchannels (canonical)
 	// =========================
-	public static final String SUB_VOTE = "Vote";
+	public static final String SUB_VOTE_SESSION_FENCE_REQUEST = "VoteSessionFenceRequest";
+    public static final String SUB_VOTE_SESSION_FENCE_REPLY = "VoteSessionFenceReply";
+    public static final String K_SESSION_FENCE_VERSION = "sessionFenceVersion";
+    public static final String K_SESSION_NONCE = "sessionNonce";
+    public static final String K_SESSION_ORIGIN = "sessionOrigin";
+    public static final String K_SESSION_INCARNATION = "sessionIncarnation";
+    public static final String K_SESSION_WATERMARK = "sessionWatermark";
+    public static final String SUB_VOTE = "Vote";
 	public static final String SUB_VOTE_ONLINE = "VoteOnline";
 	public static final String SUB_VOTE_UPDATE = "VoteUpdate";
 	public static final String SUB_VOTE_DELAY_REJECTED = "VoteDelayRejected";

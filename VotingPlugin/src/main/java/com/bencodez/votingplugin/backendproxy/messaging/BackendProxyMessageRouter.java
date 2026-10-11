@@ -57,7 +57,12 @@ public class BackendProxyMessageRouter {
 	}
 
 	public void register(GlobalMessageHandler messages, BungeeMethod method) {
-		this.messages = messages;
+        this.messages = messages;
+        messages.addListener(new GlobalMessageListener(VotingPluginWire.SUB_VOTE_SESSION_FENCE_REPLY) {
+            @Override public void onReceive(JsonEnvelope message) {
+                plugin.getGuidedVotingSessions().proxyFence(message);
+            }
+        });
 		messages.addListener(new GlobalMessageListener(VotingPluginWire.SUB_VOTE) {
 			@Override public void onReceive(JsonEnvelope msg) { handleWireVote(msg); }
 		});
@@ -699,14 +704,14 @@ public class BackendProxyMessageRouter {
 		boolean wasOnline = vote.wasOnlineKnown ? vote.wasOnline : user.isOnline();
 		boolean queuedDelivery = vote.queuedDeliveryKnown ? vote.queuedDelivery : vote.delayValidated;
 		// Even an immediate proxy send can arrive after a guide opened on this backend.
-		// No cross-node ordering handshake exists, so transport freshness flags cannot
-		// establish original occurrence order. This affects only guide confirmation.
+		// Transport freshness flags cannot establish original occurrence order. The guide
+		// separately validates the canonical ingress ID against its negotiated source fence.
 		user.bungeeVotePluginMessaging(vote.service, vote.time, totals, !vote.manageTotals,
 				wasOnline, vote.broadcast, vote.num, queuedDelivery, vote.delayValidationKnown,
 				vote.queuedDeliveryKnown, voteId,
 				VotingPluginWire.SUB_VOTE_ONLINE.equals(msg.getSubChannel()),
-				true);
-		if (plugin.getBungeeSettings().isPerServerPoints()) {
+                true, vote.realVote);
+        if (plugin.getBungeeSettings().isPerServerPoints()) {
 			user.addPoints(plugin.getConfigFile().getPointsOnVote());
 		}
 		if (vote.service != null && !vote.service.isEmpty()) {

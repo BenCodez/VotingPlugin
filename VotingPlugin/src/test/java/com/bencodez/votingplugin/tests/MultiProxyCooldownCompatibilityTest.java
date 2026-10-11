@@ -66,6 +66,46 @@ class MultiProxyCooldownCompatibilityTest {
                         () -> assertReceiverCooldownTime(senderTime)));
     }
 
+    @org.junit.jupiter.api.Test
+    void sourceFenceRepliesOnlyToConfiguredOriginAndOriginRelaysOnlyItsOwnSession() throws Exception {
+        VotingPluginProxyTestImpl proxy = spy(new VotingPluginProxyTestImpl());
+        proxy.setDataFolder(temporaryDirectory.toFile());
+        when(proxy.getConfig().getProxyServerName()).thenReturn("Receiver");
+        var backendReplies = new java.util.ArrayList<JsonEnvelope>();
+        proxy.setGlobalMessageProxyHandlerForTest(new GlobalMessageProxyHandler() {
+            @Override public void sendMessage(String server, int delay, JsonEnvelope envelope) {
+                assertEquals("server1", server); backendReplies.add(envelope);
+            }
+        });
+        proxy.loadMultiProxySupport();
+        MultiProxyHandler handler = spy(proxy.getMultiProxyHandler());
+        doReturn(com.bencodez.votingplugin.proxy.multiproxy.MultiProxyMethod.REDIS).when(handler).getMultiProxyMethod();
+        doReturn(java.util.List.of("Origin")).when(handler).getProxyServers();
+        doReturn("Receiver").when(handler).getMultiProxyServerName();
+        var outgoing = new java.util.ArrayList<JsonEnvelope>();
+        org.mockito.Mockito.doAnswer(i -> {
+            assertEquals(java.util.List.of("Origin"), i.getArgument(1));
+            outgoing.add(i.getArgument(0)); return true;
+        }).when(handler).sendMultiProxyEnvelopeAccepted(any(JsonEnvelope.class), any(java.util.Collection.class));
+        Method receive = MultiProxyHandler.class.getDeclaredMethod("handleEnvelope", JsonEnvelope.class);
+        receive.setAccessible(true);
+        var request = new VotingPluginWire.SessionFenceRequest(UUID.randomUUID(), UUID.randomUUID(), "server1", "Origin");
+        receive.invoke(handler, VotingPluginWire.sessionFenceRequest(request));
+        assertEquals(1, outgoing.size());
+        var reply = VotingPluginWire.readSessionFenceReply(outgoing.get(0)); assertNotNull(reply);
+        assertEquals(request, reply.request());
+        assertTrue(reply.fence().newer(com.bencodez.votingplugin.core.session.ProxyVoteSequence.nextVoteId()));
+        receive.invoke(handler, VotingPluginWire.sessionFenceRequest(new VotingPluginWire.SessionFenceRequest(
+                request.player(), request.nonce(), request.server(), "Unknown")));
+        assertEquals(1, outgoing.size(), "unknown origin must not receive a fence");
+        receive.invoke(handler, outgoing.get(0));
+        assertEquals(0, backendReplies.size(), "reply for another proxy must not be relayed");
+        var local = new VotingPluginWire.SessionFenceRequest(request.player(), request.nonce(), request.server(), "Receiver");
+        receive.invoke(handler, VotingPluginWire.sessionFenceReply(local, reply.fence()));
+        assertEquals(1, backendReplies.size());
+        assertEquals(local, VotingPluginWire.readSessionFenceReply(backendReplies.get(0)).request());
+    }
+
     private void assertReceiverCooldownTime(long senderTime) throws Exception {
         UUID playerId = UUID.randomUUID();
         UUID voteId = UUID.randomUUID();
@@ -128,7 +168,7 @@ class MultiProxyCooldownCompatibilityTest {
         when(user.getPlayerName()).thenReturn("Player");
         doCallRealMethod().when(user).bungeeVotePluginMessaging(anyString(), anyLong(),
                 any(VoteTotalsSnapshot.class), anyBoolean(), anyBoolean(), anyBoolean(), anyInt(),
-                anyBoolean(), anyBoolean(), anyBoolean(), any(UUID.class), anyBoolean(), anyBoolean());
+                anyBoolean(), anyBoolean(), anyBoolean(), any(UUID.class), anyBoolean(), anyBoolean(), anyBoolean());
         BungeeSettings settings = mock(BungeeSettings.class);
         when(settings.isUseBungeecoord()).thenReturn(true);
         when(plugin.getBungeeSettings()).thenReturn(settings);

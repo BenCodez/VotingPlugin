@@ -639,7 +639,7 @@ class GuidedVotingSessionsTest {
         when(f.plugin.getVoteSiteManager().getVoteSite("service", true)).thenReturn(f.site);
         var pluginField = VotingPluginUser.class.getDeclaredField("plugin"); pluginField.setAccessible(true); pluginField.set(f.user, f.plugin);
         doCallRealMethod().when(f.user).bungeeVotePluginMessaging(anyString(), anyLong(), any(), anyBoolean(), anyBoolean(),
-                anyBoolean(), anyInt(), anyBoolean(), anyBoolean(), anyBoolean(), any(), anyBoolean(), anyBoolean());
+                anyBoolean(), anyInt(), anyBoolean(), anyBoolean(), anyBoolean(), any(), anyBoolean(), anyBoolean(), anyBoolean());
         var listener = new com.bencodez.votingplugin.listeners.PlayerVoteListener(f.plugin);
         var pluginManager = f.plugin.getServer().getPluginManager();
         doAnswer(i -> {
@@ -688,7 +688,127 @@ class GuidedVotingSessionsTest {
             receiveMultiProxyVote(player, service, real, timeQueue, time, totals, uuid, id, origin, validated, known);
         }
         void replay(com.bencodez.votingplugin.timequeue.VoteTimeQueue vote) { replayQueuedVote(vote, null, true); }
+        void fence(com.bencodez.simpleapi.servercomm.codec.JsonEnvelope request) { handleSessionFenceRequest(request); }
     }
+    @Test void actualProxyFenceAndCreditedPipelineConfirmNewQueuedVotesButExcludeTests() throws Exception {
+        for (boolean queued : new boolean[] {false, true}) for (boolean real : new boolean[] {false, true}) try (var f = new Fixture()) {
+            var backend = acceptedBackend(f); var proxy = receiverProxy(false);
+            when(f.plugin.getOptions().getServer()).thenReturn("server1");
+            when(proxy.getConfig().getMultiProxySupport()).thenReturn(false);
+            proxy.setGlobalMessageProxyHandlerForTest(new com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler() {
+                @Override public void sendMessage(String server, int delay, com.bencodez.simpleapi.servercomm.codec.JsonEnvelope reply) {
+                    if (com.bencodez.votingplugin.proxy.VotingPluginWire.SUB_VOTE_SESSION_FENCE_REPLY.equals(reply.getSubChannel())) {
+                        assertEquals("server1", server); f.sessions.proxyFence(reply);
+                    }
+                }
+            });
+            var messages = f.plugin.getBackendProxyHandler().getGlobalMessageHandler();
+            doAnswer(i -> { proxy.fence(i.getArgument(0)); return null; }).when(messages).sendMessage(any());
+            startGuide(f);
+            UUID occurrence = new com.bencodez.votingplugin.proxy.PendingIncomingVoteQueue().admit("Alice", "service").getVoteId();
+            proxy.vote("Alice", "service", real, false, 1, null, f.uuid.toString(), occurrence);
+            var envelope = proxy.getLastVoteEnvelope(); assertNotNull(envelope);
+            if (queued) envelope = com.bencodez.votingplugin.proxy.VotingPluginWire.queuedDelivery(envelope);
+            backend.handleOrderedVote(envelope, result -> assertEquals(
+                    com.bencodez.votingplugin.backendproxy.messaging.BackendProxyMessageRouter.OrderedVoteOutcome.COMPLETE, result));
+            checkGuide(f, real ? 1 : 0);
+            verify(f.user).playerVote(eq(f.site), anyBoolean(), eq(true));
+            verify(f.user).addPoints();
+            assertEquals(occurrence, com.bencodez.votingplugin.proxy.VotingPluginWire.readVote(envelope).voteId);
+        }
+    }
+
+    @Test void negotiatedProxyOccurrenceConfirmsOnlyAfterActualCreditAndResolvedStorageIdentity() {
+        try (var f = new Fixture()) {
+            when(f.plugin.getBungeeSettings().isUseBungeecoord()).thenReturn(true);
+            when(f.plugin.getOptions().getServer()).thenReturn("backend");
+            var sent = new java.util.ArrayList<com.bencodez.simpleapi.servercomm.codec.JsonEnvelope>();
+            var messages = f.plugin.getBackendProxyHandler().getGlobalMessageHandler();
+            doAnswer(i -> { sent.add(i.getArgument(0)); return null; }).when(messages).sendMessage(any());
+            f.sessions.command(f.player, ""); f.entity.remove().run(); f.worker.remove().run();
+            assertEquals(1, sent.size());
+            var request = com.bencodez.votingplugin.proxy.VotingPluginWire.readSessionFenceRequest(sent.get(0));
+            var source = new com.bencodez.votingplugin.core.session.ProxyVoteSequence(UUID.randomUUID());
+            UUID old = source.next(); var fence = source.fence(); UUID fresh = source.next();
+            f.sessions.proxyFence(com.bencodez.votingplugin.proxy.VotingPluginWire.sessionFenceReply(request, fence));
+            f.entity.remove().run();
+            // An old queued delivery and an unrelated player cannot confirm progress.
+            var prior = f.event(f.uuid, Long.MAX_VALUE, old); prior.setProxySessionDelivery(true);
+            f.sessions.credited(prior);
+            var unrelated = f.event(UUID.randomUUID(), Long.MAX_VALUE, fresh); unrelated.setProxySessionDelivery(true);
+            f.sessions.credited(unrelated);
+            f.sessions.command(f.player, "check"); f.entity.remove().run(); f.worker.remove().run(); f.entity.remove().run();
+            verify(f.player, times(2)).sendMessage("Voting session: 0/1 votes received.");
+            var credited = f.event(f.uuid, 1, fresh); credited.setProxySessionDelivery(true);
+            credited.setUnconfirmedProxySessionDelivery(true); // Old receiver hints do not replace the negotiated proof.
+            f.sessions.credited(credited); f.sessions.credited(credited);
+            f.sessions.command(f.player, "check"); f.entity.remove().run(); f.worker.remove().run(); f.entity.remove().run();
+            verify(f.player).sendMessage("Voting session: 1/1 votes received.");
+            assertEquals(1, sent.size(), "status checks must not restart the fence");
+        }
+    }
+
+    @Test void proxyFenceRejectsWrongPlayerNonceServerAndExpiredRequest() throws Exception {
+        for (String mismatch : new String[] {"player", "nonce", "server", "timeout"}) try (var f = new Fixture()) {
+            var sent = enableProxyRequests(f);
+            openGuide(f, "");
+            var request = com.bencodez.votingplugin.proxy.VotingPluginWire.readSessionFenceRequest(sent.get(0));
+            var source = new com.bencodez.votingplugin.core.session.ProxyVoteSequence(UUID.randomUUID());
+            var fence = source.fence(); UUID fresh = source.next();
+            var wrong = new com.bencodez.votingplugin.proxy.VotingPluginWire.SessionFenceRequest(
+                    mismatch.equals("player") ? UUID.randomUUID() : request.player(),
+                    mismatch.equals("nonce") ? UUID.randomUUID() : request.nonce(),
+                    mismatch.equals("server") ? "other-backend" : request.server(), "");
+            if (mismatch.equals("timeout")) {
+                var field = GuidedVotingSessions.class.getDeclaredField("proxyRequests"); field.setAccessible(true);
+                var requests = (java.util.Map<UUID, Object>) field.get(f.sessions);
+                Object current = requests.get(f.uuid);
+                var constructor = current.getClass().getDeclaredConstructor(UUID.class, String.class, long.class);
+                constructor.setAccessible(true);
+                requests.put(f.uuid, constructor.newInstance(request.nonce(), request.server(),
+                        System.nanoTime() - java.util.concurrent.TimeUnit.SECONDS.toNanos(31)));
+            }
+            f.sessions.proxyFence(com.bencodez.votingplugin.proxy.VotingPluginWire.sessionFenceReply(wrong, fence));
+            var event = f.event(f.uuid, Long.MAX_VALUE, fresh); event.setProxySessionDelivery(true);
+            f.sessions.credited(event); clearInvocations(f.player); openGuide(f, "check");
+            verify(f.player).sendMessage("Voting session: 0/1 votes received.");
+        }
+    }
+
+    @Test void oldProxyFenceCannotConfirmReplacementOrReloadedGuide() {
+        for (boolean reload : new boolean[] {false, true}) try (var f = new Fixture()) {
+            var sent = enableProxyRequests(f); openGuide(f, "");
+            var old = com.bencodez.votingplugin.proxy.VotingPluginWire.readSessionFenceRequest(sent.get(0));
+            var source = new com.bencodez.votingplugin.core.session.ProxyVoteSequence(UUID.randomUUID());
+            var fence = source.fence(); UUID fresh = source.next();
+            if (reload) f.sessions.clear();
+            openGuide(f, "restart");
+            var current = com.bencodez.votingplugin.proxy.VotingPluginWire.readSessionFenceRequest(sent.get(1));
+            assertNotEquals(old.nonce(), current.nonce());
+            f.sessions.proxyFence(com.bencodez.votingplugin.proxy.VotingPluginWire.sessionFenceReply(old, fence));
+            var event = f.event(f.uuid, 1, fresh); event.setProxySessionDelivery(true); f.sessions.credited(event);
+            clearInvocations(f.player); openGuide(f, "check");
+            verify(f.player).sendMessage("Voting session: 0/1 votes received.");
+            // The current reply can settle its buffered receipt; the retired reply cannot.
+            f.sessions.proxyFence(com.bencodez.votingplugin.proxy.VotingPluginWire.sessionFenceReply(current, fence));
+            clearInvocations(f.player); openGuide(f, "check");
+            verify(f.player).sendMessage("Voting session: 1/1 votes received.");
+        }
+    }
+
+    private static java.util.List<com.bencodez.simpleapi.servercomm.codec.JsonEnvelope> enableProxyRequests(Fixture f) {
+        when(f.plugin.getBungeeSettings().isUseBungeecoord()).thenReturn(true);
+        when(f.plugin.getOptions().getServer()).thenReturn("backend");
+        var sent = new java.util.ArrayList<com.bencodez.simpleapi.servercomm.codec.JsonEnvelope>();
+        var messages = f.plugin.getBackendProxyHandler().getGlobalMessageHandler();
+        doAnswer(i -> { sent.add(i.getArgument(0)); return null; }).when(messages).sendMessage(any());
+        return sent;
+    }
+
+    private static void openGuide(Fixture f, String action) {
+        f.sessions.command(f.player, action); f.entity.remove().run(); f.worker.remove().run(); f.entity.remove().run();
+    }
+
     private static class Fixture implements AutoCloseable {
         final VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
         final Player player = mock(Player.class);

@@ -523,7 +523,7 @@ public class VotingPluginVelocity {
 							MinecraftUsernameValidator.sanitizeForLog(player));
 					return;
 				}
-				pending = new PendingIncomingVote(UUID.randomUUID(), player, service, System.currentTimeMillis());
+				pending = new PendingIncomingVote(com.bencodez.votingplugin.core.session.ProxyVoteSequence.nextVoteId(), player, service, System.currentTimeMillis());
 				if (votingPluginProxy == null || !votingPluginProxy.retainIncomingVoteForRestart(pending)) {
 					logger.error("Pending vote admission is full and durable overflow failed; vote was not accepted for {}",
 							MinecraftUsernameValidator.sanitizeForLog(player));
