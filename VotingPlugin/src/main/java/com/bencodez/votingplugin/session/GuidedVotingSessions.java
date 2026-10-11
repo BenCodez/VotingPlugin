@@ -27,7 +27,7 @@ public final class GuidedVotingSessions implements Listener {
     private final Map<UUID, UUID> storageIds = new LinkedHashMap<>();
     private final Map<UUID, String> playerNames = new LinkedHashMap<>();
     private final Map<UUID, Map<String, List<EarlyReceipt>>> early = new LinkedHashMap<>();
-    private record ProxyRequest(UUID nonce, String server, long startedNanos) { }
+    private record ProxyRequest(UUID nonce, String server, long startedNanos, boolean sent) { }
     private final Map<UUID, ProxyRequest> proxyRequests = new LinkedHashMap<>();
     private long lifecycle;
     private final java.util.Set<Long> outstanding = new java.util.HashSet<>();
@@ -78,7 +78,7 @@ public final class GuidedVotingSessions implements Listener {
         UUID owner = reply.request().player();
         ProxyRequest request = proxyRequests.get(owner);
         GuidedVoteSession session = sessions.get(owner);
-        if (request == null || session == null || !request.nonce().equals(reply.request().nonce())
+        if (request == null || !request.sent() || session == null || !request.nonce().equals(reply.request().nonce())
                 || !request.server().equals(reply.request().server())
                 || System.nanoTime() - request.startedNanos() > java.util.concurrent.TimeUnit.SECONDS.toNanos(30)) return;
         session.bindProxyFence(reply.fence());
@@ -124,7 +124,7 @@ public final class GuidedVotingSessions implements Listener {
             session = sessions.computeIfAbsent(uuid, ignored -> new GuidedVoteSession(now));
             proxyRequest = null;
             if (creating && plugin.getBungeeSettings().isUseBungeecoord()) {
-                var fenceRequest = new ProxyRequest(UUID.randomUUID(), plugin.getOptions().getServer(), System.nanoTime());
+                var fenceRequest = new ProxyRequest(UUID.randomUUID(), plugin.getOptions().getServer(), 0, false);
                 proxyRequests.put(uuid, fenceRequest);
                 proxyRequest = new com.bencodez.votingplugin.proxy.VotingPluginWire.SessionFenceRequest(
                         uuid, fenceRequest.nonce(), fenceRequest.server(), "");
@@ -144,9 +144,18 @@ public final class GuidedVotingSessions implements Listener {
                     synchronized (this) { if (!current(uuid, session, request)) return; }
                     if (requestToSend != null) {
                         var handler = plugin.getBackendProxyHandler();
-                        if (handler != null && handler.getGlobalMessageHandler() != null)
+                        if (handler != null && handler.getGlobalMessageHandler() != null) {
+                            synchronized (this) {
+                                if (!current(uuid, session, request)) return;
+                                var queued = proxyRequests.get(uuid);
+                                if (queued == null || !queued.nonce().equals(requestToSend.nonce())) return;
+                                // Queue wait is not reply time. Publish before sending so an
+                                // immediate transport reply can bind this exact live request.
+                                proxyRequests.put(uuid, new ProxyRequest(queued.nonce(), queued.server(), System.nanoTime(), true));
+                            }
                             handler.getGlobalMessageHandler().sendMessage(
                                     com.bencodez.votingplugin.proxy.VotingPluginWire.sessionFenceRequest(requestToSend));
+                        }
                     }
                     var currentSites = new java.util.HashMap<String, VoteSite>();
                     for (VoteSite site : plugin.getVoteSiteManager().getVoteSites()) currentSites.put(site.getKey(), site);

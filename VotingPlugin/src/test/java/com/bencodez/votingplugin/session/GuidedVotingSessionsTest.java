@@ -822,6 +822,42 @@ class GuidedVotingSessionsTest {
         }
     }
 
+    @Test void queuedFenceDeadlineStartsAtSendAndCannotBindBeforeSend() throws Exception {
+        try (var f = new Fixture()) {
+            enableProxyRequests(f);
+            f.sessions.command(f.player, ""); f.entity.remove().run();
+            var field = GuidedVotingSessions.class.getDeclaredField("proxyRequests"); field.setAccessible(true);
+            var requests = (java.util.Map<UUID, Object>) field.get(f.sessions);
+            Object queued = requests.get(f.uuid);
+            var nonceMethod = queued.getClass().getDeclaredMethod("nonce"); nonceMethod.setAccessible(true);
+            var serverMethod = queued.getClass().getDeclaredMethod("server"); serverMethod.setAccessible(true);
+            UUID nonce = (UUID) nonceMethod.invoke(queued);
+            String server = (String) serverMethod.invoke(queued);
+            var request = new com.bencodez.votingplugin.proxy.VotingPluginWire.SessionFenceRequest(f.uuid, nonce, server, "");
+            var source = new com.bencodez.votingplugin.core.session.ProxyVoteSequence(UUID.randomUUID());
+            var premature = source.fence(); UUID beforeSend = source.next();
+            f.sessions.proxyFence(com.bencodez.votingplugin.proxy.VotingPluginWire.sessionFenceReply(request, premature));
+            var early = f.event(f.uuid, 1, beforeSend); early.setProxySessionDelivery(true); f.sessions.credited(early);
+            var constructor = queued.getClass().getDeclaredConstructor(UUID.class, String.class, long.class, boolean.class);
+            constructor.setAccessible(true);
+            requests.put(f.uuid, constructor.newInstance(nonce, server,
+                    System.nanoTime() - java.util.concurrent.TimeUnit.SECONDS.toNanos(31), false));
+            var messages = f.plugin.getBackendProxyHandler().getGlobalMessageHandler();
+            doAnswer(i -> {
+                var sent = com.bencodez.votingplugin.proxy.VotingPluginWire.readSessionFenceRequest(i.getArgument(0));
+                assertEquals(request, sent);
+                f.sessions.proxyFence(com.bencodez.votingplugin.proxy.VotingPluginWire.sessionFenceReply(sent, source.fence()));
+                return null;
+            }).when(messages).sendMessage(any());
+            f.worker.remove().run(); f.entity.remove().run();
+            verify(f.player).sendMessage("Voting session: 0/1 votes received.");
+            var fresh = f.event(f.uuid, 1, source.next()); fresh.setProxySessionDelivery(true); f.sessions.credited(fresh);
+            openGuide(f, "check");
+            verify(f.player).sendMessage("Voting session: 1/1 votes received.");
+            verify(messages, times(1)).sendMessage(any());
+        }
+    }
+
     @Test void proxyFenceRejectsWrongPlayerNonceServerAndExpiredRequest() throws Exception {
         for (String mismatch : new String[] {"player", "nonce", "server", "timeout"}) try (var f = new Fixture()) {
             var sent = enableProxyRequests(f);
@@ -837,10 +873,10 @@ class GuidedVotingSessionsTest {
                 var field = GuidedVotingSessions.class.getDeclaredField("proxyRequests"); field.setAccessible(true);
                 var requests = (java.util.Map<UUID, Object>) field.get(f.sessions);
                 Object current = requests.get(f.uuid);
-                var constructor = current.getClass().getDeclaredConstructor(UUID.class, String.class, long.class);
+                var constructor = current.getClass().getDeclaredConstructor(UUID.class, String.class, long.class, boolean.class);
                 constructor.setAccessible(true);
                 requests.put(f.uuid, constructor.newInstance(request.nonce(), request.server(),
-                        System.nanoTime() - java.util.concurrent.TimeUnit.SECONDS.toNanos(31)));
+                        System.nanoTime() - java.util.concurrent.TimeUnit.SECONDS.toNanos(31), true));
             }
             f.sessions.proxyFence(com.bencodez.votingplugin.proxy.VotingPluginWire.sessionFenceReply(wrong, fence));
             var event = f.event(f.uuid, Long.MAX_VALUE, fresh); event.setProxySessionDelivery(true);
