@@ -13,7 +13,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
-import com.google.gson.Strictness;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonToken;
 
@@ -36,13 +35,74 @@ public final class VoteCacheDurability {
 
 	/** Reads a complete strict JSON object without silently recovering a partial journal. */
 	public static JsonObject readJournal(Path path) throws IOException {
-		try (JsonReader reader = new JsonReader(Files.newBufferedReader(path, StandardCharsets.UTF_8))) {
-			reader.setStrictness(Strictness.STRICT);
+		try (JsonReader reader = new JsonReader(new StrictJsonInput(
+				Files.newBufferedReader(path, StandardCharsets.UTF_8)))) {
+			reader.setLenient(false);
 			JsonElement document = readValue(reader, 0);
 			if (!document.isJsonObject() || reader.peek() != JsonToken.END_DOCUMENT)
 				throw new IOException("Vote cache must contain one JSON object");
 			return document.getAsJsonObject();
 		}
+	}
+
+	/** Enforces JSON lexical rules which older Gson non-lenient readers leave permissive. */
+	private static final class StrictJsonInput extends java.io.FilterReader {
+		private boolean quoted;
+		private boolean escaped;
+		private int unicode;
+		private final StringBuilder token = new StringBuilder();
+
+		StrictJsonInput(java.io.Reader input) { super(input); }
+
+		@Override
+		public int read(char[] buffer, int offset, int length) throws IOException {
+			int count = super.read(buffer, offset, length);
+			if (count < 0) finish();
+			else for (int i = offset; i < offset + count; i++) validate(buffer[i]);
+			return count;
+		}
+
+		@Override
+		public int read() throws IOException {
+			int character = super.read();
+			if (character < 0) finish(); else validate((char) character);
+			return character;
+		}
+
+		private void validate(char character) throws IOException {
+			if (quoted) {
+				if (unicode > 0) {
+					if (Character.digit(character, 16) < 0 || character > 127) invalid();
+					unicode--;
+				} else if (escaped) {
+					escaped = false;
+					if (character == 'u') unicode = 4;
+					else if ("\"\\/bfnrt".indexOf(character) < 0) invalid();
+				} else if (character == '\\') escaped = true;
+				else if (character == '"') quoted = false;
+				else if (character < 32) invalid();
+			} else if (character == '"') {
+				finishToken(); quoted = true;
+			} else if ("{}[],: \t\r\n".indexOf(character) >= 0) finishToken();
+			else {
+				if (token.length() >= 4096) invalid();
+				token.append(character);
+			}
+		}
+
+		private void finishToken() throws IOException {
+			if (token.length() == 0) return;
+			String value = token.toString(); token.setLength(0);
+			if (!value.equals("true") && !value.equals("false") && !value.equals("null")
+					&& !value.matches("-?(0|[1-9][0-9]*)(\\.[0-9]+)?([eE][+-]?[0-9]+)?")) invalid();
+		}
+
+		private void finish() throws IOException {
+			if (quoted || escaped || unicode > 0) invalid();
+			finishToken();
+		}
+
+		private void invalid() throws IOException { throw new IOException("Invalid vote cache JSON syntax"); }
 	}
 
 	private static JsonElement readValue(JsonReader reader, int depth) throws IOException {

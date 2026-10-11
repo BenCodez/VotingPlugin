@@ -142,6 +142,8 @@ public abstract class VotingPluginProxy {
 	private final Set<String> rejectedLegacyVoteDeliveries = ConcurrentHashMap.newKeySet();
 	private ReliableVoteDeliveryOutbox reliableVoteDeliveryOutbox;
 	private boolean pluginMessageStopped;
+	private boolean pluginMessageBackpressureReported;
+	private long pluginMessageBackpressureReportTime;
 	private final PluginMessageDispatcher pluginMessageDispatcher = new PluginMessageDispatcher(
 			this::pluginMessageNanoTime, this::getScheduler, this::retryPluginMessageOwners);
 	// Set only after all replacement gates have succeeded. Vote entry points are
@@ -161,6 +163,7 @@ public abstract class VotingPluginProxy {
 		private boolean rewardJournalsDurable;
 		private JsonEnvelope voteUpdateEnvelope;
 		private Set<String> voteUpdateTargets;
+		private final Set<String> retainedVoteUpdateTargets = new LinkedHashSet<>();
 		private boolean voteUpdatesAdmitted;
 		private boolean multiProxyForwardingHandled;
 		private OfflineBungeeVote standaloneBroadcastState;
@@ -940,6 +943,9 @@ public abstract class VotingPluginProxy {
 	}
 
 	private boolean supportsReliableVoteDelivery(String server, String subChannel) {
+		// VoteUpdate has no negotiated backend receipt protocol. Preserve its
+		// one-way transport semantics even when reward votes support receipts.
+		if (VotingPluginWire.SUB_VOTE_UPDATE.equals(subChannel)) return false;
 		if (!supportsReliableVoteDelivery(server)) return false;
 		return !VotingPluginWire.SUB_VOTE_DELAY_REJECTED.equals(subChannel)
 				|| reliableVoteDelayRejectionServers.contains(server.trim().toLowerCase(Locale.ROOT));
@@ -950,6 +956,8 @@ public abstract class VotingPluginProxy {
 	}
 
 	private boolean isLegacyVoteDelivery(String server, String subChannel) {
+		if (VotingPluginWire.SUB_VOTE_UPDATE.equals(subChannel))
+			return method == BungeeMethod.PLUGINMESSAGING;
 		return isLegacyVoteDelivery(server)
 				|| (VotingPluginWire.SUB_VOTE_DELAY_REJECTED.equals(subChannel)
 						&& supportsReliableVoteDelivery(server)
@@ -988,6 +996,10 @@ public abstract class VotingPluginProxy {
 		int delay = 1;
 		for (ReliableVoteDeliveryOutbox.Entry entry : outbox.snapshot()) {
 			if (onlyServer != null && !entry.server().equalsIgnoreCase(onlyServer)) continue;
+			if (VotingPluginWire.SUB_VOTE_UPDATE.equals(entry.envelope().getSubChannel())
+					&& !entry.legacyDeliveryFenced()
+					&& (method != BungeeMethod.PLUGINMESSAGING
+							|| !isSomeoneOnlineServerForVoteRouting(entry.server()))) continue;
 			try {
 				String voteId = entry.envelope().getFields().get(VotingPluginWire.K_VOTE_ID);
 				UUID parsedVoteId = UUID.fromString(voteId);
@@ -1125,7 +1137,7 @@ public abstract class VotingPluginProxy {
 		String voteId = message.getFields().getOrDefault(VotingPluginWire.K_VOTE_ID, "");
 		String subChannel = message.getFields().getOrDefault(VotingPluginWire.K_VOTE_DELIVERY_SUBCHANNEL, "");
 		try {
-			if (!supportsReliableVoteDelivery(server)) return;
+			if (VotingPluginWire.SUB_VOTE_UPDATE.equals(subChannel) || !supportsReliableVoteDelivery(server)) return;
 			ReliableVoteDeliveryOutbox outbox = reliableVoteDeliveryOutbox;
 			UUID parsedVoteId = UUID.fromString(voteId);
 			if (outbox != null && !outbox.acknowledgeCompletion(server, parsedVoteId, subChannel)) {
@@ -1156,7 +1168,7 @@ public abstract class VotingPluginProxy {
 		String voteId = message.getFields().getOrDefault(VotingPluginWire.K_VOTE_ID, "");
 		String subChannel = message.getFields().getOrDefault(VotingPluginWire.K_VOTE_DELIVERY_SUBCHANNEL, "");
 		try {
-			if (!supportsReliableVoteDelivery(server)) return;
+			if (VotingPluginWire.SUB_VOTE_UPDATE.equals(subChannel) || !supportsReliableVoteDelivery(server)) return;
 			ReliableVoteDeliveryOutbox outbox = reliableVoteDeliveryOutbox;
 			if (outbox != null && !outbox.acknowledgeReceiptRelease(
 					server, UUID.fromString(voteId), subChannel)) {
@@ -5041,14 +5053,23 @@ public abstract class VotingPluginProxy {
 	}
 
 	public synchronized void sendPluginMessageServer(String server, int delay, JsonEnvelope envelope) {
-		if (runtimeReplacementPrepared)
-			throw new java.util.concurrent.RejectedExecutionException("Proxy runtime replacement has already been prepared");
+		if (runtimeReplacementPrepared || pluginMessageStopped)
+			throw new java.util.concurrent.RejectedExecutionException("Proxy runtime is retiring or stopped");
 		byte[] frame = encodePluginMessage(envelope);
 		if (frame == null) return;
 		if (!pluginMessageDispatcher.enqueue(server, frame.length, Math.max(0L, delay) * 5L * 1_000_000L,
                 !isReplaceablePluginMessageMetadata(envelope),
 				() -> handoffPluginMessageControl(server, envelope))) {
-			throw new java.util.concurrent.RejectedExecutionException("Plugin-message control was not admitted; transport backpressure or scheduler unavailable");
+			// This void API sends best-effort controls. A capacity rejection must not
+			// cancel fixed-rate probes or abort a broadcast to unrelated backends.
+			// Durable votes use their separate admission result and retain their owner.
+			long now = pluginMessageNanoTime();
+			if (!pluginMessageBackpressureReported
+					|| now - pluginMessageBackpressureReportTime >= TimeUnit.SECONDS.toNanos(30)) {
+				pluginMessageBackpressureReported = true;
+				pluginMessageBackpressureReportTime = now;
+				warn("Plugin-message control was not admitted; transport backpressure or scheduler unavailable. Durable vote owners remain queued.");
+			}
 		}
 	}
 
@@ -6644,19 +6665,24 @@ public abstract class VotingPluginProxy {
 					if (!retryState.voteUpdatesAdmitted) {
 						if (retryState.voteUpdateEnvelope == null) {
 							retryState.voteUpdateEnvelope = VotingPluginWire.voteUpdate(uuid, votePartyVotes,
-									currentVotePartyVotesRequired, service, time, text.toString());
+									currentVotePartyVotesRequired, service, time, text.toString())
+									.toBuilder().put(VotingPluginWire.K_VOTE_ID, voteId).build();
 							retryState.voteUpdateTargets = new LinkedHashSet<>(getAllAvailableServers());
 						}
 						byte[] frame = encodePluginMessage(retryState.voteUpdateEnvelope);
 						if (frame == null) return QueuedVoteResult.RETRY;
-						JsonEnvelope update = retryState.voteUpdateEnvelope;
-						Map<String, java.util.function.BooleanSupplier> sends = new LinkedHashMap<>();
-						for (String target : retryState.voteUpdateTargets)
-							sends.put(target, () -> handoffPluginMessageControl(target, update));
-						PluginMessageDispatcher.Batch batch = pluginMessageDispatcher.reserveBatch(sends, frame.length);
-						if (batch == null) return QueuedVoteResult.RETRY;
+						// Unavailable targets belong to the durable outbox, not to
+						// indefinitely retained dispatcher controls. Keep partial
+						// admission identities across same-process vote retries.
+						for (String target : retryState.voteUpdateTargets) {
+							if (retryState.retainedVoteUpdateTargets.contains(target)) continue;
+							if (reliableVoteDeliveryOutbox == null
+									|| !reliableVoteDeliveryOutbox.offer(target, retryState.voteUpdateEnvelope))
+								return QueuedVoteResult.RETRY;
+							retryState.retainedVoteUpdateTargets.add(target);
+						}
 						retryState.voteUpdatesAdmitted = true;
-						batch.activate();
+						retryReliableVoteDeliveries();
 					}
 				} else {
 					int delay = 2;

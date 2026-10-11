@@ -21,6 +21,26 @@ class ReliableVoteDeliveryOutboxTest {
 	Path directory;
 
 	@Test
+	void updateQuotaDoesNotConsumeTheRewardEntryAllowance() throws Exception {
+		Path file = directory.resolve("updates.dat");
+		ReliableVoteDeliveryOutbox outbox = new ReliableVoteDeliveryOutbox(file);
+		for (int i = 0; i < ReliableVoteDeliveryOutbox.MAX_UPDATE_ENTRIES; i++) {
+			JsonEnvelope update = VotingPluginWire.voteUpdate(new UUID(1, i).toString(), 1, 10,
+					"synthetic-service", 1L, "").toBuilder()
+					.put(VotingPluginWire.K_VOTE_ID, new UUID(2, i)).build();
+			assertTrue(outbox.offer("backend-a", update));
+		}
+		JsonEnvelope extra = VotingPluginWire.voteUpdate(new UUID(1, 2048).toString(), 1, 10,
+				"synthetic-service", 1L, "").toBuilder()
+				.put(VotingPluginWire.K_VOTE_ID, new UUID(2, 2048)).build();
+		assertFalse(outbox.offer("backend-a", extra));
+		assertTrue(outbox.offer("backend-a", VotingPluginWire.vote("test-player", new UUID(1, 4096).toString(),
+				"synthetic-service", 1L, true, true, "", new UUID(2, 4096), false, false, 1, 1)));
+		assertEquals(ReliableVoteDeliveryOutbox.MAX_UPDATE_ENTRIES + 1,
+				new ReliableVoteDeliveryOutbox(file).size());
+	}
+
+	@Test
 	void persistsUntilMatchingBackendAcknowledgesCompletion() throws Exception {
 		Path file = directory.resolve("outbox.dat");
 		UUID voteId = UUID.randomUUID();

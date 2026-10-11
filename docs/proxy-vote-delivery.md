@@ -115,3 +115,20 @@ including supplementary Unicode, before a platform handoff. Oversized durable
 votes are retained for correction rather than discarded. Tests use controlled
 clocks, schedulers and synthetic payloads; they do not establish live network
 rate-limit or production delivery measurements.
+
+Known effect-free metadata probes expire after 30 seconds of readiness when
+no carrier accepts them. Admission rejection emits a bounded warning and does
+not abort periodic probes for other backends. Unknown effect-bearing controls
+are not expired by that policy.
+
+Plugin-message `VoteUpdate` targets are now retained in the existing durable
+outbox instead of occupying control slots while a backend is unavailable. They
+retain the original vote ID and use a separate 1,024-entry allowance, preserving
+the reward-vote entry allowance. Failed handoffs retain ownership across restart;
+accepted one-way handoffs use the existing conservative legacy attempt fence.
+`VoteUpdate` has no completion acknowledgement protocol, including on backends
+that acknowledge reward votes. Transport acceptance does not prove backend
+execution. An ambiguous interrupted one-way attempt is not automatically
+replayed, to avoid repeating external reward work. Pending plugin-message updates
+remain retained when another transport is configured and resume when plugin
+messaging is used again. Other transports keep their existing update behavior.

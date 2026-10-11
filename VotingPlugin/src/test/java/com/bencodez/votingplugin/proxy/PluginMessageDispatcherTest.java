@@ -44,6 +44,21 @@ class PluginMessageDispatcherTest {
         }
     }
 
+    @Test void expiredMetadataReleasesCapacityWithoutRetiringEffectBearingControls() {
+        Harness h = new Harness();
+        PluginMessageDispatcher d = h.dispatcher(server -> { });
+        assertTrue(d.enqueue("backend-a", 1, 0, false, () -> false));
+        assertTrue(d.enqueue("backend-a", 1, 0, true, () -> false));
+        h.tick(20);
+        assertEquals(2, d.pendingControls());
+        h.tick(30_000);
+        assertEquals(1, d.pendingControls());
+        assertTrue(d.hasPendingEffects());
+        assertTrue(d.enqueue("backend-b", 1, 0, false, () -> true));
+        h.tick(20);
+        assertEquals(1, d.pendingControls());
+    }
+
     @Test void cheapBudgetCheckDoesNotReserveOrBypassTheActualAttempt() {
         Harness h = new Harness();
         PluginMessageDispatcher d = h.dispatcher(server -> { });

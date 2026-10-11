@@ -21,6 +21,7 @@ import com.bencodez.votingplugin.util.DurableFiles;
 /** Durable proxy outbox for reward-bearing votes awaiting backend completion. */
 final class ReliableVoteDeliveryOutbox {
 	static final int MAX_ENTRIES = 4096;
+	static final int MAX_UPDATE_ENTRIES = 1024;
 	private static final long MAX_FILE_BYTES = 16L * 1024L * 1024L;
 	private static final String HEADER = "VP-VOTE-OUTBOX-2";
 	private static final String ADD = "A";
@@ -47,7 +48,10 @@ final class ReliableVoteDeliveryOutbox {
 		String key = key(server, envelope);
 		if (key == null) return false;
 		if (entries.containsKey(key)) return true;
-		if (entries.size() >= MAX_ENTRIES) return false;
+		long updates = entries.values().stream().filter(entry ->
+				VotingPluginWire.SUB_VOTE_UPDATE.equals(entry.envelope().getSubChannel())).count();
+		if (VotingPluginWire.SUB_VOTE_UPDATE.equals(envelope.getSubChannel())
+				? updates >= MAX_UPDATE_ENTRIES : entries.size() - updates >= MAX_ENTRIES) return false;
 		String record = addRecord(server, envelope);
 		Entry entry = new Entry(server, envelope, false, false, false);
 		long remainingReserve = terminalRecordReserve() + terminalRecordReserve(entry);
@@ -204,7 +208,8 @@ final class ReliableVoteDeliveryOutbox {
 				throw new IOException("Malformed vote delivery outbox entry", malformed);
 			}
 			journalRecords++;
-			if (entries.size() > MAX_ENTRIES) throw new IOException("Vote delivery outbox exceeds entry limit");
+			if (entries.size() > MAX_ENTRIES + MAX_UPDATE_ENTRIES)
+				throw new IOException("Vote delivery outbox exceeds entry limit");
 		}
 		if (unterminatedTail && !compact()) throw new IOException("Unable to repair vote delivery outbox");
 	}
@@ -322,6 +327,7 @@ final class ReliableVoteDeliveryOutbox {
 		String subChannel = envelope.getSubChannel();
 		if (!VotingPluginWire.SUB_VOTE.equals(subChannel)
 				&& !VotingPluginWire.SUB_VOTE_ONLINE.equals(subChannel)
+				&& !VotingPluginWire.SUB_VOTE_UPDATE.equals(subChannel)
 				&& !VotingPluginWire.SUB_VOTE_DELAY_REJECTED.equals(subChannel)) return null;
 		String voteId = envelope.getFields().get(VotingPluginWire.K_VOTE_ID);
 		try {

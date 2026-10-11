@@ -412,6 +412,32 @@ class VotingPluginProxyPacingTest {
     }
 
     @Test
+    void saturatedControlLaneDoesNotAbortProbesForAnotherBackend(@TempDir Path directory) throws Exception {
+        CapturingProxy proxy = new CapturingProxy(directory);
+        for (int i = 0; i < PluginMessageDispatcher.MAX_LANE_CONTROLS; i++)
+            proxy.sendPluginMessageServer(BACKEND, 0, control("occupied"));
+
+        assertDoesNotThrow(proxy::sendServerNameMessage);
+        assertDoesNotThrow(proxy::sendServerNameMessage);
+        assertEquals(1, proxy.getWarnings().size(), "backpressure diagnostics were not bounded");
+        proxy.time.advance(TimeUnit.SECONDS.toNanos(6));
+        assertEquals(2, proxy.handoffs.stream().filter(handoff -> "backend-b".equals(handoff.server())
+                && VotingPluginWire.SUB_SERVER_NAME.equals(handoff.envelope().getSubChannel())).count());
+        assertPaced(proxy.handoffs);
+    }
+
+    @Test
+    void schedulerRejectionDoesNotThrowFromTheBestEffortControlApi(@TempDir Path directory) throws Exception {
+        CapturingProxy proxy = new CapturingProxy(directory);
+        when(proxy.time.executor.schedule(any(Runnable.class), anyLong(), eq(TimeUnit.NANOSECONDS)))
+                .thenThrow(new RejectedExecutionException("synthetic scheduler rejection"));
+        assertDoesNotThrow(proxy::sendServerNameMessage);
+        assertDoesNotThrow(proxy::sendServerNameMessage);
+        assertTrue(proxy.handoffs.isEmpty());
+        assertEquals(1, proxy.getWarnings().size());
+    }
+
+    @Test
     void bootstrapServerMetadataStillDrainsWhenAnotherTransportIsSelected(@TempDir Path directory) throws Exception {
         CapturingProxy proxy = new CapturingProxy(directory);
         proxy.setMethod(BungeeMethod.REDIS);
@@ -448,7 +474,7 @@ class VotingPluginProxyPacingTest {
     }
 
     @Test
-    void fullTargetLaneCannotPartiallyAdmitAnUpdateBatchBeforeTheVoteRetries(@TempDir Path directory) throws Exception {
+    void fullControlLaneDoesNotPreventDurableVoteUpdateAdmission(@TempDir Path directory) throws Exception {
         CapturingProxy proxy = new CapturingProxy(directory);
         proxy.legacy().addAll(List.of(BACKEND, "backend-b"));
         when(proxy.getConfig().getOnlineMode()).thenReturn(true);
@@ -457,20 +483,39 @@ class VotingPluginProxyPacingTest {
         UUID id = new UUID(2, 500);
         String player = new UUID(1, 500).toString();
 
-        assertThrows(VotingPluginProxy.VoteRetryException.class,
-                () -> proxy.vote("Synthetic", "synthetic-service", true, false, 1L, null, player, id));
-        proxy.time.advance(TimeUnit.SECONDS.toNanos(6));
-        assertEquals(0, updateHandoffs(proxy).size(), "a rejected batch admitted an earlier target");
-        assertEquals(1, proxy.handoffs.stream().filter(handoff -> VotingPluginWire.SUB_VOTE_ONLINE
-                .equals(handoff.envelope().getSubChannel())).count());
-
         assertDoesNotThrow(() -> proxy.vote("Synthetic", "synthetic-service", true, false, 1L, null, player, id));
-        proxy.time.advance(TimeUnit.SECONDS.toNanos(1));
+        proxy.time.advance(TimeUnit.SECONDS.toNanos(6));
         assertEquals(List.of(BACKEND, "backend-b"), updateHandoffs(proxy).stream()
                 .map(Handoff::server).sorted().toList());
         assertEquals(1, proxy.handoffs.stream().filter(handoff -> VotingPluginWire.SUB_VOTE_ONLINE
-                .equals(handoff.envelope().getSubChannel())).count(), "retry repeated the accepted reward");
+                .equals(handoff.envelope().getSubChannel())).count());
         assertPaced(proxy.handoffs);
+    }
+
+    @Test
+    void unavailableVoteUpdateTargetSurvivesRestartWithoutOccupyingControlCapacity(@TempDir Path directory) throws Exception {
+        CapturingProxy proxy = new CapturingProxy(directory);
+        proxy.unavailableBackends.add("backend-b");
+        proxy.legacy().addAll(List.of(BACKEND, "backend-b"));
+        when(proxy.getConfig().getOnlineMode()).thenReturn(true);
+        UUID id = new UUID(2, 502);
+        String player = new UUID(1, 502).toString();
+        assertDoesNotThrow(() -> proxy.vote("Synthetic", "synthetic-service", true, false, 1L, null, player, id));
+        proxy.time.advance(TimeUnit.SECONDS.toNanos(1));
+        assertEquals(List.of(BACKEND), updateHandoffs(proxy).stream().map(Handoff::server).toList());
+        assertEquals(0, ((PluginMessageDispatcher) field(proxy, "pluginMessageDispatcher")).pendingControls());
+        assertEquals(1, proxy.outbox.size());
+        proxy.closeDispatcher();
+
+        CapturingProxy restarted = new CapturingProxy(directory);
+        invoke(restarted, "retryReliableVoteDeliveries", String.class, null);
+        restarted.time.advance(TimeUnit.SECONDS.toNanos(1));
+        assertEquals(List.of("backend-b"), updateHandoffs(restarted).stream().map(Handoff::server).toList());
+        assertEquals(id.toString(), updateHandoffs(restarted).get(0).envelope().getFields().get(VotingPluginWire.K_VOTE_ID));
+        assertEquals(0, new ReliableVoteDeliveryOutbox(directory.resolve("outbox.dat")).size());
+        invoke(restarted, "retryReliableVoteDeliveries", String.class, null);
+        restarted.time.advance(TimeUnit.SECONDS.toNanos(1));
+        assertEquals(1, updateHandoffs(restarted).size());
     }
 
     @Test
@@ -543,6 +588,7 @@ class VotingPluginProxyPacingTest {
         final VoteCacheHandler cache;
         final ReliableVoteDeliveryOutbox outbox;
         boolean carrier = true;
+        final Set<String> unavailableBackends = new LinkedHashSet<>();
         boolean failDurablePartySave;
         boolean deliveryAccepted = true;
         String playerServer = BACKEND;
@@ -588,13 +634,13 @@ class VotingPluginProxyPacingTest {
         @Override protected long pluginMessageNanoTime() { return time.now; }
         @Override public ScheduledExecutorService getScheduler() { return time.executor; }
         @Override public Set<String> getAllAvailableServers() { return new LinkedHashSet<>(List.of(BACKEND, "backend-b")); }
-        @Override public boolean isSomeoneOnlineServer(String server) { return carrier; }
+        @Override public boolean isSomeoneOnlineServer(String server) { return carrier && !unavailableBackends.contains(server); }
         @Override public String getCurrentPlayerServer(String player) { return playerRoutes.getOrDefault(player, playerServer); }
         @Override public boolean isPlayerOnline(String player) { return !offlinePlayers.contains(player) && super.isPlayerOnline(player); }
         @Override public boolean sendPluginMessageData(String server, String channel, byte[] data, boolean queue) {
             assertFalse(queue);
             transportAttempts++;
-            if (!carrier || !deliveryAccepted) return false;
+            if (!isSomeoneOnlineServer(server) || !deliveryAccepted) return false;
             transportDepth++;
             maxTransportDepth = Math.max(maxTransportDepth, transportDepth);
             try (DataInputStream input = new DataInputStream(new ByteArrayInputStream(data))) {

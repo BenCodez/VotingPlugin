@@ -18,6 +18,7 @@ final class PluginMessageDispatcher {
     static final long INTERVAL = TimeUnit.MILLISECONDS.toNanos(20);
     static final long FAILURE_DELAY = TimeUnit.SECONDS.toNanos(1);
     static final long RETRY_DELAY = TimeUnit.SECONDS.toNanos(10);
+    static final long METADATA_LIFETIME = TimeUnit.SECONDS.toNanos(30);
     static final int MAX_BACKENDS = 256;
     static final int MAX_CONTROLS = 2048;
     static final int MAX_LANE_CONTROLS = 256;
@@ -270,6 +271,16 @@ final class PluginMessageDispatcher {
             if (closed || ticket != lane.generation) return;
             lane.wake = null;
             long now = clock.getAsLong();
+            // Probes are regenerated periodically. An absent carrier must not
+            // retain stale metadata forever; effect-bearing controls stay owned.
+            for (var iterator = lane.controls.iterator(); iterator.hasNext();) {
+                Control candidate = iterator.next();
+                if (!candidate.blocksReplacement() && now - candidate.due() >= METADATA_LIFETIME) {
+                    iterator.remove();
+                    controls--;
+                    bytes -= candidate.bytes();
+                }
+            }
             if (lane.sending || now - lane.next < 0) { schedule(lane); return; }
             // A delayed control must not block an unrelated ready message.
             for (Control candidate : lane.controls) {
