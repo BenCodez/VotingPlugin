@@ -1965,7 +1965,12 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Override
 	public void onUnLoad() {
-		if (!unloadCompleted.compareAndSet(false, true)) return;
+		if (!unloadCompleted.compareAndSet(false, true)) {
+			runShutdownStep("time queue retry", () -> {
+				if (timeQueueHandler != null) timeQueueHandler.saveForShutdown();
+			});
+			return;
+		}
 		placeholderPlayerPresence.clear();
 		runShutdownStep("backend hosted Control", this::stopBackendHostedControlLifecycle);
 		runShutdownStep("backend Control connector", this::stopBackendControlConnectorLifecycle);
@@ -1989,7 +1994,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			}
 		});
 		runShutdownStep("time queue", () -> {
-			if (timeQueueHandler != null) timeQueueHandler.save();
+			if (timeQueueHandler != null) timeQueueHandler.saveForShutdown();
 		});
 		runShutdownStep("vote reminders", this::shutdownVoteReminders);
 		runShutdownStep("cooldown checker", () -> {

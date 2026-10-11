@@ -68,7 +68,7 @@ class VotingPluginMainShutdownTest {
         plugin.onUnLoad();
 
         verify(signs).storeSigns();
-        verify(timeQueue).save();
+        verify(timeQueue).saveForShutdown();
         plugin.onUnLoad();
         verify(signs).storeSigns();
     }
@@ -84,7 +84,7 @@ class VotingPluginMainShutdownTest {
         TimeQueueHandler timeQueue = mock(TimeQueueHandler.class);
         VotingPluginWebhookManager webhook = mock(VotingPluginWebhookManager.class);
         doThrow(new IllegalStateException("webhook close failed")).when(webhook).shutdown();
-        doThrow(new IllegalStateException("queue save failed")).when(timeQueue).save();
+        doThrow(new IllegalStateException("queue save failed")).when(timeQueue).saveForShutdown();
         setField(plugin, "webhookManager", webhook);
         setField(plugin, "signs", signs);
         setField(plugin, "timeQueueHandler", timeQueue);
@@ -92,7 +92,25 @@ class VotingPluginMainShutdownTest {
         assertDoesNotThrow(plugin::onUnLoad);
 
         verify(webhook).shutdown();
-        verify(timeQueue).save();
+        verify(timeQueue).saveForShutdown();
+        verify(signs).storeSigns();
+    }
+
+    @Test
+    void repeatedUnloadRetriesOnlyFailedTimedVotePersistence() throws Exception {
+        VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
+        setField(plugin, "unloadCompleted", new java.util.concurrent.atomic.AtomicBoolean());
+        setField(plugin, "placeholderPlayerPresence", new PlaceholderPlayerPresence());
+        initializeEarlyLifecycle(plugin);
+        TimeQueueHandler timeQueue = mock(TimeQueueHandler.class);
+        Signs signs = mock(Signs.class);
+        org.mockito.Mockito.doThrow(new IllegalStateException("disk unavailable")).doNothing()
+                .when(timeQueue).saveForShutdown();
+        setField(plugin, "timeQueueHandler", timeQueue);
+        setField(plugin, "signs", signs);
+        assertDoesNotThrow(plugin::onUnLoad);
+        assertDoesNotThrow(plugin::onUnLoad);
+        verify(timeQueue, org.mockito.Mockito.times(2)).saveForShutdown();
         verify(signs).storeSigns();
     }
 

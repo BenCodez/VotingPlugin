@@ -87,10 +87,12 @@ public class ServerData {
 	 * @param vote the vote time queue entry
 	 */
 	public void addTimeVoted(int num, VoteTimeQueue vote) {
-		getData().set("TimedVoteCache." + num + ".Name", vote.getName());
-		getData().set("TimedVoteCache." + num + ".Service", vote.getService());
-		getData().set("TimedVoteCache." + num + ".Time", vote.getTime());
-		saveData();
+		synchronized (plugin.getServerDataFile()) {
+			getData().set("TimedVoteCache." + num + ".Name", vote.getName());
+			getData().set("TimedVoteCache." + num + ".Service", vote.getService());
+			getData().set("TimedVoteCache." + num + ".Time", vote.getTime());
+			saveTimedVoteCache();
+		}
 	}
 
 	/**
@@ -106,8 +108,10 @@ public class ServerData {
 	 * Clears the timed vote cache.
 	 */
 	public void clearTimedVoteCache() {
-		getData().set("TimedVoteCache", null);
-		saveData();
+		synchronized (plugin.getServerDataFile()) {
+			getData().set("TimedVoteCache", null);
+			saveTimedVoteCache();
+		}
 	}
 
 	/**
@@ -384,11 +388,31 @@ public class ServerData {
 		saveData();
 	}
 
-	/**
-	 * Save data.
-	 */
+	/** Retain an ambiguous event delivery without making it eligible for automatic replay. */
+	public void addUncertainTimedVote(java.util.UUID id, VoteTimeQueue vote) {
+		synchronized (plugin.getServerDataFile()) {
+			String path = "UncertainTimedVotes." + id;
+			getData().set(path + ".Name", vote.getName());
+			getData().set(path + ".Service", vote.getService());
+			getData().set(path + ".Time", vote.getTime());
+			saveTimedVoteCache();
+		}
+	}
+
+	/** Timed votes must observe write failures before their in-memory queue is retired. */
+	private void saveTimedVoteCache() {
+		try {
+			plugin.getServerDataFile().getData().save(plugin.getServerDataFile().getdFile());
+		} catch (java.io.IOException failure) {
+			throw new java.io.UncheckedIOException("Failed to save timed vote cache", failure);
+		}
+	}
+
+	/** Saves server data through the existing general-purpose file helper. */
 	public synchronized void saveData() {
-		plugin.getServerDataFile().saveData();
+		synchronized (plugin.getServerDataFile()) {
+			plugin.getServerDataFile().saveData();
+		}
 	}
 
 	/**
