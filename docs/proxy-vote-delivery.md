@@ -140,3 +140,14 @@ work. Accepted reward target markers survive graceful restart in existing queue
 metadata and keep a single-server reward on its original backend. They do not
 represent a backend completion receipt or a pending HTTP transmission. No SQL
 schema or owner configuration migration is needed.
+
+Restart recovery retains the original reward routing mode and all-server target
+plan. Routing edits and backend removal cannot turn an accepted single-server
+reward into a new reward on another backend. Previously saved acceptance-only
+markers are treated conservatively as a completed occurrence; existing pending
+target-specific journals still own any remaining all-server work.
+
+Single-server replay updates the canonical voter-keyed cache completion before
+retiring the timed source. Cached delivery reconciles saved single-server
+acceptance before sending, including after the player changes backend. A failed
+completion write retains recovery ownership for retry.

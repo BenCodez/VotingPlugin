@@ -404,7 +404,7 @@ public class OfflineBungeeVote {
 	/** Returns whether standalone HTTP broadcasts, rather than internal markers, remain. */
 	public boolean hasPendingHttpBroadcastDeliveryIds() {
 		return httpBroadcastDeliveryIds.keySet().stream().anyMatch(key -> !key.startsWith(
-				VotingPluginWire.ACCEPTED_REWARD_TARGET_PREFIX));
+				VotingPluginWire.REWARD_QUEUE_METADATA_PREFIX));
 	}
 
 	/**

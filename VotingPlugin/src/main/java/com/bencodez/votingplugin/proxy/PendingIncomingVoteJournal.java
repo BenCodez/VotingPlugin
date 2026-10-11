@@ -79,6 +79,10 @@ public final class PendingIncomingVoteJournal {
 					vote.setWasOnline(value.has("wasOnline") && value.get("wasOnline").getAsBoolean());
 				}
 				vote.setTotals(optional(value, "totals", 4096));
+				vote.setProxyBroadcastHandled(value.has("proxyBroadcastHandled") && value.get("proxyBroadcastHandled").getAsBoolean());
+				String targets = optional(value, "broadcastTargets", 16384);
+				vote.getBroadcastTargets().addAll(VoteTimeQueue.decodeBroadcastForwardedServers(targets));
+				if (!targets.equals(vote.encodeBroadcastTargets())) throw new IOException("Invalid pending broadcast plan");
 				vote.setVotePartyApplied(value.has("votePartyApplied")
 						&& value.get("votePartyApplied").getAsBoolean());
 				vote.setTotalsApplied(value.has("totalsApplied") && value.get("totalsApplied").getAsBoolean());
@@ -136,6 +140,8 @@ public final class PendingIncomingVoteJournal {
 			value.addProperty("wasOnline", vote.isWasOnline());
 			value.addProperty("wasOnlineKnown", vote.isWasOnlineKnown());
 			value.addProperty("totals", vote.getTotals());
+			value.addProperty("proxyBroadcastHandled", vote.isProxyBroadcastHandled());
+			value.addProperty("broadcastTargets", vote.encodeBroadcastTargets());
 			value.addProperty("votePartyApplied", vote.isVotePartyApplied());
 			value.addProperty("totalsApplied", vote.isTotalsApplied());
 			value.addProperty("broadcastForwardedServers", vote.encodeBroadcastForwardedServers());
@@ -166,6 +172,7 @@ public final class PendingIncomingVoteJournal {
 		}
 		if (vote.getUuid() != null && vote.getUuid().length() > 36) throw new IOException("Invalid UUID field");
 		if (vote.getTotals() != null && vote.getTotals().length() > 4096) throw new IOException("Invalid totals field");
+		if (vote.encodeBroadcastTargets().length() > 16384) throw new IOException("Invalid pending broadcast plan");
 		if (vote.encodeHttpBroadcastDeliveryIds().length() > 16384) {
 			throw new IOException("Invalid delivery metadata");
 		}

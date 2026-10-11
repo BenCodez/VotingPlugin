@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -41,6 +42,8 @@ class PendingIncomingVoteJournalTest {
 		vote.setUuid("00000000-0000-0000-0000-000000000001");
 		vote.setWasOnline(true);
 		vote.setTotals("1,2,3,4,5,6,7,8");
+		vote.setProxyBroadcastHandled(true);
+		vote.getBroadcastTargets().addAll(Set.of("backend-a", "backend-b"));
 		vote.setVotePartyApplied(true);
 		vote.setTotalsApplied(true);
 		vote.setDelayValidated(true);
@@ -53,6 +56,8 @@ class PendingIncomingVoteJournalTest {
 		assertEquals(voteId, recovered.getVoteId());
 		assertEquals("Player", recovered.getName());
 		assertEquals("Service", recovered.getService());
+		assertTrue(recovered.isProxyBroadcastHandled());
+		assertEquals(vote.getBroadcastTargets(), recovered.getBroadcastTargets());
 		assertTrue(recovered.isVotePartyApplied());
 		assertTrue(recovered.isTotalsApplied());
 		assertTrue(recovered.isWasOnlineKnown());

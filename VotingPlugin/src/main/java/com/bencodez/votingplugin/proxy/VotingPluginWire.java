@@ -42,7 +42,10 @@ public final class VotingPluginWire {
 	public static final String SUB_VOTE_ONLINE = "VoteOnline";
 	public static final String SUB_VOTE_UPDATE = "VoteUpdate";
 	/** Internal queue metadata; never a backend delivery target. */
-	public static final String ACCEPTED_REWARD_TARGET_PREFIX = "__vp_reward\0accepted:";
+	public static final String REWARD_QUEUE_METADATA_PREFIX = "__vp_reward\0";
+	public static final String ACCEPTED_REWARD_TARGET_PREFIX = REWARD_QUEUE_METADATA_PREFIX + "accepted:";
+	public static final String REWARD_ROUTING_MODE_KEY = REWARD_QUEUE_METADATA_PREFIX + "routing";
+	public static final String PLANNED_REWARD_TARGET_PREFIX = REWARD_QUEUE_METADATA_PREFIX + "target:";
 	public static final String SUB_VOTE_DELAY_REJECTED = "VoteDelayRejected";
 	public static final String SUB_VOTE_BROADCAST = "VoteBroadcast";
 	public static final String SUB_VOTE_DELIVERY_ACK = "VoteDeliveryAck";
