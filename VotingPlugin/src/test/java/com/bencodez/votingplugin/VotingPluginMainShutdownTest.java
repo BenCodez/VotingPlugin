@@ -205,6 +205,8 @@ class VotingPluginMainShutdownTest {
             assertDoesNotThrow(plugin::onDisable);
             org.junit.jupiter.api.Assertions.assertSame(original, rootCause(failure));
             verify(logger, never()).warning(org.mockito.ArgumentMatchers.anyString());
+            verify(logger, never()).log(org.mockito.ArgumentMatchers.eq(java.util.logging.Level.WARNING),
+                    org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(Throwable.class));
         } finally { coreTimer.shutdownNow(); }
     }
 
