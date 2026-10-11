@@ -54,11 +54,13 @@ public final class GuidedVotingSessions implements Listener {
                 if (proxy) session.acceptedProxy(key, event.getVoteUUID());
                 else if (observed) session.acceptedObserved(key, event.getVoteUUID(), time);
                 else session.accepted(key, event.getVoteUUID(), time, true, false);
-            } else if (!storageIds.containsKey(owner) && pending.containsKey(owner) && session.candidate(key)
+            } else if (!storageIds.containsKey(owner) && session.candidate(key)
                     && (proxy || observed || time > session.started()) && event.getPlayerName() != null
                     && event.getPlayerName().equalsIgnoreCase(playerNames.get(owner))) {
                 // Name only routes a bounded provisional receipt. Resolved storage UUID must
                 // match before it can confirm progress; no player/entity access occurs here.
+                // A failed lookup releases pending work, but this active guide still owns
+                // its bounded provisional receipts until identity resolution or expiration.
                 var receipts = early.computeIfAbsent(owner, ignored -> new LinkedHashMap<>())
                         .computeIfAbsent(key, ignored -> new ArrayList<>());
                 receipts.removeIf(receipt -> receipt.occurrence().equals(event.getVoteUUID()));

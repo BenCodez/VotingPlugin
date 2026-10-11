@@ -748,6 +748,36 @@ class GuidedVotingSessionsTest {
         }
     }
 
+    @Test void creditedReceiptAfterFailedInitialStorageLookupSurvivesUntilIdentityResolves() {
+        for (boolean proxy : new boolean[] {false, true}) try (var f = new Fixture()) {
+            var sent = proxy ? enableProxyRequests(f) : java.util.List.<com.bencodez.simpleapi.servercomm.codec.JsonEnvelope>of();
+            when(f.user.getPlayerName()).thenThrow(new IllegalStateException("storage unavailable")).thenReturn("Alice");
+            openGuide(f, "");
+            verify(f.player).sendMessage("Could not check voting status. Please try /vote session check.");
+            UUID occurrence;
+            long order = com.bencodez.votingplugin.core.session.VoteObservationSequence.next();
+            if (proxy) {
+                var request = com.bencodez.votingplugin.proxy.VotingPluginWire.readSessionFenceRequest(sent.get(0));
+                var source = new com.bencodez.votingplugin.core.session.ProxyVoteSequence(UUID.randomUUID());
+                var fence = source.fence(); occurrence = source.next();
+                f.sessions.proxyFence(com.bencodez.votingplugin.proxy.VotingPluginWire.sessionFenceReply(request, fence));
+            } else occurrence = UUID.randomUUID();
+            var wrongIdentity = f.event(UUID.randomUUID(), 1, UUID.randomUUID());
+            wrongIdentity.setProxySessionDelivery(proxy); wrongIdentity.setLiveLocalSessionDelivery(!proxy);
+            wrongIdentity.setBackendObservationOrder(order); f.sessions.credited(wrongIdentity);
+            var credited = f.event(f.uuid, 1, occurrence);
+            credited.setProxySessionDelivery(proxy); credited.setLiveLocalSessionDelivery(!proxy);
+            credited.setBackendObservationOrder(order);
+            f.sessions.credited(credited); f.sessions.credited(credited);
+            when(f.user.canVoteSite(eq(f.site), anyLong())).thenReturn(false);
+            openGuide(f, "check");
+            verify(f.player).sendMessage("Voting session: 1/1 votes received.");
+            openGuide(f, "check");
+            verify(f.player, times(2)).sendMessage("Voting session: 1/1 votes received.");
+            assertEquals(proxy ? 1 : 0, sent.size(), "retry must retain the original proxy fence");
+        }
+    }
+
     @Test void rejectedInitialWorkerAdmissionAllowsNormalReopenToNegotiateProxyFence() {
         try (var f = new Fixture()) {
             var sent = enableProxyRequests(f);
