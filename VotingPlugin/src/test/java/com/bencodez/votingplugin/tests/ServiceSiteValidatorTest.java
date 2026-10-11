@@ -49,6 +49,16 @@ class ServiceSiteValidatorTest {
 	}
 
 	@Test
+	void finalLiteralMessageRemovesAllFormattingGuards() {
+		for (String site : new String[] { "Minecraft Menu", "R&D", "&aGreen",
+				"%player_name%", "https://example.com/vote?id=1&source=proxy" }) {
+			String guarded = ServiceSiteValidator.inertForFormatting(site);
+			assertEquals(site, ServiceSiteValidator.literalAfterFormatting(guarded));
+			assertFalse(ServiceSiteValidator.literalAfterFormatting(guarded).contains("\u2060"));
+		}
+	}
+
+	@Test
 	void rejectsMissingAndOversizedNames() {
 		assertFalse(ServiceSiteValidator.isValid(null));
 		assertFalse(ServiceSiteValidator.isValid(""));
