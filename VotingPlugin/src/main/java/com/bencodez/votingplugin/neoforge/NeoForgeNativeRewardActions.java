@@ -105,7 +105,10 @@ final class NeoForgeNativeRewardActions implements NeoForgeRewardActions {
     private static void sendMessage(Object player, String message) throws ReflectiveOperationException {
         ClassLoader loader = player.getClass().getClassLoader();
         Class<?> componentType = Class.forName("net.minecraft.network.chat.Component", false, loader);
-        Object component = componentType.getMethod("literal", String.class).invoke(null, message);
+        // This is a native literal component: all replacement and validation has
+        // already finished, so discard guards only at the final display sink.
+        Object component = componentType.getMethod("literal", String.class)
+                .invoke(null, com.bencodez.votingplugin.util.ServiceSiteValidator.literalAfterFormatting(message));
         Method send = findAssignableMethod(player.getClass(), "sendSystemMessage", componentType);
         invokeMessage(player, send, component);
     }
