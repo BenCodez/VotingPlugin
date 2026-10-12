@@ -11,6 +11,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.MockedStatic;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerPostVoteEvent;
@@ -19,6 +20,7 @@ import com.bencodez.votingplugin.util.BukkitCompletionScheduler;
 import com.bencodez.votingplugin.votesites.VoteSite;
 
 class GuidedVotingSessionsTest {
+    @TempDir java.nio.file.Path proxyDataDirectory;
     private static void expireCurrent(Fixture f) throws Exception {
         var field = GuidedVotingSessions.class.getDeclaredField("sessions"); field.setAccessible(true);
         var session = ((java.util.Map<?, ?>) field.get(f.sessions)).get(f.uuid);
@@ -768,8 +770,19 @@ class GuidedVotingSessionsTest {
                 mock(com.bencodez.votingplugin.backendproxy.global.BackendGlobalDataSync.class),
                 mock(com.bencodez.votingplugin.backendproxy.voteparty.BackendVotePartySync.class), cache);
     }
-    private static ReceiverProxy receiverProxy(boolean allServers) throws Exception {
+    private ReceiverProxy receiverProxy(boolean allServers) throws Exception {
         var proxy = spy(new ReceiverProxy());
+        var directory = java.nio.file.Files.createTempDirectory(proxyDataDirectory, "receiver-");
+        proxy.setDataFolder(directory.toFile());
+        // The test receiver skips normal proxy startup. Its live plugin-message
+        // pipeline still needs the real durable VoteUpdate owner introduced by master.
+        // Keep actual journal admission/sanitization rather than declaring a mock durable.
+        var outboxField = com.bencodez.votingplugin.proxy.VotingPluginProxy.class
+                .getDeclaredField("reliableVoteDeliveryOutbox");
+        outboxField.setAccessible(true);
+        var outboxConstructor = outboxField.getType().getDeclaredConstructor(java.nio.file.Path.class);
+        outboxConstructor.setAccessible(true);
+        outboxField.set(proxy, outboxConstructor.newInstance(directory.resolve("ProxyVoteDeliveryOutbox.dat")));
         var cache = mock(com.bencodez.votingplugin.proxy.cache.VoteCacheHandler.class);
         when(cache.markMultiProxyVoteCompletedDurably(any())).thenReturn(true);
         when(cache.getTimeChangeQueue()).thenReturn(new java.util.concurrent.ConcurrentLinkedQueue<>());

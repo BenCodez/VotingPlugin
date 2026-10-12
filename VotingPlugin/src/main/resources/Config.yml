@@ -196,9 +196,12 @@ AutoCreateVoteSites: true
 # https://github.com/BenCodez/VotingPlugin/wiki/Bedrock-Player-Support
 BedrockPlayerPrefix: '.'
 
-# If false plugin will use offline player UUIDs
-# Keep enabled when mixing UUIDs (Premium and cracked)
-# More info: https://github.com/BenCodez/VotingPlugin/wiki/Online-Offline-Mode
+# Controls how VotingPlugin resolves player UUIDs.
+# true: Use Mojang-authenticated UUIDs (premium-only servers).
+# false: Use name-based offline UUIDs (cracked or mixed premium/cracked servers).
+# Use the same setting on all servers sharing VotingPlugin data, including proxies.
+# Changing this setting on an existing server may require migrating player data.
+# More info: https://wiki.bencodez.com/en/VotingPlugin/Online-Offline-Mode
 OnlineMode: true
 
 # If true, /vote will open /vote gui by default
