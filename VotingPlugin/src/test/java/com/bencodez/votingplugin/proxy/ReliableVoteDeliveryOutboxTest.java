@@ -245,6 +245,8 @@ class ReliableVoteDeliveryOutboxTest {
         assertTrue(outbox.retainUpdate("backend-a", update(first), false));
         assertTrue(outbox.retainUpdate("backend-a", update(second), true));
         assertTrue(outbox.snapshot().get(1).deferredUpdate(), "new update bypassed an older deferred owner");
+        assertFalse(outbox.isFirstPendingUpdate(null, first));
+        assertFalse(outbox.isFirstPendingUpdate("backend-a", null));
         assertTrue(outbox.isFirstPendingUpdate("backend-a", first));
         assertFalse(outbox.isFirstPendingUpdate("backend-a", second));
         assertFalse(outbox.retainUpdate("backend-a", VotingPluginWire.vote("test-player",

@@ -29,13 +29,33 @@ class VoteCacheJsonSyntaxTest {
                 "{\"value\":\"bad\\u１２３４\"}", "{\"value\":1}\f",
                 "{'value':1}", "{value:1}", "{\"value\":1,}",
                 "{\"value\":1,//comment\n\"other\":2}", "{}{}",
-                "{\"value\":1,\"value\":2}");
+                "{\"value\":1,\"value\":2}", "\uFEFF\uFEFF{}", " \uFEFF{}", "{}\uFEFF",
+                "{\"value\":\uFEFF1}", "\uFEFF{\"value\":1,\"value\":2}");
         return java.util.stream.IntStream.range(0, invalid.size()).mapToObj(index ->
                 DynamicTest.dynamicTest("invalid-syntax-" + index, () -> {
                     Path file = directory.resolve("cache-" + index + ".json");
                     Files.writeString(file, invalid.get(index));
                     assertThrows(IOException.class, () -> VoteCacheDurability.readJournal(file));
                 }));
+    }
+
+    @Test
+    void leadingUtf8BomPreservesLegacyCacheOnBothPlatforms() throws Exception {
+        Path file = directory.resolve("votecache.json");
+        String json = "\uFEFF{\"TimedVoteCache\":{\"0\":{\"Name\":\"Synthetic\"}},"
+                + "\"literal\":\"inside\uFEFFtext\"}";
+        Files.writeString(file, json);
+        assertEquals("inside\uFEFFtext", VoteCacheDurability.readJournal(file).get("literal").getAsString());
+        var plugin = org.mockito.Mockito.mock(com.bencodez.votingplugin.proxy.bungee.VotingPluginBungee.class);
+        org.mockito.Mockito.when(plugin.getDataFolder()).thenReturn(directory.toFile());
+        var bungee = new com.bencodez.votingplugin.proxy.bungee.BungeeJsonVoteCache(plugin);
+        var velocity = new com.bencodez.votingplugin.proxy.velocity.VelocityJsonVoteCache(file.toFile());
+        for (var cache : List.of(bungee, velocity)) {
+            assertEquals("Synthetic", cache.getTimedVoteCache("0").get("Name").asString());
+            cache.reload();
+            assertEquals("Synthetic", cache.getTimedVoteCache("0").get("Name").asString());
+        }
+        assertEquals(json, Files.readString(file), "loading a legacy BOM must not overwrite its cache");
     }
 
     @Test

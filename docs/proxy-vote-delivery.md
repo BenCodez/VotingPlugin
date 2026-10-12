@@ -230,3 +230,7 @@ A positive-source JSON entry whose SQL row still exists with a different identit
 is retained on disk for recovery but excluded from ordinary replay. It is not
 silently deleted, merged with that different row, or treated as a new vote. Restore
 consistent source data before retrying recovery.
+
+Legacy UTF-8 JSON caches may retain one leading byte-order mark. Additional or
+misplaced marks outside string values remain invalid, and accepting the prefix
+does not relax duplicate-field, malformed-syntax or complete-document checks.

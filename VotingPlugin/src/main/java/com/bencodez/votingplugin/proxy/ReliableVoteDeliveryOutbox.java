@@ -107,6 +107,7 @@ final class ReliableVoteDeliveryOutbox {
     }
 
     synchronized boolean isFirstPendingUpdate(String server, UUID voteId) {
+        if (server == null || voteId == null) return false;
         for (Entry entry : entries.values()) {
             if (VotingPluginWire.SUB_VOTE_UPDATE.equals(entry.envelope().getSubChannel())
                     && normalized(entry.server()).equals(normalized(server))) {

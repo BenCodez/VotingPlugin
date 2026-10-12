@@ -47,6 +47,7 @@ public final class VoteCacheDurability {
 
 	/** Enforces JSON lexical rules which older Gson non-lenient readers leave permissive. */
 	private static final class StrictJsonInput extends java.io.FilterReader {
+		private boolean firstCharacter = true;
 		private boolean quoted;
 		private boolean escaped;
 		private int unicode;
@@ -70,6 +71,11 @@ public final class VoteCacheDurability {
 		}
 
 		private void validate(char character) throws IOException {
+			if (firstCharacter) {
+				firstCharacter = false;
+				// Legacy Gson readers consume a single BOM at the start of a UTF-8 file.
+				if (character == '\uFEFF') return;
+			}
 			if (quoted) {
 				if (unicode > 0) {
 					if (Character.digit(character, 16) < 0 || character > 127) invalid();
