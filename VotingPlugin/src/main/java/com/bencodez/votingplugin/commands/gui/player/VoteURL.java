@@ -177,7 +177,7 @@ public class VoteURL extends GUIHandler {
 		}
 
 		if (plugin.getGui().isChestVoteURLBackButton()) {
-			dialog.button("&eBack", "&7Return to previous menu", payload -> player.performCommand("vote gui"));
+			dialog.button("&eBack", "&7Return to previous menu", payload -> plugin.getCommandLoader().performVoteCommand(player, "gui"));
 		}
 
 		dialog.open();

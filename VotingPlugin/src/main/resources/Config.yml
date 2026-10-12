@@ -211,6 +211,14 @@ UseVoteGUIMainCommand: false
 # Does not backup MySQL data
 CreateBackups: true
 
+# Player root command and standalone player aliases; admin commands remain available.
+# These settings require a server restart; /av reload does not change registration.
+VoteCommandEnabled: true
+# Root label without a slash or namespace; 1-64 letters, digits, underscores or hyphens.
+# Reserved/invalid names use vote. A foreign bare-name conflict uses votingplugin:<name>.
+# Standalone aliases such as /votegui and /vgui keep their existing names.
+VoteCommandName: vote
+
 # Load command aliases, such as /avgui
 # Requires restart to take effect
 LoadCommandAliases: true

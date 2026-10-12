@@ -71,11 +71,9 @@ import com.bencodez.votingplugin.broadcast.BroadcastSettings;
 import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.bencodez.votingplugin.commands.CommandLoader;
 import com.bencodez.votingplugin.commands.executers.CommandAdminVote;
-import com.bencodez.votingplugin.commands.executers.CommandVote;
 import com.bencodez.votingplugin.commands.gui.AdminGUI;
 import com.bencodez.votingplugin.commands.tabcompleter.AdminVoteTabCompleter;
 import com.bencodez.votingplugin.commands.tabcompleter.AliasCommandFilterListener;
-import com.bencodez.votingplugin.commands.tabcompleter.VoteTabCompleter;
 import com.bencodez.votingplugin.config.BungeeSettings;
 import com.bencodez.votingplugin.config.Config;
 import com.bencodez.votingplugin.config.ConfigVoteSites;
@@ -212,6 +210,21 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Getter
 	private CommandLoader commandLoader;
+
+	/** Runtime command identity is captured at startup; configuration reload does not rename it. */
+	public String getVoteCommandPrefix() {
+		return "/" + (commandLoader == null ? "vote" : commandLoader.getVoteCommandName());
+	}
+
+	public boolean isVoteCommandEnabled() {
+		return commandLoader == null || commandLoader.isVoteCommandEnabled();
+	}
+
+	/** Retarget the built-in invalid-command help hint, including existing Config.yml text. */
+	public String formatVoteCommandMessage(String message) {
+		return message.replace("%votecommand%", getVoteCommandPrefix())
+				.replaceAll("(?i)/vote(?=\\s|$|[!.,])", getVoteCommandPrefix());
+	}
 
 	@Getter
 	private NameMCLikeCheckerTask nameMCLikeCheckerTask;
@@ -2012,12 +2025,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		commandLoader = new CommandLoader(this);
 		commandLoader.loadCommands();
 		commandLoader.loadAliases();
-
-		// /vote, /v
-		getCommand("vote").setExecutor(new CommandVote(this));
-		getCommand("vote").setTabCompleter(new VoteTabCompleter());
-		// getCommand("v").setExecutor(new CommandVote(this));
-		// getCommand("v").setTabCompleter(new VoteTabCompleter());
 
 		// /adminvote, /av
 		getCommand("adminvote").setExecutor(new CommandAdminVote(this));
