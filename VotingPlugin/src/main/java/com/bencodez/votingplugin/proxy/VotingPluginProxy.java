@@ -6264,7 +6264,8 @@ public abstract class VotingPluginProxy {
 							? queuedVote.isWasOnline()
 							: isPlayerOnlineForVoteRouting(player);
 			Set<String> restoredAcceptedServers = restoreAcceptedRewardServers(queuedVote, voteId);
-			boolean sendVotesToAllServers = retryState != null && method == BungeeMethod.PLUGINMESSAGING
+			boolean sendVotesToAllServers = retryState != null
+                    && (method == BungeeMethod.PLUGINMESSAGING || retryState.pluginMessageRouting)
 					? retryState.sendVotesToAllServers
 					: restoreRewardRoutingMode(queuedVote, voteId, restoredAcceptedServers);
 			String acceptedRewardServer = null;
@@ -6380,8 +6381,7 @@ public abstract class VotingPluginProxy {
 				retryState = new LiveVoteRetryState();
 				retryState.requestIdentity = requestIdentity;
                 retryState.pluginMessageRouting = method == BungeeMethod.PLUGINMESSAGING
-                        || queuedVote != null && queuedVote.getHttpBroadcastDeliveryIds().keySet().stream()
-                                .anyMatch(key -> key.startsWith(VotingPluginWire.REWARD_QUEUE_METADATA_PREFIX));
+                        || hasPluginMessageRoutingMetadata(queuedVote);
 				retryState.sendVotesToAllServers = sendVotesToAllServers;
 				if (sendVotesToAllServers) {
 					retryState.rewardServers = queuedVote != null
@@ -7469,7 +7469,7 @@ public abstract class VotingPluginProxy {
     }
 
 	private boolean hasRecordedRewardAcceptance(String server, OfflineBungeeVote owner) {
-		if (method != BungeeMethod.PLUGINMESSAGING || owner.getVoteId() == null) return false;
+		if (owner.getVoteId() == null) return false;
         ReliableVoteDeliveryOutbox.Entry entry = reliableVoteDeliveryOutbox == null ? null
                 : reliableVoteDeliveryOutbox.find(server, owner.getVoteId(), VotingPluginWire.SUB_VOTE).orElse(null);
         if (entry != null && matchesCachedOutboxIdentity(entry, owner)) return true;
@@ -7496,7 +7496,7 @@ public abstract class VotingPluginProxy {
 	}
 
 	private boolean reconcileOnlineRewardAcceptance(String uuid, OfflineBungeeVote owner) {
-		if (method != BungeeMethod.PLUGINMESSAGING || owner.getVoteId() == null || owner.isRewardDelivered()) return true;
+		if (owner.getVoteId() == null || owner.isRewardDelivered()) return true;
         if (reliableVoteDeliveryOutbox != null) {
             for (ReliableVoteDeliveryOutbox.Entry entry : reliableVoteDeliveryOutbox.snapshot()) {
                 if (!VotingPluginWire.SUB_VOTE_ONLINE.equals(entry.envelope().getSubChannel())
@@ -7523,7 +7523,7 @@ public abstract class VotingPluginProxy {
 	}
 
 	private boolean retainCachedRewardAcceptance(String server, OfflineBungeeVote owner) {
-		if (method != BungeeMethod.PLUGINMESSAGING || owner.getVoteId() == null) return true;
+		if (owner.getVoteId() == null) return true;
 		if (!owner.isRewardDelivered() && hasRecordedRewardAcceptance(server, owner)) {
 			owner.setRewardDelivered(true);
 			owner.setDeliveryStateDirty(true);
@@ -7542,11 +7542,21 @@ public abstract class VotingPluginProxy {
 		return persistTimeVoteDelivery(source);
 	}
 
+    private boolean hasPluginMessageRoutingMetadata(VoteTimeQueue source) {
+        return source != null && (source.getHttpBroadcastDeliveryId(
+                VotingPluginWire.REWARD_ROUTING_MODE_KEY + ":all") != null
+                || source.getHttpBroadcastDeliveryId(VotingPluginWire.REWARD_ROUTING_MODE_KEY + ":single") != null
+                || source.getHttpBroadcastDeliveryIds().keySet().stream()
+                        .anyMatch(key -> key.startsWith(ACCEPTED_UPDATE_PREFIX)));
+    }
+
 	private boolean retainStandaloneBroadcastProgress(OfflineBungeeVote owner) {
-		if (method != BungeeMethod.PLUGINMESSAGING || owner.getVoteId() == null) return true;
+		if (owner.getVoteId() == null) return true;
 		LiveVoteRetryState retry = liveVoteRetries.get(owner.getVoteId());
-		if (retry != null) retry.broadcastForwardedServers.addAll(owner.getBroadcastForwardedServers());
 		VoteTimeQueue source = findQueuedVote(owner.getVoteId());
+        if (method != BungeeMethod.PLUGINMESSAGING
+                && (retry == null || !retry.pluginMessageRouting) && !hasPluginMessageRoutingMetadata(source)) return true;
+		if (retry != null) retry.broadcastForwardedServers.addAll(owner.getBroadcastForwardedServers());
 		if (source == null) return true;
 		boolean changed = source.getBroadcastForwardedServers().addAll(owner.getBroadcastForwardedServers());
 		return !changed && !source.isDeliveryStateDirty() || persistTimeVoteDelivery(source);
@@ -7559,7 +7569,7 @@ public abstract class VotingPluginProxy {
 	}
 
 	private boolean persistQueuedRewardAcceptance(LiveVoteRetryState retry, UUID voteId) {
-		if (method != BungeeMethod.PLUGINMESSAGING || retry.queuedVote == null) return true;
+		if (!retry.pluginMessageRouting || retry.queuedVote == null) return true;
 		return retainIncomingVoteForRestart(new PendingIncomingVote(voteId, retry.player, retry.service, retry.time));
 	}
 

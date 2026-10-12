@@ -218,7 +218,10 @@ markers remain in shutdown snapshots if the transport changes while a vote is
 unfinished; changing transport must not erase already accepted effects. Resuming
 that vote through another transport does not resend its plugin-message updates.
 Those updates retain their original outbox ownership and resume when plugin
-messaging is available again; already handed-off updates stay completed.
+messaging is available again; already handed-off updates stay completed. The
+original single-server or all-server reward plan remains fixed on a live retry.
+Cached reward reconciliation also honors an existing backend owner regardless of
+the current transport, before offering the occurrence on a different backend.
 
 A positive-source JSON entry whose SQL row still exists with a different identity
 is retained on disk for recovery but excluded from ordinary replay. It is not

@@ -1175,8 +1175,9 @@ class VotingPluginProxyPacingTest {
 
     @Test
     void quarantinedCachedCompletionKeepsReceiptAndOriginalBackendAcrossRestart(@TempDir Path base) throws Exception {
-        for (boolean online : List.of(false, true)) {
-            Path directory = base.resolve(online ? "online" : "server");
+        for (boolean online : List.of(false, true)) for (BungeeMethod recoveryMethod : List.of(
+                BungeeMethod.PLUGINMESSAGING, BungeeMethod.MYSQL)) {
+            Path directory = base.resolve(online ? "online" : "server").resolve(recoveryMethod.name());
             java.nio.file.Files.createDirectories(directory);
             CapturingProxy proxy = new CapturingProxy(directory);
             proxy.reliable().add(BACKEND);
@@ -1206,10 +1207,13 @@ class VotingPluginProxyPacingTest {
             proxy.closeDispatcher();
 
             CapturingProxy restarted = new CapturingProxy(directory);
+            restarted.setMethod(recoveryMethod);
             restarted.reliable().addAll(List.of(BACKEND, "backend-b"));
             restarted.cache.load();
             if (online) restarted.checkOnlineVotes("Synthetic", owner, "backend-b");
             else restarted.checkCachedVotes(BACKEND);
+            if (online) assertFalse(restarted.outbox.find("backend-b", first.getVoteId(), kind).isPresent(),
+                    "recovery created a second backend owner for the original accepted reward");
             assertTrue(restarted.handoffs.stream().noneMatch(h -> first.getVoteId().toString()
                     .equals(h.envelope().getFields().get(VotingPluginWire.K_VOTE_ID))
                     && (VotingPluginWire.SUB_VOTE.equals(h.envelope().getSubChannel())
@@ -1217,6 +1221,11 @@ class VotingPluginProxyPacingTest {
                     "cache recovery repeated the original accepted reward");
             invoke(restarted, "retryReliableVoteDeliveries", String.class, null);
             restarted.time.advance(TimeUnit.SECONDS.toNanos(1));
+            assertTrue(restarted.handoffs.stream().noneMatch(h -> first.getVoteId().toString()
+                    .equals(h.envelope().getFields().get(VotingPluginWire.K_VOTE_ID))
+                    && (VotingPluginWire.SUB_VOTE.equals(h.envelope().getSubChannel())
+                            || VotingPluginWire.SUB_VOTE_ONLINE.equals(h.envelope().getSubChannel()))),
+                    "delayed transport recovery repeated the original accepted reward");
             assertTrue(restarted.handoffs.stream().anyMatch(h ->
                     VotingPluginWire.SUB_VOTE_DELIVERY_RECEIPT_RELEASE.equals(h.envelope().getSubChannel())
                             && first.getVoteId().toString().equals(h.envelope().getFields().get(VotingPluginWire.K_VOTE_ID))));
@@ -1418,12 +1427,15 @@ class VotingPluginProxyPacingTest {
         when(proxy.getConfig().getBungeeMethod()).thenReturn("MYSQL");
         proxy.reloadFromControl();
         assertEquals(BungeeMethod.MYSQL, proxy.getMethod());
+        when(proxy.getConfig().getSendVotesToAllServers()).thenReturn(true);
         GlobalMessageProxyHandler resumed = mock(GlobalMessageProxyHandler.class);
         proxy.setGlobalMessageProxyHandlerForTest(resumed);
         assertThrows(VotingPluginProxy.VoteRetryException.class,
                 () -> proxy.vote("Synthetic", "synthetic-service", true, false, 1L, null, player, id));
         verify(resumed, never()).sendMessage(anyString(), anyInt(), argThat(envelope ->
-                VotingPluginWire.SUB_VOTE_UPDATE.equals(envelope.getSubChannel())));
+                VotingPluginWire.SUB_VOTE_UPDATE.equals(envelope.getSubChannel())
+                        || VotingPluginWire.SUB_VOTE.equals(envelope.getSubChannel())
+                        || VotingPluginWire.SUB_VOTE_ONLINE.equals(envelope.getSubChannel())));
         if (parked) assertTrue(proxy.outbox.find("backend-b", id, VotingPluginWire.SUB_VOTE_UPDATE).isPresent(),
                 "transport resume discarded the parked original update owner");
         assertEquals(original, proxy.snapshotIncomingVoteForRestart(pending).getHttpBroadcastDeliveryIds(),
