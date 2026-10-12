@@ -387,6 +387,158 @@ class VotingPluginProxyPacingTest {
     }
 
     @Test
+    void queuedPluginVotePartySurvivesSchedulerCancellationAndShutdown(@TempDir Path directory) throws Exception {
+        CapturingProxy proxy = new CapturingProxy(directory);
+        proxy.persistPartyState = true;
+        when(proxy.getConfig().getVotePartyEnabled()).thenReturn(true);
+        when(proxy.getConfig().getVotePartySendToAllServers()).thenReturn(true);
+        when(proxy.getConfig().getVotePartyBroadcast()).thenReturn("");
+        when(proxy.getConfig().getVotePartyBungeeCommands()).thenReturn(List.of());
+        proxy.setVotePartyVotes(1);
+        proxy.setCurrentVotePartyVotesRequired(1);
+        proxy.checkVoteParty();
+        assertEquals(0, proxy.storage.getVotePartyCurrentVotes());
+        assertTrue(proxy.handoffs.isEmpty(), "party handoff must still be paced");
+        proxy.time.executor.shutdownNow();
+        proxy.completeRuntimeReplacementShutdown();
+
+        CapturingProxy restarted = new CapturingProxy(directory);
+        restarted.persistPartyState = true;
+        restarted.cache.load();
+        restarted.setVotePartyVotes(restarted.storage.getVotePartyCurrentVotes());
+        restarted.setCurrentVotePartyVotesRequired(1);
+        assertEquals(0, restarted.getVotePartyVotes(), "the committed threshold must not be regenerated");
+        invoke(restarted, "retryReliableVoteDeliveries", String.class, null);
+        restarted.time.advance(TimeUnit.SECONDS.toNanos(2));
+        assertEquals(2, restarted.handoffs.stream().filter(h ->
+                VotingPluginWire.votePartyBungee().getSubChannel().equals(h.envelope().getSubChannel())).count(),
+                "graceful shutdown lost committed backend party rewards");
+        restarted.closeDispatcher();
+    }
+
+    private static CapturingProxy durablePartyProxy(Path directory) throws Exception {
+        CapturingProxy proxy = new CapturingProxy(directory);
+        proxy.persistPartyState = true;
+        when(proxy.getConfig().getVotePartyEnabled()).thenReturn(true);
+        when(proxy.getConfig().getVotePartySendToAllServers()).thenReturn(true);
+        when(proxy.getConfig().getVotePartyBroadcast()).thenReturn("");
+        when(proxy.getConfig().getVotePartyBungeeCommands()).thenReturn(List.of());
+        proxy.setVotePartyVotes(1);
+        proxy.setCurrentVotePartyVotesRequired(1);
+        return proxy;
+    }
+
+    @Test
+    void partyDeliveryPreservesExactConfiguredBackendName(@TempDir Path directory) throws Exception {
+        CapturingProxy proxy = durablePartyProxy(directory);
+        String configured = " Backend-a ";
+        proxy.availableTargets.clear();
+        proxy.availableTargets.add(configured);
+        proxy.unavailableBackends.add("backend-a");
+        proxy.checkVoteParty();
+        proxy.time.advance(TimeUnit.SECONDS.toNanos(2));
+        assertEquals(1, proxy.handoffs.size(), "exact online backend was replaced with an unavailable alias");
+        assertEquals(configured, proxy.handoffs.getFirst().server());
+        assertTrue(proxy.cache.getPluginMessageVotePartyRewards().deliveries().isEmpty());
+        proxy.closeDispatcher();
+    }
+
+    @Test
+    void rejectedPartyHandoffsKeepOriginalIdsAndRetryWithoutHttpOwnership(@TempDir Path directory) throws Exception {
+        CapturingProxy proxy = durablePartyProxy(directory);
+        proxy.deliveryAccepted = false;
+        proxy.checkVoteParty();
+        var original = proxy.cache.getPluginMessageVotePartyRewards();
+        proxy.time.advance(TimeUnit.SECONDS.toNanos(2));
+        assertEquals(original, proxy.cache.getPluginMessageVotePartyRewards());
+        assertTrue(proxy.storage.getPendingVotePartyRewardServers().isEmpty());
+        proxy.deliveryAccepted = true;
+        proxy.time.advance(TimeUnit.SECONDS.toNanos(8));
+        assertEquals(2, proxy.handoffs.size());
+        assertTrue(proxy.cache.getPluginMessageVotePartyRewards().deliveries().isEmpty());
+        assertEquals(0, proxy.getVotePartyVotes());
+        assertPaced(proxy.handoffs);
+        proxy.closeDispatcher();
+    }
+
+    @Test
+    void partyFencePersistenceFailureDoesNotAttemptTransport(@TempDir Path directory) throws Exception {
+        CapturingProxy proxy = durablePartyProxy(directory);
+        proxy.checkVoteParty();
+        var original = proxy.cache.getPluginMessageVotePartyRewards();
+        proxy.failDurablePartySave = true;
+        proxy.time.advance(TimeUnit.SECONDS.toNanos(2));
+        assertEquals(0, proxy.transportAttempts);
+        assertEquals(original, proxy.cache.getPluginMessageVotePartyRewards());
+        proxy.failDurablePartySave = false;
+        proxy.time.advance(TimeUnit.SECONDS.toNanos(8));
+        assertEquals(2, proxy.handoffs.size());
+        proxy.closeDispatcher();
+    }
+
+    @Test
+    void acceptedPartyHandoffWithFailedCompletionSaveNeverRepeats(@TempDir Path directory) throws Exception {
+        CapturingProxy proxy = durablePartyProxy(directory);
+        proxy.availableTargets.clear();
+        proxy.availableTargets.add(BACKEND);
+        proxy.onHandoff = envelope -> proxy.failDurablePartySave = true;
+        proxy.checkVoteParty();
+        proxy.time.advance(TimeUnit.SECONDS.toNanos(12));
+        assertEquals(1, proxy.handoffs.size());
+        assertEquals(com.bencodez.votingplugin.proxy.cache.PendingPluginMessageVotePartyRewards.State.HANDOFF_FENCED,
+                proxy.cache.getPluginMessageVotePartyRewards().deliveries().getFirst().state());
+        proxy.failDurablePartySave = false;
+        invoke(proxy, "retryReliableVoteDeliveries", String.class, null);
+        assertTrue(proxy.cache.getPluginMessageVotePartyRewards().deliveries().isEmpty());
+        assertEquals(1, proxy.handoffs.size());
+        proxy.closeDispatcher();
+    }
+
+    @Test
+    void ambiguousPartyHandoffStaysFencedAcrossRestart(@TempDir Path directory) throws Exception {
+        CapturingProxy proxy = durablePartyProxy(directory);
+        proxy.availableTargets.clear();
+        proxy.availableTargets.add(BACKEND);
+        proxy.onHandoff = envelope -> { throw new IllegalStateException("synthetic ambiguous transport outcome"); };
+        proxy.checkVoteParty();
+        proxy.time.advance(TimeUnit.SECONDS.toNanos(8));
+        assertEquals(1, proxy.handoffs.size());
+        var fenced = proxy.cache.getPluginMessageVotePartyRewards();
+        proxy.completeRuntimeReplacementShutdown();
+        CapturingProxy restarted = durablePartyProxy(directory);
+        restarted.cache.load();
+        invoke(restarted, "retryReliableVoteDeliveries", String.class, null);
+        restarted.time.advance(TimeUnit.SECONDS.toNanos(8));
+        assertTrue(restarted.handoffs.isEmpty());
+        assertEquals(fenced, restarted.cache.getPluginMessageVotePartyRewards());
+        restarted.closeDispatcher();
+    }
+
+    @Test
+    void partialPartyRestartReplaysOnlyUnattemptedBackend(@TempDir Path directory) throws Exception {
+        CapturingProxy proxy = durablePartyProxy(directory);
+        proxy.checkVoteParty();
+        proxy.unavailableBackends.add("backend-b");
+        proxy.time.advance(TimeUnit.SECONDS.toNanos(2));
+        assertEquals(1, proxy.handoffs.size());
+        var pending = proxy.cache.getPluginMessageVotePartyRewards();
+        assertEquals("backend-b", pending.deliveries().getFirst().server());
+        proxy.time.executor.shutdownNow();
+        proxy.completeRuntimeReplacementShutdown();
+        CapturingProxy restarted = durablePartyProxy(directory);
+        restarted.cache.load();
+        assertEquals(pending, restarted.cache.getPluginMessageVotePartyRewards());
+        restarted.setMethod(BungeeMethod.REDIS);
+        invoke(restarted, "retryReliableVoteDeliveries", String.class, null);
+        assertTrue(restarted.handoffs.isEmpty());
+        restarted.setMethod(BungeeMethod.PLUGINMESSAGING);
+        invoke(restarted, "retryReliableVoteDeliveries", String.class, null);
+        assertEquals(1, restarted.handoffs.size());
+        assertEquals("backend-b", restarted.handoffs.getFirst().server());
+        restarted.closeDispatcher();
+    }
+
+    @Test
     void pluginVotePartyFailedDurableSaveReleasesBatchAndRetainsThreshold(@TempDir Path directory) throws Exception {
         CapturingProxy proxy = new CapturingProxy(directory);
         when(proxy.getConfig().getVotePartyEnabled()).thenReturn(true);
@@ -1655,12 +1807,14 @@ class VotingPluginProxyPacingTest {
         final ManualTime time = new ManualTime();
         final List<Handoff> handoffs = new ArrayList<>();
         final VoteCacheHandler cache;
+        final BungeeJsonVoteCache storage;
         final ReliableVoteDeliveryOutbox outbox;
         boolean carrier = true;
         boolean broadcastValidationEnabled;
         final Set<String> unavailableBackends = new LinkedHashSet<>();
         final Set<String> availableTargets = new LinkedHashSet<>(List.of(BACKEND, "backend-b"));
         boolean failDurablePartySave;
+        boolean persistPartyState;
         boolean failVoteParty;
         boolean failCacheDurableSave;
         boolean failCacheReload;
@@ -1684,7 +1838,7 @@ class VotingPluginProxyPacingTest {
             when(getConfig().getBlockedServers()).thenReturn(List.of());
             VotingPluginBungee platform = mock(VotingPluginBungee.class);
             when(platform.getDataFolder()).thenReturn(directory.toFile());
-            BungeeJsonVoteCache storage = new BungeeJsonVoteCache(platform) {
+            storage = new BungeeJsonVoteCache(platform) {
                 @Override public synchronized void saveDurably() throws java.io.IOException {
                     if (failCacheDurableSave) throw new java.io.IOException("synthetic cache save failure");
                     super.saveDurably();
@@ -1730,9 +1884,32 @@ class VotingPluginProxyPacingTest {
             super.addVoteParty();
         }
 
+        @Override public int getVoteCacheVotePartyIncreaseVotesRequired() {
+            return persistPartyState ? storage.getVotePartyInreaseVotesRequired()
+                    : super.getVoteCacheVotePartyIncreaseVotesRequired();
+        }
+        @Override public void setVoteCacheVotePartyCurrentVotes(int votes) {
+            if (persistPartyState) storage.setVotePartyCurrentVotes(votes);
+            else super.setVoteCacheVotePartyCurrentVotes(votes);
+        }
+        @Override public void setVoteCacheVotePartyIncreaseVotesRequired(int votes) {
+            if (persistPartyState) storage.setVotePartyInreaseVotesRequired(votes);
+            else super.setVoteCacheVotePartyIncreaseVotesRequired(votes);
+        }
+
         @Override public void saveVotePartyStateDurably() {
             if (failDurablePartySave) throw new IllegalStateException("synthetic durable write failure");
             super.saveVotePartyStateDurably();
+            if (persistPartyState) {
+                storage.setVotePartyCurrentVotes(getVotePartyVotes());
+                storage.setVotePartyInreaseVotesRequired(getVoteCacheVotePartyIncreaseVotesRequired());
+                try {
+                    com.bencodez.votingplugin.proxy.cache.VotePartyCacheDurability.saveAndVerify(
+                            storage.getStoragePath(), storage);
+                } catch (java.io.IOException failure) {
+                    throw new IllegalStateException("synthetic durable party transaction failed", failure);
+                }
+            }
         }
 
         @Override protected long pluginMessageNanoTime() { return time.now; }

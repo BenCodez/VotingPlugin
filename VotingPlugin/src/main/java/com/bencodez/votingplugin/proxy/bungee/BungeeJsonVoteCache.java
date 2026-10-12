@@ -18,6 +18,7 @@ import com.bencodez.votingplugin.proxy.cache.GsonDataNode;
 import com.bencodez.votingplugin.proxy.cache.IVoteCache;
 import com.bencodez.votingplugin.proxy.cache.VoteCacheDurability;
 import com.bencodez.votingplugin.proxy.cache.PendingVotePartyProxyEffects;
+import com.bencodez.votingplugin.proxy.cache.PendingPluginMessageVotePartyRewards;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 import com.bencodez.votingplugin.util.DurableFiles;
 import com.google.gson.GsonBuilder;
@@ -102,6 +103,7 @@ public class BungeeJsonVoteCache extends BungeeJsonFile implements IVoteCache {
 	public synchronized void reload() {
 		try {
 			var loaded = VoteCacheDurability.readJournal(getStoragePath());
+			PendingPluginMessageVotePartyRewards.fromCacheJson(loaded);
 			super.setConf(loaded);
 			writesPaused = false;
 			journalLoaded = true;
@@ -125,7 +127,7 @@ public class BungeeJsonVoteCache extends BungeeJsonFile implements IVoteCache {
 		if (writesPaused) throw new IOException("Vote cache writes require a successful reload");
 		Path target = getStoragePath().toAbsolutePath().normalize();
 		if (journalLoaded) {
-			try { VoteCacheDurability.readJournal(target); }
+			try { PendingPluginMessageVotePartyRewards.fromCacheJson(VoteCacheDurability.readJournal(target)); }
 			catch (IOException | RuntimeException failure) {
 				writesPaused = true;
 				throw new IOException("Vote cache is unreadable; reload is required before saving", failure);
@@ -138,7 +140,7 @@ public class BungeeJsonVoteCache extends BungeeJsonFile implements IVoteCache {
 		try {
 			Files.writeString(staged, new GsonBuilder().setPrettyPrinting().create().toJson(getConf()),
 					StandardCharsets.UTF_8);
-			VoteCacheDurability.readJournal(staged);
+			PendingPluginMessageVotePartyRewards.fromCacheJson(VoteCacheDurability.readJournal(staged));
 			DurableFiles.publishStagedFile(staged, target);
 		} finally {
 			Files.deleteIfExists(staged);
@@ -241,6 +243,26 @@ public class BungeeJsonVoteCache extends BungeeJsonFile implements IVoteCache {
 
 	public synchronized int getVotePartyCache(String server) {
 		return getInt("VoteParty.Cache." + server, 0);
+	}
+
+	@Override
+	public synchronized PendingPluginMessageVotePartyRewards getPluginMessageVotePartyRewards() {
+		return PendingPluginMessageVotePartyRewards.fromCacheJson(getConf());
+	}
+
+	@Override
+	public synchronized void setPluginMessageVotePartyRewards(PendingPluginMessageVotePartyRewards rewards) {
+		if (rewards == null) throw new IllegalArgumentException("Missing plugin-message vote-party backlog");
+		com.google.gson.JsonElement current = getConf().get("VoteParty");
+		com.google.gson.JsonObject party;
+		if (current == null || current.isJsonNull()) {
+			if (rewards.deliveries().isEmpty()) return;
+			party = new com.google.gson.JsonObject();
+			getConf().add("VoteParty", party);
+		} else if (current.isJsonObject()) party = current.getAsJsonObject();
+		else throw new IllegalArgumentException("Invalid vote-party cache");
+		if (rewards.deliveries().isEmpty()) party.remove("PluginMessageRewards");
+		else party.add("PluginMessageRewards", rewards.toJson());
 	}
 
 	@Override

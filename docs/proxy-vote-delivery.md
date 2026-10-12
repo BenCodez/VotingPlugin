@@ -86,8 +86,21 @@ and a change away from plugin messaging fail closed while admitted effect-bearin
 controls are pending; retry the reload after they drain. Effect-free server-name
 and status metadata do not block replacement when a backend has no carrier or
 has been removed. Normal shutdown remains bounded and warns if effect-bearing
-best-effort controls are still pending. It does not make these controls
-restart-durable. An admitted control that becomes unencodable after settings
+best-effort controls are still pending. Committed plugin-message vote-party
+backend targets are separately durable in `VoteParty.PluginMessageRewards` in
+the existing vote cache. Their original batch and delivery IDs survive cancelled
+tasks, carrier loss, and restart without regenerating the party threshold.
+They do not occupy the HTTP pending-reward namespace or change transport choice.
+Immediately before each transport attempt, that target is durably fenced. A
+confirmed rejected handoff returns to retryable state; an accepted handoff is
+retired durably. Failed completion saves retry persistence without repeating the
+handoff. A crash during the handoff, or an exception with an uncertain outcome,
+leaves a fence for reconciliation rather than automatically risking duplicate
+legacy party rewards. Legacy party messages have no backend acknowledgement;
+proxy transport acceptance is not proof that backend rewards completed.
+Backlogs are bounded to 1,024 deliveries, 256 backends and 64 per backend; full
+admission retains the unspent threshold. Other best-effort controls are not made
+restart-durable by this change. An admitted control that becomes unencodable after settings
 change is reported and retired without a handoff; durable votes remain queued.
 
 Cached replay writes and verifies original batch number, batch size and SQL

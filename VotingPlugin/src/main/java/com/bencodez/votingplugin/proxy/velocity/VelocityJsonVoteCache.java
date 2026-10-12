@@ -18,6 +18,7 @@ import com.bencodez.votingplugin.proxy.cache.DataNode;
 import com.bencodez.votingplugin.proxy.cache.IVoteCache;
 import com.bencodez.votingplugin.proxy.cache.VoteCacheDurability;
 import com.bencodez.votingplugin.proxy.cache.PendingVotePartyProxyEffects;
+import com.bencodez.votingplugin.proxy.cache.PendingPluginMessageVotePartyRewards;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 import com.bencodez.votingplugin.util.DurableFiles;
 
@@ -60,6 +61,7 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 	public synchronized void reload() {
 		try {
 			var document = VoteCacheDurability.readJournal(getStoragePath());
+			PendingPluginMessageVotePartyRewards.fromCacheJson(document);
 			var loaded = GsonConfigurationLoader.builder()
 					.source(() -> new java.io.BufferedReader(new java.io.StringReader(document.toString())))
 					.build().load();
@@ -94,7 +96,7 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 		if (writesPaused) throw new IOException("Vote cache writes require a successful reload");
 		Path target = getStoragePath().toAbsolutePath().normalize();
 		if (journalLoaded) {
-			try { VoteCacheDurability.readJournal(target); }
+			try { PendingPluginMessageVotePartyRewards.fromCacheJson(VoteCacheDurability.readJournal(target)); }
 			catch (IOException | RuntimeException failure) {
 				writesPaused = true;
 				throw new IOException("Vote cache is unreadable; reload is required before saving", failure);
@@ -113,7 +115,7 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 			} else {
 				GsonConfigurationLoader.builder().path(staged).build().save(getConf());
 			}
-			VoteCacheDurability.readJournal(staged);
+			PendingPluginMessageVotePartyRewards.fromCacheJson(VoteCacheDurability.readJournal(staged));
 			DurableFiles.publishStagedFile(staged, target);
 		} finally {
 			Files.deleteIfExists(staged);
@@ -272,6 +274,19 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 	@Override
 	public synchronized int getVotePartyCache(String server) {
 		return getNode("VoteParty", "Cache", server).getInt(0);
+	}
+
+	@Override
+	public synchronized PendingPluginMessageVotePartyRewards getPluginMessageVotePartyRewards() {
+		return PendingPluginMessageVotePartyRewards.fromStorageValue(
+				getNode("VoteParty", "PluginMessageRewards").raw());
+	}
+
+	@Override
+	public synchronized void setPluginMessageVotePartyRewards(PendingPluginMessageVotePartyRewards rewards) {
+		if (rewards == null) throw new IllegalArgumentException("Missing plugin-message vote-party backlog");
+		if (rewards.deliveries().isEmpty()) remove("VoteParty", "PluginMessageRewards");
+		else set(new Object[] { "VoteParty", "PluginMessageRewards" }, rewards.toStorageValue());
 	}
 
 	@Override

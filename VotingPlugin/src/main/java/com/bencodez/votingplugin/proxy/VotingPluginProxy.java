@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -81,6 +82,7 @@ import com.bencodez.votingplugin.control.ControlEnrollmentAuthenticator;
 import com.bencodez.votingplugin.proxy.broadcast.ProxyBroadcastDecider;
 import com.bencodez.votingplugin.proxy.cache.IVoteCache;
 import com.bencodez.votingplugin.proxy.cache.PendingVotePartyProxyEffects;
+import com.bencodez.votingplugin.proxy.cache.PendingPluginMessageVotePartyRewards;
 import com.bencodez.votingplugin.proxy.cache.VoteCacheHandler;
 import com.bencodez.votingplugin.proxy.cache.nonvoted.INonVotedPlayersStorage;
 import com.bencodez.votingplugin.proxy.cache.nonvoted.NonVotedPlayersCache;
@@ -334,6 +336,8 @@ public abstract class VotingPluginProxy {
 	private boolean timeVoteDeliveryRetryScheduled;
 	private boolean cachedVoteDeliveryRetryScheduled;
 	private boolean votePartyDeliveryRetryScheduled;
+    private final Map<UUID, Boolean> pluginPartyOutcomes = new LinkedHashMap<>();
+    private final Set<UUID> reportedPluginPartyFences = new HashSet<>();
 	private boolean deferredHttpTransportReconciliation;
 	/**
 	 * Remembers that retained HTTP state could not be started in this runtime.
@@ -736,7 +740,7 @@ public abstract class VotingPluginProxy {
 		}
 	}
 
-	public void addCurrentVotePartyVotes(int amount) {
+	public synchronized void addCurrentVotePartyVotes(int amount) {
 		votePartyVotes += amount;
 		setVoteCacheVotePartyCurrentVotes(votePartyVotes);
 		debug("Current vote party total: " + votePartyVotes);
@@ -746,7 +750,7 @@ public abstract class VotingPluginProxy {
 		nonVotedPlayersCache.addPlayer(uuid, playerName);
 	}
 
-	public void addVoteParty() {
+	public synchronized void addVoteParty() {
 		if (getConfig().getVotePartyEnabled()) {
 			addCurrentVotePartyVotes(1);
 			checkVoteParty();
@@ -998,6 +1002,7 @@ public abstract class VotingPluginProxy {
 	}
 
 	private synchronized void retryReliableVoteDeliveries(String onlyServer) {
+        if (onlyServer == null) retryPluginMessageVotePartyRewards(null);
 		ReliableVoteDeliveryOutbox outbox = reliableVoteDeliveryOutbox;
 		if (outbox == null) return;
         // The ready window follows usable carriers; durable deferred ownership does
@@ -1673,13 +1678,29 @@ public abstract class VotingPluginProxy {
 				? getAllAvailableServers() : getConfig().getVotePartyServersToSend();
 		Map<String, String> onlineTargets = onlineVotePartyTargets(targets);
 		PluginMessageDispatcher.Batch pluginParty = null;
+        PendingPluginMessageVotePartyRewards previousPluginRewards = null;
+        PendingPluginMessageVotePartyRewards stagedPluginRewards = null;
 		if (method == BungeeMethod.PLUGINMESSAGING) {
-			JsonEnvelope party = VotingPluginWire.votePartyBungee();
-			byte[] frame = encodePluginMessage(party);
-			Map<String, java.util.function.BooleanSupplier> sends = new LinkedHashMap<>();
-			for (String target : onlineTargets.values()) sends.put(target, () -> handoffPluginMessage(target, party));
-			pluginParty = frame == null ? null : pluginMessageDispatcher.reserveBatch(sends, frame.length);
-			if (pluginParty == null) { persistRetainedVotePartyThreshold(); return; }
+            if (!flushPluginPartyOutcomes()) { persistRetainedVotePartyThreshold(); return; }
+            previousPluginRewards = getVoteCacheHandler().getPluginMessageVotePartyRewards();
+            stagedPluginRewards = previousPluginRewards;
+            UUID batchId = UUID.randomUUID();
+            Map<String, java.util.function.BooleanSupplier> sends = new LinkedHashMap<>();
+            try {
+                for (String target : onlineTargets.values()) {
+                    var delivery = new PendingPluginMessageVotePartyRewards.Delivery(batchId, UUID.randomUUID(),
+                            target, PendingPluginMessageVotePartyRewards.State.READY);
+                    stagedPluginRewards = stagedPluginRewards.with(delivery);
+                    sends.put(target, () -> handoffPluginMessageVotePartyReward(delivery));
+                }
+            } catch (IllegalArgumentException full) {
+                logSevere("Plugin-message vote-party backlog cannot admit the complete target plan; retaining the threshold");
+                persistRetainedVotePartyThreshold();
+                return;
+            }
+            byte[] frame = encodePluginMessage(VotingPluginWire.votePartyBungee());
+            pluginParty = frame == null ? null : pluginMessageDispatcher.reserveBatch(sends, frame.length);
+            if (pluginParty == null) { persistRetainedVotePartyThreshold(); return; }
 		}
 		if (method == BungeeMethod.HTTP && !canQueueVotePartyRewards(onlineTargets)) {
 			try {
@@ -1704,31 +1725,47 @@ public abstract class VotingPluginProxy {
 		PendingVotePartyProxyEffects previousProxyEffects = method == BungeeMethod.HTTP
 				? getVoteCachePendingVotePartyProxyEffects() : PendingVotePartyProxyEffects.empty();
 		if (method == BungeeMethod.HTTP) setVoteCachePendingVotePartyProxyEffects(stagedProxyEffects);
-		debug("Vote party reached");
-		addCurrentVotePartyVotes(-currentVotePartyVotesRequired);
-		currentVotePartyVotesRequired += getConfig().getVotePartyIncreaseVotesRequired();
-		setVoteCacheVotePartyIncreaseVotesRequired(
-				previousIncrease + getConfig().getVotePartyIncreaseVotesRequired());
-		try {
-			if (method == BungeeMethod.HTTP || method == BungeeMethod.PLUGINMESSAGING) saveVotePartyStateDurably();
-			else saveVoteCacheFile();
-		} catch (IOException | RuntimeException failure) {
-			if (pluginParty != null) pluginParty.cancel();
-			votePartyVotes = previousVotes;
-			setVoteCacheVotePartyCurrentVotes(previousVotes);
-			currentVotePartyVotesRequired = previousRequired;
-			setVoteCacheVotePartyIncreaseVotesRequired(previousIncrease);
-			for (Map.Entry<String, String> staged : stagedRewards.entrySet())
-				setVoteCachePendingVotePartyReward(staged.getKey(), staged.getValue(), false);
-			if (method == BungeeMethod.HTTP) setVoteCachePendingVotePartyProxyEffects(previousProxyEffects);
-			throw failure instanceof RuntimeException runtime ? runtime
-					: new IllegalStateException("Unable to persist HTTP vote-party rewards", failure);
-		}
+        PendingPluginMessageVotePartyRewards beforePluginRewards = previousPluginRewards;
+        PendingPluginMessageVotePartyRewards committedPluginRewards = stagedPluginRewards;
+        PluginMessageDispatcher.Batch reservedPluginParty = pluginParty;
+        BungeeMethod partyMethod = method;
+        Runnable commitThreshold = () -> {
+            if (committedPluginRewards != null)
+                getVoteCacheHandler().setPluginMessageVotePartyRewards(committedPluginRewards);
+            debug("Vote party reached");
+            addCurrentVotePartyVotes(-currentVotePartyVotesRequired);
+            currentVotePartyVotesRequired += getConfig().getVotePartyIncreaseVotesRequired();
+            setVoteCacheVotePartyIncreaseVotesRequired(
+                    previousIncrease + getConfig().getVotePartyIncreaseVotesRequired());
+            try {
+                if (partyMethod == BungeeMethod.HTTP || partyMethod == BungeeMethod.PLUGINMESSAGING) saveVotePartyStateDurably();
+                else saveVoteCacheFile();
+            } catch (IOException | RuntimeException failure) {
+                if (reservedPluginParty != null) reservedPluginParty.cancel();
+                votePartyVotes = previousVotes;
+                setVoteCacheVotePartyCurrentVotes(previousVotes);
+                currentVotePartyVotesRequired = previousRequired;
+                setVoteCacheVotePartyIncreaseVotesRequired(previousIncrease);
+                for (Map.Entry<String, String> staged : stagedRewards.entrySet())
+                    setVoteCachePendingVotePartyReward(staged.getKey(), staged.getValue(), false);
+                if (partyMethod == BungeeMethod.HTTP) setVoteCachePendingVotePartyProxyEffects(previousProxyEffects);
+                if (beforePluginRewards != null) getVoteCacheHandler().setPluginMessageVotePartyRewards(beforePluginRewards);
+                throw failure instanceof RuntimeException runtime ? runtime
+                        : new IllegalStateException("Unable to persist vote-party rewards", failure);
+            }
+        };
+        try {
+            if (committedPluginRewards != null) getVoteCacheHandler().runVotePartyCacheTransaction(commitThreshold);
+            else commitThreshold.run();
+        } catch (RuntimeException failure) {
+            if (pluginParty != null) pluginParty.cancel();
+            throw failure;
+        }
 
 		if (method == BungeeMethod.HTTP) {
 			if (retryPendingVotePartyProxyEffects()) retryPendingVotePartyRewards();
 		} else {
-			if (pluginParty != null) pluginParty.activate();
+			if (pluginParty != null) { pluginParty.activate(); scheduleVotePartyDeliveryRetry(); }
 			if (!getConfig().getVotePartyBroadcast().isEmpty()) broadcast(getConfig().getVotePartyBroadcast());
 			for (String command : getConfig().getVotePartyBungeeCommands()) runConsoleCommand(command);
 			if (pluginParty == null) for (String server : targets) sendVoteParty(server);
@@ -3677,8 +3714,12 @@ public abstract class VotingPluginProxy {
 		synchronized (this) {
 			enabled = false;
 			pluginMessageStopped = true;
+            for (int attempt = 0; attempt < FINAL_SHUTDOWN_PERSISTENCE_ATTEMPTS && !pluginPartyOutcomes.isEmpty(); attempt++)
+                flushPluginPartyOutcomes();
+            if (!pluginPartyOutcomes.isEmpty())
+                logSevere("Plugin-message vote-party outcomes remain durably fenced after shutdown persistence failed");
 			if (pluginMessageDispatcher.hasPendingEffects())
-				logSevere("Stopping with pending best-effort plugin-message controls; durable votes remain owned by their journals");
+				logSevere("Stopping queued plugin-message controls; committed vote and vote-party owners remain in their journals");
 			pluginMessageDispatcher.close();
 		}
 		cancelCommunicationTests("Proxy runtime stopped before the backend replied");
@@ -5090,9 +5131,9 @@ public abstract class VotingPluginProxy {
 		if (method != BungeeMethod.PLUGINMESSAGING) return;
 		VoteCacheHandler cache = getVoteCacheHandler();
 		if (cache == null) return;
-		int start = pluginMessageDispatcher.ownerTurn(server, 5);
-		for (int i = 0; i < 5; i++) {
-			switch ((start + i) % 5) {
+		int start = pluginMessageDispatcher.ownerTurn(server, 6);
+		for (int i = 0; i < 6; i++) {
+			switch ((start + i) % 6) {
 			case 0 -> retryReliableVoteDeliveries(server);
 			case 1 -> checkCachedVotes(server);
 			case 2 -> retryPendingOnlineBroadcasts(server);
@@ -5109,6 +5150,7 @@ public abstract class VotingPluginProxy {
 					}
 				}
 			}
+			case 5 -> retryPluginMessageVotePartyRewards(server);
 			default -> throw new IllegalStateException();
 			}
 		}
@@ -5418,8 +5460,140 @@ public abstract class VotingPluginProxy {
 		}
 	}
 
+	/** Persist known outcomes without repeating an already accepted handoff. */
+	private synchronized boolean flushPluginPartyOutcomes() {
+		if (pluginPartyOutcomes.isEmpty()) return true;
+		Map<UUID, Boolean> outcomes = new LinkedHashMap<>(pluginPartyOutcomes);
+		try {
+			getVoteCacheHandler().runVotePartyCacheTransaction(() -> {
+				var before = getVoteCacheHandler().getPluginMessageVotePartyRewards();
+				var after = before;
+				for (var outcome : outcomes.entrySet()) {
+					if (after.find(outcome.getKey()).isEmpty()) continue;
+					after = outcome.getValue() ? after.without(outcome.getKey())
+							: after.withState(outcome.getKey(), PendingPluginMessageVotePartyRewards.State.READY);
+				}
+				getVoteCacheHandler().setPluginMessageVotePartyRewards(after);
+				try { saveVotePartyStateDurably(); }
+				catch (IOException | RuntimeException failure) {
+					getVoteCacheHandler().setPluginMessageVotePartyRewards(before);
+					throw new IllegalStateException("Unable to persist plugin-message vote-party outcome", failure);
+				}
+			});
+			outcomes.forEach((id, accepted) -> pluginPartyOutcomes.remove(id, accepted));
+			return true;
+		} catch (RuntimeException failure) {
+			logSevere("Plugin-message vote-party outcome persistence is pending; no uncertain delivery will be replayed");
+			return false;
+		}
+	}
+
+	private synchronized boolean handoffPluginMessageVotePartyReward(
+			PendingPluginMessageVotePartyRewards.Delivery expected) {
+		if (!enabled || pluginMessageStopped || method != BungeeMethod.PLUGINMESSAGING) return false;
+		Boolean known = pluginPartyOutcomes.get(expected.deliveryId());
+		if (known != null) {
+			flushPluginPartyOutcomes();
+			return known;
+		}
+		String routingServer = resolveVotePartyRoutingServer(expected.server());
+		if (!isSomeoneOnlineServerForVoteRouting(routingServer)) return false;
+		byte[] frame = encodePluginMessage(VotingPluginWire.votePartyBungee());
+		if (frame == null) return false;
+		boolean[] retireControl = { false };
+		try {
+			getVoteCacheHandler().runVotePartyCacheTransaction(() -> {
+				var before = getVoteCacheHandler().getPluginMessageVotePartyRewards();
+				var current = before.find(expected.deliveryId()).orElse(null);
+				if (current == null) { retireControl[0] = true; return; }
+				if (!current.batchId().equals(expected.batchId()) || !current.server().equals(expected.server()))
+					throw new IllegalStateException("Conflicting plugin-message vote-party identity");
+				if (current.state() == PendingPluginMessageVotePartyRewards.State.HANDOFF_FENCED) {
+					reportPluginPartyFence(current.deliveryId());
+					retireControl[0] = true;
+					return;
+				}
+				getVoteCacheHandler().setPluginMessageVotePartyRewards(before.withState(current.deliveryId(),
+						PendingPluginMessageVotePartyRewards.State.HANDOFF_FENCED));
+				try { saveVotePartyStateDurably(); }
+				catch (IOException | RuntimeException failure) {
+					getVoteCacheHandler().setPluginMessageVotePartyRewards(before);
+					throw new IllegalStateException("Unable to fence plugin-message vote-party handoff", failure);
+				}
+				boolean accepted;
+				try {
+					accepted = sendPluginMessageData(routingServer,
+							getConfig().getPluginMessageChannel().toLowerCase(Locale.ROOT), frame, false);
+				} catch (RuntimeException ambiguous) {
+					reportPluginPartyFence(current.deliveryId());
+					retireControl[0] = true;
+					return;
+				}
+				pluginPartyOutcomes.put(current.deliveryId(), accepted);
+				flushPluginPartyOutcomes();
+				retireControl[0] = accepted;
+			});
+		} catch (RuntimeException failure) {
+			logSevere("Plugin-message vote-party delivery remains owned by its durable cache");
+		}
+		return retireControl[0];
+	}
+
+	private void reportPluginPartyFence(UUID id) {
+		if (reportedPluginPartyFences.add(id))
+			logSevere("A plugin-message vote-party handoff has an uncertain outcome; retained for reconciliation without automatic replay");
+	}
+
+	private synchronized void retryPluginMessageVotePartyRewards(String onlyServer) {
+		if (!enabled || pluginMessageStopped || method != BungeeMethod.PLUGINMESSAGING) return;
+		if (!flushPluginPartyOutcomes()) { scheduleVotePartyDeliveryRetry(); return; }
+		try {
+			var pending = getVoteCacheHandler().getPluginMessageVotePartyRewards();
+			reportedPluginPartyFences.retainAll(pending.deliveries().stream()
+					.map(PendingPluginMessageVotePartyRewards.Delivery::deliveryId).collect(java.util.stream.Collectors.toSet()));
+			Set<String> attempted = new HashSet<>();
+			for (var delivery : pending.deliveries()) {
+				if (delivery.state() == PendingPluginMessageVotePartyRewards.State.HANDOFF_FENCED) {
+					reportPluginPartyFence(delivery.deliveryId());
+					continue;
+				}
+				if (onlyServer != null && !delivery.server().equalsIgnoreCase(onlyServer)) continue;
+				if (!attempted.add(delivery.server())) continue;
+				pluginMessageDispatcher.trySend(delivery.server(), () -> handoffPluginMessageVotePartyReward(delivery));
+			}
+			scheduleVotePartyDeliveryRetry();
+		} catch (RuntimeException failure) {
+			logSevere("Plugin-message vote-party cache is unavailable; delivery remains deferred");
+		}
+	}
+
+	private void stageDirectPluginMessageVoteParty(String server) {
+		if (!enabled || pluginMessageStopped || encodePluginMessage(VotingPluginWire.votePartyBungee()) == null) return;
+		if (!flushPluginPartyOutcomes()) return;
+		try {
+			getVoteCacheHandler().runVotePartyCacheTransaction(() -> {
+				var before = getVoteCacheHandler().getPluginMessageVotePartyRewards();
+				var delivery = new PendingPluginMessageVotePartyRewards.Delivery(UUID.randomUUID(), UUID.randomUUID(),
+						server, PendingPluginMessageVotePartyRewards.State.READY);
+				getVoteCacheHandler().setPluginMessageVotePartyRewards(before.with(delivery));
+				try { saveVotePartyStateDurably(); }
+				catch (IOException | RuntimeException failure) {
+					getVoteCacheHandler().setPluginMessageVotePartyRewards(before);
+					throw new IllegalStateException("Unable to persist plugin-message vote-party intent", failure);
+				}
+			});
+			retryPluginMessageVotePartyRewards(server);
+		} catch (RuntimeException failure) {
+			logSevere("Plugin-message vote-party intent could not be admitted; no handoff attempted");
+		}
+	}
+
 	public synchronized void sendVoteParty(String server) {
 		if (!isSomeoneOnlineServerForVoteRouting(server)) return;
+        if (method == BungeeMethod.PLUGINMESSAGING) {
+            stageDirectPluginMessageVoteParty(server);
+            return;
+        }
 		if (method != BungeeMethod.HTTP) {
 			globalMessageProxyHandler.sendMessage(server, 1, VotingPluginWire.votePartyBungee());
 			return;
@@ -5702,11 +5876,21 @@ public abstract class VotingPluginProxy {
 			return;
 		}
 		Collection<String> pendingServers = method == BungeeMethod.HTTP ? getVoteCachePendingVotePartyServers() : null;
-		if (!pendingProxyEffects && (pendingServers == null || pendingServers.isEmpty())) return;
+		boolean pendingPluginRewards = !pluginPartyOutcomes.isEmpty();
+		if (method == BungeeMethod.PLUGINMESSAGING) {
+			try {
+				pendingPluginRewards |= getVoteCacheHandler().getPluginMessageVotePartyRewards().deliveries().stream()
+						.anyMatch(delivery -> delivery.state() == PendingPluginMessageVotePartyRewards.State.READY);
+			} catch (RuntimeException invalid) {
+				logSevere("Plugin-message vote-party cache is unavailable; automatic execution is deferred");
+			}
+		}
+		if (!pendingPluginRewards && !pendingProxyEffects && (pendingServers == null || pendingServers.isEmpty())) return;
 		votePartyDeliveryRetryScheduled = true;
 		try {
 			getScheduler().schedule(() -> {
 				synchronized (VotingPluginProxy.this) { votePartyDeliveryRetryScheduled = false; }
+				retryPluginMessageVotePartyRewards(null);
 				if (retryPendingVotePartyProxyEffects()) {
 					if (method == BungeeMethod.HTTP) retryPendingVotePartyRewards();
 					if (votePartyVotes >= currentVotePartyVotesRequired) checkVoteParty();
@@ -5718,7 +5902,7 @@ public abstract class VotingPluginProxy {
 		}
 	}
 
-	public void setCurrentVotePartyVotes(int amount) {
+	public synchronized void setCurrentVotePartyVotes(int amount) {
 		votePartyVotes = amount;
 		setVoteCacheVotePartyCurrentVotes(amount);
 		debug("Current vote party total: " + votePartyVotes);

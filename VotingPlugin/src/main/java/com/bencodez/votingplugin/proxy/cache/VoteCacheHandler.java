@@ -72,6 +72,38 @@ public abstract class VoteCacheHandler {
 		return jsonStorageQuarantined;
 	}
 
+	/** Returns the immutable plugin-message party snapshot using handler-before-store locking. */
+	public synchronized PendingPluginMessageVotePartyRewards getPluginMessageVotePartyRewards() {
+		IVoteCache storage = requireVotePartyJsonStorage();
+		synchronized (storage) {
+			PendingPluginMessageVotePartyRewards rewards = storage.getPluginMessageVotePartyRewards();
+			if (rewards == null) throw new IllegalStateException("Missing plugin-message vote-party snapshot");
+			return rewards;
+		}
+	}
+
+	public synchronized void setPluginMessageVotePartyRewards(PendingPluginMessageVotePartyRewards rewards) {
+		if (rewards == null) throw new IllegalArgumentException("Missing plugin-message vote-party backlog");
+		IVoteCache storage = requireVotePartyJsonStorage();
+		synchronized (storage) { storage.setPluginMessageVotePartyRewards(rewards); }
+	}
+
+	/**
+	 * Holds the handler and JSON-store monitors through party staging, durable save,
+	 * and any rollback. The callback must remain limited to this cache transaction.
+	 */
+	public synchronized void runVotePartyCacheTransaction(Runnable operation) {
+		Objects.requireNonNull(operation, "Vote-party transaction is required");
+		IVoteCache storage = requireVotePartyJsonStorage();
+		synchronized (storage) { operation.run(); }
+	}
+
+	private IVoteCache requireVotePartyJsonStorage() {
+		if (jsonStorage == null || jsonStorageQuarantined)
+			throw new IllegalStateException("Vote-party JSON storage is unavailable or quarantined");
+		return jsonStorage;
+	}
+
 	/**
 	 * Checks if a server has cached votes.
 	 * @param server the server name
