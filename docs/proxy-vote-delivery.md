@@ -80,8 +80,8 @@ capacity is available. Ready controls and durable replay alternate; a future
 control does not block a ready control behind it.
 
 Ordinary controls retain their existing best-effort semantics. Queue admission
-is not backend acknowledgement. Effect-bearing update batches are admitted
-atomically, and live retries remember admitted updates. Full runtime replacement
+is not backend acknowledgement. Effect-bearing control batches, such as vote-party announcements, are admitted
+atomically; per-target vote updates retain their own durable admission identities. Full runtime replacement
 and a change away from plugin messaging fail closed while admitted effect-bearing
 controls are pending; retry the reload after they drain. Effect-free server-name
 and status metadata do not block replacement when a backend has no carrier or
@@ -123,8 +123,8 @@ are not expired by that policy.
 
 Plugin-message `VoteUpdate` targets are now retained in the existing durable
 outbox instead of occupying control slots while a backend is unavailable. They
-retain the original vote ID and use a separate 1,024-entry allowance, preserving
-the reward-vote entry allowance. Failed handoffs retain ownership across restart;
+retain the original vote ID and use a separate 1,024-entry ready window plus
+bounded deferred ownership, preserving the reward-vote entry allowance. Failed handoffs retain ownership across restart;
 accepted one-way handoffs use the existing conservative legacy attempt fence.
 `VoteUpdate` has no completion acknowledgement protocol, including on backends
 that acknowledge reward votes. Transport acceptance does not prove backend
@@ -151,3 +151,76 @@ Single-server replay updates the canonical voter-keyed cache completion before
 retiring the timed source. Cached delivery reconciles saved single-server
 acceptance before sending, including after the player changes backend. A failed
 completion write retains recovery ownership for retry.
+
+### Deferred plugin-message updates
+
+The update ready window and durable ownership are separate. An unavailable carrier
+or a full ready window can leave a `VoteUpdate` deferred in the same outbox journal.
+Normal vote logging, reward processing and proxy forwarding can finish once every
+update target is durably retained; they do not wait for that backend to reconnect.
+No updates are coalesced by player or discarded: each occurrence keeps its original
+vote ID, site, timestamp, totals and backend target.
+
+Replay moves deferred updates into the ready window only when a carrier and pacing
+budget are available. Updates for each backend keep their journal order. A backend
+without a carrier releases its ready slots while retaining its deferred owners;
+other backends can continue. The existing one-way pre-send fence and definite-rejection
+handling still govern restart recovery. Deferred admission is not backend execution
+or a completion receipt.
+
+The journal retains at most 1,024 ready updates, 4,096 deferred updates and 4,096
+ordinary reliable deliveries, within the existing 16 MiB file limit and terminal-record
+reserve. Exhausting durable capacity or failing publication leaves the original vote
+owned for retry; it is not reported accepted, dropped or silently switched to another
+transport. Durable capacity remains a finite backpressure boundary, distinct from an
+unavailable backend occupying ready slots.
+
+Deferred/ready transitions are journaled. Existing journals remain readable. Older
+proxy JARs that do not recognize these new records must not be used while deferred
+work remains: their strict reader rejects the journal rather than ignoring pending
+votes. Drain pending deliveries with the updated JAR before downgrading; never delete
+the journal to bypass a read error.
+
+### Paired-cache recovery faults
+
+A confirmed SQL deletion immediately removes its owner from live replay even if
+paired JSON cleanup cannot publish. Recovery bytes remain protected on disk, and
+a failed SQL deletion does not discard their completion metadata.
+
+A complete checked SQL snapshot can prove that a positive-source emergency JSON twin
+has lost its original SQL row. Such a confirmed orphan is excluded from replay even
+when its verified JSON cleanup fails, preventing expired votes or completed broadcasts
+from becoming new work. An incomplete SQL read or an identity mismatch alone does not
+prove deletion and must not collapse independent cache records.
+
+Failed batch staging leaves new positions unpublished. Already prepared, clean batches
+with stable IDs can continue into the independently durable outbox for a negotiated
+reliable plugin-message backend. Dirty entries, new batches, legacy delivery and
+unsettled standalone broadcasts stay blocked. Quarantined JSON writes and paired
+cleanup remain fail-closed until valid reload recovery; durable batch identity is not
+proof that a reward completed.
+
+Reliable cache acceptance remains bound to the outbox's original backend while a
+cache save is blocked. Receipt release and retirement wait for matching surviving
+cache and timed-source acceptance to be durable, including timed votes with no
+voter-cache entry. After restart, cache and timed-queue reconciliation check that
+existing outbox ownership before selecting a different backend; a player reconnecting
+elsewhere must not create another reward delivery. A failed source write retains the
+receipt-release phase for retry instead of retiring its last durable target record.
+The same transfer requirement applies when retiring a legacy one-way send fence;
+recovery does not resend a possibly accepted legacy reward while its source save fails.
+Per-backend update admission is also retained in an unfinished timed source or graceful
+shutdown snapshot before its outbox owner retires. A later vote-processing failure
+must not cause already handed-off updates to replay after restart.
+This does not change the reward receipt protocol or claim universal exactly-once
+execution of external commands. Original plugin-message routing and acceptance
+markers remain in shutdown snapshots if the transport changes while a vote is
+unfinished; changing transport must not erase already accepted effects. Resuming
+that vote through another transport does not resend its plugin-message updates.
+Those updates retain their original outbox ownership and resume when plugin
+messaging is available again; already handed-off updates stay completed.
+
+A positive-source JSON entry whose SQL row still exists with a different identity
+is retained on disk for recovery but excluded from ordinary replay. It is not
+silently deleted, merged with that different row, or treated as a new vote. Restore
+consistent source data before retrying recovery.

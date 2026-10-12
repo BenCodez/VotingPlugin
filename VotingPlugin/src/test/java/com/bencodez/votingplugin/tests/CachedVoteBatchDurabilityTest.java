@@ -184,6 +184,39 @@ class CachedVoteBatchDurabilityTest {
 	}
 
 	@TestFactory
+	Stream<DynamicTest> verifiedEmptyStagingDoesNotMutateAQuarantinedJournal() {
+		return lanes((velocity, online) -> {
+			IVoteCache storage = spy(cache(velocity));
+			VoteCacheHandler writer = handler(storage);
+			OfflineBungeeVote durable = vote(UUID.randomUUID()), fresh = vote(UUID.randomUUID());
+			add(writer, online, durable);
+			assertTrue(writer.prepareCachedVoteBatch(owner(online), online, List.of(durable), 1));
+			add(writer, online, fresh);
+			String before = Files.readString(storage.getStoragePath());
+			doThrow(new IOException("synthetic publication failure")).when(storage).saveDurably();
+			doThrow(new IllegalStateException("synthetic rollback reload failure")).when(storage).reload();
+			assertFalse(writer.prepareCachedVoteBatch(owner(online), online, List.of(fresh), 1));
+			assertTrue(writer.isJsonStorageQuarantined());
+			clearInvocations(storage);
+
+			assertTrue(writer.prepareCachedVoteBatch(owner(online), online, List.of(), 0));
+			assertTrue(writer.prepareCachedVoteBatch(owner(online), online, List.of(durable), 1));
+			assertFalse(writer.prepareCachedVoteBatch(owner(online), online, List.of(fresh), 1));
+			assertFalse(fresh.hasCachedVoteBatch());
+			assertFalse(writer.prepareCachedVoteBatch(owner(online), online, List.of(vote(UUID.randomUUID())), 1));
+			durable.setCachedVoteBatch(2, 1);
+			assertFalse(writer.prepareCachedVoteBatch(owner(online), online, List.of(durable), 1));
+			assertTrue(writer.isJsonStorageQuarantined());
+			assertEquals(before, Files.readString(storage.getStoragePath()));
+			verify(storage, never()).saveDurably();
+			verify(storage, never()).reload();
+			verify(storage, never()).addVote(anyString(), anyInt(), any());
+			verify(storage, never()).addVoteOnline(anyString(), anyInt(), any());
+			assertTrue(handler(null).prepareCachedVoteBatch(owner(online), online, List.of(), 0));
+		});
+	}
+
+	@TestFactory
 	Stream<DynamicTest> legacyRowsWithoutBatchMetadataAreUpgradedWithoutRenumberingOwners() {
 		return lanes((velocity, online) -> {
 			String lane = online ? "OnlineCache" : "VoteCache";
@@ -399,18 +432,115 @@ class CachedVoteBatchDurabilityTest {
 	}
 
 	@TestFactory
-	Stream<DynamicTest> mismatchedLegacySourceRowsOrPayloadRemainSeparate() {
+	Stream<DynamicTest> missingLegacySourceRowsAreRetiredWithoutCollapsingOtherSqlRows() {
 		return lanes((velocity, online) -> {
 			IVoteCache storage = cache(velocity); OfflineBungeeVote original = vote(null);
 			VoteCacheHandler sql = sqlHandler(storage, online, List.of(original), List.of(71)); sql.load();
 			assertTrue(sql.prepareCachedVoteBatch(owner(online), online, new ArrayList<>(votes(sql, online)), 1));
 			VoteCacheHandler differentRow = sqlHandler(cache(velocity), online, List.of(original), List.of(72)); differentRow.load();
-			assertEquals(2, votes(differentRow, online).size());
+			assertEquals(1, votes(differentRow, online).size());
+			assertEquals(72, online ? votes(differentRow, online).get(0).getOnlineVoteCacheRowId()
+					: votes(differentRow, online).get(0).getServerVoteCacheRowId());
+			assertNull(votes(differentRow, online).get(0).getVoteId());
+			assertFalse(votes(differentRow, online).get(0).hasCachedVoteBatch());
+			IVoteCache reloaded = cache(velocity);
+			assertTrue((online ? reloaded.getOnlineVotes(PLAYER) : reloaded.getServerVotes(BACKEND)).isEmpty());
+		});
+	}
+
+	@TestFactory
+	Stream<DynamicTest> mismatchedExistingSqlSourcePayloadStaysOutsideReplay() {
+		return lanes((velocity, online) -> {
+			IVoteCache storage = cache(velocity); OfflineBungeeVote original = vote(null);
+			VoteCacheHandler sql = sqlHandler(storage, online, List.of(original), List.of(71)); sql.load();
+			assertTrue(sql.prepareCachedVoteBatch(owner(online), online, new ArrayList<>(votes(sql, online)), 1));
+			String before = Files.readString(storage.getStoragePath());
 			OfflineBungeeVote differentPayload = new OfflineBungeeVote((UUID) null, "test-player", PLAYER,
 					"test-service", 100L, false, "other-totals");
 			VoteCacheHandler differentIdentity = sqlHandler(cache(velocity), online, List.of(differentPayload), List.of(71));
-			differentIdentity.load(); assertEquals(2, votes(differentIdentity, online).size());
+			differentIdentity.load(); assertEquals(1, votes(differentIdentity, online).size());
+			assertEquals(before, Files.readString(storage.getStoragePath()));
+			assertEquals(0, votes(differentIdentity, online).stream().filter(OfflineBungeeVote::hasCachedVoteBatch).count());
 		});
+	}
+
+    @TestFactory
+    Stream<DynamicTest> rejectedSqlDeletionPreservesPairedCompletionMetadata() {
+        return lanes((velocity, online) -> {
+            IVoteCache storage = spy(cache(velocity)); OfflineBungeeVote original = vote(null);
+            VoteCacheHandler sql = sqlHandler(storage, online, List.of(original), List.of(71)); sql.load();
+            OfflineBungeeVote retained = votes(sql, online).get(0);
+            assertTrue(sql.prepareCachedVoteBatch(owner(online), online, List.of(retained), 1));
+            String before = Files.readString(storage.getStoragePath());
+            if (online) when(((ProxyOnlineVoteCacheTable) getField(sql, "onlineVoteCacheTable"))
+                    .tryRemoveVote(any())).thenReturn(false);
+            else when(((ProxyVoteCacheTable) getField(sql, "voteCacheTable"))
+                    .tryRemoveVote(any(), anyString())).thenReturn(false);
+            sql.checkVoteCacheTime(1);
+            assertEquals(List.of(retained), votes(sql, online));
+            assertEquals(before, Files.readString(storage.getStoragePath()),
+                    "failed SQL deletion discarded the paired durable metadata");
+            if (online) verify(storage, never()).removeOnlineVote(any(OfflineBungeeVote.class));
+            else verify(storage, never()).removeVote(anyString(), any(OfflineBungeeVote.class));
+        });
+    }
+
+	@TestFactory
+	Stream<DynamicTest> expiredSqlBatchTwinsDoNotReturnAfterFailedJsonRemoval() {
+		return lanes((velocity, online) -> {
+			IVoteCache storage = spy(cache(velocity)); OfflineBungeeVote original = vote(null);
+			VoteCacheHandler sql = sqlHandler(storage, online, List.of(original), List.of(71)); sql.load();
+			OfflineBungeeVote expired = votes(sql, online).get(0);
+			assertTrue(sql.prepareCachedVoteBatch(owner(online), online, List.of(expired), 1));
+			assertFalse(expired.isRewardDelivered());
+			String before = Files.readString(storage.getStoragePath());
+			doThrow(new IOException("synthetic deletion publication failure")).when(storage).saveDurably();
+
+			sql.checkVoteCacheTime(1);
+
+			verifySqlRemoval(sql, online, expired);
+			assertEquals(before, Files.readString(storage.getStoragePath()));
+            assertTrue(votes(sql, online).isEmpty(), "confirmed SQL deletion left an expired owner eligible in this process");
+			VoteCacheHandler restarted = sqlHandler(cache(velocity), online, List.of(), List.of());
+			restarted.load();
+			assertTrue(votes(restarted, online).isEmpty(), "expired SQL owner returned as a reward-bearing JSON vote");
+			IVoteCache reloaded = cache(velocity);
+			assertTrue((online ? reloaded.getOnlineVotes(PLAYER) : reloaded.getServerVotes(BACKEND)).isEmpty());
+		});
+	}
+
+	@TestFactory
+	Stream<DynamicTest> interruptedPairedRemovalDoesNotReactivateAConfirmedMissingSource() {
+		return lanes((velocity, online) -> {
+			IVoteCache storage = spy(cache(velocity)); OfflineBungeeVote original = vote(UUID.randomUUID());
+			VoteCacheHandler sql = sqlHandler(storage, online, List.of(original), List.of(71)); sql.load();
+			OfflineBungeeVote removed = votes(sql, online).get(0);
+			assertTrue(sql.prepareCachedVoteBatch(owner(online), online, List.of(removed), 1));
+			String before = Files.readString(storage.getStoragePath());
+			if (online) doThrow(new IllegalStateException("synthetic stop between store deletions")).when(storage).removeOnlineVote(removed);
+			else doThrow(new IllegalStateException("synthetic stop between store deletions")).when(storage).removeVote(BACKEND, removed);
+
+			assertThrows(IllegalStateException.class, () -> remove(sql, online, removed));
+
+			verifySqlRemoval(sql, online, removed);
+			assertEquals(before, Files.readString(storage.getStoragePath()));
+			IVoteCache recoveringStorage = spy(cache(velocity));
+			doThrow(new IOException("synthetic orphan cleanup failure")).when(recoveringStorage).saveDurably();
+			VoteCacheHandler restarted = sqlHandler(recoveringStorage, online, List.of(), List.of());
+			restarted.load();
+			assertTrue(votes(restarted, online).isEmpty(), "failed orphan cleanup published a removed reward owner");
+			assertEquals(before, Files.readString(storage.getStoragePath()));
+			VoteCacheHandler recovered = sqlHandler(cache(velocity), online, List.of(), List.of());
+			recovered.load();
+			assertTrue(votes(recovered, online).isEmpty());
+			IVoteCache reloaded = cache(velocity);
+			assertTrue((online ? reloaded.getOnlineVotes(PLAYER) : reloaded.getServerVotes(BACKEND)).isEmpty());
+		});
+	}
+
+	private void verifySqlRemoval(VoteCacheHandler handler, boolean online, OfflineBungeeVote removed) throws Exception {
+		if (online) verify((ProxyOnlineVoteCacheTable) getField(handler, "onlineVoteCacheTable")).tryRemoveVote(removed);
+		else verify((ProxyVoteCacheTable) getField(handler, "voteCacheTable")).tryRemoveVote(removed, BACKEND);
 	}
 
 	@TestFactory

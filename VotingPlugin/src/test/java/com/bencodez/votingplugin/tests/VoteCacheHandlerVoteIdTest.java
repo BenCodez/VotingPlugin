@@ -653,10 +653,10 @@ public class VoteCacheHandlerVoteIdTest {
 		VoteTimeQueue sqlVote = legacyTimedVote();
 		sqlVote.setTimedVoteCacheRowId(41);
 		handler.getTimeChangeQueue().add(sqlVote);
-		var loadEmergencyVotes = VoteCacheHandler.class.getDeclaredMethod("loadJsonEmergencyVotes");
+		var loadEmergencyVotes = VoteCacheHandler.class.getDeclaredMethod("loadJsonEmergencyVotes", java.util.Set.class, java.util.Set.class);
 		loadEmergencyVotes.setAccessible(true);
 
-		loadEmergencyVotes.invoke(handler);
+		loadEmergencyVotes.invoke(handler, java.util.Set.of(), java.util.Set.of());
 
 		assertEquals(2, handler.getTimeChangeQueue().size());
 		VoteTimeQueue jsonLoaded = handler.getTimeChangeQueue().stream()

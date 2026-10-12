@@ -1099,6 +1099,437 @@ class VotingPluginProxyPacingTest {
     }
 
     @Test
+    void quarantinedMixedServerBatchKeepsReliablePreparedVoteProgress(@TempDir Path directory) throws Exception {
+        verifyQuarantinedMixedBatch(directory.resolve("clean-reliable"), false, false, true);
+        verifyQuarantinedMixedBatch(directory.resolve("dirty-reliable"), false, true, true);
+        verifyQuarantinedMixedBatch(directory.resolve("clean-legacy"), false, false, false);
+    }
+
+    @Test
+    void quarantinedMixedOnlineBatchKeepsReliablePreparedVoteProgress(@TempDir Path directory) throws Exception {
+        verifyQuarantinedMixedBatch(directory.resolve("clean-reliable"), true, false, true);
+        verifyQuarantinedMixedBatch(directory.resolve("dirty-reliable"), true, true, true);
+        verifyQuarantinedMixedBatch(directory.resolve("clean-legacy"), true, false, false);
+    }
+
+    private static void verifyQuarantinedMixedBatch(Path directory, boolean online, boolean dirty,
+            boolean reliable) throws Exception {
+        java.nio.file.Files.createDirectories(directory);
+        CapturingProxy proxy = new CapturingProxy(directory);
+        if (reliable) proxy.reliable().add(BACKEND);
+        else proxy.legacy().add(BACKEND);
+        String player = new UUID(14, 1).toString();
+        String owner = online ? player : BACKEND;
+        OfflineBungeeVote prepared = new OfflineBungeeVote(new UUID(15, 1), "Synthetic", player,
+                "synthetic-service-a", 1L, true, "");
+        OfflineBungeeVote unprepared = new OfflineBungeeVote(new UUID(15, 2), "Synthetic", player,
+                "synthetic-service-b", 2L, true, "");
+        if (online) assertTrue(proxy.cache.addOnlineVoteDurably(owner, prepared));
+        else assertTrue(proxy.cache.addServerVoteDurably(owner, prepared));
+        assertTrue(proxy.cache.prepareCachedVoteBatch(owner, online, List.of(prepared), 1));
+        assertTrue(prepared.hasCachedVoteBatch());
+        assertTrue(prepared.isCachedBatchDurable());
+        assertFalse(prepared.isDeliveryStateDirty());
+        if (online) assertTrue(proxy.cache.addOnlineVoteDurably(owner, unprepared));
+        else assertTrue(proxy.cache.addServerVoteDurably(owner, unprepared));
+        if (dirty) prepared.setDeliveryStateDirty(true);
+        proxy.failCacheDurableSave = true;
+        proxy.failCacheReload = true;
+
+        if (online) proxy.checkOnlineVotes("Synthetic", player, BACKEND);
+        else proxy.checkCachedVotes(BACKEND);
+
+        assertTrue(proxy.cache.isJsonStorageQuarantined(), "failed rollback did not quarantine JSON writes");
+        assertFalse(unprepared.hasCachedVoteBatch(), "failed preparation published the new batch position");
+        assertFalse(unprepared.isRewardDelivered());
+        assertEquals(List.of(prepared, unprepared), online ? proxy.cache.getOnlineVotes(owner) : proxy.cache.getVotes(owner),
+                "failed completion persistence removed a cache owner");
+        String subChannel = online ? VotingPluginWire.SUB_VOTE_ONLINE : VotingPluginWire.SUB_VOTE;
+        ReliableVoteDeliveryOutbox durable = new ReliableVoteDeliveryOutbox(directory.resolve("outbox.dat"));
+        if (reliable && !dirty) {
+            assertEquals(1, durable.size(), "unprepared sibling blocked a clean reliable batch");
+            assertSingleVoteBatch(durable.snapshot().get(0).envelope(), subChannel, prepared.getVoteId());
+            assertEquals(1, proxy.handoffs.size());
+            assertSingleVoteBatch(proxy.handoffs.get(0).envelope(), subChannel, prepared.getVoteId());
+            assertTrue(prepared.isRewardDelivered());
+            assertTrue(prepared.isDeliveryStateDirty(), "failed cache completion was reported durable");
+        } else {
+            assertEquals(0, durable.size(), "dirty or legacy work crossed the quarantined journal boundary");
+            assertTrue(proxy.handoffs.isEmpty());
+            assertFalse(prepared.isRewardDelivered());
+        }
+        assertFalse(durable.find(BACKEND, unprepared.getVoteId(), subChannel).isPresent());
+        proxy.closeDispatcher();
+
+        CapturingProxy recovered = new CapturingProxy(directory);
+        recovered.cache.load();
+        List<OfflineBungeeVote> recoveredVotes = online ? recovered.cache.getOnlineVotes(owner) : recovered.cache.getVotes(owner);
+        assertEquals(List.of(prepared.getVoteId(), unprepared.getVoteId()), recoveredVotes.stream()
+                .map(OfflineBungeeVote::getVoteId).toList(), "quarantine changed the last readable cache snapshot");
+        assertEquals(1, recoveredVotes.get(0).getCachedBatchNumber());
+        assertEquals(1, recoveredVotes.get(0).getCachedBatchSize());
+        assertFalse(recoveredVotes.get(0).isRewardDelivered());
+        assertFalse(recoveredVotes.get(1).hasCachedVoteBatch());
+        recovered.closeDispatcher();
+    }
+
+    @Test
+    void quarantinedCachedCompletionKeepsReceiptAndOriginalBackendAcrossRestart(@TempDir Path base) throws Exception {
+        for (boolean online : List.of(false, true)) {
+            Path directory = base.resolve(online ? "online" : "server");
+            java.nio.file.Files.createDirectories(directory);
+            CapturingProxy proxy = new CapturingProxy(directory);
+            proxy.reliable().add(BACKEND);
+            OfflineBungeeVote first = cached(1501);
+            OfflineBungeeVote sibling = cached(1502);
+            String owner = online ? first.getUuid() : BACKEND;
+            if (online) assertTrue(proxy.cache.addOnlineVoteDurably(owner, first));
+            else assertTrue(proxy.cache.addServerVoteDurably(owner, first));
+            assertTrue(proxy.cache.prepareCachedVoteBatch(owner, online, List.of(first), 1));
+            if (online) assertTrue(proxy.cache.addOnlineVoteDurably(owner, sibling));
+            else assertTrue(proxy.cache.addServerVoteDurably(owner, sibling));
+            proxy.failCacheDurableSave = true;
+            proxy.failCacheReload = true;
+            if (online) proxy.checkOnlineVotes("Synthetic", owner, BACKEND);
+            else proxy.checkCachedVotes(BACKEND);
+            String kind = online ? VotingPluginWire.SUB_VOTE_ONLINE : VotingPluginWire.SUB_VOTE;
+            assertEquals(1, proxy.outbox.size());
+            invoke(proxy, "handleVoteDeliveryAcknowledgement", JsonEnvelope.class,
+                    VotingPluginWire.voteDeliveryAcknowledgement(BACKEND, first.getVoteId(), kind));
+            proxy.time.advance(TimeUnit.SECONDS.toNanos(1));
+            assertTrue(proxy.handoffs.stream().noneMatch(h ->
+                    VotingPluginWire.SUB_VOTE_DELIVERY_RECEIPT_RELEASE.equals(h.envelope().getSubChannel())));
+            invoke(proxy, "handleVoteDeliveryReceiptReleaseAcknowledgement", JsonEnvelope.class,
+                    VotingPluginWire.voteDeliveryReceiptReleaseAcknowledgement(BACKEND, first.getVoteId(), kind));
+            assertEquals(1, proxy.outbox.size(), "unpersisted cache acceptance released its durable receipt owner");
+            assertTrue(proxy.outbox.snapshot().get(0).awaitingReceiptRelease());
+            proxy.closeDispatcher();
+
+            CapturingProxy restarted = new CapturingProxy(directory);
+            restarted.reliable().addAll(List.of(BACKEND, "backend-b"));
+            restarted.cache.load();
+            if (online) restarted.checkOnlineVotes("Synthetic", owner, "backend-b");
+            else restarted.checkCachedVotes(BACKEND);
+            assertTrue(restarted.handoffs.stream().noneMatch(h -> first.getVoteId().toString()
+                    .equals(h.envelope().getFields().get(VotingPluginWire.K_VOTE_ID))
+                    && (VotingPluginWire.SUB_VOTE.equals(h.envelope().getSubChannel())
+                            || VotingPluginWire.SUB_VOTE_ONLINE.equals(h.envelope().getSubChannel()))),
+                    "cache recovery repeated the original accepted reward");
+            invoke(restarted, "retryReliableVoteDeliveries", String.class, null);
+            restarted.time.advance(TimeUnit.SECONDS.toNanos(1));
+            assertTrue(restarted.handoffs.stream().anyMatch(h ->
+                    VotingPluginWire.SUB_VOTE_DELIVERY_RECEIPT_RELEASE.equals(h.envelope().getSubChannel())
+                            && first.getVoteId().toString().equals(h.envelope().getFields().get(VotingPluginWire.K_VOTE_ID))));
+            invoke(restarted, "handleVoteDeliveryReceiptReleaseAcknowledgement", JsonEnvelope.class,
+                    VotingPluginWire.voteDeliveryReceiptReleaseAcknowledgement(BACKEND, first.getVoteId(), kind));
+            assertFalse(restarted.outbox.find(BACKEND, first.getVoteId(), kind).isPresent());
+            restarted.closeDispatcher();
+        }
+    }
+
+    @Test
+    void timedSourceWithoutCacheRetainsOriginalRewardTargetBeforeReceiptRelease(@TempDir Path directory) throws Exception {
+        CapturingProxy proxy = new CapturingProxy(directory);
+        proxy.reliable().add(BACKEND);
+        when(proxy.getConfig().getOnlineMode()).thenReturn(true);
+        UUID id = UUID.randomUUID();
+        String player = UUID.randomUUID().toString();
+        com.bencodez.votingplugin.timequeue.VoteTimeQueue source =
+                new com.bencodez.votingplugin.timequeue.VoteTimeQueue(id, "Synthetic", "synthetic-service", 1L);
+        source.setUuid(player);
+        source.setWasOnline(true);
+        VoteTotalsSnapshot totals = new VoteTotalsSnapshot(25, 10, 7, 2, 11, 3, 50, 10);
+        source.setTotals(totals.toString());
+        source.setTotalsApplied(true);
+        source.setHttpBroadcastDeliveryId(VotingPluginWire.REWARD_ROUTING_MODE_KEY + ":single", id.toString());
+        assertTrue(proxy.cache.addTimeVoteToCache(source));
+        assertTrue(proxy.outbox.offer(BACKEND, VotingPluginWire.voteOnline(
+                "Synthetic", player, "synthetic-service", 1L, true, true, totals.toString(), id, false, false, 1, 1)));
+        assertTrue(proxy.cache.getOnlineVotes(player).isEmpty());
+        proxy.failingTimeWrites = 2;
+        invoke(proxy, "handleVoteDeliveryAcknowledgement", JsonEnvelope.class,
+                VotingPluginWire.voteDeliveryAcknowledgement(BACKEND, id, VotingPluginWire.SUB_VOTE_ONLINE));
+        assertTrue(proxy.handoffs.isEmpty(), "receipt released before the surviving timed source was durable");
+        invoke(proxy, "handleVoteDeliveryReceiptReleaseAcknowledgement", JsonEnvelope.class,
+                VotingPluginWire.voteDeliveryReceiptReleaseAcknowledgement(BACKEND, id, VotingPluginWire.SUB_VOTE_ONLINE));
+        assertEquals(1, proxy.outbox.size());
+        proxy.closeDispatcher();
+
+        CapturingProxy restarted = new CapturingProxy(directory);
+        restarted.reliable().addAll(List.of(BACKEND, "backend-b"));
+        when(restarted.getConfig().getOnlineMode()).thenReturn(true);
+        restarted.cache.load();
+        restarted.playerServer = "backend-b";
+        com.bencodez.votingplugin.timequeue.VoteTimeQueue recovered = restarted.cache.getTimeChangeQueue().peek();
+        assertNotNull(recovered);
+        assertEquals(VotingPluginProxy.QueuedVoteResult.SUCCESS, restarted.replayQueuedVote(recovered, totals, true));
+        restarted.time.advance(TimeUnit.SECONDS.toNanos(1));
+        assertTrue(restarted.handoffs.stream().noneMatch(h -> VotingPluginWire.SUB_VOTE.equals(h.envelope().getSubChannel())
+                || VotingPluginWire.SUB_VOTE_ONLINE.equals(h.envelope().getSubChannel())),
+                "restart repeated the admitted reward on a new backend");
+        invoke(restarted, "retryReliableVoteDeliveries", String.class, null);
+        restarted.time.advance(TimeUnit.SECONDS.toNanos(1));
+        assertTrue(restarted.handoffs.stream().anyMatch(h ->
+                VotingPluginWire.SUB_VOTE_DELIVERY_RECEIPT_RELEASE.equals(h.envelope().getSubChannel())), "persisted timed acceptance did not release its original receipt");
+        invoke(restarted, "handleVoteDeliveryReceiptReleaseAcknowledgement", JsonEnvelope.class,
+                VotingPluginWire.voteDeliveryReceiptReleaseAcknowledgement(BACKEND, id, VotingPluginWire.SUB_VOTE_ONLINE));
+        assertFalse(restarted.outbox.find(BACKEND, id, VotingPluginWire.SUB_VOTE_ONLINE).isPresent());
+        restarted.closeDispatcher();
+    }
+
+    @Test
+    void legacyRetirementRetainsTimedOwnerAfterWriteFailureAndRestart(@TempDir Path base) throws Exception {
+        for (boolean recoveredFence : List.of(false, true)) {
+            Path directory = base.resolve(recoveredFence ? "fenced" : "pending");
+            java.nio.file.Files.createDirectories(directory);
+            CapturingProxy proxy = new CapturingProxy(directory);
+            proxy.legacy().add(BACKEND);
+            UUID id = UUID.randomUUID();
+            String player = UUID.randomUUID().toString();
+            com.bencodez.votingplugin.timequeue.VoteTimeQueue source =
+                    new com.bencodez.votingplugin.timequeue.VoteTimeQueue(id, "Synthetic", "synthetic-service", 1L);
+            source.setUuid(player);
+            source.setWasOnline(true);
+            VoteTotalsSnapshot totals = new VoteTotalsSnapshot(25, 10, 7, 2, 11, 3, 50, 10);
+            source.setTotals(totals.toString());
+            source.setTotalsApplied(true);
+            source.setHttpBroadcastDeliveryId(VotingPluginWire.REWARD_ROUTING_MODE_KEY + ":single", id.toString());
+            assertTrue(proxy.cache.addTimeVoteToCache(source));
+            assertTrue(proxy.outbox.offer(BACKEND, VotingPluginWire.voteOnline(
+                    "Synthetic", player, "synthetic-service", 1L, true, true, totals.toString(), id, false, false, 1, 1)));
+            if (recoveredFence) assertTrue(proxy.outbox.beginLegacyDelivery(BACKEND, id, VotingPluginWire.SUB_VOTE_ONLINE));
+            proxy.failingTimeWrites = 1;
+            proxy.retry();
+            assertTrue(proxy.outbox.find(BACKEND, id, VotingPluginWire.SUB_VOTE_ONLINE).isPresent(),
+                    "legacy retirement discarded the last durable original-target owner");
+            assertEquals(recoveredFence ? 0 : 1, proxy.handoffs.size());
+            proxy.closeDispatcher();
+
+            CapturingProxy restarted = new CapturingProxy(directory);
+            when(restarted.getConfig().getOnlineMode()).thenReturn(true);
+            restarted.cache.load();
+            restarted.playerServer = "backend-b";
+            restarted.legacy().addAll(List.of(BACKEND, "backend-b"));
+            restarted.retry();
+            assertFalse(restarted.outbox.find(BACKEND, id, VotingPluginWire.SUB_VOTE_ONLINE).isPresent());
+            com.bencodez.votingplugin.timequeue.VoteTimeQueue recovered = restarted.cache.getTimeChangeQueue().peek();
+            assertNotNull(recovered);
+            assertEquals(VotingPluginProxy.QueuedVoteResult.SUCCESS, restarted.replayQueuedVote(recovered, totals, true));
+            restarted.time.advance(TimeUnit.SECONDS.toNanos(1));
+            assertTrue(restarted.handoffs.stream().noneMatch(h -> VotingPluginWire.SUB_VOTE.equals(h.envelope().getSubChannel())
+                    || VotingPluginWire.SUB_VOTE_ONLINE.equals(h.envelope().getSubChannel())),
+                    "legacy recovery repeated an already fenced reward");
+            restarted.closeDispatcher();
+        }
+    }
+
+    @Test
+    void retiredUpdateAdmissionsSurviveLaterFailureAndRestart(@TempDir Path directory) throws Exception {
+        CapturingProxy proxy = new CapturingProxy(directory);
+        when(proxy.getConfig().getOnlineMode()).thenReturn(true);
+        when(proxy.getConfig().getVoteLoggingEnabled()).thenReturn(true);
+        VoteLogMysqlTable log = mock(VoteLogMysqlTable.class);
+        UUID id = UUID.randomUUID();
+        String player = UUID.randomUUID().toString();
+        when(log.logVote(eq(id), any(VoteLogMysqlTable.VoteLogStatus.class), anyString(), anyString(),
+                anyString(), anyLong(), anyInt())).thenThrow(new IllegalStateException("synthetic log failure"));
+        setField(proxy, "voteLogMysqlTable", log);
+        assertThrows(VotingPluginProxy.VoteRetryException.class,
+                () -> proxy.vote("Synthetic", "synthetic-service", true, false, 1L, null, player, id));
+        proxy.time.advance(TimeUnit.SECONDS.toNanos(1));
+        assertEquals(2, updateHandoffs(proxy).size());
+        assertTrue(proxy.outbox.snapshot().stream().noneMatch(e -> VotingPluginWire.SUB_VOTE_UPDATE
+                .equals(e.envelope().getSubChannel())));
+        assertTrue(proxy.retainIncomingVoteForRestart(new PendingIncomingVote(id, "Synthetic", "synthetic-service", 1L)));
+        proxy.closeDispatcher();
+
+        CapturingProxy restarted = new CapturingProxy(directory);
+        when(restarted.getConfig().getOnlineMode()).thenReturn(true);
+        restarted.cache.load();
+        com.bencodez.votingplugin.timequeue.VoteTimeQueue recovered = restarted.cache.getTimeChangeQueue().peek();
+        assertNotNull(recovered);
+        assertEquals(VotingPluginProxy.QueuedVoteResult.SUCCESS, restarted.replayQueuedVote(recovered,
+                VoteTotalsSnapshot.parseStorage(recovered.getTotals()), true));
+        restarted.time.advance(TimeUnit.SECONDS.toNanos(1));
+        assertTrue(updateHandoffs(restarted).isEmpty(), "restart replayed updates that already handed off");
+        restarted.closeDispatcher();
+    }
+
+    @Test
+    void legacyUpdateFenceWithUnresolvedTimedIdentityRecoversWithoutReplay(@TempDir Path directory) throws Exception {
+        CapturingProxy proxy = new CapturingProxy(directory);
+        UUID id = UUID.randomUUID();
+        String player = UUID.randomUUID().toString();
+        proxy.resolvedUuids.put("Synthetic", player);
+        com.bencodez.votingplugin.timequeue.VoteTimeQueue source =
+                new com.bencodez.votingplugin.timequeue.VoteTimeQueue(id, "Synthetic", "synthetic-service", 1L);
+        source.setWasOnline(false);
+        source.setTotalsApplied(true);
+        VoteTotalsSnapshot totals = new VoteTotalsSnapshot(25, 10, 7, 2, 11, 3, 50, 10);
+        source.setTotals(totals.toString());
+        assertTrue(proxy.cache.addTimeVoteToCache(source));
+        assertTrue(proxy.outbox.retainUpdate(BACKEND, VotingPluginWire.voteUpdate(player, 3, 50,
+                "synthetic-service", 1L, totals.toString()).toBuilder().put(VotingPluginWire.K_VOTE_ID, id).build(), true));
+        assertTrue(proxy.outbox.beginLegacyDelivery(BACKEND, id, VotingPluginWire.SUB_VOTE_UPDATE));
+        proxy.closeDispatcher();
+
+        CapturingProxy restarted = new CapturingProxy(directory);
+        restarted.resolvedUuids.put("Synthetic", player);
+        restarted.cache.load();
+        com.bencodez.votingplugin.timequeue.VoteTimeQueue recovered = restarted.cache.getTimeChangeQueue().peek();
+        assertNotNull(recovered);
+        assertEquals(VotingPluginProxy.QueuedVoteResult.SUCCESS, restarted.replayQueuedVote(recovered, totals, true));
+        restarted.time.advance(TimeUnit.SECONDS.toNanos(1));
+        assertTrue(updateHandoffs(restarted).stream().noneMatch(h -> BACKEND.equals(h.server())),
+                "resolving a timed source repeated its already fenced update");
+        assertFalse(restarted.outbox.find(BACKEND, id, VotingPluginWire.SUB_VOTE_UPDATE).isPresent());
+        restarted.closeDispatcher();
+    }
+
+    @Test
+    void actualTransportReloadPreservesOriginalAcceptedTargetsAcrossRestart(@TempDir Path directory) throws Exception {
+        exerciseTransportReloadRecovery(false, directory);
+    }
+
+    @Test
+    void transportResumeKeepsParkedPluginUpdatesWithTheirOriginalOwner(@TempDir Path directory) throws Exception {
+        exerciseTransportReloadRecovery(true, directory);
+    }
+
+    private void exerciseTransportReloadRecovery(boolean parked, Path directory) throws Exception {
+        CapturingProxy proxy = new CapturingProxy(directory);
+        if (parked) proxy.unavailableBackends.add("backend-b");
+        proxy.legacy().addAll(List.of(BACKEND, "backend-b"));
+        when(proxy.getConfig().getOnlineMode()).thenReturn(true);
+        when(proxy.getConfig().getVoteLoggingEnabled()).thenReturn(true);
+        VoteLogMysqlTable log = mock(VoteLogMysqlTable.class);
+        UUID id = UUID.randomUUID();
+        String player = UUID.randomUUID().toString();
+        when(log.logVote(eq(id), any(VoteLogMysqlTable.VoteLogStatus.class), anyString(), anyString(),
+                anyString(), anyLong(), anyInt())).thenThrow(new IllegalStateException("synthetic log failure"));
+        setField(proxy, "voteLogMysqlTable", log);
+        assertThrows(VotingPluginProxy.VoteRetryException.class,
+                () -> proxy.vote("Synthetic", "synthetic-service", true, false, 1L, null, player, id));
+        proxy.time.advance(TimeUnit.SECONDS.toNanos(1));
+        PendingIncomingVote pending = new PendingIncomingVote(id, "Synthetic", "synthetic-service", 1L);
+        Map<String, String> original = new java.util.LinkedHashMap<>(proxy.snapshotIncomingVoteForRestart(pending)
+                .getHttpBroadcastDeliveryIds());
+        assertEquals(4, original.size());
+        when(proxy.getConfig().getBungeeMethod()).thenReturn("MYSQL");
+        proxy.reloadFromControl();
+        assertEquals(BungeeMethod.MYSQL, proxy.getMethod());
+        GlobalMessageProxyHandler resumed = mock(GlobalMessageProxyHandler.class);
+        proxy.setGlobalMessageProxyHandlerForTest(resumed);
+        assertThrows(VotingPluginProxy.VoteRetryException.class,
+                () -> proxy.vote("Synthetic", "synthetic-service", true, false, 1L, null, player, id));
+        verify(resumed, never()).sendMessage(anyString(), anyInt(), argThat(envelope ->
+                VotingPluginWire.SUB_VOTE_UPDATE.equals(envelope.getSubChannel())));
+        if (parked) assertTrue(proxy.outbox.find("backend-b", id, VotingPluginWire.SUB_VOTE_UPDATE).isPresent(),
+                "transport resume discarded the parked original update owner");
+        assertEquals(original, proxy.snapshotIncomingVoteForRestart(pending).getHttpBroadcastDeliveryIds(),
+                "transport reload discarded original routing and accepted targets");
+        assertTrue(proxy.retainIncomingVoteForRestart(pending));
+        proxy.closeDispatcher();
+
+        CapturingProxy restarted = new CapturingProxy(directory);
+        restarted.legacy().addAll(List.of(BACKEND, "backend-b"));
+        when(restarted.getConfig().getOnlineMode()).thenReturn(true);
+        restarted.playerServer = "backend-b";
+        restarted.cache.load();
+        com.bencodez.votingplugin.timequeue.VoteTimeQueue recovered = restarted.cache.getTimeChangeQueue().peek();
+        assertNotNull(recovered);
+        assertEquals(VotingPluginProxy.QueuedVoteResult.SUCCESS, restarted.replayQueuedVote(recovered,
+                VoteTotalsSnapshot.parseStorage(recovered.getTotals()), true));
+        restarted.time.advance(TimeUnit.SECONDS.toNanos(1));
+        assertTrue(restarted.handoffs.stream().noneMatch(h -> VotingPluginWire.SUB_VOTE.equals(h.envelope().getSubChannel())
+                || VotingPluginWire.SUB_VOTE_ONLINE.equals(h.envelope().getSubChannel())),
+                "transport switch and restart repeated an accepted reward");
+        assertEquals(parked ? 1 : 0, updateHandoffs(restarted).size());
+        assertTrue(updateHandoffs(restarted).stream().allMatch(h -> "backend-b".equals(h.server())
+                && id.toString().equals(h.envelope().getFields().get(VotingPluginWire.K_VOTE_ID))),
+                "recovery repeated a completed update or replaced the parked identity");
+        restarted.closeDispatcher();
+    }
+
+    @Test
+    void saturatedUpdateQuotaPreservesIndependentQueuedVoteProgressAndDeferredUpdates(@TempDir Path directory) throws Exception {
+        CapturingProxy proxy = new CapturingProxy(directory);
+        proxy.unavailableBackends.add("backend-b");
+        proxy.legacy().addAll(List.of(BACKEND, "backend-b"));
+        when(proxy.getConfig().getOnlineMode()).thenReturn(true);
+        when(proxy.getConfig().getVoteLoggingEnabled()).thenReturn(true);
+        VoteLogMysqlTable log = mock(VoteLogMysqlTable.class);
+        setField(proxy, "voteLogMysqlTable", log);
+        String player = new UUID(11, 1).toString();
+        Set<String> existingUpdateIds = new LinkedHashSet<>();
+        for (int i = 0; i < ReliableVoteDeliveryOutbox.MAX_UPDATE_ENTRIES; i++) {
+            UUID id = new UUID(12, i);
+            existingUpdateIds.add(id.toString());
+            assertTrue(proxy.outbox.offer("backend-b", VotingPluginWire.voteUpdate(player, 1, 10,
+                    "synthetic-service-a", i + 1L, "").toBuilder().put(VotingPluginWire.K_VOTE_ID, id).build()));
+        }
+        List<UUID> newVoteIds = List.of(new UUID(13, 1), new UUID(13, 2));
+        for (int i = 0; i < newVoteIds.size(); i++) {
+            com.bencodez.votingplugin.timequeue.VoteTimeQueue source =
+                    new com.bencodez.votingplugin.timequeue.VoteTimeQueue(newVoteIds.get(i), "Synthetic",
+                            "synthetic-service-" + (i == 0 ? "a" : "b"), 2048L + i);
+            source.setUuid(player);
+            source.setWasOnline(true);
+            assertTrue(proxy.cache.addTimeVoteToCache(source));
+        }
+
+        proxy.processQueue();
+        proxy.time.advance(TimeUnit.SECONDS.toNanos(1));
+
+        for (UUID id : newVoteIds) {
+            verify(log).logVote(eq(id), any(VoteLogMysqlTable.VoteLogStatus.class), anyString(), eq(player),
+                    eq("Synthetic"), anyLong(), anyInt());
+        }
+        assertEquals(newVoteIds.stream().map(UUID::toString).collect(java.util.stream.Collectors.toSet()),
+                proxy.handoffs.stream().filter(handoff -> BACKEND.equals(handoff.server())
+                        && VotingPluginWire.SUB_VOTE_ONLINE.equals(handoff.envelope().getSubChannel()))
+                        .map(handoff -> handoff.envelope().getFields().get(VotingPluginWire.K_VOTE_ID))
+                        .collect(java.util.stream.Collectors.toSet()), "an empty backend blocked another backend's reward");
+        assertTrue(updateHandoffs(proxy).stream().noneMatch(handoff -> "backend-b".equals(handoff.server())));
+        assertTrue(new ReliableVoteDeliveryOutbox(directory.resolve("outbox.dat")).snapshot().stream()
+                .map(entry -> entry.envelope().getFields().get(VotingPluginWire.K_VOTE_ID))
+                .collect(java.util.stream.Collectors.toSet()).containsAll(existingUpdateIds),
+                "quota handling discarded existing update occurrences");
+        proxy.closeDispatcher();
+
+        CapturingProxy restarted = new CapturingProxy(directory);
+        restarted.legacy().addAll(List.of(BACKEND, "backend-b"));
+        when(restarted.getConfig().getOnlineMode()).thenReturn(true);
+        when(restarted.getConfig().getVoteLoggingEnabled()).thenReturn(true);
+        setField(restarted, "voteLogMysqlTable", log);
+        restarted.cache.load();
+        for (int i = 0; i < 30; i++) {
+            restarted.processQueue();
+            invoke(restarted, "retryReliableVoteDeliveries", String.class, null);
+            restarted.time.advance(TimeUnit.SECONDS.toNanos(1));
+        }
+        Set<String> expectedUpdateIds = new LinkedHashSet<>(existingUpdateIds);
+        newVoteIds.stream().map(UUID::toString).forEach(expectedUpdateIds::add);
+        List<String> deliveredUpdateIds = updateHandoffs(restarted).stream()
+                .filter(handoff -> "backend-b".equals(handoff.server()))
+                .map(handoff -> handoff.envelope().getFields().get(VotingPluginWire.K_VOTE_ID)).toList();
+        assertEquals(expectedUpdateIds, new LinkedHashSet<>(deliveredUpdateIds),
+                "deferred updates lost their original vote IDs across restart");
+        assertEquals(expectedUpdateIds.size(), deliveredUpdateIds.size(), "restart repeated an accepted update");
+        assertTrue(restarted.cache.getTimeChangeQueue().isEmpty(), "settled source rows remained queued");
+        assertEquals(0, new ReliableVoteDeliveryOutbox(directory.resolve("outbox.dat")).size());
+        assertTrue(restarted.handoffs.stream().noneMatch(handoff -> VotingPluginWire.SUB_VOTE_ONLINE
+                .equals(handoff.envelope().getSubChannel())), "restart repeated an accepted reward");
+        for (UUID id : newVoteIds) {
+            verify(log, times(1)).logVote(eq(id), any(VoteLogMysqlTable.VoteLogStatus.class), anyString(),
+                    eq(player), eq("Synthetic"), anyLong(), anyInt());
+        }
+        assertPaced(proxy.handoffs);
+        assertPaced(restarted.handoffs);
+        restarted.closeDispatcher();
+    }
+
+    @Test
     void failureAfterUpdateAdmissionCannotRepeatUpdatesOnTheSameVoteRetry(@TempDir Path directory) throws Exception {
         CapturingProxy proxy = new CapturingProxy(directory);
         proxy.legacy().addAll(List.of(BACKEND, "backend-b"));
@@ -1173,11 +1604,14 @@ class VotingPluginProxyPacingTest {
         final Set<String> availableTargets = new LinkedHashSet<>(List.of(BACKEND, "backend-b"));
         boolean failDurablePartySave;
         boolean failVoteParty;
+        boolean failCacheDurableSave;
+        boolean failCacheReload;
         int failingTimeWrites;
         boolean failAfterOnlineInsert;
         boolean deliveryAccepted = true;
         String playerServer = BACKEND;
         final Map<String, String> playerRoutes = new HashMap<>();
+        final Map<String, String> resolvedUuids = new HashMap<>();
         final Set<String> offlinePlayers = new LinkedHashSet<>();
         int transportAttempts;
         int transportDepth;
@@ -1192,7 +1626,17 @@ class VotingPluginProxyPacingTest {
             when(getConfig().getBlockedServers()).thenReturn(List.of());
             VotingPluginBungee platform = mock(VotingPluginBungee.class);
             when(platform.getDataFolder()).thenReturn(directory.toFile());
-            BungeeJsonVoteCache storage = new BungeeJsonVoteCache(platform);
+            BungeeJsonVoteCache storage = new BungeeJsonVoteCache(platform) {
+                @Override public synchronized void saveDurably() throws java.io.IOException {
+                    if (failCacheDurableSave) throw new java.io.IOException("synthetic cache save failure");
+                    super.saveDurably();
+                }
+                @Override public synchronized void reload() {
+                    if (failCacheReload) throw new java.io.UncheckedIOException(
+                            new java.io.IOException("synthetic cache rollback reload failure"));
+                    super.reload();
+                }
+            };
             cache = new VoteCacheHandler(null, false, false, null, false, storage) {
                 @Override public boolean addOnlineVoteDurably(String uuid, OfflineBungeeVote vote) {
                     boolean result = super.addOnlineVoteDurably(uuid, vote);
@@ -1240,6 +1684,9 @@ class VotingPluginProxyPacingTest {
         @Override public ScheduledExecutorService getScheduler() { return time.executor; }
         @Override public Set<String> getAllAvailableServers() { return new LinkedHashSet<>(availableTargets); }
         @Override public boolean isSomeoneOnlineServer(String server) { return carrier && !unavailableBackends.contains(server); }
+        @Override public String getUUID(String player) {
+            return resolvedUuids.containsKey(player) ? resolvedUuids.get(player) : super.getUUID(player);
+        }
         @Override public String getCurrentPlayerServer(String player) { return playerRoutes.getOrDefault(player, playerServer); }
         @Override public boolean isPlayerOnline(String player) { return !offlinePlayers.contains(player) && super.isPlayerOnline(player); }
         @Override public boolean sendPluginMessageData(String server, String channel, byte[] data, boolean queue) {

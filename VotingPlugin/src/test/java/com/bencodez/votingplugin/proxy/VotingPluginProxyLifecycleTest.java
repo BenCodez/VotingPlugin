@@ -339,6 +339,7 @@ class VotingPluginProxyLifecycleTest {
 	@Test
 	void completionAckTransitionsThroughDurableReceiptRelease(@TempDir Path directory) throws Exception {
 		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
+        initializeEmptyVoteCache(proxy);
 		GlobalMessageProxyHandler messages = mock(GlobalMessageProxyHandler.class);
 		UUID voteId = UUID.randomUUID();
 		UUID playerId = UUID.randomUUID();
@@ -377,6 +378,7 @@ class VotingPluginProxyLifecycleTest {
 	@Test
 	void retiresAcceptedLegacyDeliveryWithoutWaitingForUnsupportedRelease(@TempDir Path directory) throws Exception {
 		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
+        initializeEmptyVoteCache(proxy);
 		proxy.setMethod(BungeeMethod.PLUGINMESSAGING);
 		GlobalMessageProxyHandler messages = mock(GlobalMessageProxyHandler.class);
 		UUID voteId = UUID.randomUUID();
@@ -419,6 +421,7 @@ class VotingPluginProxyLifecycleTest {
 		JsonEnvelope vote = VotingPluginWire.vote("Player", UUID.randomUUID().toString(), "site", 10L,
 				true, true, "", voteId, false, false, 1, 1);
 		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
+        initializeEmptyVoteCache(proxy);
 		proxy.setMethod(BungeeMethod.PLUGINMESSAGING);
 		proxy.setPluginMessageDeliveryResult(false);
 		ReliableVoteDeliveryOutbox outbox = new ReliableVoteDeliveryOutbox(file);
@@ -436,6 +439,7 @@ class VotingPluginProxyLifecycleTest {
 		org.junit.jupiter.api.Assertions.assertTrue(outbox.snapshot().get(0).legacyDeliveryRejected());
 
 		VotingPluginProxyTestImpl restartedProxy = new VotingPluginProxyTestImpl();
+        initializeEmptyVoteCache(restartedProxy);
 		restartedProxy.setMethod(BungeeMethod.PLUGINMESSAGING);
 		ReliableVoteDeliveryOutbox restartedOutbox = new ReliableVoteDeliveryOutbox(file);
 		setField(restartedProxy, "reliableVoteDeliveryOutbox", restartedOutbox);
@@ -452,6 +456,7 @@ class VotingPluginProxyLifecycleTest {
 	@Test
 	void acceptedLegacyVoteIsNotResentWhileCompletionPersistenceRetries(@TempDir Path directory) throws Exception {
 		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
+        initializeEmptyVoteCache(proxy);
 		proxy.setMethod(BungeeMethod.PLUGINMESSAGING);
 		UUID voteId = UUID.randomUUID();
 		JsonEnvelope vote = VotingPluginWire.vote("Player", UUID.randomUUID().toString(), "site", 10L,
@@ -487,6 +492,7 @@ class VotingPluginProxyLifecycleTest {
 		Files.write(file, fencedJournal.get());
 
 		VotingPluginProxyTestImpl restartedProxy = new VotingPluginProxyTestImpl();
+        initializeEmptyVoteCache(restartedProxy);
 		restartedProxy.setMethod(BungeeMethod.PLUGINMESSAGING);
 		ReliableVoteDeliveryOutbox restartedOutbox = new ReliableVoteDeliveryOutbox(file);
 		setField(restartedProxy, "reliableVoteDeliveryOutbox", restartedOutbox);
@@ -497,6 +503,13 @@ class VotingPluginProxyLifecycleTest {
 		assertEquals(0, restartedProxy.getVoteEnvelopeDeliveryAttempts());
 		assertEquals(0, restartedOutbox.size());
 	}
+
+    private static void initializeEmptyVoteCache(VotingPluginProxyTestImpl proxy) throws Exception {
+        com.bencodez.votingplugin.proxy.cache.VoteCacheHandler cache = mock(
+                com.bencodez.votingplugin.proxy.cache.VoteCacheHandler.class);
+        org.mockito.Mockito.when(cache.getCachedVotesServers()).thenReturn(new String[0]);
+        setField(proxy, "voteCacheHandler", cache);
+    }
 
 	private static void setField(Object target, String name, Object value) throws Exception {
 		Field field = VotingPluginProxy.class.getDeclaredField(name);
@@ -623,6 +636,7 @@ class VotingPluginProxyLifecycleTest {
 	@Test
 	void reliableHttpRetriesReuseOneStableIdPerDeliveryPhase(@TempDir Path directory) throws Exception {
 		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
+        initializeEmptyVoteCache(proxy);
 		proxy.setMethod(BungeeMethod.HTTP);
 		proxy.setVoteEnvelopeDeliveryResult(true);
 		ReliableVoteDeliveryOutbox outbox = new ReliableVoteDeliveryOutbox(directory.resolve("outbox.dat"));
