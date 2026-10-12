@@ -6523,7 +6523,8 @@ public abstract class VotingPluginProxy {
 				Set<String> remainingTargets = new LinkedHashSet<>(proxyBroadcastTargets);
 				remainingTargets.removeAll(broadcastForwardedServers);
 				standaloneBroadcastState = retryState.standaloneBroadcastState;
-				if (standaloneBroadcastState == null && method == BungeeMethod.PLUGINMESSAGING) {
+				if (standaloneBroadcastState == null
+                        && (method == BungeeMethod.PLUGINMESSAGING || retryState.pluginMessageRouting)) {
 					standaloneBroadcastState = findCachedBroadcastOwner(uuid, voteId);
 					if (standaloneBroadcastState != null) {
 						if (!standaloneBroadcastState.isProxyBroadcastHandled()) {
@@ -6582,7 +6583,8 @@ public abstract class VotingPluginProxy {
 			if (sendVotesToAllServers) {
 				OfflineBungeeVote rewardJournalOwner = retryState.rewardJournalOwner;
 				if (rewardJournalOwner == null) {
-					if (method == BungeeMethod.PLUGINMESSAGING) rewardJournalOwner = findCachedBroadcastOwner(uuid, voteId);
+					if (method == BungeeMethod.PLUGINMESSAGING || retryState.pluginMessageRouting)
+                        rewardJournalOwner = findCachedBroadcastOwner(uuid, voteId);
 					if (rewardJournalOwner == null) rewardJournalOwner = createCachedRewardVote(voteId, player, uuid, service, time, realVote,
 							text.toString(), false, playerOnline);
 					if (retryState.delayValidationKnown) rewardJournalOwner.setDelayValidated(authoritativeDelayValidated);
@@ -6696,7 +6698,8 @@ public abstract class VotingPluginProxy {
 					}
 
 					OfflineBungeeVote pendingVote = retryState.rewardStates.get(server.toLowerCase(Locale.ROOT));
-					if (pendingVote == null && method == BungeeMethod.PLUGINMESSAGING) {
+					if (pendingVote == null
+                            && (method == BungeeMethod.PLUGINMESSAGING || retryState.pluginMessageRouting)) {
 						pendingVote = findCachedBroadcastOwner(uuid, voteId);
 						if (pendingVote != null) retryState.rewardStates.put(server.toLowerCase(Locale.ROOT), pendingVote);
 					}
@@ -6728,7 +6731,8 @@ public abstract class VotingPluginProxy {
 						pendingVote.setDeliveryStateDirty(true);
 						retryState.deliveredRewardServers.add(server);
 						if (!persistQueuedRewardAcceptance(retryState, voteId)) return QueuedVoteResult.RETRY;
-						if (method == BungeeMethod.PLUGINMESSAGING && findCachedBroadcastOwner(uuid, voteId) == pendingVote
+						if ((method == BungeeMethod.PLUGINMESSAGING || retryState.pluginMessageRouting)
+                                && findCachedBroadcastOwner(uuid, voteId) == pendingVote
 								&& !persistOnlineVoteDelivery(uuid, pendingVote)) return QueuedVoteResult.RETRY;
 					}
 					if (!rewardAccepted) {

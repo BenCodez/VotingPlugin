@@ -1396,6 +1396,52 @@ class VotingPluginProxyPacingTest {
     }
 
     @Test
+    void legacyTransportCompletionPersistsOriginalOnlineCacheOwnerAcrossRestart(@TempDir Path directory) throws Exception {
+        CapturingProxy proxy = new CapturingProxy(directory);
+        when(proxy.getConfig().getOnlineMode()).thenReturn(true);
+        proxy.legacy().addAll(List.of(BACKEND, "backend-b"));
+        UUID id = UUID.randomUUID();
+        String player = UUID.randomUUID().toString();
+        com.bencodez.votingplugin.timequeue.VoteTimeQueue source =
+                new com.bencodez.votingplugin.timequeue.VoteTimeQueue(id, "Synthetic", "synthetic-service", 1L);
+        source.setUuid(player);
+        source.setWasOnline(true);
+        assertTrue(proxy.cache.addTimeVoteToCache(source));
+        assertTrue(proxy.sendPluginMessageImmediately(BACKEND,
+                JsonEnvelope.builder("SyntheticControl").put("value", "occupied").build()));
+        proxy.failAfterOnlineInsert = true;
+        assertEquals(VotingPluginProxy.QueuedVoteResult.RETRY, proxy.replayQueuedVote(source, null, true));
+        assertEquals(1, proxy.cache.getOnlineVotes(player).size());
+        assertFalse(proxy.cache.getOnlineVotes(player).get(0).isRewardDelivered());
+        assertTrue(proxy.retainIncomingVoteForRestart(
+                new PendingIncomingVote(id, "Synthetic", "synthetic-service", 1L)));
+        when(proxy.getConfig().getBungeeMethod()).thenReturn("MYSQL");
+        proxy.reloadFromControl();
+        GlobalMessageProxyHandler first = mock(GlobalMessageProxyHandler.class);
+        proxy.setGlobalMessageProxyHandlerForTest(first);
+        proxy.processQueue();
+        verify(first).sendMessage(eq(BACKEND), anyInt(), argThat(envelope ->
+                VotingPluginWire.SUB_VOTE_ONLINE.equals(envelope.getSubChannel())));
+        assertTrue(proxy.cache.getTimeChangeQueue().isEmpty());
+        proxy.completeRuntimeReplacementShutdown();
+
+        CapturingProxy restarted = new CapturingProxy(directory);
+        restarted.setMethod(BungeeMethod.MYSQL);
+        when(restarted.getConfig().getOnlineMode()).thenReturn(true);
+        restarted.legacy().addAll(List.of(BACKEND, "backend-b"));
+        restarted.playerServer = "backend-b";
+        restarted.cache.load();
+        assertTrue(restarted.cache.getTimeChangeQueue().isEmpty());
+        GlobalMessageProxyHandler replay = mock(GlobalMessageProxyHandler.class);
+        restarted.setGlobalMessageProxyHandlerForTest(replay);
+        restarted.checkOnlineVotes("Synthetic", player, "backend-b");
+        verify(replay, never()).sendMessage(anyString(), anyInt(), argThat(envelope ->
+                VotingPluginWire.SUB_VOTE_ONLINE.equals(envelope.getSubChannel())
+                        || VotingPluginWire.SUB_VOTE.equals(envelope.getSubChannel())));
+        restarted.closeDispatcher();
+    }
+
+    @Test
     void actualTransportReloadPreservesOriginalAcceptedTargetsAcrossRestart(@TempDir Path directory) throws Exception {
         exerciseTransportReloadRecovery(false, directory);
     }

@@ -222,6 +222,9 @@ messaging is available again; already handed-off updates stay completed. The
 original single-server or all-server reward plan remains fixed on a live retry.
 Cached reward reconciliation also honors an existing backend owner regardless of
 the current transport, before offering the occurrence on a different backend.
+When an unfinished plugin-message source completes through another transport,
+its original cache owner is reused and its completion is saved before removing
+the timed source, so graceful restart cannot revive that pending reward.
 
 A positive-source JSON entry whose SQL row still exists with a different identity
 is retained on disk for recovery but excluded from ordinary replay. It is not
