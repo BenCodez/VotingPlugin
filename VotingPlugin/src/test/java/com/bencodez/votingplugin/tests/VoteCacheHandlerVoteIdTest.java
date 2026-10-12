@@ -402,6 +402,9 @@ public class VoteCacheHandlerVoteIdTest {
 			stubString(voteNode, "UUID", "player-uuid");
 			stubString(voteNode, "Service", "Service");
 			stubLong(voteNode, "Time", 100L);
+			stubString(voteNode, "Name", "Player");
+			stubString(voteNode, "Text", "totals");
+			stubBoolean(voteNode, "Real", true);
 			when(storage.getStoragePath()).thenReturn(journal);
 			when(storage.getServerVotes("server")).thenReturn(List.of("4"));
 			when(storage.getServerVotes("server", "4")).thenReturn(voteNode, (DataNode) null);
@@ -650,10 +653,10 @@ public class VoteCacheHandlerVoteIdTest {
 		VoteTimeQueue sqlVote = legacyTimedVote();
 		sqlVote.setTimedVoteCacheRowId(41);
 		handler.getTimeChangeQueue().add(sqlVote);
-		var loadEmergencyVotes = VoteCacheHandler.class.getDeclaredMethod("loadJsonEmergencyVotes");
+		var loadEmergencyVotes = VoteCacheHandler.class.getDeclaredMethod("loadJsonEmergencyVotes", java.util.Set.class, java.util.Set.class);
 		loadEmergencyVotes.setAccessible(true);
 
-		loadEmergencyVotes.invoke(handler);
+		loadEmergencyVotes.invoke(handler, java.util.Set.of(), java.util.Set.of());
 
 		assertEquals(2, handler.getTimeChangeQueue().size());
 		VoteTimeQueue jsonLoaded = handler.getTimeChangeQueue().stream()
@@ -1018,6 +1021,7 @@ public class VoteCacheHandlerVoteIdTest {
 
 		OfflineBungeeVote vote = new OfflineBungeeVote(UUID.randomUUID(), "Player", "player-uuid", "Service", 100L,
 				true, "totals", true, true, Set.of("Server1"), Set.of("Server1"), false);
+		stubString(voteNode, "VoteId", vote.getVoteId().toString());
 		handler.updateServerVote("server", vote);
 
 		verify(storage).addVote("server", 4, vote);
@@ -1036,6 +1040,7 @@ public class VoteCacheHandlerVoteIdTest {
 
 		OfflineBungeeVote vote = new OfflineBungeeVote(UUID.randomUUID(), "Player", "player-uuid", "Service", 100L,
 				true, "totals", true, true, Set.of("Server1"), Set.of("Server1"), false);
+		stubString(voteNode, "VoteId", vote.getVoteId().toString());
 		handler.updateOnlineVote("player-uuid", vote);
 
 		verify(storage).addVoteOnline("player-uuid", 3, vote);
@@ -1451,9 +1456,9 @@ public class VoteCacheHandlerVoteIdTest {
 		ProxyVoteCacheTable voteTable = mock(ProxyVoteCacheTable.class);
 		ProxyOnlineVoteCacheTable onlineTable = mock(ProxyOnlineVoteCacheTable.class);
 		ProxyTimedVoteCacheTable timedTable = mock(ProxyTimedVoteCacheTable.class);
-		when(voteTable.getAllVotes()).thenReturn(Collections.emptyList());
-		when(onlineTable.getAllVotes()).thenReturn(Collections.emptyList());
-		when(timedTable.getAllVotes()).thenReturn(Collections.emptyList());
+		when(voteTable.getAllVotesChecked()).thenReturn(Collections.emptyList());
+		when(onlineTable.getAllVotesChecked()).thenReturn(Collections.emptyList());
+		when(timedTable.getAllVotesChecked()).thenReturn(Collections.emptyList());
 
 		VoteCacheHandler mysqlEnabled = newHandler(storage);
 		setPrivateField(mysqlEnabled, "useMySQL", true);

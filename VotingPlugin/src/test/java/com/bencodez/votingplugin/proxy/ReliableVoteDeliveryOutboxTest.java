@@ -21,6 +21,26 @@ class ReliableVoteDeliveryOutboxTest {
 	Path directory;
 
 	@Test
+	void updateQuotaDoesNotConsumeTheRewardEntryAllowance() throws Exception {
+		Path file = directory.resolve("updates.dat");
+		ReliableVoteDeliveryOutbox outbox = new ReliableVoteDeliveryOutbox(file);
+		for (int i = 0; i < ReliableVoteDeliveryOutbox.MAX_UPDATE_ENTRIES; i++) {
+			JsonEnvelope update = VotingPluginWire.voteUpdate(new UUID(1, i).toString(), 1, 10,
+					"synthetic-service", 1L, "").toBuilder()
+					.put(VotingPluginWire.K_VOTE_ID, new UUID(2, i)).build();
+			assertTrue(outbox.offer("backend-a", update));
+		}
+		JsonEnvelope extra = VotingPluginWire.voteUpdate(new UUID(1, 2048).toString(), 1, 10,
+				"synthetic-service", 1L, "").toBuilder()
+				.put(VotingPluginWire.K_VOTE_ID, new UUID(2, 2048)).build();
+		assertFalse(outbox.offer("backend-a", extra));
+		assertTrue(outbox.offer("backend-a", VotingPluginWire.vote("test-player", new UUID(1, 4096).toString(),
+				"synthetic-service", 1L, true, true, "", new UUID(2, 4096), false, false, 1, 1)));
+		assertEquals(ReliableVoteDeliveryOutbox.MAX_UPDATE_ENTRIES + 1,
+				new ReliableVoteDeliveryOutbox(file).size());
+	}
+
+	@Test
 	void persistsUntilMatchingBackendAcknowledgesCompletion() throws Exception {
 		Path file = directory.resolve("outbox.dat");
 		UUID voteId = UUID.randomUUID();
@@ -179,4 +199,92 @@ class ReliableVoteDeliveryOutboxTest {
 		assertEquals(0, outbox.size());
 		assertFalse(Files.exists(file));
 	}
+
+    @Test
+    void deferredOwnershipSurvivesRestartBeforeTheReadyWindowAndCannotBeSentEarly() throws Exception {
+        Path file = directory.resolve("deferred.dat");
+        UUID id = new UUID(7, 1);
+        JsonEnvelope update = update(id);
+        ReliableVoteDeliveryOutbox outbox = new ReliableVoteDeliveryOutbox(file);
+        assertTrue(outbox.retainUpdate("backend-a", update, false));
+        assertTrue(outbox.snapshot().get(0).deferredUpdate());
+        assertFalse(outbox.beginLegacyDelivery("backend-a", id, VotingPluginWire.SUB_VOTE_UPDATE));
+        ReliableVoteDeliveryOutbox restored = new ReliableVoteDeliveryOutbox(file);
+        assertTrue(restored.snapshot().get(0).deferredUpdate());
+        assertEquals(id.toString(), restored.snapshot().get(0).envelope().getFields().get(VotingPluginWire.K_VOTE_ID));
+        assertTrue(restored.setUpdateReady("backend-a", id, true));
+        restored = new ReliableVoteDeliveryOutbox(file);
+        assertFalse(restored.snapshot().get(0).deferredUpdate());
+        assertTrue(restored.beginLegacyDelivery("backend-a", id, VotingPluginWire.SUB_VOTE_UPDATE));
+        assertTrue(restored.retireLegacyDelivery("backend-a", id, VotingPluginWire.SUB_VOTE_UPDATE));
+        assertEquals(0, new ReliableVoteDeliveryOutbox(file).size());
+    }
+
+    @Test
+    void rejectedReadyAttemptCanReturnToDeferredOwnershipAndRecoverWithoutAnAmbiguousFence() throws Exception {
+        Path file = directory.resolve("rejected-update.dat");
+        UUID id = new UUID(7, 2);
+        ReliableVoteDeliveryOutbox outbox = new ReliableVoteDeliveryOutbox(file);
+        assertTrue(outbox.offer("backend-a", update(id)));
+        assertTrue(outbox.beginLegacyDelivery("backend-a", id, VotingPluginWire.SUB_VOTE_UPDATE));
+        assertFalse(outbox.setUpdateReady("backend-a", id, false));
+        assertTrue(outbox.rejectLegacyDelivery("backend-a", id, VotingPluginWire.SUB_VOTE_UPDATE));
+        assertTrue(outbox.setUpdateReady("backend-a", id, false));
+        ReliableVoteDeliveryOutbox restored = new ReliableVoteDeliveryOutbox(file);
+        assertTrue(restored.snapshot().get(0).deferredUpdate());
+        assertFalse(restored.snapshot().get(0).legacyDeliveryFenced());
+        assertFalse(restored.snapshot().get(0).legacyDeliveryRejected());
+        assertTrue(restored.setUpdateReady("backend-a", id, true));
+        assertTrue(restored.beginLegacyDelivery("backend-a", id, VotingPluginWire.SUB_VOTE_UPDATE));
+    }
+
+    @Test
+    void deferredUpdatesRetainOrderAndDoNotAdmitARewardThroughTheDeferredApi() throws Exception {
+        ReliableVoteDeliveryOutbox outbox = new ReliableVoteDeliveryOutbox(directory.resolve("ordered.dat"));
+        UUID first = new UUID(7, 3), second = new UUID(7, 4);
+        assertTrue(outbox.retainUpdate("backend-a", update(first), false));
+        assertTrue(outbox.retainUpdate("backend-a", update(second), true));
+        assertTrue(outbox.snapshot().get(1).deferredUpdate(), "new update bypassed an older deferred owner");
+        assertFalse(outbox.isFirstPendingUpdate(null, first));
+        assertFalse(outbox.isFirstPendingUpdate("backend-a", null));
+        assertTrue(outbox.isFirstPendingUpdate("backend-a", first));
+        assertFalse(outbox.isFirstPendingUpdate("backend-a", second));
+        assertFalse(outbox.retainUpdate("backend-a", VotingPluginWire.vote("test-player",
+                new UUID(1, 1).toString(), "synthetic-service", 1L, true, true, "", second,
+                false, false, 1, 1), false));
+    }
+
+    @Test
+    void failedDeferredPublicationDoesNotReportDurableAdmission() throws Exception {
+        Path blocked = directory.resolve("blocked");
+        Files.writeString(blocked, "synthetic");
+        ReliableVoteDeliveryOutbox outbox = new ReliableVoteDeliveryOutbox(blocked.resolve("updates.dat"));
+        assertFalse(outbox.retainUpdate("backend-a", update(new UUID(7, 5)), false));
+        assertEquals(0, outbox.size());
+    }
+
+    @Test
+    void deferredCapacityIsBoundedAndDoesNotEvictExistingOwnersOrRewardAllowance() throws Exception {
+        Path file = directory.resolve("deferred-capacity.dat");
+        ReliableVoteDeliveryOutbox outbox = new ReliableVoteDeliveryOutbox(file);
+        for (int i = 0; i < ReliableVoteDeliveryOutbox.MAX_DEFERRED_UPDATE_ENTRIES; i++) {
+            assertTrue(outbox.retainUpdate("backend-a", update(new UUID(8, i)), false));
+        }
+        UUID overflow = new UUID(8, ReliableVoteDeliveryOutbox.MAX_DEFERRED_UPDATE_ENTRIES);
+        assertFalse(outbox.retainUpdate("backend-a", update(overflow), false));
+        assertTrue(outbox.retainUpdate("backend-a", update(new UUID(8, 0)), false));
+        assertTrue(outbox.offer("backend-b", VotingPluginWire.vote("test-player",
+                new UUID(1, 1).toString(), "synthetic-service", 1L, true, true, "", overflow,
+                false, false, 1, 1)));
+        ReliableVoteDeliveryOutbox restored = new ReliableVoteDeliveryOutbox(file);
+        assertEquals(ReliableVoteDeliveryOutbox.MAX_DEFERRED_UPDATE_ENTRIES + 1, restored.size());
+        assertEquals(ReliableVoteDeliveryOutbox.MAX_DEFERRED_UPDATE_ENTRIES,
+                restored.snapshot().stream().filter(ReliableVoteDeliveryOutbox.Entry::deferredUpdate).count());
+        assertFalse(restored.find("backend-a", overflow, VotingPluginWire.SUB_VOTE_UPDATE).isPresent());
+    }
+
+    private static JsonEnvelope update(UUID id) {
+        return VotingPluginWire.voteUpdate(new UUID(1, 1).toString(), 1, 10,
+                "synthetic-service", 1L, "").toBuilder().put(VotingPluginWire.K_VOTE_ID, id).build();
+    }
 }

@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -41,6 +42,8 @@ class PendingIncomingVoteJournalTest {
 		vote.setUuid("00000000-0000-0000-0000-000000000001");
 		vote.setWasOnline(true);
 		vote.setTotals("1,2,3,4,5,6,7,8");
+		vote.setProxyBroadcastHandled(true);
+		vote.getBroadcastTargets().addAll(Set.of("backend-a", "backend-b"));
 		vote.setVotePartyApplied(true);
 		vote.setTotalsApplied(true);
 		vote.setDelayValidated(true);
@@ -53,6 +56,8 @@ class PendingIncomingVoteJournalTest {
 		assertEquals(voteId, recovered.getVoteId());
 		assertEquals("Player", recovered.getName());
 		assertEquals("Service", recovered.getService());
+		assertTrue(recovered.isProxyBroadcastHandled());
+		assertEquals(vote.getBroadcastTargets(), recovered.getBroadcastTargets());
 		assertTrue(recovered.isVotePartyApplied());
 		assertTrue(recovered.isTotalsApplied());
 		assertTrue(recovered.isWasOnlineKnown());
@@ -64,6 +69,38 @@ class PendingIncomingVoteJournalTest {
 
 		journal.replace(List.of());
 		assertFalse(Files.exists(temporaryDirectory.resolve("pending-incoming-votes-v1.json")));
+	}
+
+	@Test
+	void primaryAndRescueJournalsPreserveAcceptedTargetsWithoutInventingHttpWork() throws Exception {
+		Path data = temporaryDirectory.resolve("plugin-data");
+		for (PendingIncomingVoteJournal journal : List.of(new PendingIncomingVoteJournal(data),
+				PendingIncomingVoteJournal.rescue(data))) {
+			UUID id = UUID.randomUUID();
+			VoteTimeQueue vote = new VoteTimeQueue(id, "Player", "Service", 1L);
+			vote.setHttpBroadcastDeliveryId(VotingPluginWire.ACCEPTED_REWARD_TARGET_PREFIX + "backend-a", id.toString());
+			journal.merge(List.of(vote));
+			VoteTimeQueue recovered = journal.load().get(0);
+			assertEquals(vote.getHttpBroadcastDeliveryIds(), recovered.getHttpBroadcastDeliveryIds());
+			assertFalse(recovered.hasPendingHttpBroadcastDeliveryIds());
+			vote.setHttpBroadcastDeliveryId("backend-b", UUID.randomUUID().toString());
+			journal.replace(List.of(vote));
+			assertEquals(vote.getHttpBroadcastDeliveryIds(), journal.load().get(0).getHttpBroadcastDeliveryIds());
+			assertTrue(journal.load().get(0).hasPendingHttpBroadcastDeliveryIds());
+		}
+	}
+
+	@Test
+	void malformedDeliveryMetadataFailsClosedWithoutReplacingTheJournal() throws Exception {
+		Path file = temporaryDirectory.resolve("pending-incoming-votes-v1.json");
+		String contents = "[{\"voteId\":\"" + UUID.randomUUID() + "\",\"player\":\"Player\","
+				+ "\"service\":\"Service\",\"acceptedAt\":1,\"httpBroadcastDeliveryIds\":\"invalid\"}]";
+		Files.writeString(file, contents);
+		PendingIncomingVoteJournal journal = new PendingIncomingVoteJournal(temporaryDirectory);
+		assertThrows(java.io.IOException.class, journal::load);
+		assertThrows(java.io.IOException.class, () -> journal.merge(List.of(
+				new VoteTimeQueue(UUID.randomUUID(), "Player", "Service", 2L))));
+		assertEquals(contents, Files.readString(file));
 	}
 
 	@Test

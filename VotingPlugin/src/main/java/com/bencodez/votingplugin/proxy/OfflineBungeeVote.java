@@ -82,6 +82,48 @@ public class OfflineBungeeVote {
 	private final Map<String, String> httpDeliveryIds;
 	/** Stable HTTP standalone-broadcast IDs, separate from reward delivery IDs. */
 	private final Map<String, String> httpBroadcastDeliveryIds;
+	/** Original cached replay position, retained when only part of a batch is sent. */
+	@Getter
+	private int cachedBatchNumber;
+	@Getter
+	private int cachedBatchSize;
+	/** SQL row whose batch metadata is journaled in the JSON emergency store. */
+	@Getter
+	@Setter
+	private int cachedBatchSourceRowId;
+	@Getter
+	@Setter
+	private boolean cachedBatchDurable;
+
+	public void setCachedVoteBatch(int number, int size) {
+		cachedBatchNumber = number;
+		cachedBatchSize = size;
+		cachedBatchDurable = false;
+	}
+
+	public boolean hasCachedVoteBatch() {
+		return cachedBatchNumber > 0 && cachedBatchNumber <= cachedBatchSize;
+	}
+
+	public boolean isCachedVoteBatchValid() {
+		return cachedBatchSourceRowId >= 0 && (cachedBatchNumber == 0 && cachedBatchSize == 0
+				|| hasCachedVoteBatch());
+	}
+
+	/** Copies only replay metadata, leaving this cache lane's ownership unchanged. */
+	public void copyCachedVoteBatch(OfflineBungeeVote source) {
+		cachedBatchNumber = source.cachedBatchNumber;
+		cachedBatchSize = source.cachedBatchSize;
+		cachedBatchSourceRowId = source.cachedBatchSourceRowId;
+		cachedBatchDurable = source.cachedBatchDurable;
+	}
+
+	/** Assigns a legacy replay ID after its journal owner has been persisted. */
+	public void assignCachedVoteId(UUID identity) {
+		if (identity == null || voteId != null && !voteId.equals(identity))
+			throw new IllegalArgumentException("A cached vote identity cannot be replaced");
+		voteId = identity;
+	}
 
 	/**
 	 * Constructor with UUID voteId.
@@ -356,7 +398,13 @@ public class OfflineBungeeVote {
 
 	/** Returns whether any reward or standalone HTTP delivery is still pending. */
 	public boolean hasPendingHttpDeliveryIds() {
-		return !httpDeliveryIds.isEmpty() || !httpBroadcastDeliveryIds.isEmpty();
+		return !httpDeliveryIds.isEmpty() || hasPendingHttpBroadcastDeliveryIds();
+	}
+
+	/** Returns whether standalone HTTP broadcasts, rather than internal markers, remain. */
+	public boolean hasPendingHttpBroadcastDeliveryIds() {
+		return httpBroadcastDeliveryIds.keySet().stream().anyMatch(key -> !key.startsWith(
+				VotingPluginWire.REWARD_QUEUE_METADATA_PREFIX));
 	}
 
 	/**
