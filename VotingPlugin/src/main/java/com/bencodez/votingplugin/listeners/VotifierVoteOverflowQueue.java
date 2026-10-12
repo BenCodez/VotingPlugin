@@ -47,7 +47,18 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 	@FunctionalInterface
 	public interface VoteProcessor { void process(String serviceSite, String username, long occurredAt); }
 	@FunctionalInterface
-	public interface OccurrenceProcessor { void process(String serviceSite, String username, long occurredAt, UUID localOccurrenceId); }
+	public interface OccurrenceProcessor {
+        void process(String serviceSite, String username, long occurredAt, UUID localOccurrenceId);
+        /** Legacy callbacks confirm completion by returning normally. */
+        default boolean processConfirmed(String serviceSite, String username, long occurredAt, UUID localOccurrenceId) {
+            process(serviceSite, username, occurredAt, localOccurrenceId);
+            return true;
+        }
+    }
+    @FunctionalInterface
+    public interface ConfirmedOccurrenceProcessor {
+        boolean processConfirmed(String serviceSite, String username, long occurredAt, UUID localOccurrenceId);
+    }
 	private final OccurrenceProcessor processor;
     private final java.util.function.BooleanSupplier processingAllowed;
 	private final Path file;
@@ -56,6 +67,7 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 	private final Object persistenceWriteLock = new Object();
 	private final ArrayDeque<PendingVote> entries = new ArrayDeque<>();
 	private boolean drainScheduled;
+    private boolean drainRetryScheduled;
 	private boolean captureRetryScheduled;
 	private boolean persistenceScheduled;
 	private boolean persistenceDirty;
@@ -94,6 +106,20 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
     public static VotifierVoteOverflowQueue initializeAsync(VotingPluginMain plugin, OccurrenceProcessor processor,
             java.util.function.BooleanSupplier processingAllowed) {
         return new VotifierVoteOverflowQueue(plugin, processor, processingAllowed, true);
+    }
+
+    /** Named factory preserves existing void callback/lambda contracts without ambiguous overloads. */
+    public static VotifierVoteOverflowQueue initializeConfirmedAsync(VotingPluginMain plugin,
+            ConfirmedOccurrenceProcessor processor, java.util.function.BooleanSupplier processingAllowed) {
+        java.util.Objects.requireNonNull(processor, "processor");
+        return initializeAsync(plugin, new OccurrenceProcessor() {
+            @Override public void process(String site, String user, long time, UUID id) {
+                processor.processConfirmed(site, user, time, id);
+            }
+            @Override public boolean processConfirmed(String site, String user, long time, UUID id) {
+                return processor.processConfirmed(site, user, time, id);
+            }
+        }, processingAllowed);
     }
 
     private VotifierVoteOverflowQueue(VotingPluginMain plugin, OccurrenceProcessor processor,
@@ -223,6 +249,12 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 
 	private void drain() {
 		while (true) {
+            // A generation fence parks its receipts instead of repeatedly submitting
+            // callbacks which are forbidden to execute (including inline submitters).
+            if (!processingAllowed.getAsBoolean()) {
+                synchronized (lock) { drainScheduled = false; }
+                return;
+            }
 			synchronized (lock) {
                 if (closed || closing || !loaded || loadFailed) { drainScheduled = false; return; }
 				if (durableVersion != stateVersion) {
@@ -239,14 +271,23 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 					// Serialize admission with enqueue so the version proven durable
 					// above cannot change in the gap before submit accepts this vote.
 					plugin.getVoteTimer().submit(() -> {
-                        if (!processingAllowed.getAsBoolean()) {
-                            synchronized (lock) { pending.submitted = false; }
-                            return; // Retired generation retains the durable entry for restart.
-                        }
+						boolean attempted = false;
+						boolean completed = false;
 						try {
-							processor.process(pending.serviceSite, pending.username, pending.time, pending.localOccurrenceId);
+                            if (!processingAllowed.getAsBoolean()) return;
+                            synchronized (lock) {
+                                if (closed || closing || !entries.contains(pending)) return;
+                            }
+                            attempted = true;
+							completed = processor.processConfirmed(pending.serviceSite, pending.username,
+                                    pending.time, pending.localOccurrenceId) && !Thread.currentThread().isInterrupted();
+                        } catch (RuntimeException | Error failure) {
+                            plugin.getLogger().warning("Queued Votifier processing failed; retained receipt for retry: "
+                                    + failure.getClass().getSimpleName());
+                            throw failure;
 						} finally {
-							acknowledge(pending);
+                            if (completed) acknowledge(pending);
+                            else retainFailedAttempt(pending, attempted);
 						}
 					});
 				} catch (RejectedExecutionException rejected) {
@@ -259,21 +300,62 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 						// The queue is closing; the persisted entry remains for restart.
 					}
 					return;
+				} catch (RuntimeException | Error failure) {
+                    // An inline submitter can expose callback failure on this worker.
+                    // Retain retry ownership without leaving drainScheduled stuck true.
+                    drainScheduled = false;
+                    retainFailedAttempt(pending, true);
+                    throw failure;
 				}
 			}
 		}
 	}
 
 	private PendingVote nextUnsubmittedLocked() {
+		long now = System.nanoTime();
+        boolean retryWaiting = false;
 		for (PendingVote pending : entries) {
-			if (!pending.submitted && pending.executionReleased.getAsBoolean()) return pending;
+			if (pending.submitted || !pending.executionReleased.getAsBoolean()) continue;
+            if (pending.retryNotBeforeNanos != 0 && now - pending.retryNotBeforeNanos < 0) {
+                retryWaiting = true;
+                continue;
+            }
+            return pending;
 		}
+        if (retryWaiting) scheduleDrainRetryLocked();
 		return null;
 	}
 
+    private void retainFailedAttempt(PendingVote pending, boolean attempted) {
+        synchronized (lock) {
+            pending.submitted = false;
+            if (closed || closing || !entries.contains(pending) || !attempted) return;
+            // Inline submitters must not retry this same receipt in the current drain.
+            pending.retryNotBeforeNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(RETRY_DELAY_MILLIS);
+            scheduleDrainRetryLocked();
+        }
+    }
+
+    private void scheduleDrainRetryLocked() {
+        if (closed || closing || !loaded || loadFailed || !started || drainRetryScheduled) return;
+        drainRetryScheduled = true;
+        try {
+            worker.schedule(() -> {
+                synchronized (lock) {
+                    drainRetryScheduled = false;
+                    scheduleDrainLocked();
+                }
+            }, RETRY_DELAY_MILLIS, TimeUnit.MILLISECONDS);
+        } catch (RejectedExecutionException rejected) { drainRetryScheduled = false; }
+    }
+
 	private void acknowledge(PendingVote pending) {
 		synchronized (lock) {
-			entries.remove(pending);
+            if (closed) {
+                plugin.getLogger().warning("Completed Votifier callback outlived queue shutdown; retained occurrence requires reconciliation");
+                return;
+            }
+			if (!entries.remove(pending)) return;
 			stateVersion++;
 			requestPersistenceLocked();
 			scheduleDrainLocked();
@@ -533,6 +615,7 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
         private final UUID localOccurrenceId;
 		private final java.util.function.BooleanSupplier executionReleased;
 		private boolean submitted;
+        private long retryNotBeforeNanos;
 
 		private PendingVote(String username, String serviceSite, long time, UUID localOccurrenceId) {
 			this(username, serviceSite, time, localOccurrenceId, () -> true);

@@ -143,6 +143,11 @@ public class VotiferEvent implements Listener {
         processCapturedVote(voteSite, voteUsername, occurredAt, localOccurrenceId);
     }
 
+    /** False retains overflow ownership; partial ordinary effects may still have occurred. */
+    public boolean processVoteConfirmed(String voteSite, String voteUsername, long occurredAt, UUID localOccurrenceId) {
+        return processCapturedVote(voteSite, voteUsername, occurredAt, localOccurrenceId);
+    }
+
     private boolean processCapturedVote(String voteSite, String voteUsername, long occurredAt, UUID localOccurrenceId) {
         java.util.Objects.requireNonNull(localOccurrenceId, "localOccurrenceId");
 		try {

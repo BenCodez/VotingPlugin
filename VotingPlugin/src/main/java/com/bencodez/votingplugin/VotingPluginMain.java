@@ -2063,8 +2063,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
         VotiferEvent listener = new VotiferEvent(this, () -> localVotifierIngressReady);
         // Publish the memory owner before capture. Its independent worker loads
         // disk state; vote-executor cancellation cannot discard queue setup.
-        votifierVoteOverflowQueue = VotifierVoteOverflowQueue.initializeAsync(this,
-                listener::processVote, () -> localVotifierIngressReady && !localVotifierIngressClosed);
+        votifierVoteOverflowQueue = VotifierVoteOverflowQueue.initializeConfirmedAsync(this,
+                listener::processVoteConfirmed, () -> localVotifierIngressReady && !localVotifierIngressClosed);
         localVotifierListener = listener;
         if (localVotifierIngressReady) votifierVoteOverflowQueue.start();
         getServer().getPluginManager().registerEvents(listener, this);

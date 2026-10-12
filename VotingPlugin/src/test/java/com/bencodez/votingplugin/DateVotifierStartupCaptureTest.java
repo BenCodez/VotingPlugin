@@ -402,6 +402,48 @@ class DateVotifierStartupCaptureTest {
         }
     }
 
+    @Test void productionOverflowRetainsStorageRejectionThenRetriesOriginalOccurrence() throws Exception {
+        try (var fixture = new Fixture(root, 1)) {
+            fixture.plugin.registerEarlyVotifierIngress(); fixture.drain(); fixture.open();
+            var rejected = new CountDownLatch(1);
+            var permitStorage = new java.util.concurrent.atomic.AtomicBoolean();
+            var serverData = fixture.plugin.getServerData();
+            doAnswer(call -> {
+                if (!permitStorage.get()) {
+                    rejected.countDown();
+                    throw new RejectedExecutionException("synthetic storage admission rejection");
+                }
+                return null;
+            }).when(serverData).addServiceSite(SERVICE);
+            UUID original = UUID.fromString("00000000-0000-0000-0000-000000000019");
+            long originalTime = java.time.Instant.parse("2026-10-01T00:00:00Z").toEpochMilli();
+            var overflow = fixture.plugin.getVotifierVoteOverflowQueue();
+            assertTrue(overflow.enqueue("Steve", SERVICE, originalTime, original));
+            assertTrue(rejected.await(3, TimeUnit.SECONDS));
+            fixture.timer.submit(() -> { }).get(3, TimeUnit.SECONDS);
+            assertEquals(1, overflow.size(), "known pre-dispatch failure must retain durable receipt ownership");
+            assertTrue(fixture.accepted.isEmpty());
+            verify(fixture.user, never()).playerVote(any(), anyBoolean(), anyBoolean());
+            verify(fixture.user, never()).addPoints();
+            var persisted = YamlConfiguration.loadConfiguration(root.resolve("VotifierVoteQueue.yml").toFile()).getMapList("Votes");
+            assertEquals(1, persisted.size());
+            assertEquals(original.toString(), persisted.getFirst().get("LocalOccurrenceId"));
+            assertEquals(originalTime, ((Number) persisted.getFirst().get("Time")).longValue());
+
+            permitStorage.set(true);
+            fixture.received();
+            assertEquals(0, overflow.size());
+            assertEquals(1, fixture.accepted.size()); assertEquals(1, fixture.posted.size());
+            assertEquals(original, fixture.accepted.getFirst().getLocalOccurrenceId());
+            assertEquals(originalTime, fixture.accepted.getFirst().getCanonicalOccurrenceTime());
+            assertEquals(original, fixture.posted.getFirst().getVoteUUID());
+            assertEquals(originalTime, fixture.posted.getFirst().getCanonicalOccurrenceTime());
+            assertEquals(1, fixture.progress().votes());
+            verify(fixture.user).playerVote(fixture.site, true, false);
+            verify(fixture.user).addPoints();
+        }
+    }
+
     @Test void admittedOverflowCallbackCannotRewardAfterStartupGenerationRetires() throws Exception {
         try (var fixture = new Fixture(root, 0)) {
             fixture.plugin.registerEarlyVotifierIngress(); fixture.drain(); fixture.vote(); fixture.drain();
