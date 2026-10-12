@@ -4,6 +4,9 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
+import java.nio.channels.OverlappingFileLockException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
@@ -17,7 +20,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Properties;
 import java.util.UUID;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -42,6 +48,9 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 	private static final long MAX_FILE_BYTES = 4L * 1024L * 1024L;
 	private static final long RETRY_DELAY_MILLIS = 250L;
 	private static final String QUEUE_FILE = "VotifierVoteQueue.yml";
+	private static final String OWNER_FILE = "VotifierVoteQueue.yml.owner";
+	private static final String SHARED_OWNER_PROPERTY_PREFIX = "com.bencodez.votingplugin.VotifierVoteOverflowQueue.owner.";
+	private static final int MAX_OWNER_RESERVATIONS = 1024;
 
 	private final VotingPluginMain plugin;
 	@FunctionalInterface
@@ -62,6 +71,12 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 	private final OccurrenceProcessor processor;
     private final java.util.function.BooleanSupplier processingAllowed;
 	private final Path file;
+	private final Path ownerFile;
+	private FileChannel ownerChannel;
+	private FileLock ownerLock;
+	private String ownerKey;
+	private String ownerToken;
+	private Properties ownerProperties;
 	private final ScheduledThreadPoolExecutor worker;
 	private final Object lock = new Object();
 	private final Object persistenceWriteLock = new Object();
@@ -129,6 +144,7 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 		this.processor = processor;
         this.processingAllowed = processingAllowed;
 		this.file = new File(plugin.getDataFolder(), QUEUE_FILE).toPath();
+		this.ownerFile = new File(plugin.getDataFolder(), OWNER_FILE).toPath();
 		this.worker = new ScheduledThreadPoolExecutor(1, runnable -> {
 			Thread thread = new Thread(runnable, "VotingPlugin-Votifier-Overflow");
 			thread.setDaemon(true);
@@ -448,6 +464,14 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 	private void load() {
         ArrayDeque<PendingVote> recovered = new ArrayDeque<>();
 		try {
+			synchronized (lock) { if (closed || closing) return; }
+			if (!acquireOwner()) {
+				if (asynchronousInitialization) {
+					worker.schedule(this::load, RETRY_DELAY_MILLIS, TimeUnit.MILLISECONDS);
+					return;
+				}
+				throw new IOException("queue file is owned by another active instance");
+			}
 			if (!Files.exists(file, LinkOption.NOFOLLOW_LINKS)) return;
 			YamlConfiguration yaml = new YamlConfiguration();
 			yaml.loadFromString(readQueueFile());
@@ -498,9 +522,76 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
             loadFailed = true;
 			plugin.getLogger().warning("Unable to load queued Votifier votes: " + failure.getClass().getSimpleName());
 		} finally {
+            if (ownerLock == null && !loadFailed) return;
             loaded = true;
             synchronized (lock) { scheduleDrainLocked(); }
         }
+	}
+
+	private boolean acquireOwner() throws IOException {
+		if (ownerLock != null && ownerLock.isValid()) return true;
+		Path parent = ownerFile.toAbsolutePath().normalize().getParent();
+		if (parent == null || Files.isSymbolicLink(ownerFile)) throw new IOException("queue ownership file is unsafe");
+		Files.createDirectories(parent);
+		String key = SHARED_OWNER_PROPERTY_PREFIX + hashOwnerPath(parent.toRealPath().resolve(ownerFile.getFileName()));
+		String token = UUID.randomUUID().toString();
+		Properties properties = System.getProperties();
+		synchronized (properties) {
+			if (properties.getProperty(key) != null) return false;
+			int reservations = 0;
+			for (Object property : properties.keySet())
+				if (property instanceof String name && name.startsWith(SHARED_OWNER_PROPERTY_PREFIX)) reservations++;
+			if (reservations >= MAX_OWNER_RESERVATIONS) return false;
+			properties.setProperty(key, token);
+		}
+		try {
+			FileChannel channel = FileChannel.open(ownerFile, StandardOpenOption.CREATE, StandardOpenOption.WRITE,
+					LinkOption.NOFOLLOW_LINKS);
+			try {
+				FileLock acquired;
+				try { acquired = channel.tryLock(); }
+				catch (OverlappingFileLockException busy) { acquired = null; }
+				if (acquired == null) { channel.close(); clearOwnerReservation(properties, key, token); return false; }
+				ownerKey = key; ownerToken = token; ownerProperties = properties; ownerChannel = channel; ownerLock = acquired;
+				return true;
+			} catch (IOException | RuntimeException failure) {
+				channel.close();
+				clearOwnerReservation(properties, key, token);
+				throw failure;
+			}
+		} catch (IOException | RuntimeException failure) {
+			clearOwnerReservation(properties, key, token);
+			throw failure;
+		}
+	}
+
+	private void releaseOwner() {
+		try { if (ownerLock != null) ownerLock.release(); } catch (IOException ignored) { }
+		try { if (ownerChannel != null) ownerChannel.close(); } catch (IOException ignored) { }
+		clearOwnerReservation(ownerProperties, ownerKey, ownerToken);
+		ownerLock = null;
+		ownerChannel = null;
+		ownerKey = null;
+		ownerToken = null;
+		ownerProperties = null;
+	}
+
+	private static void clearOwnerReservation(Properties properties, String key, String token) {
+		if (properties == null || key == null || token == null) return;
+		synchronized (properties) {
+			if (token.equals(properties.getProperty(key))) properties.remove(key);
+		}
+	}
+
+	private static String hashOwnerPath(Path path) throws IOException {
+		try {
+			byte[] digest = MessageDigest.getInstance("SHA-256").digest(path.toString().getBytes(StandardCharsets.UTF_8));
+			StringBuilder result = new StringBuilder(digest.length * 2);
+			for (byte value : digest) result.append(String.format("%02x", value));
+			return result.toString();
+		} catch (NoSuchAlgorithmException impossible) {
+			throw new IOException("SHA-256 unavailable", impossible);
+		}
 	}
 
 	private String readQueueFile() throws IOException {
@@ -523,6 +614,7 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 	}
 
 	private void writeSnapshotLocked(List<PendingVote> snapshot) throws IOException {
+		if (ownerLock == null || !ownerLock.isValid()) throw new IOException("queue file ownership is unavailable");
 		YamlConfiguration yaml = new YamlConfiguration();
 		List<Map<String, Object>> values = new ArrayList<>();
 		for (PendingVote pending : snapshot) {
@@ -572,7 +664,7 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 		} catch (InterruptedException interrupted) {
 			Thread.currentThread().interrupt();
 		}
-        if (loadFailed) return;
+		if (loadFailed) { releaseOwner(); return; }
 		try {
 			synchronized (persistenceWriteLock) {
 				writeSnapshotLocked(snapshot);
@@ -581,6 +673,7 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 			plugin.getLogger().warning("Unable to persist queued Votifier votes during shutdown: "
 					+ failure.getClass().getSimpleName());
 		}
+		releaseOwner();
 	}
 
     private void closeInitializedWorker() {
@@ -592,12 +685,13 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
             worker.execute(() -> {
                 List<PendingVote> snapshot;
                 synchronized (lock) { closed = true; snapshot = new ArrayList<>(entries); }
-                if (loadFailed) return;
+                if (loadFailed) { releaseOwner(); return; }
                 try { synchronized (persistenceWriteLock) { writeSnapshotLocked(snapshot); } }
                 catch (IOException failure) {
                     plugin.getLogger().warning("Unable to persist queued Votifier votes during shutdown: "
                             + failure.getClass().getSimpleName());
                 }
+				releaseOwner();
             });
             worker.shutdown();
         }

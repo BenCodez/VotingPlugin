@@ -1754,6 +1754,10 @@ public class VotingPluginProxyTest {
 		assertEquals("Player", retained.getName());
 		assertEquals("Service", retained.getService());
 		assertEquals(1234L, retained.getTime());
+		assertEquals(1234L, retained.getCanonicalOccurrenceTime());
+		assertFalse(retained.isTotalsApplied());
+		assertFalse(retained.isVotePartyApplied());
+		verify(voteCache, Mockito.never()).updateTimeVote(Mockito.any());
 		verify(voteCache, Mockito.times(1)).addTimeVoteToCache(Mockito.any());
 	}
 
@@ -2995,7 +2999,9 @@ public class VotingPluginProxyTest {
 				VotingPluginWire.voteBroadcast("uuid", "Player", "Service", 100L, "", false)));
 
 		votingPluginProxy.setPluginMessageDeliveryResult(true);
-		assertTrue(votingPluginProxy.sendPluginMessageImmediately("Server1",
+		assertFalse(votingPluginProxy.sendPluginMessageImmediately("Server1",
+				VotingPluginWire.voteBroadcast("uuid", "Player", "Service", 100L, "", false)));
+		assertTrue(votingPluginProxy.sendPluginMessageImmediately("Server2",
 				VotingPluginWire.voteBroadcast("uuid", "Player", "Service", 100L, "", false)));
 	}
 
@@ -3617,6 +3623,8 @@ public class VotingPluginProxyTest {
 	@Test
 	void pendingServerBroadcastRetriesBeforeOfflineRewardDelivery() {
 		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		Mockito.when(voteCache.prepareCachedVoteBatch(Mockito.anyString(), Mockito.anyBoolean(),
+				Mockito.anyCollection(), Mockito.anyInt())).thenReturn(true);
 		OfflineBungeeVote vote = new OfflineBungeeVote(java.util.UUID.randomUUID(), "Player", "player-uuid",
 				"Service", 100L, true, "totals", false, true, java.util.Set.of("Server1"),
 				java.util.Collections.emptySet(), false);
@@ -3644,6 +3652,8 @@ public class VotingPluginProxyTest {
 	@Test
 	void acceptedCachedRewardRetainsAmbiguousStandaloneBroadcastWithoutRebroadcasting() {
 		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		Mockito.when(voteCache.prepareCachedVoteBatch(Mockito.anyString(), Mockito.anyBoolean(),
+				Mockito.anyCollection(), Mockito.anyInt())).thenReturn(true);
 		OfflineBungeeVote vote = new OfflineBungeeVote(java.util.UUID.randomUUID(), "Player", "player-uuid",
 				"Service", 100L, true, "totals", false, true, java.util.Set.of("Server1"),
 				java.util.Collections.emptySet(), false, java.util.Collections.emptyMap(),
@@ -3672,6 +3682,8 @@ public class VotingPluginProxyTest {
 	@Test
 	void rejectedHttpQueueDeliveryRetainsCachedServerVote() {
 		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		Mockito.when(voteCache.prepareCachedVoteBatch(Mockito.anyString(), Mockito.anyBoolean(),
+				Mockito.anyCollection(), Mockito.anyInt())).thenReturn(true);
 		OfflineBungeeVote vote = new OfflineBungeeVote(java.util.UUID.randomUUID(), "Player", "player-uuid",
 				"Service", 100L, true, "totals");
 		Mockito.when(voteCache.hasVotes("Server1")).thenReturn(true);
@@ -3693,6 +3705,8 @@ public class VotingPluginProxyTest {
 	@Test
 	void rejectedHttpQueueDeliveryRetainsCachedOnlineVote() {
 		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		Mockito.when(voteCache.prepareCachedVoteBatch(Mockito.anyString(), Mockito.anyBoolean(),
+				Mockito.anyCollection(), Mockito.anyInt())).thenReturn(true);
 		OfflineBungeeVote vote = new OfflineBungeeVote(java.util.UUID.randomUUID(), "Player", "player-uuid",
 				"Service", 100L, true, "totals");
 		Mockito.when(voteCache.hasOnlineVotes("player-uuid")).thenReturn(true);
@@ -3715,6 +3729,8 @@ public class VotingPluginProxyTest {
 	@Test
 	void acceptedOnlineRewardRetainsAmbiguousStandaloneBroadcastWithoutRebroadcasting() {
 		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		Mockito.when(voteCache.prepareCachedVoteBatch(Mockito.anyString(), Mockito.anyBoolean(),
+				Mockito.anyCollection(), Mockito.anyInt())).thenReturn(true);
 		OfflineBungeeVote vote = new OfflineBungeeVote(java.util.UUID.randomUUID(), "Player", "player-uuid",
 				"Service", 100L, true, "totals", false, true, java.util.Set.of("Server1"),
 				java.util.Collections.emptySet(), false, java.util.Collections.emptyMap(),

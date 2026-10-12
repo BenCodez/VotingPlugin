@@ -89,6 +89,15 @@ public class PlayerVoteEvent extends Event {
 	@Setter
 	private boolean wasOnline;
 
+    /** Native receipt ownership is released only after the accepted consumer returns. */
+    @Getter
+    @Setter
+    private boolean nativeProcessingStarted;
+
+    @Getter
+    @Setter
+    private boolean nativeProcessingCompleted;
+
 	/** Missing date accounting is surfaced after event dispatch so durable proxy envelopes are not acknowledged. */
 	@Getter
 	@Setter

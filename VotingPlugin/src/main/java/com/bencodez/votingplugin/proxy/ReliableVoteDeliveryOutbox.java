@@ -21,9 +21,13 @@ import com.bencodez.votingplugin.util.DurableFiles;
 /** Durable proxy outbox for reward-bearing votes awaiting backend completion. */
 final class ReliableVoteDeliveryOutbox {
 	static final int MAX_ENTRIES = 4096;
+	static final int MAX_UPDATE_ENTRIES = 1024;
+	static final int MAX_DEFERRED_UPDATE_ENTRIES = 4096;
 	private static final long MAX_FILE_BYTES = 16L * 1024L * 1024L;
 	private static final String HEADER = "VP-VOTE-OUTBOX-2";
 	private static final String ADD = "A";
+	private static final String DEFERRED = "D";
+	private static final String READY = "P";
 	private static final String COMPLETED = "C";
 	private static final String REMOVE = "R";
 	private static final String LEGACY_FENCED = "F";
@@ -31,7 +35,11 @@ final class ReliableVoteDeliveryOutbox {
 	private static final String LEGACY_REJECTED = "J";
 
 	record Entry(String server, JsonEnvelope envelope, boolean awaitingReceiptRelease, boolean legacyDeliveryFenced,
-			boolean legacyDeliveryRejected) { }
+			boolean legacyDeliveryRejected, boolean deferredUpdate) {
+        Entry(String server, JsonEnvelope envelope, boolean release, boolean fenced, boolean rejected) {
+            this(server, envelope, release, fenced, rejected, false);
+        }
+    }
 
 	private final Path file;
 	private final LinkedHashMap<String, Entry> entries = new LinkedHashMap<>();
@@ -44,24 +52,76 @@ final class ReliableVoteDeliveryOutbox {
 	}
 
 	synchronized boolean offer(String server, JsonEnvelope envelope) {
-		String key = key(server, envelope);
-		if (key == null) return false;
-		if (entries.containsKey(key)) return true;
-		if (entries.size() >= MAX_ENTRIES) return false;
-		String record = addRecord(server, envelope);
-		Entry entry = new Entry(server, envelope, false, false, false);
-		long remainingReserve = terminalRecordReserve() + terminalRecordReserve(entry);
-		if (!prepareAppend(record, remainingReserve) || !append(record)) return false;
-		entries.put(key, entry);
-		journalRecords++;
-		return true;
-	}
+        return offer(server, envelope, false);
+    }
+
+    /** Retains an update independently of its current ready-window or carrier availability. */
+    synchronized boolean retainUpdate(String server, JsonEnvelope envelope, boolean carrierAvailable) {
+        if (key(server, envelope) == null || !VotingPluginWire.SUB_VOTE_UPDATE.equals(envelope.getSubChannel())) return false;
+        boolean deferred = !carrierAvailable || readyUpdates() >= MAX_UPDATE_ENTRIES
+                || entries.values().stream().anyMatch(entry -> entry.deferredUpdate()
+                        && normalized(entry.server()).equals(normalized(server)));
+        return offer(server, envelope, deferred);
+    }
+
+    private boolean offer(String server, JsonEnvelope envelope, boolean deferred) {
+        String key = key(server, envelope);
+        if (key == null) return false;
+        if (entries.containsKey(key)) return true;
+        boolean update = VotingPluginWire.SUB_VOTE_UPDATE.equals(envelope.getSubChannel());
+        long updates = entries.values().stream().filter(entry ->
+                VotingPluginWire.SUB_VOTE_UPDATE.equals(entry.envelope().getSubChannel())).count();
+        long deferredCount = entries.values().stream().filter(Entry::deferredUpdate).count();
+        if (deferred ? !update || deferredCount >= MAX_DEFERRED_UPDATE_ENTRIES
+                : update ? readyUpdates() >= MAX_UPDATE_ENTRIES : entries.size() - updates >= MAX_ENTRIES) return false;
+        String record = addRecord(server, envelope, deferred);
+        Entry entry = new Entry(server, envelope, false, false, false, deferred);
+        long remainingReserve = terminalRecordReserve() + terminalRecordReserve(entry);
+        if (!prepareAppend(record, remainingReserve) || !append(record)) return false;
+        entries.put(key, entry);
+        journalRecords++;
+        return true;
+    }
+
+    private long readyUpdates() {
+        return entries.values().stream().filter(entry -> !entry.deferredUpdate()
+                && VotingPluginWire.SUB_VOTE_UPDATE.equals(entry.envelope().getSubChannel())).count();
+    }
+
+    synchronized boolean setUpdateReady(String server, UUID voteId, boolean ready) {
+        if (server == null || voteId == null) return false;
+        String key = normalized(server) + '|' + VotingPluginWire.SUB_VOTE_UPDATE + '|' + voteId;
+        Entry entry = entries.get(key);
+        if (entry == null || entry.legacyDeliveryFenced() || entry.awaitingReceiptRelease()) return false;
+        if (entry.deferredUpdate() == !ready) return true;
+        if (ready ? readyUpdates() >= MAX_UPDATE_ENTRIES
+                : entries.values().stream().filter(Entry::deferredUpdate).count() >= MAX_DEFERRED_UPDATE_ENTRIES) return false;
+        String record = (ready ? READY : DEFERRED) + '\t' + encode(key) + '\n';
+        Entry replacement = new Entry(entry.server(), entry.envelope(), false, false,
+                false, !ready);
+        long reserve = terminalRecordReserve() - terminalRecordReserve(entry) + terminalRecordReserve(replacement);
+        if (!prepareAppend(record, reserve) || !append(record)) return false;
+        entries.put(key, replacement);
+        journalRecords++;
+        return true;
+    }
+
+    synchronized boolean isFirstPendingUpdate(String server, UUID voteId) {
+        if (server == null || voteId == null) return false;
+        for (Entry entry : entries.values()) {
+            if (VotingPluginWire.SUB_VOTE_UPDATE.equals(entry.envelope().getSubChannel())
+                    && normalized(entry.server()).equals(normalized(server))) {
+                return voteId.equals(UUID.fromString(entry.envelope().getFields().get(VotingPluginWire.K_VOTE_ID)));
+            }
+        }
+        return false;
+    }
 
 	synchronized boolean acknowledgeCompletion(String server, UUID voteId, String subChannel) {
 		if (voteId == null || server == null || subChannel == null) return false;
 		String key = normalized(server) + '|' + subChannel + '|' + voteId;
 		Entry entry = entries.get(key);
-		if (entry == null) return false;
+		if (entry == null || entry.deferredUpdate()) return false;
 		if (entry.awaitingReceiptRelease()) return true;
 		String record = completionRecord(key);
 		Entry completed = new Entry(entry.server(), entry.envelope(), true, false, false);
@@ -85,7 +145,7 @@ final class ReliableVoteDeliveryOutbox {
 		if (voteId == null || server == null || subChannel == null) return false;
 		String key = normalized(server) + '|' + subChannel + '|' + voteId;
 		Entry entry = entries.get(key);
-		if (entry == null || entry.awaitingReceiptRelease()) return false;
+		if (entry == null || entry.awaitingReceiptRelease() || entry.deferredUpdate()) return false;
 		boolean fenced = LEGACY_FENCED.equals(transition);
 		boolean rejected = LEGACY_REJECTED.equals(transition);
 		if (entry.legacyDeliveryFenced() == fenced && entry.legacyDeliveryRejected() == rejected) return true;
@@ -176,23 +236,34 @@ final class ReliableVoteDeliveryOutbox {
 			if (lines[index].isBlank()) continue;
 			String[] parts = lines[index].split("\\t", 3);
 			try {
-				if (parts.length == 3 && ADD.equals(parts[0])) {
+				if (parts.length == 3 && (ADD.equals(parts[0]) || DEFERRED.equals(parts[0]))) {
 					String server = decode(parts[1]);
 					JsonEnvelope envelope = JsonEnvelopeCodec.decode(decode(parts[2]));
 					String key = key(server, envelope);
 					if (key == null) throw new IllegalArgumentException("Invalid vote envelope");
-					entries.put(key, new Entry(server, envelope, false, false, false));
-				} else if (parts.length == 2 && COMPLETED.equals(parts[0])) {
+					boolean deferred = DEFERRED.equals(parts[0]);
+                    if (deferred && !VotingPluginWire.SUB_VOTE_UPDATE.equals(envelope.getSubChannel()))
+                        throw new IllegalArgumentException("Only updates may be deferred");
+                    entries.put(key, new Entry(server, envelope, false, false, false, deferred));
+				} else if (parts.length == 2 && (DEFERRED.equals(parts[0]) || READY.equals(parts[0]))) {
+                    String key = decode(parts[1]);
+                    Entry entry = entries.get(key);
+                    if (entry == null || !VotingPluginWire.SUB_VOTE_UPDATE.equals(entry.envelope().getSubChannel())
+                            || entry.legacyDeliveryFenced() || entry.awaitingReceiptRelease())
+                        throw new IllegalArgumentException("Invalid deferred update transition");
+                    entries.put(key, new Entry(entry.server(), entry.envelope(), false, false,
+                            false, DEFERRED.equals(parts[0])));
+                } else if (parts.length == 2 && COMPLETED.equals(parts[0])) {
 					String key = decode(parts[1]);
 					Entry entry = entries.get(key);
-					if (entry == null) throw new IllegalArgumentException("Completion without vote");
+					if (entry == null || entry.deferredUpdate()) throw new IllegalArgumentException("Completion without ready vote");
 					entries.put(key, new Entry(entry.server(), entry.envelope(), true, false, false));
 				} else if (parts.length == 2
 						&& (LEGACY_FENCED.equals(parts[0]) || LEGACY_UNFENCED.equals(parts[0])
 								|| LEGACY_REJECTED.equals(parts[0]))) {
 					String key = decode(parts[1]);
 					Entry entry = entries.get(key);
-					if (entry == null || entry.awaitingReceiptRelease()) {
+					if (entry == null || entry.awaitingReceiptRelease() || entry.deferredUpdate()) {
 						throw new IllegalArgumentException("Legacy transition without pending vote");
 					}
 					entries.put(key, new Entry(entry.server(), entry.envelope(), false,
@@ -204,8 +275,14 @@ final class ReliableVoteDeliveryOutbox {
 				throw new IOException("Malformed vote delivery outbox entry", malformed);
 			}
 			journalRecords++;
-			if (entries.size() > MAX_ENTRIES) throw new IOException("Vote delivery outbox exceeds entry limit");
+			if (entries.size() > MAX_ENTRIES + MAX_UPDATE_ENTRIES + MAX_DEFERRED_UPDATE_ENTRIES)
+				throw new IOException("Vote delivery outbox exceeds entry limit");
 		}
+		long deferred = entries.values().stream().filter(Entry::deferredUpdate).count();
+        long updates = entries.values().stream().filter(entry ->
+                VotingPluginWire.SUB_VOTE_UPDATE.equals(entry.envelope().getSubChannel())).count();
+        if (deferred > MAX_DEFERRED_UPDATE_ENTRIES || updates - deferred > MAX_UPDATE_ENTRIES
+                || entries.size() - updates > MAX_ENTRIES) throw new IOException("Vote delivery outbox exceeds lane limit");
 		if (unterminatedTail && !compact()) throw new IOException("Unable to repair vote delivery outbox");
 	}
 
@@ -237,6 +314,7 @@ final class ReliableVoteDeliveryOutbox {
 	private long terminalRecordReserve(Entry entry) {
 		String key = key(entry.server(), entry.envelope());
 		long reserve = utf8Length(removalRecord(key));
+        if (entry.deferredUpdate()) reserve += utf8Length(READY + '\t' + encode(key) + '\n');
 		if (!entry.awaitingReceiptRelease()) {
 			reserve += utf8Length(completionRecord(key));
 			String fence = legacyFenceRecord(key, true);
@@ -270,7 +348,7 @@ final class ReliableVoteDeliveryOutbox {
 		try {
 			StringBuilder text = new StringBuilder(HEADER).append('\n');
 			for (Entry entry : entries.values()) {
-				text.append(addRecord(entry.server(), entry.envelope()));
+				text.append(addRecord(entry.server(), entry.envelope(), entry.deferredUpdate()));
 				if (entry.awaitingReceiptRelease()) {
 					text.append(COMPLETED).append('\t').append(encode(key(entry.server(), entry.envelope()))).append('\n');
 				} else if (entry.legacyDeliveryFenced()) {
@@ -293,8 +371,8 @@ final class ReliableVoteDeliveryOutbox {
 		}
 	}
 
-	private static String addRecord(String server, JsonEnvelope envelope) {
-		return ADD + '\t' + encode(server) + '\t' + encode(JsonEnvelopeCodec.encode(envelope)) + '\n';
+	private static String addRecord(String server, JsonEnvelope envelope, boolean deferred) {
+		return (deferred ? DEFERRED : ADD) + '\t' + encode(server) + '\t' + encode(JsonEnvelopeCodec.encode(envelope)) + '\n';
 	}
 
 	private static String completionRecord(String key) {
@@ -322,6 +400,7 @@ final class ReliableVoteDeliveryOutbox {
 		String subChannel = envelope.getSubChannel();
 		if (!VotingPluginWire.SUB_VOTE.equals(subChannel)
 				&& !VotingPluginWire.SUB_VOTE_ONLINE.equals(subChannel)
+				&& !VotingPluginWire.SUB_VOTE_UPDATE.equals(subChannel)
 				&& !VotingPluginWire.SUB_VOTE_DELAY_REJECTED.equals(subChannel)) return null;
 		String voteId = envelope.getFields().get(VotingPluginWire.K_VOTE_ID);
 		try {

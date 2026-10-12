@@ -206,7 +206,10 @@ public class VotiferEvent implements Listener {
 			if (voteEvent.isCancelled()) {
 				plugin.debug("Vote cancelled");
 			}
-            return true;
+            // Bukkit may skip disabled listeners or catch their exceptions while
+            // returning normally. Dispatch alone is not confirmed processing.
+            return voteEvent.isNativeProcessingCompleted()
+                    || voteEvent.isCancelled() && !voteEvent.isNativeProcessingStarted();
 		} catch (Exception e) {
 			plugin.getLogger().severe("Error occured during vote processing");
 			e.printStackTrace();

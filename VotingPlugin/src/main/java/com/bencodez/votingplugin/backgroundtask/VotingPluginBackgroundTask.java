@@ -233,8 +233,10 @@ public final class VotingPluginBackgroundTask {
 						Boolean topVoterIgnore = onlineUsers.get(uuid);
 						boolean online = topVoterIgnore != null;
 						if (extraBackgroundUpdate && online) {
-							user.offVoteWithCapturedTopVoterIgnore(topVoterIgnore.booleanValue());
-							user.checkOfflineRewards();
+							user.offVoteWithCapturedTopVoterIgnoreAsync(topVoterIgnore.booleanValue())
+									.whenComplete((ignored, failure) -> {
+										if (failure == null) user.checkOfflineRewards();
+									});
 						}
 						if (!plugin.getPlaceholders().getCacheLevel().onlineOnly() || online) {
 							plugin.getPlaceholders().onUpdate(user, false);

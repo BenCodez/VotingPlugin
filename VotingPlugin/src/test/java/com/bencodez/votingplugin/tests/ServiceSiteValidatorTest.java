@@ -4,8 +4,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 import org.junit.jupiter.api.Test;
 
+import com.bencodez.advancedcore.api.javascript.JavascriptTextTemplate;
 import com.bencodez.votingplugin.util.ServiceSiteValidator;
 
 class ServiceSiteValidatorTest {
@@ -13,39 +16,69 @@ class ServiceSiteValidatorTest {
 	@Test
 	void acceptsCommonServiceSiteNames() {
 		for (String serviceSite : new String[] { "PlanetMinecraft.com", "Minecraft Server List", "Crafty.gg",
-				"https://example.com/vote", "https://list.example/vote?id=1&source=proxy#top",
-				"Research & Development", "R&D", "site_name-2", "Site, Other; Network!",
-				"site%20name", "site%2Bname", "site%20%2Bname", "site%20name%2Bnetwork",
-				"site%20name_with%20spaces", "Top 100% Servers", "%player_name%", "%javascript_vote%",
-				"%be_secret%20", "%25player_name%25", "site%", "site%2", "site%GG",
-				"&kSpoofed", "&aGreen", "&rReset",
-				"&xHex", "&#ff0000Spoofed", "&#ABCDEFText",
-				"Serviço de votação",
-				"Site\u00A0Name", "Site\uFE0F", "Cafe\u0301", "Site\u3164Name" }) {
+				"https://example.com/vote", "https://list.example/vote?id=1#top",
+				"https://example.com/search?q=site+name+network", "site_name-2", "Site, Other; Network!",
+				"Serviço de votação", "Site\u00A0Name", "Site\uFE0F", "Cafe\u0301", "Site\u3164Name" }) {
 			assertTrue(ServiceSiteValidator.isValid(serviceSite), serviceSite);
 		}
 	}
 
 	@Test
-	void rejectsUnsupportedCharacters() {
-		for (String serviceSite : new String[] { "[Javascript=1]", "Site's", "\"Site\"", "Site`Name",
-				"Site\\Name", "Site\nName", "Site\tName", "Site\u0000Name", "Site\u200BName",
-				"{player}", "\u00A7kSpoofed", "\u00A7aGreen" }) {
-			assertFalse(ServiceSiteValidator.isValid(serviceSite), serviceSite);
+	void acceptsLegacyFormattingIdentifiersWithoutChangingMatching() {
+		for (String value : new String[] { "R&D", "&kSpoofed", "%player_name%", "{RED}",
+				"https://list.example/vote?id=1&source=proxy", "https://example.com/site%20name" }) {
+			assertTrue(ServiceSiteValidator.isValid(value), value);
+			String display = ServiceSiteValidator.inertForFormatting(value);
+			assertFalse(display.contains("&") || display.contains("%") || display.contains("§")
+					|| display.contains("{") || display.contains("}"));
+			assertFalse(display.contains("\u2060"));
 		}
 	}
 
 	@Test
 	void formattingGuardPreventsTokensAcrossTemplateBoundaries() {
-		String value = "%player_name% &aGreen &#ff0000Red kSpoofed&";
-		String guarded = ServiceSiteValidator.inertForFormatting(value);
+		AtomicInteger executions = new AtomicInteger();
+		for (String[] layout : new String[][] {
+				{ "[%SiteName%]", "Javascript=1" },
+				{ "[Java%SiteName%]", "script=1" },
+				{ "[%SiteName%script=1]", "Java" } }) {
+			assertTrue(ServiceSiteValidator.isValid(layout[1]));
+			String rendered = layout[0].replace("%SiteName%",
+					ServiceSiteValidator.inertForFormatting(layout[1]));
+			assertEquals(rendered, JavascriptTextTemplate.parse(rendered).evaluate(text -> text, script -> {
+				executions.incrementAndGet();
+				return "executed";
+			}));
+		}
+		assertEquals(0, executions.get());
+		assertEquals("& kSpoofed ", "&%SiteName%".replace("%SiteName%",
+				ServiceSiteValidator.inertForFormatting("kSpoofed")));
+		assertEquals("% player_name %", "%" + ServiceSiteValidator.inertForFormatting("player_name") + "%");
+		assertEquals("", ServiceSiteValidator.inertForFormatting(null));
+		assertEquals("", ServiceSiteValidator.inertForFormatting(""));
+	}
 
-		assertFalse(("&" + guarded + "a").contains("&k"));
-		assertFalse(("%" + guarded + "player_name%").contains("%kSpoofed&player_name%"));
-		assertFalse(guarded.contains("%player_name%"));
-		assertFalse(guarded.contains("&a"));
-		assertFalse(guarded.contains("&#ff0000"));
-		assertEquals(value, guarded.replace("\u2060", ""));
+	@Test
+	void legacyConfiguredValidationAllowsPunctuationButKeepsBoundsAndControlChecks() {
+		for (String service : new String[] { "Old's Site", "[Javascript=1]", "Old`Site", "Old\\Site", "§kOldSite" }) {
+			assertFalse(ServiceSiteValidator.isValid(service));
+			assertTrue(ServiceSiteValidator.isValidConfiguredLegacyIdentifier(service));
+			String display = ServiceSiteValidator.inertForFormatting(service);
+			assertFalse(display.contains("[") || display.contains("]") || display.contains("'")
+					|| display.contains("`") || display.contains("\\") || display.contains("§"));
+		}
+		for (String service : new String[] { "bad\nsite", "bad\u2060site", "x".repeat(2049), " " }) {
+			assertFalse(ServiceSiteValidator.isValidConfiguredLegacyIdentifier(service));
+		}
+		assertFalse(ServiceSiteValidator.isValidConfiguredLegacyIdentifier(null));
+	}
+
+	@Test
+	void rejectsUnsupportedCharacters() {
+		for (String value : new String[] { "[Javascript=1]", "Site's", "\"Site\"", "Site`Name",
+				"§kSpoofed", "Site\\Name", "Site\nName", "Site\tName", "Site\u0000Name", "Site\u200BName" }) {
+			assertFalse(ServiceSiteValidator.isValid(value), value);
+		}
 	}
 
 	@Test

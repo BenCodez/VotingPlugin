@@ -8,6 +8,10 @@ import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
+import java.nio.channels.OverlappingFileLockException;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -18,14 +22,24 @@ import java.util.UUID;
 /** Single local accounting owner. All entry points must run on a persistence worker. */
 public final class DateVoteLedger {
     public record Progress(int votes, Set<Integer> reservedAwards, Set<Integer> submittedAwards, Set<Integer> deferredAwards) { }
+    private static final int MAX_RECORDS = 100_000;
     private final Path directory;
-    private int recordCount = -1;
-    public DateVoteLedger(Path directory) { this.directory = directory.toAbsolutePath().normalize(); }
+    private final int recordCapacity;
+    public DateVoteLedger(Path directory) { this(directory, MAX_RECORDS); }
+    // Smaller limits keep boundary regression fixtures bounded; production uses MAX_RECORDS.
+    DateVoteLedger(Path directory, int recordCapacity) {
+        if (recordCapacity < 1 || recordCapacity > MAX_RECORDS) throw new IllegalArgumentException("Invalid milestone record capacity");
+        this.directory = directory.toAbsolutePath().normalize();
+        this.recordCapacity = recordCapacity;
+    }
 
     public synchronized List<Integer> record(DateVoteEvent event, UUID player, UUID occurrence) throws IOException {
         return record(event, player, occurrence, true);
     }
     public synchronized List<Integer> record(DateVoteEvent event, UUID player, UUID occurrence, boolean processRewards) throws IOException {
+        return withLedgerLock(() -> recordLocked(event, player, occurrence, processRewards));
+    }
+    private List<Integer> recordLocked(DateVoteEvent event, UUID player, UUID occurrence, boolean processRewards) throws IOException {
         seal(event);
         Path file = playerFile(event, player);
         Properties state = read(file);
@@ -53,6 +67,9 @@ public final class DateVoteLedger {
     }
     /** Atomically admit one known unattempted threshold immediately before its external submission. */
     public synchronized boolean reserve(DateVoteEvent event, UUID player, int threshold) throws IOException {
+        return withLedgerLock(() -> reserveLocked(event, player, threshold));
+    }
+    private boolean reserveLocked(DateVoteEvent event, UUID player, int threshold) throws IOException {
         Path file = playerFile(event, player);
         Properties state = read(file);
         validateFingerprint(event, state);
@@ -62,6 +79,9 @@ public final class DateVoteLedger {
         return true;
     }
     public synchronized void submitted(DateVoteEvent event, UUID player, int threshold) throws IOException {
+        withLedgerLock(() -> { submittedLocked(event, player, threshold); return null; });
+    }
+    private void submittedLocked(DateVoteEvent event, UUID player, int threshold) throws IOException {
         Path file = playerFile(event, player);
         Properties state = read(file);
         validateFingerprint(event, state);
@@ -70,6 +90,14 @@ public final class DateVoteLedger {
         write(file, state);
     }
     public synchronized Progress progress(DateVoteEvent event, UUID player) throws IOException {
+        // An absent ledger is a valid empty snapshot. A read must not initialize
+        // accounting storage, including for legacy votes with no event progress.
+        // Unknown/unreadable paths still enter the checked ownership path.
+        if (Files.notExists(directory, LinkOption.NOFOLLOW_LINKS))
+            return new Progress(0, Set.of(), Set.of(), Set.of());
+        return withLedgerLock(() -> progressLocked(event, player));
+    }
+    private Progress progressLocked(DateVoteEvent event, UUID player) throws IOException {
         Properties definitions = readSealedDefinitions(event);
         String sealed = definitions.getProperty(event.id());
         if (sealed != null && !sealed.equals(event.fingerprint())) throw new IOException("Event accounting changed; use a new ID");
@@ -88,6 +116,31 @@ public final class DateVoteLedger {
             }
         }
         return new Progress(occurrences(state).size(), Set.copyOf(reserved), Set.copyOf(submitted), Set.copyOf(deferred));
+    }
+    @FunctionalInterface
+    private interface LedgerAction<T> { T run() throws IOException; }
+    private <T> T withLedgerLock(LedgerAction<T> action) throws IOException {
+        if (Files.isSymbolicLink(directory)) throw new IOException("Unsafe milestone directory");
+        Files.createDirectories(directory);
+        if (Files.isSymbolicLink(directory)) throw new IOException("Unsafe milestone directory");
+        // Interning shares this monitor across plugin classloaders without retaining a static registry.
+        // On Unix, closing any descriptor for a file can release another channel's process-owned lock.
+        String monitor = ("com.bencodez.votingplugin.DateVoteLedger:" + directory.toRealPath()).intern();
+        if (Thread.holdsLock(monitor)) throw new IOException("Date milestone ledger is busy");
+        synchronized (monitor) {
+            Path lockPath = directory.resolve(".ledger.lock");
+            if (Files.isSymbolicLink(lockPath) || (Files.exists(lockPath, LinkOption.NOFOLLOW_LINKS)
+                    && !Files.isRegularFile(lockPath, LinkOption.NOFOLLOW_LINKS)))
+                throw new IOException("Unsafe milestone lock path");
+            try (FileChannel channel = FileChannel.open(lockPath, StandardOpenOption.CREATE, StandardOpenOption.WRITE,
+                    LinkOption.NOFOLLOW_LINKS)) {
+                FileLock lock;
+                try { lock = channel.tryLock(); }
+                catch (OverlappingFileLockException busy) { throw new IOException("Date milestone ledger is busy", busy); }
+                if (lock == null) throw new IOException("Date milestone ledger is busy");
+                try (lock) { return action.run(); }
+            }
+        }
     }
     private void validateFingerprint(DateVoteEvent event, Properties state) throws IOException {
         if (state.isEmpty()) return;
@@ -172,22 +225,20 @@ public final class DateVoteLedger {
         if (Files.isSymbolicLink(directory)) throw new IOException("Unsafe milestone directory");
         Files.createDirectories(directory);
         if (Files.isSymbolicLink(directory) || Files.isSymbolicLink(file)) throw new IOException("Unsafe milestone state path");
-        if (recordCount < 0) {
-            recordCount = 0;
+        boolean newRecord = !file.getFileName().toString().equals("definitions.properties") && Files.notExists(file, LinkOption.NOFOLLOW_LINKS);
+        if (newRecord) {
+            int recordCount = 0;
             try (var files = Files.newDirectoryStream(directory, "*.properties")) {
                 for (Path existing : files) if (!existing.getFileName().toString().equals("definitions.properties")) {
-                    if (++recordCount > 100_000) throw new IOException("Milestone record capacity exceeded");
+                    if (++recordCount >= recordCapacity) throw new IOException("Milestone record capacity reached; existing progress retained");
                 }
-            } catch (IOException failure) { recordCount = -1; throw failure; }
+            }
         }
-        boolean newRecord = !file.getFileName().toString().equals("definitions.properties") && Files.notExists(file, LinkOption.NOFOLLOW_LINKS);
-        if (newRecord && recordCount >= 100_000) throw new IOException("Milestone record capacity reached; existing progress retained");
         StringWriter writer = new StringWriter(); state.store(writer, "DateVoteMilestones v1");
         String text = writer.toString();
         if (text.length() > 256 * 1024) throw new IOException("Oversized milestone state");
         Path staged = Files.createTempFile(directory, "milestone-", ".tmp");
-        try { Files.writeString(staged, text); DurableFiles.publishStagedFile(staged, file); if (newRecord) recordCount++; }
-        catch (IOException failure) { recordCount = -1; throw failure; }
+        try { Files.writeString(staged, text); DurableFiles.publishStagedFile(staged, file); }
         finally { Files.deleteIfExists(staged); }
     }
 }

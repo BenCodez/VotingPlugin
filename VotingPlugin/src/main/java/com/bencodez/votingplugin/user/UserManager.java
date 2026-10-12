@@ -56,6 +56,11 @@ public class UserManager {
 		manager.addKey(new UserDataKeyString("LastVotes"));
 		manager.addKey(new UserDataKeyBoolean(getCoolDownCheckPath()));
 		manager.addKey(new UserDataKeyString("OfflineVotes").setColumnType("MEDIUMTEXT"));
+		// Register both recovery markers before SQL schema and cache publication.
+		manager.addKey(new UserDataKeyString("OfflineVotesRewardPending").setColumnType("MEDIUMTEXT"));
+		manager.addKey(new UserDataKeyBoolean("NameMCLikeRewardPending"));
+		// Existing NameMC claim state must also be readable/writable in shared SQL.
+		manager.addKey(new UserDataKeyBoolean("NameMCLikeRewardClaimed"));
 		//manager.addKey(new UserDataKeyInt("MilestoneCount"));
 		manager.addKey(new UserDataKeyInt("MonthTotal"));
 
@@ -100,6 +105,45 @@ public class UserManager {
 		
 		manager.addKey(new UserDataKeyString("VoteRemindersMap").setColumnType("LONGTEXT"));
 
+	}
+
+	/**
+	 * Clear the offline-vote column only when no unresolved batch would be
+	 * orphaned. Run on the ordered user-storage worker. Check every stored user
+	 * before the bulk write, so a rejected clear leaves all queues untouched.
+	 * Pending batches must be explicitly reconciled, never silently discarded.
+	 */
+	public void clearAllOfflineVotes() {
+		clearAllOfflineVotes(false);
+	}
+
+	/**
+	 * Explicit operator reconciliation for an exclusively owned user database.
+	 * The flag asserts all other database-writing backends and vote ingress are
+	 * stopped; it is not automatic topology detection or a distributed lock.
+	 */
+	public void clearAllOfflineVotes(boolean allBackendsQuiesced) {
+		if (!allBackendsQuiesced && com.bencodez.advancedcore.api.user.UserStorage.MYSQL.equals(
+				plugin.getUserManager().getDataManager().effectiveStorageType(plugin.getStorageType()))) {
+			throw new IllegalStateException("Bulk offline-vote clearing is unavailable with MySQL: "
+					+ "stop other database writers and vote ingress, then repeat the same console command within 30 seconds to confirm");
+		}
+		VotingPluginUser.beginOfflineVoteBulkClear();
+		try {
+			for (String storedUuid : getAllUUIDs()) {
+				VotingPluginUser user = getVotingPluginUser(UUID.fromString(storedUuid), false);
+				user.cache();
+				if (user.isOfflineVoteRewardReplayActive() || !user.getPendingOfflineVoteRewardBatch().isEmpty()) {
+					plugin.getLogger().warning("Offline vote clear refused: active or pending rewards for " + storedUuid
+							+ "; use /av OfflineVoteRecovery first");
+					throw new IllegalStateException("Offline rewards are active or pending for " + storedUuid
+							+ "; use /av OfflineVoteRecovery before clearing offline votes");
+				}
+			}
+			plugin.getUserManager().removeAllKeyValues("OfflineVotes", com.bencodez.simpleapi.sql.DataType.STRING);
+		} finally {
+			VotingPluginUser.endOfflineVoteBulkClear();
+		}
 	}
 
 	/**

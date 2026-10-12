@@ -145,6 +145,18 @@ public class VoteSite {
 				.send(user);
 	}
 
+	/**
+	 * Await both vote-site reward phases; AdvancedCore marshals configured
+	 * player/world actions to their owning platform scheduler.
+	 */
+	public java.util.concurrent.CompletionStage<Void> giveRewardsAsync(VotingPluginUser user,
+			boolean online, boolean bungee) {
+		return createRewardBuilder(plugin.getConfigVoteSites().getEverySiteRewardPath(), online, bungee)
+				.sendAsync(user).thenCompose(ignored ->
+						createRewardBuilder(plugin.getConfigVoteSites().getRewardsPath(key), online, bungee)
+								.sendAsync(user));
+	}
+
 	private RewardBuilder createRewardBuilder(String path, boolean online, boolean bungee) {
 		// Reward placeholders also feed commands and other exact-value actions. The
 		// service identifier is already validated at ingress, so preserve it here;

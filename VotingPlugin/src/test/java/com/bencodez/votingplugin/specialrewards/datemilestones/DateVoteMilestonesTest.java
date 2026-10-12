@@ -276,6 +276,7 @@ class DateVoteMilestonesTest {
         when(user.getJavaUUID()).thenReturn(storageId);
         m.accepted(user, "a", UUID.randomUUID(), time, true, false, false, false, false);
         clearInvocations(plugin.getRewardHandler());
+        var accountingBefore = accountingFiles(root.resolve("date-vote-milestones"));
         var playerEntity = mock(org.bukkit.entity.Player.class);
         when(playerEntity.getUniqueId()).thenReturn(player);
         when(playerEntity.getName()).thenReturn("Player");
@@ -301,14 +302,18 @@ class DateVoteMilestonesTest {
             verify(plugin.getVotingPluginUserManager(), never()).getVotingPluginUser(any(UUID.class), anyString());
             worker.remove().run(); // The prior mutation must precede the progress lookup.
             verify(playerEntity, never()).sendMessage(startsWith("october ("));
+            assertEquals(accountingBefore, accountingFiles(root.resolve("date-vote-milestones")),
+                    "Progress must preserve every accounting file; the lock file is coordination metadata");
             worker.remove().run(); assertEquals(1, entity.size());
             entity.remove().run(); verify(playerEntity).sendMessage(contains(": 1 votes;"));
             verify(plugin.getRewardHandler(), never()).giveReward(any(), any(), anyString(), any());
             assertEquals(1, countPlayerRecords(root.resolve("date-vote-milestones")));
+            assertEquals(accountingBefore, accountingFiles(root.resolve("date-vote-milestones")));
             clearInvocations(playerEntity);
             m.progress(playerEntity); entity.remove().run(); worker.remove().run();
             m.reload(); entity.remove().run();
             verify(playerEntity, never()).sendMessage(startsWith("october ("));
+            assertEquals(accountingBefore, accountingFiles(root.resolve("date-vote-milestones")));
         }
     }
     @Test void malformedSiteFilterDisablesOnlyThatDefinitionAndPreservesQueuedRewardHandles() {
@@ -337,8 +342,17 @@ class DateVoteMilestonesTest {
 
     private long countPlayerRecords(Path directory) {
         try (var files = Files.list(directory)) {
-            return files.filter(p -> !p.getFileName().toString().equals("definitions.properties")).count();
+            return files.filter(p -> !p.getFileName().toString().equals("definitions.properties")
+                    && !p.getFileName().toString().equals(".ledger.lock")).count();
         } catch (java.io.IOException failure) { throw new AssertionError(failure); }
+    }
+    private java.util.Map<String, String> accountingFiles(Path directory) {
+        var result = new java.util.LinkedHashMap<String, String>();
+        try (var files = Files.list(directory)) {
+            for (var path : files.toList()) if (!path.getFileName().toString().equals(".ledger.lock"))
+                result.put(path.getFileName().toString(), Files.readString(path));
+        } catch (java.io.IOException failure) { throw new AssertionError(failure); }
+        return result;
     }
 
     @Test void ownerEventAccountingIsBoundedDeferredAndPreservesCanonicalDeduplication() throws Exception {

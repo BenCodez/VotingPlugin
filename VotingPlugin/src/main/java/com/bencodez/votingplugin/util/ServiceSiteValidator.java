@@ -7,7 +7,6 @@ public final class ServiceSiteValidator {
 	/** Maximum accepted UTF-16 length for a service-site identifier. */
 	public static final int MAX_LENGTH = 2048;
 	private static final int MAX_LOG_LENGTH = 128;
-	private static final String FORMATTING_BOUNDARY = "\u2060";
 
 	private ServiceSiteValidator() {
 	}
@@ -17,9 +16,18 @@ public final class ServiceSiteValidator {
 	 *
 	 * @param serviceSite service-site name supplied by a vote source
 	 * @return {@code true} for a bounded, visible service-site name that does not
-	 *         contain structural formatting delimiters or control characters
+	 *         contain unsupported delimiters
 	 */
 	public static boolean isValid(String serviceSite) {
+		return isValid(serviceSite, false);
+	}
+
+	/** Bounded legacy identifier validation; only use for an already-configured site. */
+	public static boolean isValidConfiguredLegacyIdentifier(String serviceSite) {
+		return isValid(serviceSite, true);
+	}
+
+	private static boolean isValid(String serviceSite, boolean allowLegacyDelimiters) {
 		if (serviceSite == null || serviceSite.length() > MAX_LENGTH) {
 			return false;
 		}
@@ -27,7 +35,7 @@ public final class ServiceSiteValidator {
 		boolean hasVisibleCharacter = false;
 		for (int offset = 0; offset < serviceSite.length();) {
 			int codePoint = serviceSite.codePointAt(offset);
-			if (isDisallowed(codePoint)) {
+			if (isDisallowed(codePoint) && !(allowLegacyDelimiters && isLegacyDelimiter(codePoint))) {
 				return false;
 			}
 			if (isVisibleBaseCharacter(codePoint)) {
@@ -66,27 +74,26 @@ public final class ServiceSiteValidator {
 		return sanitized.toString();
 	}
 
-	/**
-	 * Keeps a validated external identifier visually unchanged while preventing a
-	 * surrounding trusted template from completing a formatting token across a
-	 * substitution boundary.
-	 */
+	/** Display-only representation; raw identifiers remain authoritative for matching/actions.
+	 * Uses printable ASCII labels and space boundaries rather than font-dependent guards.
+	 * Boundaries prevent surrounding template text from completing interpreter tokens. */
 	public static String inertForFormatting(String value) {
-		if (value == null || value.isEmpty()) return value == null ? "" : value;
-		StringBuilder inert = new StringBuilder(value.length() + 2).append(FORMATTING_BOUNDARY);
-		for (int offset = 0; offset < value.length();) {
-			int codePoint = value.codePointAt(offset);
-			inert.appendCodePoint(codePoint);
-			if (codePoint == '%' || codePoint == '&') inert.append(FORMATTING_BOUNDARY);
-			offset += Character.charCount(codePoint);
-		}
-		return inert.append(FORMATTING_BOUNDARY).toString();
+		if (value == null || value.isEmpty()) return "";
+		return " " + value.replace("&", "(ampersand)").replace("%", "(percent)")
+				.replace("§", "(section)").replace("{", "(open brace)").replace("}", "(close brace)")
+				.replace("[", "(open bracket)").replace("]", "(close bracket)")
+				.replace("\"", "(double quote)").replace("'", "(quote)")
+				.replace("`", "(backtick)").replace("\\", "(backslash)") + " ";
+	}
+
+	private static boolean isLegacyDelimiter(int codePoint) {
+		return codePoint == '[' || codePoint == ']' || codePoint == '\'' || codePoint == '"'
+				|| codePoint == '`' || codePoint == '\\' || codePoint == '\u00A7';
 	}
 
 	private static boolean isDisallowed(int codePoint) {
 		if (codePoint == '[' || codePoint == ']' || codePoint == '\'' || codePoint == '"' || codePoint == '`'
-				|| codePoint == '\u00A7'
-				|| codePoint == '\\' || codePoint == '{' || codePoint == '}') {
+				|| codePoint == '\\' || codePoint == '\u00A7') {
 			return true;
 		}
 

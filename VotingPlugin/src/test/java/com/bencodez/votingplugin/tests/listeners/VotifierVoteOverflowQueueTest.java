@@ -137,7 +137,7 @@ class VotifierVoteOverflowQueueTest {
 	@Test
 	void retriesPersistenceAfterTransientWriteFailure(@TempDir Path temporaryDirectory) throws Exception {
 		Path dataFolder = temporaryDirectory.resolve("data");
-		Files.writeString(dataFolder, "temporarily blocking the data directory");
+		Files.createDirectory(dataFolder);
 		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
 		Logger logger = mock(Logger.class);
 		ScheduledExecutorService voteTimer = mock(ScheduledExecutorService.class);
@@ -148,12 +148,13 @@ class VotifierVoteOverflowQueueTest {
 				.when(voteTimer).submit(any(Runnable.class));
 
 		VotifierVoteOverflowQueue queue = new VotifierVoteOverflowQueue(plugin, (site, user) -> { });
+		// Fail publication after initialization establishes exclusive ownership.
+		Files.createDirectory(dataFolder.resolve("VotifierVoteQueue.yml"));
 		try {
 			assertTrue(queue.enqueue("Steve", "example.org"));
 			verify(logger, timeout(2_000)).warning(org.mockito.ArgumentMatchers.contains(
 					"Unable to persist queued Votifier votes"));
-			Files.delete(dataFolder);
-			Files.createDirectory(dataFolder);
+			Files.delete(dataFolder.resolve("VotifierVoteQueue.yml"));
 			waitForFile(dataFolder.resolve("VotifierVoteQueue.yml"));
 		} finally {
 			queue.close();
@@ -163,7 +164,7 @@ class VotifierVoteOverflowQueueTest {
 	@Test
 	void doesNotDrainUntilWriteFailureIsRecovered(@TempDir Path temporaryDirectory) throws Exception {
 		Path dataFolder = temporaryDirectory.resolve("data");
-		Files.writeString(dataFolder, "temporarily blocking the data directory");
+		Files.createDirectory(dataFolder);
 		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
 		Logger logger = mock(Logger.class);
 		ScheduledExecutorService voteTimer = mock(ScheduledExecutorService.class);
@@ -177,6 +178,8 @@ class VotifierVoteOverflowQueueTest {
 		}).when(voteTimer).submit(any(Runnable.class));
 
 		VotifierVoteOverflowQueue queue = new VotifierVoteOverflowQueue(plugin, (site, user) -> { });
+		// Fail publication after initialization establishes exclusive ownership.
+		Files.createDirectory(dataFolder.resolve("VotifierVoteQueue.yml"));
 		try {
 			assertTrue(queue.enqueue("Steve", "example.org"));
 			queue.start();
@@ -184,8 +187,7 @@ class VotifierVoteOverflowQueueTest {
 					"Unable to persist queued Votifier votes"));
 			verify(voteTimer, org.mockito.Mockito.never()).submit(any(Runnable.class));
 
-			Files.delete(dataFolder);
-			Files.createDirectory(dataFolder);
+			Files.delete(dataFolder.resolve("VotifierVoteQueue.yml"));
 			waitForFile(dataFolder.resolve("VotifierVoteQueue.yml"));
 			assertTrue(submissionAccepted.await(2, TimeUnit.SECONDS),
 					"queued vote was not admitted after persistence recovered");

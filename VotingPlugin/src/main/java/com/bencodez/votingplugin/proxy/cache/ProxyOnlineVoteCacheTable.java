@@ -442,6 +442,11 @@ public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
 		return selectVotes("SELECT * FROM " + qi(getTableName()) + ";", null);
 	}
 
+	/** Reads the complete cache snapshot, preserving SQL failures for callers that need certainty. */
+	public List<VoteRow> getAllVotesChecked() throws SQLException {
+		return selectVotesChecked("SELECT * FROM " + qi(getTableName()) + ";", null);
+	}
+
 	/**
 	 * Gets all votes for a specific UUID.
 	 * @param uuid the player UUID
@@ -550,6 +555,27 @@ public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
 			}
 		} catch (SQLException e) {
 			debug(e);
+		}
+		return list;
+	}
+
+	private List<VoteRow> selectVotesChecked(String sql, Object[] params) throws SQLException {
+		List<VoteRow> list = new ArrayList<>();
+		try (Connection conn = mysql.getConnectionManager().getConnection();
+				PreparedStatement ps = conn.prepareStatement(sql)) {
+			if (params != null) for (int i = 0; i < params.length; i++) ps.setObject(i + 1, params[i]);
+			try (ResultSet rs = ps.executeQuery()) {
+				while (rs.next()) {
+					list.add(new VoteRow(rs.getInt("id"), rs.getString("voteid"), rs.getString("uuid"),
+							rs.getString("playerName"), rs.getString("service"), rs.getLong("time"),
+							(getDbType() == DbType.POSTGRESQL ? rs.getBoolean("realVote") : rs.getInt("realVote") == 1),
+							rs.getBoolean("wasOnline"), rs.getBoolean("wasOnlineKnown"), rs.getInt("delayValidation"),
+							rs.getString("text"), rs.getBoolean("broadcastForwarded"), rs.getBoolean("proxyBroadcastHandled"),
+							rs.getString("broadcastTargets"), rs.getString("broadcastForwardedServers"),
+							rs.getBoolean("rewardDelivered"), rs.getString("httpDeliveryIds"),
+							rs.getString("httpBroadcastDeliveryIds")));
+				}
+			}
 		}
 		return list;
 	}

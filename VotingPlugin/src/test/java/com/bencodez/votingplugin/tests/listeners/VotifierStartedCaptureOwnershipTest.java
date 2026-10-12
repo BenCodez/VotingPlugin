@@ -49,7 +49,7 @@ class VotifierStartedCaptureOwnershipTest {
         when(plugin.getVoteSiteManager().getVoteSite(anyString(), anyBoolean()))
                 .thenReturn(mock(com.bencodez.votingplugin.votesites.VoteSite.class));
         events = mock(PluginManager.class); when(plugin.getServer().getPluginManager()).thenReturn(events);
-        doAnswer(call -> { processed.add(call.getArgument(0)); return null; }).when(events).callEvent(any(PlayerVoteEvent.class));
+        doAnswer(call -> { var event = call.getArgument(0, PlayerVoteEvent.class); event.setNativeProcessingCompleted(true); processed.add(event); return null; }).when(events).callEvent(any(PlayerVoteEvent.class));
         serverData = plugin.getServerData();
         timer = timer(); when(plugin.getVoteTimer()).thenReturn(timer);
         listener = new VotiferEvent(plugin, ready::get);
@@ -100,7 +100,7 @@ class VotifierStartedCaptureOwnershipTest {
             return null;
         }).when(serverData).addServiceSite(SITE);
         var delivered = new CountDownLatch(512);
-        doAnswer(call -> { processed.add(call.getArgument(0)); delivered.countDown(); return null; })
+        doAnswer(call -> { var event = call.getArgument(0, PlayerVoteEvent.class); event.setNativeProcessingCompleted(true); processed.add(event); delivered.countDown(); return null; })
                 .when(events).callEvent(any(PlayerVoteEvent.class));
         try {
             listener.onVotiferEvent(receipt()); assertTrue(entered.await(5, TimeUnit.SECONDS));
@@ -137,7 +137,7 @@ class VotifierStartedCaptureOwnershipTest {
             return timer.submit(call.getArgument(0, Runnable.class));
         }).when(wrapper).submit(any(Runnable.class)); when(plugin.getVoteTimer()).thenReturn(wrapper);
         var delivered = new CountDownLatch(257);
-        doAnswer(call -> { processed.add(call.getArgument(0)); delivered.countDown(); return null; })
+        doAnswer(call -> { var event = call.getArgument(0, PlayerVoteEvent.class); event.setNativeProcessingCompleted(true); processed.add(event); delivered.countDown(); return null; })
                 .when(events).callEvent(any(PlayerVoteEvent.class));
         listener.onVotiferEvent(receipt()); workerTurn(overflow);
         var original = retainedReceipt(); assertEquals(256, overflow.size()); assertTrue(processed.isEmpty());
@@ -148,6 +148,61 @@ class VotifierStartedCaptureOwnershipTest {
         assertTrue(processed.stream().map(PlayerVoteEvent::getLocalOccurrenceId).toList().containsAll(recovered));
         var retry = processed.stream().filter(event -> original.id().equals(event.getLocalOccurrenceId())).toList();
         assertEquals(1, retry.size()); assertEquals(original.time(), retry.getFirst().getCanonicalOccurrenceTime());
+    }
+    @Test void gracefulDisableWhichSkipsConsumerRetainsTransferredReceipt() throws Exception {
+        var entered = new CountDownLatch(1); var release = new CountDownLatch(1);
+        doAnswer(call -> {
+            entered.countDown();
+            if (!release.await(5, TimeUnit.SECONDS)) throw new IllegalStateException("test processing timeout");
+            return null;
+        }).when(serverData).addServiceSite(SITE);
+        // Bukkit's disabled-listener path returns normally without dispatching the consumer.
+        doAnswer(call -> null).when(events).callEvent(any(PlayerVoteEvent.class));
+        listener.onVotiferEvent(receipt());
+        try {
+            assertTrue(entered.await(5, TimeUnit.SECONDS));
+            var original = retainedReceipt();
+            ready.set(false); listener.stop(); workerTurn(overflow);
+            release.countDown(); processingTurn(); workerTurn(overflow);
+            assertTrue(processed.isEmpty());
+            assertEquals(1, overflow.size());
+            overflow.close();
+            var rows = disk(); assertEquals(1, rows.size());
+            assertEquals(original.id().toString(), rows.getFirst().get("LocalOccurrenceId"));
+            assertEquals(original.time(), ((Number) rows.getFirst().get("Time")).longValue());
+        } finally { release.countDown(); }
+    }
+    @Test void confirmedDispatchRetainsFailureSwallowedByEventManager() {
+        when(plugin.isEnabled()).thenReturn(true);
+        when(plugin.getUserManager().getProperName(anyString())).thenThrow(new IllegalStateException("synthetic consumer failure"));
+        var consumer = new com.bencodez.votingplugin.listeners.PlayerVoteListener(plugin);
+        doAnswer(call -> {
+            try { consumer.onplayerVote(call.getArgument(0, PlayerVoteEvent.class)); }
+            catch (RuntimeException ignored) { /* Bukkit reports and swallows listener failures. */ }
+            return null;
+        }).when(events).callEvent(any(PlayerVoteEvent.class));
+        assertFalse(listener.processVoteConfirmed(SITE, "TestPlayer", 1234L, UUID.randomUUID()));
+        assertTrue(processed.isEmpty());
+    }
+    @Test void intentionalCancellationBeforeConsumerRemainsACompletedNoOp() {
+        doAnswer(call -> { call.getArgument(0, PlayerVoteEvent.class).setCancelled(true); return null; })
+                .when(events).callEvent(any(PlayerVoteEvent.class));
+        assertTrue(listener.processVoteConfirmed(SITE, "TestPlayer", 1234L, UUID.randomUUID()));
+        assertTrue(processed.isEmpty());
+    }
+    @Test void acceptedConsumerDoesNotConfirmDisabledOrExceptionalProcessing() {
+        var consumer = new com.bencodez.votingplugin.listeners.PlayerVoteListener(plugin);
+        var disabled = new PlayerVoteEvent(mock(com.bencodez.votingplugin.votesites.VoteSite.class), "TestPlayer", SITE, true);
+        when(plugin.isEnabled()).thenReturn(false);
+        consumer.onplayerVote(disabled);
+        assertFalse(disabled.isNativeProcessingStarted());
+        assertFalse(disabled.isNativeProcessingCompleted());
+        when(plugin.isEnabled()).thenReturn(true);
+        when(plugin.getUserManager().getProperName(anyString())).thenThrow(new IllegalStateException("synthetic consumer failure"));
+        var failed = new PlayerVoteEvent(mock(com.bencodez.votingplugin.votesites.VoteSite.class), "TestPlayer", SITE, true);
+        assertThrows(IllegalStateException.class, () -> consumer.onplayerVote(failed));
+        assertTrue(failed.isNativeProcessingStarted());
+        assertFalse(failed.isNativeProcessingCompleted());
     }
     @Test void stopRetriesRejectedTransferAfterCapacityReturnsWithExactReceipt() throws Exception {
         when(plugin.getLogger()).thenReturn(mock(Logger.class));
@@ -189,7 +244,7 @@ class VotifierStartedCaptureOwnershipTest {
             try (var restarted = VotifierVoteOverflowQueue.initializeAsync(plugin, listener::processVote, () -> true)) {
                 workerTurn(restarted); assertEquals(1, restarted.size());
                 var delivered = new CountDownLatch(1);
-                doAnswer(call -> { processed.add(call.getArgument(0)); delivered.countDown(); return null; }).when(events).callEvent(any(PlayerVoteEvent.class));
+                doAnswer(call -> { var event = call.getArgument(0, PlayerVoteEvent.class); event.setNativeProcessingCompleted(true); processed.add(event); delivered.countDown(); return null; }).when(events).callEvent(any(PlayerVoteEvent.class));
                 restarted.start(); assertTrue(delivered.await(5, TimeUnit.SECONDS)); processingTurn(); workerTurn(restarted);
                 assertEquals(0, restarted.size()); assertEquals(1, processed.size());
                 assertEquals(id, processed.getFirst().getLocalOccurrenceId()); assertEquals(time, processed.getFirst().getCanonicalOccurrenceTime());
@@ -230,7 +285,7 @@ class VotifierStartedCaptureOwnershipTest {
             assertEquals(1, overflow.size()); overflow.close(); assertEquals(1, disk().size());
             assertEquals(unrelated.toString(), disk().getFirst().get("LocalOccurrenceId"));
             var delivered = new CountDownLatch(1);
-            doAnswer(call -> { processed.add(call.getArgument(0)); delivered.countDown(); return null; }).when(events).callEvent(any(PlayerVoteEvent.class));
+            doAnswer(call -> { var event = call.getArgument(0, PlayerVoteEvent.class); event.setNativeProcessingCompleted(true); processed.add(event); delivered.countDown(); return null; }).when(events).callEvent(any(PlayerVoteEvent.class));
             try (var restarted = VotifierVoteOverflowQueue.initializeAsync(plugin, listener::processVote, () -> true)) {
                 workerTurn(restarted); restarted.start(); assertTrue(delivered.await(5, TimeUnit.SECONDS)); processingTurn(); workerTurn(restarted);
                 assertEquals(0, restarted.size()); assertEquals(2, processed.size());
@@ -278,7 +333,7 @@ class VotifierStartedCaptureOwnershipTest {
             return timer.submit(call.getArgument(0, Runnable.class));
         }).when(wrapper).submit(any(Runnable.class)); when(plugin.getVoteTimer()).thenReturn(wrapper);
         var delivered = new CountDownLatch(1);
-        doAnswer(call -> { processed.add(call.getArgument(0)); delivered.countDown(); return null; }).when(events).callEvent(any(PlayerVoteEvent.class));
+        doAnswer(call -> { var event = call.getArgument(0, PlayerVoteEvent.class); event.setNativeProcessingCompleted(true); processed.add(event); delivered.countDown(); return null; }).when(events).callEvent(any(PlayerVoteEvent.class));
         overflow.start(); listener.onVotiferEvent(receipt());
         assertTrue(delivered.await(5, TimeUnit.SECONDS)); processingTurn(); workerTurn(overflow);
         assertEquals(1, processed.size()); assertEquals(0, listener.getPendingCaptureCount()); assertEquals(0, overflow.size());

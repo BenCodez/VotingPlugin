@@ -32,7 +32,9 @@ public class PlayerVoteListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onplayerVote(PlayerVoteEvent event) {
-        SharedVoteProcessor.process(new BukkitOperations(plugin, event));
+        BukkitOperations operations = new BukkitOperations(plugin, event);
+        SharedVoteProcessor.process(operations);
+        if (event.isNativeProcessingStarted()) event.setNativeProcessingCompleted(true);
     }
 
     private static final class BukkitOperations implements SharedVoteProcessor.Operations<VoteSite, VotingPluginUser> {
@@ -44,7 +46,11 @@ public class PlayerVoteListener implements Listener {
             this.event = event;
         }
 
-        @Override public boolean enabled() { return plugin.isEnabled(); }
+        @Override public boolean enabled() {
+            boolean enabled = plugin.isEnabled();
+            if (enabled) event.setNativeProcessingStarted(true);
+            return enabled;
+        }
         @Override public String incomingName() { return event.getPlayer(); }
         @Override public String serviceSite() { return event.getServiceSite(); }
         @Override public void debug(String message) { plugin.debug(message); }

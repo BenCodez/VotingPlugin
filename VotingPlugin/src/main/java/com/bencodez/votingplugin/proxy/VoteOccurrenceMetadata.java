@@ -34,6 +34,11 @@ public final class VoteOccurrenceMetadata {
         return text + MARKER + (occurredAt > 0 ? occurredAt : -1L);
     }
 
+    /** An occurrence tag alone does not represent a processed totals snapshot. */
+    public static boolean hasPayload(String payload) {
+        return payload != null && !payload.isEmpty() && !payload.startsWith(MARKER);
+    }
+
     public static String preserve(String oldPayload, String updatedPayload) {
         Long original = read(oldPayload);
         return original == null ? updatedPayload : store(updatedPayload, original);

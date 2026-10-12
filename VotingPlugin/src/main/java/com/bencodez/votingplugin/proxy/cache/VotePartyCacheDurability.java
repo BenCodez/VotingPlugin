@@ -2,7 +2,6 @@ package com.bencodez.votingplugin.proxy.cache;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Base64;
 import java.util.HashMap;
@@ -12,7 +11,6 @@ import java.util.Set;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import com.bencodez.votingplugin.util.DurableFiles;
 
 /** Verifies that the cache library actually persisted the vote-party transaction. */
@@ -25,6 +23,7 @@ public final class VotePartyCacheDurability {
 		int expectedIncrease = cache.getVotePartyInreaseVotesRequired();
 		PendingVotePartyProxyEffects expectedProxyEffects = cache.getPendingVotePartyProxyEffects();
 		PendingVotePartyProxyEffects expectedQuarantinedEffects = cache.getQuarantinedVotePartyProxyEffects();
+		PendingPluginMessageVotePartyRewards expectedPluginRewards = cache.getPluginMessageVotePartyRewards();
 		try {
 			cache.saveDurably();
 		} catch (DurableFiles.PublishedException published) {
@@ -32,13 +31,14 @@ public final class VotePartyCacheDurability {
 			// restore stale in-memory state over the published file.
 		}
 		try {
-			JsonObject root = JsonParser.parseString(Files.readString(file, StandardCharsets.UTF_8)).getAsJsonObject();
+			JsonObject root = VoteCacheDurability.readJournal(file);
 			JsonObject voteParty = object(root.get("VoteParty"));
 			if (integer(voteParty, "CurrentVotes") != expectedVotes
 					|| integer(voteParty, "IncreaseVotes") != expectedIncrease
 					|| !pending(voteParty).equals(expectedPending)
 					|| !proxyEffects(voteParty, "PendingProxyEffects").equals(expectedProxyEffects)
-					|| !proxyEffects(voteParty, "QuarantinedProxyEffects").equals(expectedQuarantinedEffects))
+					|| !proxyEffects(voteParty, "QuarantinedProxyEffects").equals(expectedQuarantinedEffects)
+					|| !PendingPluginMessageVotePartyRewards.fromCacheJson(root).equals(expectedPluginRewards))
 				throw new IOException("Vote-party cache state was not persisted");
 		} catch (IOException failure) {
 			throw failure;
