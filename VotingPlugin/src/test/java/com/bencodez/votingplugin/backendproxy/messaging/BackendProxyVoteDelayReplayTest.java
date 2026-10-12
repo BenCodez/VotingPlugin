@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
@@ -51,8 +52,12 @@ import com.bencodez.votingplugin.votesites.VoteSite;
 /** Exercises wire decoding, durable deduplication, event metadata and the real listener together. */
 class BackendProxyVoteDelayReplayTest {
     private static final UUID PLAYER_ID = UUID.fromString("d4463458-69f3-4c2f-b8c1-d57d187da516");
+    private static final UUID FIRST_VOTE_ID = UUID.fromString("00000000-0000-4000-8000-000000000001");
+    private static final UUID SECOND_VOTE_ID = UUID.fromString("00000000-0000-4000-8000-000000000002");
     private static final String SERVICE = "known.example";
     private static final long RECORDED_TIME = 1_788_201_600_000L;
+
+    private final AtomicInteger fixtureSequence = new AtomicInteger();
 
     @TempDir
     Path directory;
@@ -61,7 +66,7 @@ class BackendProxyVoteDelayReplayTest {
     Stream<DynamicTest> modernLiveVoteCannotReuseUpstreamTimestampToBypassBackendDelay() {
         return routes(targeted -> {
             Fixture fixture = fixture();
-            JsonEnvelope live = vote(UUID.randomUUID(), RECORDED_TIME, targeted, false, true);
+            JsonEnvelope live = vote(FIRST_VOTE_ID, RECORDED_TIME, targeted, false, true);
 
             fixture.deliver(live);
             fixture.deliver(live);
@@ -76,7 +81,7 @@ class BackendProxyVoteDelayReplayTest {
     Stream<DynamicTest> identifiedQueuedVoteExecutesOnceDespiteNewerUpstreamLastVotesAndRestart() {
         return routes(targeted -> {
             Fixture fixture = fixture();
-            UUID voteId = UUID.randomUUID();
+            UUID voteId = FIRST_VOTE_ID;
             JsonEnvelope queued = vote(voteId, RECORDED_TIME - 60_000L, targeted, true, true);
 
             fixture.deliver(queued);
@@ -95,8 +100,8 @@ class BackendProxyVoteDelayReplayTest {
     Stream<DynamicTest> sameTimestampWithDifferentQueuedIdsRepresentsDistinctAcceptedOccurrences() {
         return routes(targeted -> {
             Fixture fixture = fixture();
-            UUID first = UUID.randomUUID();
-            UUID second = UUID.randomUUID();
+            UUID first = FIRST_VOTE_ID;
+            UUID second = SECOND_VOTE_ID;
             JsonEnvelope firstVote = vote(first, RECORDED_TIME, targeted, true, true);
             JsonEnvelope secondVote = vote(second, RECORDED_TIME, targeted, true, true);
 
@@ -116,7 +121,7 @@ class BackendProxyVoteDelayReplayTest {
     Stream<DynamicTest> changedTimestampDoesNotTurnACompletedIdIntoAnotherVote() {
         return routes(targeted -> {
             Fixture fixture = fixture();
-            UUID voteId = UUID.randomUUID();
+            UUID voteId = FIRST_VOTE_ID;
             fixture.deliver(vote(voteId, RECORDED_TIME, targeted, true, true));
             fixture.deliver(vote(voteId, RECORDED_TIME + 60_000L, targeted, true, true));
             fixture.restartReceiver();
@@ -132,8 +137,8 @@ class BackendProxyVoteDelayReplayTest {
     Stream<DynamicTest> outOfOrderQueuedVotesKeepTheirIdsAndDoNotReplayEffects() {
         return routes(targeted -> {
             Fixture fixture = fixture();
-            UUID older = UUID.randomUUID();
-            UUID newer = UUID.randomUUID();
+            UUID older = FIRST_VOTE_ID;
+            UUID newer = SECOND_VOTE_ID;
             JsonEnvelope olderVote = vote(older, RECORDED_TIME - 60_000L, targeted, true, true);
             JsonEnvelope newerVote = vote(newer, RECORDED_TIME + 60_000L, targeted, true, true);
 
@@ -152,7 +157,7 @@ class BackendProxyVoteDelayReplayTest {
     @Test
     void legacyUnclassifiedBacklogKeepsTimestampFallbackAndDurableIdentity() throws Exception {
         Fixture fixture = fixture();
-        UUID voteId = UUID.randomUUID();
+        UUID voteId = FIRST_VOTE_ID;
         JsonEnvelope legacy = VotingPluginWire.legacyUnclassifiedDelivery(
                 vote(voteId, RECORDED_TIME, true, false, false));
 
@@ -182,7 +187,7 @@ class BackendProxyVoteDelayReplayTest {
     }
 
     private Fixture fixture() throws Exception {
-        return new Fixture(directory.resolve(UUID.randomUUID() + ".receipts"));
+        return new Fixture(directory.resolve("fixture-" + fixtureSequence.incrementAndGet() + ".receipts"));
     }
 
     private Stream<DynamicTest> routes(RouteTest test) {
