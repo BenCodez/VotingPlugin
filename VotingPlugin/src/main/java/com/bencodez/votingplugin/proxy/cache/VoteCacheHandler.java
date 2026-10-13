@@ -66,6 +66,8 @@ public abstract class VoteCacheHandler {
     }
 
 	private boolean jsonStorageQuarantined;
+	// Only a complete handler recovery may clear uncertain SQL/journal ownership.
+	private boolean unresolvedSqlBatchIdentity;
 
 	/** Read-only health state; quarantined JSON mutations still require successful recovery. */
 	public synchronized boolean isJsonStorageQuarantined() {
@@ -229,7 +231,7 @@ public abstract class VoteCacheHandler {
 			staged.put(vote, copy);
 		}
 		if (staged.isEmpty()) return true;
-		if (jsonStorage == null || jsonStorageQuarantined) return false;
+		if (jsonStorage == null || jsonStorageQuarantined || unresolvedSqlBatchIdentity) return false;
 		synchronized (jsonStorage) {
 			if (!ensureEmergencyJournalMarker()) return false;
 			try {
@@ -736,7 +738,6 @@ public abstract class VoteCacheHandler {
 	}
 
 	private boolean matchesSqlBatchTwin(OfflineBungeeVote emergency, OfflineBungeeVote sql, int rowId) {
-		if (!emergency.isCachedVoteBatchValid()) return false;
 		if (emergency.getVoteId() != null && sql.getVoteId() != null)
 			return emergency.getVoteId().equals(sql.getVoteId());
 		return rowId > 0 && emergency.getCachedBatchSourceRowId() == rowId
@@ -1428,6 +1429,7 @@ public abstract class VoteCacheHandler {
 	 * Loads vote cache from storage.
 	 */
 	public synchronized void load() {
+		if (useMySQL) unresolvedSqlBatchIdentity = true;
 		if (jsonStorage != null) {
 			try { jsonStorage.reload(); jsonStorageQuarantined = false; }
 			catch (RuntimeException failure) { jsonStorageQuarantined = true; throw failure; }
@@ -1443,84 +1445,94 @@ public abstract class VoteCacheHandler {
 			} catch (SQLException failure) {
 				throw new IllegalStateException("Unable to read proxy vote cache snapshot", failure);
 			}
-			cachedVotes.clear();
-			cachedOnlineVotes.clear();
-			timeChangeQueue.clear();
-			Set<Integer> serverSourceRows = new LinkedHashSet<>();
-			Set<Integer> onlineSourceRows = new LinkedHashSet<>();
-			for (ProxyVoteCacheTable.VoteRow row : serverRows) serverSourceRows.add(row.getId());
-			for (ProxyOnlineVoteCacheTable.VoteRow row : onlineRows) onlineSourceRows.add(row.getId());
-			// Load votes from MySQL
-			serverRows.forEach(voteRow -> {
-				OfflineBungeeVote vote = new OfflineBungeeVote(voteRow.getVoteId(), voteRow.getPlayerName(),
-						voteRow.getUuid(), voteRow.getService(), voteRow.getTime(), voteRow.isRealVote(),
-						voteRow.getText(), voteRow.isBroadcastForwarded(), voteRow.isProxyBroadcastHandled(),
-						VoteTimeQueue.decodeBroadcastForwardedServers(voteRow.getBroadcastTargets()),
-						VoteTimeQueue.decodeBroadcastForwardedServers(voteRow.getBroadcastForwardedServers()),
-						voteRow.isRewardDelivered(), OfflineBungeeVote.decodeHttpDeliveryIds(voteRow.getHttpDeliveryIds()),
-						OfflineBungeeVote.decodeHttpBroadcastDeliveryIds(voteRow.getHttpBroadcastDeliveryIds()));
-				if (voteRow.isWasOnlineKnown()) vote.setWasOnline(voteRow.isWasOnline());
-				if (voteRow.getDelayValidation() >= 0) vote.setDelayValidated(voteRow.getDelayValidation() == 1);
-				else vote.clearDelayValidation();
-				vote.setServerVoteCacheRowId(voteRow.getId());
-				String server = voteRow.getServer();
-				cachedVotes.putIfAbsent(server, new ArrayList<>());
-				cachedVotes.get(server).add(vote);
-			});
+			ConcurrentHashMap<String, ArrayList<OfflineBungeeVote>> previousVotes = cachedVotes;
+			ConcurrentHashMap<String, ArrayList<OfflineBungeeVote>> previousOnlineVotes = cachedOnlineVotes;
+			Queue<VoteTimeQueue> previousTimedVotes = timeChangeQueue;
+			cachedVotes = new ConcurrentHashMap<>();
+			cachedOnlineVotes = new ConcurrentHashMap<>();
+			timeChangeQueue = new ConcurrentLinkedQueue<>();
+			try {
+				Set<Integer> serverSourceRows = new LinkedHashSet<>();
+				Set<Integer> onlineSourceRows = new LinkedHashSet<>();
+				for (ProxyVoteCacheTable.VoteRow row : serverRows) serverSourceRows.add(row.getId());
+				for (ProxyOnlineVoteCacheTable.VoteRow row : onlineRows) onlineSourceRows.add(row.getId());
+				// Load votes from MySQL
+				serverRows.forEach(voteRow -> {
+					OfflineBungeeVote vote = new OfflineBungeeVote(voteRow.getVoteId(), voteRow.getPlayerName(),
+							voteRow.getUuid(), voteRow.getService(), voteRow.getTime(), voteRow.isRealVote(),
+							voteRow.getText(), voteRow.isBroadcastForwarded(), voteRow.isProxyBroadcastHandled(),
+							VoteTimeQueue.decodeBroadcastForwardedServers(voteRow.getBroadcastTargets()),
+							VoteTimeQueue.decodeBroadcastForwardedServers(voteRow.getBroadcastForwardedServers()),
+							voteRow.isRewardDelivered(), OfflineBungeeVote.decodeHttpDeliveryIds(voteRow.getHttpDeliveryIds()),
+							OfflineBungeeVote.decodeHttpBroadcastDeliveryIds(voteRow.getHttpBroadcastDeliveryIds()));
+					if (voteRow.isWasOnlineKnown()) vote.setWasOnline(voteRow.isWasOnline());
+					if (voteRow.getDelayValidation() >= 0) vote.setDelayValidated(voteRow.getDelayValidation() == 1);
+					else vote.clearDelayValidation();
+					vote.setServerVoteCacheRowId(voteRow.getId());
+					String server = voteRow.getServer();
+					cachedVotes.putIfAbsent(server, new ArrayList<>());
+					cachedVotes.get(server).add(vote);
+				});
 
-			// Load online votes from MySQL
-			onlineRows.forEach(voteRow -> {
-				OfflineBungeeVote vote = new OfflineBungeeVote(voteRow.getVoteId(), voteRow.getPlayerName(),
-						voteRow.getUuid(), voteRow.getService(), voteRow.getTime(), voteRow.isRealVote(),
-						voteRow.getText(), voteRow.isBroadcastForwarded(), voteRow.isProxyBroadcastHandled(),
-						VoteTimeQueue.decodeBroadcastForwardedServers(voteRow.getBroadcastTargets()),
-						VoteTimeQueue.decodeBroadcastForwardedServers(voteRow.getBroadcastForwardedServers()),
-						voteRow.isRewardDelivered(), OfflineBungeeVote.decodeHttpDeliveryIds(voteRow.getHttpDeliveryIds()),
-						OfflineBungeeVote.decodeHttpBroadcastDeliveryIds(voteRow.getHttpBroadcastDeliveryIds()));
-				if (voteRow.isWasOnlineKnown()) vote.setWasOnline(voteRow.isWasOnline());
-				if (voteRow.getDelayValidation() >= 0) vote.setDelayValidated(voteRow.getDelayValidation() == 1);
-				else vote.clearDelayValidation();
-				vote.setOnlineVoteCacheRowId(voteRow.getId());
-				String player = vote.getUuid();
-				cachedOnlineVotes.putIfAbsent(player, new ArrayList<>());
-				cachedOnlineVotes.get(player).add(vote);
-			});
+				// Load online votes from MySQL
+				onlineRows.forEach(voteRow -> {
+					OfflineBungeeVote vote = new OfflineBungeeVote(voteRow.getVoteId(), voteRow.getPlayerName(),
+							voteRow.getUuid(), voteRow.getService(), voteRow.getTime(), voteRow.isRealVote(),
+							voteRow.getText(), voteRow.isBroadcastForwarded(), voteRow.isProxyBroadcastHandled(),
+							VoteTimeQueue.decodeBroadcastForwardedServers(voteRow.getBroadcastTargets()),
+							VoteTimeQueue.decodeBroadcastForwardedServers(voteRow.getBroadcastForwardedServers()),
+							voteRow.isRewardDelivered(), OfflineBungeeVote.decodeHttpDeliveryIds(voteRow.getHttpDeliveryIds()),
+							OfflineBungeeVote.decodeHttpBroadcastDeliveryIds(voteRow.getHttpBroadcastDeliveryIds()));
+					if (voteRow.isWasOnlineKnown()) vote.setWasOnline(voteRow.isWasOnline());
+					if (voteRow.getDelayValidation() >= 0) vote.setDelayValidated(voteRow.getDelayValidation() == 1);
+					else vote.clearDelayValidation();
+					vote.setOnlineVoteCacheRowId(voteRow.getId());
+					String player = vote.getUuid();
+					cachedOnlineVotes.putIfAbsent(player, new ArrayList<>());
+					cachedOnlineVotes.get(player).add(vote);
+				});
 
-			// Load timed votes from MySQL
-			ArrayList<VoteTimeQueue> timedVotes = new ArrayList<>();
-			timedRows.forEach(timedVoteRow -> {
-				VoteTimeQueue voteTimeQueue = new VoteTimeQueue(timedVoteRow.getVoteId(), timedVoteRow.getPlayerName(),
-						timedVoteRow.getService(), timedVoteRow.getTime(), timedVoteRow.isProxyBroadcastHandled(),
-						VoteTimeQueue.decodeBroadcastForwardedServers(timedVoteRow.getBroadcastTargets()),
-						VoteTimeQueue.decodeBroadcastForwardedServers(timedVoteRow.getBroadcastForwardedServers()),
-						timedVoteRow.getTotals(), timedVoteRow.isProcessed(),
-						timedVoteRow.isMultiProxyForwardingHandled(), timedVoteRow.getUuid(),
-						VoteTimeQueue.decodeHttpBroadcastDeliveryIds(timedVoteRow.getHttpBroadcastDeliveryIds()));
-				voteTimeQueue.setMultiProxyForwardingRequired(timedVoteRow.isMultiProxyForwardingRequired());
-				voteTimeQueue.setMultiProxyCapabilityDiscoveryPending(
-						timedVoteRow.isMultiProxyCapabilityDiscoveryPending());
-				voteTimeQueue.setVotePartyApplied(timedVoteRow.isVotePartyApplied());
-				voteTimeQueue.setTotalsApplied(timedVoteRow.isTotalsApplied());
-				voteTimeQueue.setRealVote(timedVoteRow.isRealVote());
-				if (timedVoteRow.isWasOnlineKnown()) voteTimeQueue.setWasOnline(timedVoteRow.isWasOnline());
-				if (timedVoteRow.getDelayValidation() >= 0) {
-					voteTimeQueue.setDelayValidated(timedVoteRow.getDelayValidation() == 1);
-				} else voteTimeQueue.clearDelayValidation();
-				voteTimeQueue.setMultiProxyOrigin(timedVoteRow.getMultiProxyOrigin() == null ? ""
-						: timedVoteRow.getMultiProxyOrigin());
-				voteTimeQueue.setMultiProxyCompletionPending(timedVoteRow.isMultiProxyCompletionPending());
-				voteTimeQueue.setMultiProxyRecipients(
-						VoteTimeQueue.decodeBroadcastForwardedServers(timedVoteRow.getMultiProxyRecipients()));
-				voteTimeQueue.setMultiProxyAcknowledgedServers(
-						VoteTimeQueue.decodeBroadcastForwardedServers(timedVoteRow.getMultiProxyAcknowledgedServers()));
-				voteTimeQueue.setMultiProxyLegacyPendingRecipients(
-						VoteTimeQueue.decodeBroadcastForwardedServers(
-								timedVoteRow.getMultiProxyLegacyPendingRecipients()));
-				voteTimeQueue.setTimedVoteCacheRowId(timedVoteRow.getId());
-				timedVotes.add(voteTimeQueue);
-			});
-			timeChangeQueue.addAll(timedVotes);
-			loadJsonEmergencyVotes(serverSourceRows, onlineSourceRows);
+				// Load timed votes from MySQL
+				ArrayList<VoteTimeQueue> timedVotes = new ArrayList<>();
+				timedRows.forEach(timedVoteRow -> {
+					VoteTimeQueue voteTimeQueue = new VoteTimeQueue(timedVoteRow.getVoteId(), timedVoteRow.getPlayerName(),
+							timedVoteRow.getService(), timedVoteRow.getTime(), timedVoteRow.isProxyBroadcastHandled(),
+							VoteTimeQueue.decodeBroadcastForwardedServers(timedVoteRow.getBroadcastTargets()),
+							VoteTimeQueue.decodeBroadcastForwardedServers(timedVoteRow.getBroadcastForwardedServers()),
+							timedVoteRow.getTotals(), timedVoteRow.isProcessed(),
+							timedVoteRow.isMultiProxyForwardingHandled(), timedVoteRow.getUuid(),
+							VoteTimeQueue.decodeHttpBroadcastDeliveryIds(timedVoteRow.getHttpBroadcastDeliveryIds()));
+					voteTimeQueue.setMultiProxyForwardingRequired(timedVoteRow.isMultiProxyForwardingRequired());
+					voteTimeQueue.setMultiProxyCapabilityDiscoveryPending(
+							timedVoteRow.isMultiProxyCapabilityDiscoveryPending());
+					voteTimeQueue.setVotePartyApplied(timedVoteRow.isVotePartyApplied());
+					voteTimeQueue.setTotalsApplied(timedVoteRow.isTotalsApplied());
+					voteTimeQueue.setRealVote(timedVoteRow.isRealVote());
+					if (timedVoteRow.isWasOnlineKnown()) voteTimeQueue.setWasOnline(timedVoteRow.isWasOnline());
+					if (timedVoteRow.getDelayValidation() >= 0) {
+						voteTimeQueue.setDelayValidated(timedVoteRow.getDelayValidation() == 1);
+					} else voteTimeQueue.clearDelayValidation();
+					voteTimeQueue.setMultiProxyOrigin(timedVoteRow.getMultiProxyOrigin() == null ? ""
+							: timedVoteRow.getMultiProxyOrigin());
+					voteTimeQueue.setMultiProxyCompletionPending(timedVoteRow.isMultiProxyCompletionPending());
+					voteTimeQueue.setMultiProxyRecipients(
+							VoteTimeQueue.decodeBroadcastForwardedServers(timedVoteRow.getMultiProxyRecipients()));
+					voteTimeQueue.setMultiProxyAcknowledgedServers(
+							VoteTimeQueue.decodeBroadcastForwardedServers(timedVoteRow.getMultiProxyAcknowledgedServers()));
+					voteTimeQueue.setMultiProxyLegacyPendingRecipients(
+							VoteTimeQueue.decodeBroadcastForwardedServers(
+									timedVoteRow.getMultiProxyLegacyPendingRecipients()));
+					voteTimeQueue.setTimedVoteCacheRowId(timedVoteRow.getId());
+					timedVotes.add(voteTimeQueue);
+				});
+				timeChangeQueue.addAll(timedVotes);
+				unresolvedSqlBatchIdentity = !loadJsonEmergencyVotes(serverSourceRows, onlineSourceRows);
+			} catch (RuntimeException failure) {
+				cachedVotes = previousVotes;
+				cachedOnlineVotes = previousOnlineVotes;
+				timeChangeQueue = previousTimedVotes;
+				throw failure;
+			}
 
 		} else {
 			cachedVotes.clear();
@@ -1669,9 +1681,20 @@ public abstract class VoteCacheHandler {
 	 * unavailable. Stable vote IDs bind duplicates; legacy twins require the exact
 	 * persisted SQL source row and complete original vote identity.
 	 */
-	private void loadJsonEmergencyVotes(Set<Integer> serverSourceRows, Set<Integer> onlineSourceRows) {
-		if (jsonStorage == null || !jsonStorage.hasEmergencyJournalMarker()) {
-			return;
+	private boolean loadJsonEmergencyVotes(Set<Integer> serverSourceRows, Set<Integer> onlineSourceRows) {
+		if (jsonStorage == null) return false;
+		if (!jsonStorage.hasEmergencyJournalMarker()) return true;
+		boolean resolved = true;
+		com.google.gson.JsonObject persistedJournal = null;
+		try {
+			if (jsonStorage.getStoragePath() != null) {
+				persistedJournal = VoteCacheDurability.readJournal(jsonStorage.getStoragePath());
+				resolved = sqlJournalStructureIsValid(persistedJournal);
+			}
+		}
+		catch (IOException | RuntimeException invalid) {
+			resolved = false;
+			debug1(new IllegalStateException("Unable to classify SQL vote journal structure"));
 		}
 		List<Entry<String, OfflineBungeeVote>> orphanedServerTwins = new ArrayList<>();
 		List<Entry<String, OfflineBungeeVote>> orphanedOnlineTwins = new ArrayList<>();
@@ -1705,10 +1728,21 @@ public abstract class VoteCacheHandler {
 						continue;
 					}
 					for (String key : keys) {
-						OfflineBungeeVote vote = decodeJsonVote(jsonStorage.getServerVotes(server, key));
-						if (vote == null) continue;
+						OfflineBungeeVote vote;
+						try {
+							DataNode data = persistedJournal == null ? jsonStorage.getServerVotes(server, key)
+									: persistedSqlJournalVote(persistedJournal, "VoteCache", server, key);
+							validateSqlJournalIdentity(data);
+							vote = decodeJsonVote(data);
+						} catch (RuntimeException invalid) {
+							resolved = false;
+							debug1(new IllegalStateException("Invalid SQL vote journal identity"));
+							continue;
+						}
+						if (vote == null) { resolved = false; continue; }
 						vote.setServerVoteCacheJsonKey(key);
 						OfflineBungeeVote sqlTwin = findServerVoteSqlTwin(server, vote);
+						if (!vote.isCachedVoteBatchValid()) resolved = false;
 						if (sqlTwin != null) {
 							sqlTwin.setServerVoteCacheJsonKey(key);
 							sqlTwin.copyCachedVoteBatch(vote);
@@ -1719,6 +1753,7 @@ public abstract class VoteCacheHandler {
 							// A present or malformed unmatched source stays on disk, outside replay.
 							if (vote.isCachedVoteBatchValid() && !serverSourceRows.contains(vote.getCachedBatchSourceRowId()))
                                 orphanedServerTwins.add(Map.entry(server, vote));
+							else resolved = false;
 						} else cachedVotes.computeIfAbsent(server, ignored -> new ArrayList<>()).add(vote);
 					}
 				}
@@ -1731,10 +1766,21 @@ public abstract class VoteCacheHandler {
 						continue;
 					}
 					for (String key : keys) {
-						OfflineBungeeVote vote = decodeJsonVote(jsonStorage.getOnlineVotes(player, key));
-						if (vote == null) continue;
+						OfflineBungeeVote vote;
+						try {
+							DataNode data = persistedJournal == null ? jsonStorage.getOnlineVotes(player, key)
+									: persistedSqlJournalVote(persistedJournal, "OnlineCache", player, key);
+							validateSqlJournalIdentity(data);
+							vote = decodeJsonVote(data);
+						} catch (RuntimeException invalid) {
+							resolved = false;
+							debug1(new IllegalStateException("Invalid SQL vote journal identity"));
+							continue;
+						}
+						if (vote == null) { resolved = false; continue; }
 						vote.setOnlineVoteCacheJsonKey(key);
 						OfflineBungeeVote sqlTwin = findOnlineVoteSqlTwin(player, vote);
+						if (!vote.isCachedVoteBatchValid()) resolved = false;
 						if (sqlTwin != null) {
 							sqlTwin.setOnlineVoteCacheJsonKey(key);
 							sqlTwin.copyCachedVoteBatch(vote);
@@ -1743,22 +1789,65 @@ public abstract class VoteCacheHandler {
 						else if (vote.getCachedBatchSourceRowId() > 0) {
 							if (vote.isCachedVoteBatchValid() && !onlineSourceRows.contains(vote.getCachedBatchSourceRowId()))
                                 orphanedOnlineTwins.add(Map.entry(player, vote));
+							else resolved = false;
 						} else cachedOnlineVotes.computeIfAbsent(player, ignored -> new ArrayList<>()).add(vote);
 					}
 				}
 			}
 		} catch (RuntimeException e) {
-			debug1(e);
+			resolved = false;
+			debug1(new IllegalStateException("Unable to classify SQL vote journal"));
 		}
+		// Retain the entire journal while any row cannot be safely reconstructed.
+		if (!resolved) return false;
 		// Cleanup failure must not turn a confirmed removed SQL owner into a live vote.
 		for (Entry<String, OfflineBungeeVote> orphan : orphanedServerTwins) {
-			try { removeJsonServerVoteDurably(orphan.getKey(), orphan.getValue()); }
-			catch (RuntimeException failure) { debug1(failure); }
+			try { if (!removeJsonServerVoteDurably(orphan.getKey(), orphan.getValue())) resolved = false; }
+			catch (RuntimeException failure) { resolved = false; debug1(failure); }
 		}
 		for (Entry<String, OfflineBungeeVote> orphan : orphanedOnlineTwins) {
-			try { removeJsonOnlineVoteDurably(orphan.getKey(), orphan.getValue()); }
-			catch (RuntimeException failure) { debug1(failure); }
+			try { if (!removeJsonOnlineVoteDurably(orphan.getKey(), orphan.getValue())) resolved = false; }
+			catch (RuntimeException failure) { resolved = false; debug1(failure); }
 		}
+		return resolved;
+	}
+
+	private boolean sqlJournalStructureIsValid(com.google.gson.JsonObject document) {
+		// Configurate discards explicit JSON null children. Inspect persisted structure
+		// so those unresolved records cannot vanish from Velocity's recovery scan.
+		for (String lane : new String[] {"VoteCache", "OnlineCache"}) {
+			if (!document.has(lane)) continue;
+			var owners = document.get(lane);
+			if (!owners.isJsonObject()) return false;
+			for (var owner : owners.getAsJsonObject().entrySet()) {
+				if (!owner.getValue().isJsonObject()) return false;
+				for (var row : owner.getValue().getAsJsonObject().entrySet())
+					if (!row.getValue().isJsonObject()) return false;
+			}
+		}
+		return true;
+	}
+
+	private DataNode persistedSqlJournalVote(com.google.gson.JsonObject document, String lane,
+			String owner, String key) {
+		// Classify raw values before an adapter can turn explicit null fields into absence.
+		var data = document.getAsJsonObject(lane).getAsJsonObject(owner).get(key);
+		return data == null ? null : new GsonDataNode(data);
+	}
+
+	private void validateSqlJournalIdentity(DataNode data) {
+		if (data == null || !data.isObject()) throw new IllegalArgumentException("Invalid SQL vote journal row");
+		// Old emergency rows without replay metadata retain their established optional fields.
+		if (!data.has("CachedBatchNumber") && !data.has("CachedBatchSize")
+				&& !data.has("CachedBatchSourceRowId")) return;
+		for (String field : new String[] {"Name", "UUID", "Service", "Text"})
+			if (!data.has(field) || !data.get(field).isPrimitive()
+					|| !(data.get(field).asPrimitive() instanceof String))
+				throw new IllegalArgumentException("Invalid SQL vote journal identity");
+		if (!data.has("Real") || !(data.get("Real").asPrimitive() instanceof Boolean)
+				|| !data.has("Time") || !(data.get("Time").asPrimitive() instanceof Number))
+			throw new IllegalArgumentException("Invalid SQL vote journal identity");
+		new java.math.BigDecimal(data.get("Time").asString()).longValueExact();
 	}
 
 	private boolean ensureEmergencyJournalMarker() {
@@ -1876,8 +1965,6 @@ public abstract class VoteCacheHandler {
 		if (!data.has("CachedBatchNumber") && !data.has("CachedBatchSize")
 				&& !data.has("CachedBatchSourceRowId")) return;
 		try {
-			int number = batchInteger(data, "CachedBatchNumber");
-			int size = batchInteger(data, "CachedBatchSize");
 			int source = batchInteger(data, "CachedBatchSourceRowId");
 			if (source > 0) {
 				for (String field : new String[] {"Name", "UUID", "Service", "Text"})
@@ -1889,8 +1976,11 @@ public abstract class VoteCacheHandler {
 					throw new IllegalArgumentException("Invalid cached replay identity");
 				new java.math.BigDecimal(data.get("Time").asString()).longValueExact();
 			}
-			vote.setCachedVoteBatch(number, size);
+			if (source < 0) throw new IllegalArgumentException("Invalid cached replay source");
 			vote.setCachedBatchSourceRowId(source);
+			int number = batchInteger(data, "CachedBatchNumber");
+			int size = batchInteger(data, "CachedBatchSize");
+			vote.setCachedVoteBatch(number, size);
 			if (!vote.isCachedVoteBatchValid()) throw new IllegalArgumentException("Invalid cached replay metadata");
 			vote.setCachedBatchDurable(vote.hasCachedVoteBatch());
 		} catch (RuntimeException invalid) {

@@ -15,6 +15,7 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
@@ -33,6 +34,8 @@ import com.bencodez.votingplugin.proxy.cache.ProxyTimedVoteCacheTable;
 import com.bencodez.votingplugin.proxy.cache.ProxyVoteCacheTable;
 import com.bencodez.votingplugin.proxy.cache.VoteCacheHandler;
 import com.bencodez.votingplugin.proxy.velocity.VelocityJsonVoteCache;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 /** Exercises real adapter publication/reload, with SQL represented only at its table boundary. */
 @Execution(ExecutionMode.SAME_THREAD)
@@ -309,7 +312,10 @@ class CachedVoteBatchDurabilityTest {
 			IVoteCache storage = cache(velocity); VoteCacheHandler writer = handler(storage);
 			OfflineBungeeVote vote = vote(UUID.randomUUID()); add(writer, online, vote);
 			Path file = storage.getStoragePath();
-			Files.writeString(file, Files.readString(file).replace("\"CachedBatchNumber\": 0", "\"CachedBatchNumber\": 1.5"));
+			JsonObject document = JsonParser.parseString(Files.readString(file)).getAsJsonObject();
+			journalRows(document, online).entrySet().forEach(entry ->
+					entry.getValue().getAsJsonObject().addProperty("CachedBatchNumber", 1.5));
+			Files.writeString(file, document.toString());
 			VoteCacheHandler restarted = handler(cache(velocity)); restarted.load();
 			OfflineBungeeVote restored = votes(restarted, online).get(0);
 			assertFalse(restored.isCachedVoteBatchValid());
@@ -583,6 +589,440 @@ class CachedVoteBatchDurabilityTest {
 			UUID identity = legacy.getVoteId(); assertNotNull(identity);
 			VoteCacheHandler restarted = handler(cache(velocity)); restarted.load();
 			assertEquals(identity, votes(restarted, online).get(0).getVoteId());
+		});
+	}
+
+	private record PreparedJournal(IVoteCache storage, List<OfflineBungeeVote> sqlVotes,
+			List<UUID> identities, String cleanBytes) { }
+
+	private PreparedJournal preparedJournal(boolean velocity, boolean online, boolean stableSqlId) throws Exception {
+		Files.deleteIfExists(directory.resolve("votecache.json"));
+		IVoteCache storage = cache(velocity);
+		List<OfflineBungeeVote> originals = List.of(vote(stableSqlId ? UUID.randomUUID() : null), vote(null));
+		VoteCacheHandler writer = sqlHandler(storage, online, originals, List.of(41, 42));
+		writer.load();
+		assertTrue(writer.prepareCachedVoteBatch(owner(online), online, new ArrayList<>(votes(writer, online)), 2));
+		return new PreparedJournal(storage, originals,
+				votes(writer, online).stream().map(OfflineBungeeVote::getVoteId).toList(),
+				Files.readString(storage.getStoragePath()));
+	}
+
+	private JsonObject journalRows(JsonObject journal, boolean online) {
+		return journal.getAsJsonObject(online ? "OnlineCache" : "VoteCache").getAsJsonObject(owner(online));
+	}
+
+	private JsonObject sourceRow(JsonObject journal, boolean online, int source) {
+		return journalRows(journal, online).entrySet().stream().map(entry -> entry.getValue().getAsJsonObject())
+				.filter(row -> row.get("CachedBatchSourceRowId").getAsInt() == source).findFirst().orElseThrow();
+	}
+
+	private OfflineBungeeVote sqlRow(VoteCacheHandler handler, boolean online, int row) {
+		return votes(handler, online).stream().filter(vote -> (online ? vote.getOnlineVoteCacheRowId()
+				: vote.getServerVoteCacheRowId()) == row).findFirst().orElseThrow();
+	}
+
+	private void verifyOnlyCheckedSqlReads(VoteCacheHandler handler) throws Exception {
+		verifyOnlyCheckedSqlReads(handler, 1);
+	}
+
+	private void verifyOnlyCheckedSqlReads(VoteCacheHandler handler, int reads) throws Exception {
+		ProxyVoteCacheTable server = (ProxyVoteCacheTable) getField(handler, "voteCacheTable");
+		ProxyOnlineVoteCacheTable online = (ProxyOnlineVoteCacheTable) getField(handler, "onlineVoteCacheTable");
+		ProxyTimedVoteCacheTable timed = (ProxyTimedVoteCacheTable) getField(handler, "timedVoteCacheTable");
+		verify(server, times(reads)).getAllVotesChecked();
+		verify(online, times(reads)).getAllVotesChecked();
+		verify(timed, times(reads)).getAllVotesChecked();
+		verifyNoMoreInteractions(server, online, timed);
+	}
+
+	@TestFactory
+	Stream<DynamicTest> malformedSqlBatchPositionsKeepIdentityAndSourceWithoutBecomingDurable() {
+		return lanes((velocity, online) -> {
+			List<Consumer<JsonObject>> corruptions = List.of(
+					row -> row.addProperty("CachedBatchNumber", "not-a-number"),
+					row -> row.addProperty("CachedBatchNumber", 1.5),
+					row -> row.addProperty("CachedBatchNumber", 2147483648L),
+					row -> row.remove("CachedBatchSize"),
+					row -> row.addProperty("CachedBatchSize", 0));
+			for (Consumer<JsonObject> corrupt : corruptions) {
+				PreparedJournal prepared = preparedJournal(velocity, online, false);
+				JsonObject journal = JsonParser.parseString(prepared.cleanBytes()).getAsJsonObject();
+				corrupt.accept(sourceRow(journal, online, 41));
+				String malformed = journal.toString();
+				Files.writeString(prepared.storage().getStoragePath(), malformed);
+				VoteCacheHandler restarted = sqlHandler(cache(velocity), online,
+						List.of(prepared.sqlVotes().get(0), prepared.sqlVotes().get(1), vote(null)), List.of(41, 42, 43));
+				restarted.load();
+				assertEquals(3, votes(restarted, online).size(), "malformed batch created a second reward owner");
+				OfflineBungeeVote invalid = sqlRow(restarted, online, 41);
+				assertEquals(prepared.identities().get(0), invalid.getVoteId());
+				assertEquals(41, invalid.getCachedBatchSourceRowId());
+				assertFalse(invalid.isCachedVoteBatchValid());
+				assertFalse(invalid.isCachedBatchDurable());
+				assertFalse(restarted.prepareCachedVoteBatch(owner(online), online, List.of(invalid), 1));
+				OfflineBungeeVote clean = sqlRow(restarted, online, 42), fresh = sqlRow(restarted, online, 43);
+				assertEquals(prepared.identities().get(1), clean.getVoteId());
+				assertEquals(2, clean.getCachedBatchNumber());
+				assertTrue(clean.isCachedBatchDurable());
+				assertTrue(restarted.prepareCachedVoteBatch(owner(online), online, List.of(clean), 1));
+				assertFalse(restarted.prepareCachedVoteBatch(owner(online), online, List.of(fresh), 1));
+				assertNull(fresh.getVoteId());
+				assertFalse(fresh.hasCachedVoteBatch());
+				assertEquals(malformed, Files.readString(prepared.storage().getStoragePath()));
+				verifyOnlyCheckedSqlReads(restarted);
+			}
+		});
+	}
+
+	@TestFactory
+	Stream<DynamicTest> malformedRowsFenceNewBatchesAcrossLanesWhileCleanPreparedWorkContinues() {
+		return lanes((velocity, online) -> {
+			List<Consumer<JsonObject>> corruptions = List.of(
+					row -> row.remove("CachedBatchSourceRowId"),
+					row -> row.addProperty("CachedBatchSourceRowId", -41),
+					row -> row.addProperty("CachedBatchSourceRowId", "not-a-number"),
+					row -> row.addProperty("Real", "true"),
+					row -> row.addProperty("Time", "100"),
+					row -> row.addProperty("Time", 100.5),
+					row -> row.add("Name", new JsonObject()));
+			// The malformed row is in the opposite lane from the clean and fresh SQL work.
+			for (int variant = 0; variant < corruptions.size() + 2; variant++) {
+				PreparedJournal prepared = preparedJournal(velocity, online, false);
+				JsonObject journal = JsonParser.parseString(prepared.cleanBytes()).getAsJsonObject();
+				JsonObject malformedRow = sourceRow(journal, online, 41).deepCopy();
+				JsonObject oppositeRows = new JsonObject(), oppositeOwners = new JsonObject();
+				if (variant < corruptions.size()) {
+					corruptions.get(variant).accept(malformedRow);
+					oppositeRows.add("9", malformedRow);
+				} else oppositeRows.add("9", JsonParser.parseString(variant == corruptions.size() ? "null" : "7"));
+				oppositeOwners.add(owner(!online), oppositeRows);
+				journal.add(online ? "VoteCache" : "OnlineCache", oppositeOwners);
+				String malformed = journal.toString();
+				Files.writeString(prepared.storage().getStoragePath(), malformed);
+				VoteCacheHandler restarted = sqlHandler(cache(velocity), online,
+						List.of(prepared.sqlVotes().get(0), prepared.sqlVotes().get(1), vote(null)), List.of(41, 42, 43));
+				restarted.load();
+				OfflineBungeeVote clean = sqlRow(restarted, online, 42), fresh = sqlRow(restarted, online, 43);
+				assertTrue(clean.isCachedBatchDurable(), "unrelated malformed row blocked clean recovery, variant " + variant);
+				assertTrue(restarted.prepareCachedVoteBatch(owner(online), online, List.of(clean), 1));
+				assertFalse(restarted.prepareCachedVoteBatch(owner(online), online, List.of(fresh), 1),
+						"malformed row did not fence the other lane, variant " + variant);
+				assertNull(fresh.getVoteId());
+				assertFalse(fresh.hasCachedVoteBatch());
+				assertEquals(malformed, Files.readString(prepared.storage().getStoragePath()));
+				verifyOnlyCheckedSqlReads(restarted);
+			}
+		});
+	}
+
+	@TestFactory
+	Stream<DynamicTest> malformedRecoveryFenceClearsOnlyAfterSuccessfulFullCheckedLoad() {
+		return lanes((velocity, online) -> {
+			PreparedJournal prepared = preparedJournal(velocity, online, false);
+			JsonObject journal = JsonParser.parseString(prepared.cleanBytes()).getAsJsonObject();
+			sourceRow(journal, online, 41).addProperty("CachedBatchNumber", "invalid");
+			String malformed = journal.toString();
+			Files.writeString(prepared.storage().getStoragePath(), malformed);
+			IVoteCache storage = cache(velocity);
+			VoteCacheHandler restarted = sqlHandler(storage, online,
+					List.of(prepared.sqlVotes().get(0), prepared.sqlVotes().get(1), vote(null)), List.of(41, 42, 43));
+			restarted.load();
+			OfflineBungeeVote fresh = sqlRow(restarted, online, 43);
+			assertFalse(restarted.prepareCachedVoteBatch(owner(online), online, List.of(fresh), 1));
+			assertEquals(malformed, Files.readString(storage.getStoragePath()));
+			Files.writeString(storage.getStoragePath(), prepared.cleanBytes());
+			storage.reload();
+			assertFalse(restarted.prepareCachedVoteBatch(owner(online), online, List.of(fresh), 1),
+					"adapter-only reload cleared the handler recovery fence");
+			ProxyTimedVoteCacheTable timed = (ProxyTimedVoteCacheTable) getField(restarted, "timedVoteCacheTable");
+			doThrow(new SQLException("last SQL lane unreadable")).when(timed).getAllVotesChecked();
+			assertThrows(IllegalStateException.class, restarted::load);
+			assertSame(fresh, sqlRow(restarted, online, 43));
+			assertFalse(restarted.prepareCachedVoteBatch(owner(online), online, List.of(fresh), 1),
+					"partially checked SQL snapshot cleared the recovery fence");
+			assertEquals(prepared.cleanBytes(), Files.readString(storage.getStoragePath()));
+			doReturn(List.of()).when(timed).getAllVotesChecked();
+			restarted.load();
+			OfflineBungeeVote restored = sqlRow(restarted, online, 41);
+			assertEquals(prepared.identities().get(0), restored.getVoteId());
+			assertTrue(restored.isCachedBatchDurable());
+			OfflineBungeeVote admitted = sqlRow(restarted, online, 43);
+			assertTrue(restarted.prepareCachedVoteBatch(owner(online), online, List.of(admitted), 1));
+			assertNotNull(admitted.getVoteId());
+			assertEquals(43, admitted.getCachedBatchSourceRowId());
+			assertTrue(admitted.isCachedBatchDurable());
+			assertEquals(3, votes(restarted, online).size());
+			verifyOnlyCheckedSqlReads(restarted, 3);
+		});
+	}
+
+	@TestFactory
+	Stream<DynamicTest> failedSqlReconstructionRetainsOwnedInstancesAndFenceUntilFullRecovery() {
+		return lanes((velocity, online) -> {
+			PreparedJournal prepared = preparedJournal(velocity, online, false);
+			IVoteCache storage = cache(velocity);
+			VoteCacheHandler restarted = sqlHandler(storage, online,
+					List.of(prepared.sqlVotes().get(0), prepared.sqlVotes().get(1), vote(null)), List.of(41, 42, 43));
+			restarted.load();
+			ArrayList<OfflineBungeeVote> owners = votes(restarted, online);
+			OfflineBungeeVote durable = sqlRow(restarted, online, 41), fresh = sqlRow(restarted, online, 43);
+			var timedOwners = restarted.getTimeChangeQueue();
+			assertEquals(prepared.identities().get(0), durable.getVoteId());
+			assertTrue(durable.isCachedBatchDurable());
+			String before = Files.readString(storage.getStoragePath());
+			verifyOnlyCheckedSqlReads(restarted);
+
+			ProxyVoteCacheTable serverTable = (ProxyVoteCacheTable) getField(restarted, "voteCacheTable");
+			ProxyOnlineVoteCacheTable onlineTable = (ProxyOnlineVoteCacheTable) getField(restarted, "onlineVoteCacheTable");
+			ProxyTimedVoteCacheTable timedTable = (ProxyTimedVoteCacheTable) getField(restarted, "timedVoteCacheTable");
+			// Every checked read succeeds, but a malformed row fails the subsequent reconstruction.
+			List<?> healthyRows = online ? onlineTable.getAllVotesChecked() : serverTable.getAllVotesChecked();
+			if (online) doReturn(java.util.Collections.singletonList(null)).when(onlineTable).getAllVotesChecked();
+			else doReturn(java.util.Collections.singletonList(null)).when(serverTable).getAllVotesChecked();
+			clearInvocations(serverTable, onlineTable, timedTable);
+
+			assertThrows(RuntimeException.class, restarted::load);
+			assertSame(owners, votes(restarted, online));
+			assertSame(durable, sqlRow(restarted, online, 41));
+			assertSame(fresh, sqlRow(restarted, online, 43));
+			assertSame(timedOwners, restarted.getTimeChangeQueue());
+			assertEquals(prepared.identities(), owners.subList(0, 2).stream().map(OfflineBungeeVote::getVoteId).toList());
+			assertEquals(41, durable.getCachedBatchSourceRowId());
+			assertTrue(restarted.prepareCachedVoteBatch(owner(online), online, List.of(durable), 1));
+			assertFalse(restarted.prepareCachedVoteBatch(owner(online), online, List.of(fresh), 1));
+			assertNull(fresh.getVoteId());
+			assertFalse(fresh.hasCachedVoteBatch());
+			assertEquals(before, Files.readString(storage.getStoragePath()));
+
+			if (online) doReturn(healthyRows).when(onlineTable).getAllVotesChecked();
+			else doReturn(healthyRows).when(serverTable).getAllVotesChecked();
+			restarted.load();
+			OfflineBungeeVote recovered = sqlRow(restarted, online, 41), admitted = sqlRow(restarted, online, 43);
+			assertEquals(durable.getVoteId(), recovered.getVoteId());
+			assertEquals(41, recovered.getCachedBatchSourceRowId());
+			assertTrue(recovered.isCachedBatchDurable());
+			assertTrue(restarted.prepareCachedVoteBatch(owner(online), online, List.of(admitted), 1));
+			assertNotNull(admitted.getVoteId());
+			assertTrue(admitted.isCachedBatchDurable());
+			assertEquals(3, votes(restarted, online).size());
+			verifyOnlyCheckedSqlReads(restarted, 2);
+		});
+	}
+
+	@TestFactory
+	Stream<DynamicTest> healthyUpdatesAndRemovalsPreserveMalformedRowsAndRestartFence() {
+		return lanes((velocity, online) -> {
+			for (int variant = 0; variant < 9; variant++) {
+				PreparedJournal prepared = preparedJournal(velocity, online, false);
+				JsonObject journal = JsonParser.parseString(prepared.cleanBytes()).getAsJsonObject();
+				JsonObject malformedObject = sourceRow(journal, online, 41).deepCopy();
+				if (variant == 2) malformedObject.add("Name", new JsonObject());
+				if (variant == 3) malformedObject.addProperty("CachedBatchSize", 0);
+				if (variant == 4) malformedObject.add("VoteId", com.google.gson.JsonNull.INSTANCE);
+				if (variant == 5) malformedObject.add("RewardDelivered", com.google.gson.JsonNull.INSTANCE);
+				if (variant == 6) malformedObject.add("HttpDeliveryIds", com.google.gson.JsonNull.INSTANCE);
+				if (variant == 7) {
+					malformedObject.addProperty("WasOnlineKnown", true);
+					malformedObject.add("WasOnline", com.google.gson.JsonNull.INSTANCE);
+				}
+				if (variant == 8) malformedObject.addProperty("VoteId", "not-a-uuid");
+				var malformed = variant < 2 ? JsonParser.parseString(variant == 0 ? "null" : "7") : malformedObject;
+				JsonObject oppositeRows = new JsonObject(), oppositeOwners = new JsonObject();
+				oppositeRows.add("9", malformed);
+				oppositeOwners.add(owner(!online), oppositeRows);
+				journal.add(online ? "VoteCache" : "OnlineCache", oppositeOwners);
+				Files.writeString(prepared.storage().getStoragePath(), journal.toString());
+				IVoteCache storage = spy(cache(velocity));
+				OfflineBungeeVote freshSource = vote(null);
+				VoteCacheHandler recovering = sqlHandler(storage, online,
+						List.of(prepared.sqlVotes().get(0), prepared.sqlVotes().get(1), freshSource), List.of(41, 42, 43));
+				recovering.load();
+				OfflineBungeeVote clean = sqlRow(recovering, online, 42), fresh = sqlRow(recovering, online, 43);
+				assertTrue(clean.isCachedBatchDurable());
+				assertFalse(recovering.prepareCachedVoteBatch(owner(online), online, List.of(fresh), 1));
+				ProxyVoteCacheTable serverTable = (ProxyVoteCacheTable) getField(recovering, "voteCacheTable");
+				ProxyOnlineVoteCacheTable onlineTable = (ProxyOnlineVoteCacheTable) getField(recovering, "onlineVoteCacheTable");
+				ProxyTimedVoteCacheTable timedTable = (ProxyTimedVoteCacheTable) getField(recovering, "timedVoteCacheTable");
+				if (online) when(onlineTable.updateProxyBroadcastState(clean)).thenReturn(true);
+				else when(serverTable.updateProxyBroadcastState(clean, BACKEND)).thenReturn(true);
+				clean.setRewardDelivered(true);
+				assertTrue(online ? recovering.updateOnlineVote(PLAYER, clean) : recovering.updateServerVote(BACKEND, clean));
+				JsonObject updated = JsonParser.parseString(Files.readString(storage.getStoragePath())).getAsJsonObject();
+				assertTrue(journalRows(updated, !online).has("9"), "healthy update erased unresolved row, variant " + variant);
+				assertEquals(malformed, journalRows(updated, !online).get("9"));
+				assertTrue(sourceRow(updated, online, 42).get("RewardDelivered").getAsBoolean(),
+						"healthy delivery update was not actually persisted");
+				verify(storage).saveDurably();
+
+				remove(recovering, online, clean);
+				JsonObject removed = JsonParser.parseString(Files.readString(storage.getStoragePath())).getAsJsonObject();
+				assertTrue(journalRows(removed, !online).has("9"), "healthy removal erased unresolved row, variant " + variant);
+				assertEquals(malformed, journalRows(removed, !online).get("9"));
+				assertTrue(journalRows(removed, online).entrySet().stream().noneMatch(entry ->
+						entry.getValue().getAsJsonObject().get("VoteId").getAsString().equals(clean.getVoteId().toString())));
+				verify(storage, times(2)).saveDurably();
+				verify(serverTable).getAllVotesChecked();
+				verify(onlineTable).getAllVotesChecked();
+				verify(timedTable).getAllVotesChecked();
+				if (online) {
+					verify(onlineTable).updateProxyBroadcastState(clean);
+					verify(onlineTable).tryRemoveVote(clean);
+				} else {
+					verify(serverTable).updateProxyBroadcastState(clean, BACKEND);
+					verify(serverTable).tryRemoveVote(clean, BACKEND);
+				}
+				verifyNoMoreInteractions(serverTable, onlineTable, timedTable);
+
+				VoteCacheHandler restarted = sqlHandler(cache(velocity), online,
+						List.of(prepared.sqlVotes().get(0), freshSource), List.of(41, 43));
+				restarted.load();
+				OfflineBungeeVote durable = sqlRow(restarted, online, 41), blocked = sqlRow(restarted, online, 43);
+				assertEquals(2, votes(restarted, online).size());
+				assertEquals(prepared.identities().get(0), durable.getVoteId());
+				assertTrue(restarted.prepareCachedVoteBatch(owner(online), online, List.of(durable), 1));
+				assertFalse(restarted.prepareCachedVoteBatch(owner(online), online, List.of(blocked), 1),
+						"restart cleared the unresolved row fence after healthy writes, variant " + variant);
+				assertNull(blocked.getVoteId());
+				assertFalse(blocked.hasCachedVoteBatch());
+				JsonObject reopened = JsonParser.parseString(Files.readString(storage.getStoragePath())).getAsJsonObject();
+				assertTrue(journalRows(reopened, !online).has("9"));
+				assertEquals(malformed, journalRows(reopened, !online).get("9"));
+				verifyOnlyCheckedSqlReads(restarted);
+			}
+		});
+	}
+
+	@TestFactory
+	Stream<DynamicTest> unusedNullFieldsAndIgnoredVoteIdAliasStillAllowLegacyBatchStaging() {
+		return lanes((velocity, online) -> {
+			PreparedJournal prepared = preparedJournal(velocity, online, false);
+			JsonObject journal = JsonParser.parseString(prepared.cleanBytes()).getAsJsonObject();
+			JsonObject rows = journalRows(journal, online);
+			String otherKey = rows.entrySet().stream()
+					.filter(entry -> entry.getValue().getAsJsonObject().get("CachedBatchSourceRowId").getAsInt() == 42)
+					.map(java.util.Map.Entry::getKey).findFirst().orElseThrow();
+			rows.remove(otherKey);
+			JsonObject legacy = sourceRow(journal, online, 41);
+			legacy.addProperty("CachedBatchNumber", 0);
+			legacy.addProperty("CachedBatchSize", 0);
+			legacy.addProperty("CachedBatchSourceRowId", 0);
+			legacy.add("UnknownOptionalField", com.google.gson.JsonNull.INSTANCE);
+			legacy.addProperty("WasOnlineKnown", false);
+			legacy.add("WasOnline", com.google.gson.JsonNull.INSTANCE);
+			legacy.addProperty("DelayValidationKnown", false);
+			legacy.add("DelayValidated", com.google.gson.JsonNull.INSTANCE);
+			// A valid canonical VoteId takes precedence over this unused old alias.
+			legacy.add("VoteID", com.google.gson.JsonNull.INSTANCE);
+			Files.writeString(prepared.storage().getStoragePath(), journal.toString());
+			VoteCacheHandler restarted = sqlHandler(cache(velocity), online, List.of(), List.of());
+			restarted.load();
+			assertEquals(1, votes(restarted, online).size());
+			OfflineBungeeVote restored = votes(restarted, online).get(0);
+			assertEquals(prepared.identities().get(0), restored.getVoteId());
+			assertTrue(restored.isCachedVoteBatchValid());
+			assertFalse(restored.hasCachedVoteBatch());
+			assertTrue(restarted.prepareCachedVoteBatch(owner(online), online, List.of(restored), 1),
+					"unused null values blocked an otherwise valid legacy occurrence");
+			assertEquals(prepared.identities().get(0), restored.getVoteId());
+			assertTrue(restored.isCachedBatchDurable());
+			assertEquals(1, restored.getCachedBatchNumber());
+			assertEquals(1, restored.getCachedBatchSize());
+			verifyOnlyCheckedSqlReads(restarted);
+			VoteCacheHandler next = sqlHandler(cache(velocity), online, List.of(), List.of());
+			next.load();
+			assertEquals(1, votes(next, online).size());
+			assertEquals(restored.getVoteId(), votes(next, online).get(0).getVoteId());
+			assertTrue(votes(next, online).get(0).isCachedBatchDurable());
+			verifyOnlyCheckedSqlReads(next);
+		});
+	}
+
+	@TestFactory
+	Stream<DynamicTest> explicitNullBatchMetadataCannotBecomeLegacyWorkAfterFullReload() {
+		return lanes((velocity, online) -> {
+			List<List<String>> nullFields = List.of(List.of("CachedBatchNumber"), List.of("CachedBatchSize"),
+					List.of("CachedBatchSourceRowId"),
+					List.of("CachedBatchNumber", "CachedBatchSize", "CachedBatchSourceRowId"));
+			for (List<String> fields : nullFields) {
+				PreparedJournal prepared = preparedJournal(velocity, online, false);
+				JsonObject journal = JsonParser.parseString(prepared.cleanBytes()).getAsJsonObject();
+				JsonObject malformed = sourceRow(journal, online, 41);
+				fields.forEach(field -> malformed.add(field, com.google.gson.JsonNull.INSTANCE));
+				JsonObject retained = malformed.deepCopy();
+				String malformedBytes = journal.toString();
+				Files.writeString(prepared.storage().getStoragePath(), malformedBytes);
+				VoteCacheHandler restarted = sqlHandler(cache(velocity), online,
+						List.of(prepared.sqlVotes().get(0), prepared.sqlVotes().get(1), vote(null)), List.of(41, 42, 43));
+				for (int reload = 0; reload < 2; reload++) {
+					restarted.load();
+					var journalOwners = votes(restarted, online).stream()
+							.filter(vote -> prepared.identities().get(0).equals(vote.getVoteId())).toList();
+					assertTrue(journalOwners.size() <= 1, "null metadata duplicated the original journal identity: " + fields);
+					for (OfflineBungeeVote journalOwner : journalOwners) {
+						assertFalse(journalOwner.isCachedVoteBatchValid(), "null metadata became valid legacy work: " + fields);
+						assertFalse(journalOwner.isCachedBatchDurable());
+						assertFalse(restarted.prepareCachedVoteBatch(owner(online), online, List.of(journalOwner), 1));
+					}
+					OfflineBungeeVote originalSqlOwner = sqlRow(restarted, online, 41);
+					assertTrue(originalSqlOwner.getVoteId() == null
+							|| prepared.identities().get(0).equals(originalSqlOwner.getVoteId()));
+					assertFalse(restarted.prepareCachedVoteBatch(owner(online), online, List.of(originalSqlOwner), 1),
+							"null metadata allowed the legacy SQL owner to acquire a new identity: " + fields);
+					OfflineBungeeVote clean = sqlRow(restarted, online, 42), fresh = sqlRow(restarted, online, 43);
+					assertEquals(prepared.identities().get(1), clean.getVoteId());
+					assertTrue(clean.isCachedBatchDurable());
+					assertTrue(restarted.prepareCachedVoteBatch(owner(online), online, List.of(clean), 1));
+					assertFalse(restarted.prepareCachedVoteBatch(owner(online), online, List.of(fresh), 1));
+					assertNull(fresh.getVoteId());
+					assertFalse(fresh.hasCachedVoteBatch());
+					JsonObject raw = JsonParser.parseString(Files.readString(prepared.storage().getStoragePath())).getAsJsonObject();
+					JsonObject rawOwner = journalRows(raw, online).entrySet().stream()
+							.map(entry -> entry.getValue().getAsJsonObject())
+							.filter(row -> row.get("VoteId").getAsString().equals(prepared.identities().get(0).toString()))
+							.findFirst().orElseThrow();
+					assertEquals(retained, rawOwner, "full reload normalized the unresolved null metadata: " + fields);
+					assertEquals(malformedBytes, Files.readString(prepared.storage().getStoragePath()));
+				}
+				verifyOnlyCheckedSqlReads(restarted, 2);
+			}
+		});
+	}
+
+	@TestFactory
+	Stream<DynamicTest> malformedPositionsBindExactStableSqlIdsButNeverReusedRowPayloads() {
+		return lanes((velocity, online) -> {
+			PreparedJournal prepared = preparedJournal(velocity, online, true);
+			JsonObject journal = JsonParser.parseString(prepared.cleanBytes()).getAsJsonObject();
+			sourceRow(journal, online, 41).addProperty("CachedBatchNumber", 1.5);
+			String malformed = journal.toString();
+			Files.writeString(prepared.storage().getStoragePath(), malformed);
+			// A stable identity still binds when the SQL physical row moved.
+			VoteCacheHandler stable = sqlHandler(cache(velocity), online, prepared.sqlVotes(), List.of(51, 42));
+			stable.load();
+			assertEquals(2, votes(stable, online).size());
+			OfflineBungeeVote restored = sqlRow(stable, online, 51);
+			assertEquals(prepared.identities().get(0), restored.getVoteId());
+			assertFalse(restored.isCachedVoteBatchValid());
+			assertFalse(restored.isCachedBatchDurable());
+			assertFalse(stable.prepareCachedVoteBatch(owner(online), online, List.of(restored), 1));
+			assertEquals(malformed, Files.readString(prepared.storage().getStoragePath()));
+			verifyOnlyCheckedSqlReads(stable);
+
+			// Reusing the old physical row for another occurrence must not claim the old identity.
+			OfflineBungeeVote replacement = new OfflineBungeeVote((UUID) null, "test-player", PLAYER,
+					"test-service", 100L, false, "other-totals");
+			VoteCacheHandler reused = sqlHandler(cache(velocity), online,
+					List.of(replacement, prepared.sqlVotes().get(1), vote(null)), List.of(41, 42, 43));
+			reused.load();
+			OfflineBungeeVote replacementOwner = sqlRow(reused, online, 41);
+			assertNull(replacementOwner.getVoteId());
+			assertFalse(replacementOwner.hasCachedVoteBatch());
+			assertEquals(3, votes(reused, online).size(), "unmatched linked journal became a new reward owner");
+			assertFalse(reused.prepareCachedVoteBatch(owner(online), online, List.of(replacementOwner), 1));
+			assertFalse(reused.prepareCachedVoteBatch(owner(online), online, List.of(sqlRow(reused, online, 43)), 1));
+			assertTrue(reused.prepareCachedVoteBatch(owner(online), online, List.of(sqlRow(reused, online, 42)), 1));
+			assertEquals(malformed, Files.readString(prepared.storage().getStoragePath()));
+			verifyOnlyCheckedSqlReads(reused);
 		});
 	}
 

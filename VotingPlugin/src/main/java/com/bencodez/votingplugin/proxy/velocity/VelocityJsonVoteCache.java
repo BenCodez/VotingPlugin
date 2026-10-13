@@ -24,6 +24,8 @@ import com.bencodez.votingplugin.util.DurableFiles;
 
 import org.spongepowered.configurate.gson.GsonConfigurationLoader;
 
+import com.google.gson.JsonObject;
+
 /**
  * JSON-based vote cache implementation for Velocity proxy.
  */
@@ -95,8 +97,12 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 	public synchronized void saveDurably() throws IOException {
 		if (writesPaused) throw new IOException("Vote cache writes require a successful reload");
 		Path target = getStoragePath().toAbsolutePath().normalize();
+		JsonObject previous = null;
 		if (journalLoaded) {
-			try { PendingPluginMessageVotePartyRewards.fromCacheJson(VoteCacheDurability.readJournal(target)); }
+			try {
+				previous = VoteCacheDurability.readJournal(target);
+				PendingPluginMessageVotePartyRewards.fromCacheJson(previous);
+			}
 			catch (IOException | RuntimeException failure) {
 				writesPaused = true;
 				throw new IOException("Vote cache is unreadable; reload is required before saving", failure);
@@ -114,6 +120,11 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 				Files.writeString(staged, "{}", StandardCharsets.UTF_8);
 			} else {
 				GsonConfigurationLoader.builder().path(staged).build().save(getConf());
+			}
+			JsonObject candidate = VoteCacheDurability.readJournal(staged);
+			if (previous != null && hasEmergencyJournalMarker()
+					&& VoteCacheDurability.preserveUnresolvedCacheRows(previous, candidate)) {
+				Files.writeString(staged, candidate.toString(), StandardCharsets.UTF_8);
 			}
 			PendingPluginMessageVotePartyRewards.fromCacheJson(VoteCacheDurability.readJournal(staged));
 			DurableFiles.publishStagedFile(staged, target);

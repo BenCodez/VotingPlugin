@@ -45,6 +45,88 @@ public final class VoteCacheDurability {
 		}
 	}
 
+	/** Retains opaque recovery records while an unrelated healthy vote is updated or removed. */
+	public static boolean preserveUnresolvedCacheRows(JsonObject previous, JsonObject candidate) {
+		boolean changed = false;
+		// JSON adapters may omit null/empty children. Successful updates of healthy votes
+		// must not erase another record's unresolved recovery evidence.
+		for (String lane : new String[] {"VoteCache", "OnlineCache"}) {
+			if (!previous.has(lane)) continue;
+			JsonElement owners = previous.get(lane);
+			if (!owners.isJsonObject()) { changed |= preserveValue(candidate, lane, owners); continue; }
+			for (var owner : owners.getAsJsonObject().entrySet()) {
+				if (!owner.getValue().isJsonObject()) {
+					changed |= preserveValue(objectChild(candidate, lane), owner.getKey(), owner.getValue());
+					continue;
+				}
+				for (var row : owner.getValue().getAsJsonObject().entrySet())
+					if (unresolvedRow(row.getValue()))
+						changed |= preserveValue(objectChild(objectChild(candidate, lane), owner.getKey()),
+								row.getKey(), row.getValue());
+			}
+		}
+		return changed;
+	}
+
+	private static JsonObject objectChild(JsonObject parent, String key) {
+		if (!parent.has(key) || !parent.get(key).isJsonObject()) parent.add(key, new JsonObject());
+		return parent.getAsJsonObject(key);
+	}
+
+	private static boolean unresolvedRow(JsonElement row) {
+		if (!row.isJsonObject()) return true;
+		JsonObject data = row.getAsJsonObject();
+		if (hasUndecodableVoteFields(data)) return true;
+		if (!data.has("CachedBatchNumber") && !data.has("CachedBatchSize")
+				&& !data.has("CachedBatchSourceRowId")) return false;
+		try {
+			for (String field : new String[] {"Name", "UUID", "Service", "Text"})
+				if (!data.has(field) || !data.get(field).isJsonPrimitive()
+						|| !data.getAsJsonPrimitive(field).isString()) return true;
+			if (!data.has("Real") || !data.get("Real").isJsonPrimitive()
+					|| !data.getAsJsonPrimitive("Real").isBoolean()
+					|| !data.has("Time") || !data.get("Time").isJsonPrimitive()
+					|| !data.getAsJsonPrimitive("Time").isNumber()) return true;
+			new java.math.BigDecimal(data.get("Time").getAsString()).longValueExact();
+			int[] values = new int[3];
+			String[] fields = {"CachedBatchNumber", "CachedBatchSize", "CachedBatchSourceRowId"};
+			for (int i = 0; i < fields.length; i++) {
+				if (!data.has(fields[i]) || !data.get(fields[i]).isJsonPrimitive()
+						|| !data.getAsJsonPrimitive(fields[i]).isNumber()) return true;
+				values[i] = new java.math.BigDecimal(data.get(fields[i]).getAsString()).intValueExact();
+			}
+			return values[2] < 0 || !(values[0] == 0 && values[1] == 0
+					|| values[0] > 0 && values[0] <= values[1]);
+		} catch (RuntimeException invalid) { return true; }
+	}
+
+	private static boolean hasUndecodableVoteFields(JsonObject data) {
+		// Match fields which recovery actually reads, including optional delivery state.
+		// Do not classify unused/unknown null fields as broken legacy ownership.
+		for (String field : new String[] {"Name", "UUID", "Service", "Time", "Real", "Text",
+				"BroadcastForwarded", "ProxyBroadcastHandled", "BroadcastTargets", "BroadcastForwardedServers",
+				"HttpDeliveryIds", "HttpBroadcastDeliveryIds", "RewardDelivered", "WasOnlineKnown",
+				"DelayValidationKnown"})
+			if (data.has(field) && !data.get(field).isJsonPrimitive()) return true;
+		String idField = data.has("VoteId") ? "VoteId" : "VoteID";
+		if (data.has(idField)) {
+			if (!data.get(idField).isJsonPrimitive()) return true;
+			String id = data.get(idField).getAsString();
+			try { if (!id.isEmpty()) java.util.UUID.fromString(id); }
+			catch (IllegalArgumentException invalid) { return true; }
+		}
+		if (data.has("WasOnlineKnown") && data.get("WasOnlineKnown").getAsBoolean()
+				&& data.has("WasOnline") && !data.get("WasOnline").isJsonPrimitive()) return true;
+		return data.has("DelayValidationKnown") && data.get("DelayValidationKnown").getAsBoolean()
+				&& data.has("DelayValidated") && !data.get("DelayValidated").isJsonPrimitive();
+	}
+
+	private static boolean preserveValue(JsonObject parent, String key, JsonElement value) {
+		if (value.equals(parent.get(key))) return false;
+		parent.add(key, value.deepCopy());
+		return true;
+	}
+
 	/** Enforces JSON lexical rules which older Gson non-lenient readers leave permissive. */
 	private static final class StrictJsonInput extends java.io.FilterReader {
 		private boolean firstCharacter = true;
