@@ -12,7 +12,6 @@ import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.simpleapi.time.ParsedDuration;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.VotingPluginUser;
-import com.bencodez.votingplugin.util.ServiceSiteValidator;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -20,7 +19,6 @@ import lombok.Setter;
 public class VoteSite {
 	@Getter
 	private String displayName;
-	private boolean displayNameFallback;
 
 	@Getter
 	@Setter
@@ -159,12 +157,9 @@ public class VoteSite {
 
 	private RewardBuilder createRewardBuilder(String path, boolean online, boolean bungee) {
 		// Reward placeholders also feed commands and other exact-value actions. The
-		// service identifier is already validated at ingress, so preserve it here;
-		// display-only callers use getServiceSiteForFormatting() instead.
+		// service identifier is already validated at ingress, so preserve it here.
 		return new RewardBuilder(plugin.getConfigVoteSites().getData(), path).setOnline(online)
 				.withPlaceHolder("ServiceSite", getServiceSite()).withPlaceHolder("SiteName", getDisplayName())
-				.withDisplayPlaceHolder("ServiceSite", getServiceSiteForFormatting())
-				.withDisplayPlaceHolder("SiteName", getDisplayNameForFormatting())
 				.withPlaceHolder("VoteDelay", "" + getVoteDelay()).withPlaceHolder("VoteURL", getVoteURL())
 				.setServer(bungee);
 	}
@@ -174,20 +169,19 @@ public class VoteSite {
 				plugin.getConfigVoteSites().getRewardsPath(key));
 	}
 
-	/** Returns the configured service identifier guarded for trusted templates. */
+	/** Compatibility accessor returning the unchanged release formatting input. */
 	public String getServiceSiteForFormatting() {
-		return ServiceSiteValidator.inertForFormatting(getServiceSite());
+		return getServiceSite();
 	}
 
 	/** Sets an administrator-controlled display name. */
 	public void setDisplayName(String displayName) {
 		this.displayName = displayName;
-		this.displayNameFallback = false;
 	}
 
-	/** Returns the site label guarded only when it falls back to an external site key. */
+	/** Returns the configured or fallback label without additional formatting guards. */
 	public String getDisplayNameForFormatting() {
-		return displayNameFallback ? ServiceSiteValidator.inertForFormatting(getDisplayName()) : getDisplayName();
+		return getDisplayName();
 	}
 
 	/**
@@ -200,8 +194,7 @@ public class VoteSite {
 		setEnabled(plugin.getConfigVoteSites().getVoteSiteEnabled(key));
 		setPriority(plugin.getConfigVoteSites().getPriority(key));
 		displayName = plugin.getConfigVoteSites().getDisplayName(key);
-		displayNameFallback = displayName == null || displayName.equals("");
-		if (displayNameFallback) {
+		if (displayName == null || displayName.equals("")) {
 			displayName = key;
 		}
 		item = plugin.getConfigVoteSites().getItem(key);
