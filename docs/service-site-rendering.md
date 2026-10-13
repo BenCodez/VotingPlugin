@@ -1,33 +1,42 @@
 # Voting-service identifiers and displayed names
 
-Ordinary voting-site names retain their text, without WORD JOINER or other
-font-dependent guards. External display values have an ASCII space on each side
-to prevent adjacent template text from completing a formatting token. For example,
-`[%SiteName%]` renders `[ Javascript=1 ]` for the literal service `Javascript=1`,
-rather than creating an executable rich-format token. Administrator-authored display-name colors and placeholders
-remain supported. The exact service identifier is preserved for matching,
-action placeholders, and queued-vote recovery.
+Bukkit/Paper site-name formatting follows the GitHub VotingPlugin `7.1.1` release baseline
+(`39f4717f363beb1d338b353a060630eba6b60cbb`). Configured display names and
+fallback site keys enter the existing formatter unchanged. No extra leading or
+trailing spaces, invisible separators, or printable delimiter substitutions are
+inserted. For example, `&7Site: &e%SiteName%` with `Minecraft Menu` displays
+`Site: Minecraft Menu`, and `[%SiteName%]` displays `[Minecraft Menu]`.
+Administrator-authored colors, placeholders and intentional whitespace retain
+the release behavior. `R&D` remains `R&D` in formatting input.
 
-Display-only values originating from external service identifiers or fallback
-site keys use printable ASCII labels for interpreter delimiters: `&` becomes
-`(ampersand)`, `%` becomes `(percent)`, `§` becomes `(section)`, and braces become
-`(open brace)` / `(close brace)`. This avoids executing color/placeholder syntax
-without relying on font support for hidden Unicode guards. For example, a legacy
-`R&D` identifier matches exactly as before but its fallback display is
-`R(ampersand)D`. An explicit trusted `DisplayName` can provide a preferred label.
+The exact service identifier remains unchanged for matching, actions, storage
+and proxy communication. Compatibility accessors `getDisplayNameForFormatting`,
+`getServiceSiteForFormatting` remain available; their historical names do not
+promise literal insertion or interpreter isolation.
+All Bukkit GUI, book, dialog, broadcast, cooldown, reward and reminder callers
+use the original raw getters. Display-only reward/reminder overrides introduced
+with the guard are removed. Compatibility accessors simply return those values;
+they are not an active formatting path. No AdvancedCore literal-rendering
+extension is required.
 
-This also protects already-persisted auto-created sites. It does not rename site
-keys or change reward action identifiers. Existing service-name acceptance and
-persisted ingress journals remain compatible: names containing `&` or `%`,
-including legacy URL-shaped identifiers, remain replayable. Structural delimiters
-such as quotes, brackets, backticks and backslashes, section-sign formatting codes, control characters and
-oversized identifiers retain their existing rejection rules. Delayed-vote rejection messages additionally accept bounded legacy punctuation
-for an enabled, loaded site whose configured `ServiceSite` matches (case-insensitively),
-resolved without auto-creation. Display-name and YAML-key aliases alone cannot
-authorize these legacy rejection rewards; unknown malformed
-names, control characters and oversized values remain rejected before user lookup.
-Legacy brackets, quotes, backticks and backslashes use printable display labels too. `VoteURL` is unchanged.
+This deliberately restores the release's formatting trust semantics. The later
+external-identifier guards are removed: external or fallback text can once again
+participate in the configured color, placeholder or rich-text interpretation.
+This change does not claim the previous protection against tokens formed across
+placeholder boundaries. Input validation, bounded single-line logging, raw vote
+identity, asynchronous reward ordering and delivery bookkeeping are retained.
+The separate NeoForge replay adapter was not part of release `7.1.1`; its guarded
+expansion and the shared `inertForFormatting` helper are unchanged.
 
-No configuration or data migration is required. Minecraft client rendering of
-the new printable labels has not been visually verified; automated tests cover
-literal display values, trusted labels, queued-vote recovery and reward routing.
+New auto-created sites use the release's original reward-message template,
+`&aThanks for voting on %ServiceSite%!`. Existing site files and configured
+messages are preserved; no configuration or database migration is required.
+
+Proxy receipt logs sanitize player names using the Minecraft-username sanitizer
+and service identifiers using the separate service-site sanitizer. Service dots,
+hyphens, spaces and ordinary punctuation survive; controls and unsupported
+formatting characters cannot add log lines, and output remains bounded.
+These display/log representations do not alter the received vote's identity.
+
+Automated component tests check final visible text and the actual BungeeCord and
+Velocity receipt-log paths. Native Minecraft client rendering is not claimed.

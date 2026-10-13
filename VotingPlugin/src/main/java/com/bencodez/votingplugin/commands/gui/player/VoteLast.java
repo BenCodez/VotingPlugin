@@ -71,7 +71,7 @@ public class VoteLast extends GUIHandler {
 				continue;
 			}
 
-			dialog.placeholder("sitename", site.getDisplayNameForFormatting()).button(site.getDisplayNameForFormatting(),
+			dialog.placeholder("sitename", site.getDisplayName()).button(site.getDisplayName(),
 					user.voteCommandLastLine(site), payload -> {
 
 						if (plugin.getGui().isChestVoteLastClickableLinks()) {
@@ -83,7 +83,7 @@ public class VoteLast extends GUIHandler {
 
 								HashMap<String, String> placeholders = new HashMap<String, String>();
 								placeholders.put("voteurl", site.getVoteURL());
-								placeholders.put("sitename", site.getDisplayNameForFormatting());
+								placeholders.put("sitename", site.getDisplayName());
 								placeholders.put("player", clicked.getName());
 
 								clickedUser.sendMessage(plugin.getGui().getChestVoteURLURLText(), placeholders);
@@ -121,7 +121,7 @@ public class VoteLast extends GUIHandler {
 		for (VoteSite site : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
 			if (!site.isHidden()) {
 				inv.addButton(inv.getNextSlot(),
-						new UpdatingBInventoryButton(plugin, site.getItem().setName(site.getDisplayNameForFormatting())
+						new UpdatingBInventoryButton(plugin, site.getItem().setName(site.getDisplayName())
 								.setLore(user.voteCommandLastGUILine(site)).setAmountNone(1), 1000, 1000) {
 
 							@Override
@@ -139,7 +139,7 @@ public class VoteLast extends GUIHandler {
 																				plugin.getGui()
 																						.getChestVoteURLURLText(),
 																				"voteurl", site.getVoteURL()),
-																		"sitename", site.getDisplayNameForFormatting()),
+																		"sitename", site.getDisplayName()),
 																"player", player.getName()));
 
 									}
@@ -148,7 +148,7 @@ public class VoteLast extends GUIHandler {
 
 							@Override
 							public ItemBuilder onUpdate(Player p) {
-								return site.getItem().setName(site.getDisplayNameForFormatting())
+								return site.getItem().setName(site.getDisplayName())
 										.setLore(user.voteCommandLastGUILine(site)).setAmountNone(1);
 							}
 						});

@@ -55,15 +55,14 @@ public class VoteSiteTest {
 	}
 
 	@Test
-	void legacyAutoCreatedFallbackIsVisibleAndInertWhileIdentityStaysExact() {
+	void legacyAutoCreatedFallbackMatchesReleaseWhileIdentityStaysExact() {
 		for (String name : new String[] { "&kSpoofed", "%player_name%", "R&D" }) {
 			when(plugin.getConfigVoteSites().getDisplayName(name)).thenReturn("");
 			VoteSite site = new VoteSite(plugin, name);
 			site.setServiceSite(name);
 			assertEquals(name, site.getServiceSite());
 			assertEquals(name, site.getDisplayName());
-			assertFalse(site.getDisplayNameForFormatting().contains("&"));
-			assertFalse(site.getDisplayNameForFormatting().contains("%"));
+			assertEquals(name, site.getDisplayNameForFormatting());
 			assertFalse(site.getDisplayNameForFormatting().contains("\u2060"));
 		}
 	}
@@ -83,10 +82,10 @@ public class VoteSiteTest {
 	}
 
 	@Test
-	public void serviceSiteFormattingCannotJoinSurroundingColorCodes() {
+	public void serviceSiteFormattingReturnsTheUnchangedReleaseValue() {
 		VoteSite voteSite = new VoteSite(plugin, "site.test");
 
-		assertEquals(" ServiceSite ", voteSite.getServiceSiteForFormatting());
+		assertEquals("ServiceSite", voteSite.getServiceSiteForFormatting());
 		assertFalse(voteSite.getServiceSiteForFormatting().contains("\u2060"));
 	}
 
@@ -100,12 +99,12 @@ public class VoteSiteTest {
 		RewardBuilder builder = (RewardBuilder) factory.invoke(voteSite, "Rewards", true, false);
 
 		assertEquals("ServiceSite", builder.getRewardOptions().getPlaceholders().get("ServiceSite"));
-		assertEquals(" ServiceSite ", RewardDisplayPlaceholders
+		assertEquals("ServiceSite", RewardDisplayPlaceholders
 				.forDisplay(builder.getRewardOptions().getPlaceholders()).get("ServiceSite"));
 	}
 
 	@Test
-	public void fallbackDisplayNameStaysRawForActionsAndGuardedForFormatting() throws Exception {
+	public void fallbackDisplayNameMatchesReleaseForActionsAndFormatting() throws Exception {
 		when(plugin.getConfigVoteSites().getDisplayName(anyString())).thenReturn("");
 		VoteSite voteSite = new VoteSite(plugin, "site.test");
 		java.lang.reflect.Method factory = VoteSite.class.getDeclaredMethod("createRewardBuilder", String.class,
@@ -115,7 +114,7 @@ public class VoteSiteTest {
 
 		assertEquals("site_test", voteSite.getDisplayName());
 		assertEquals("site_test", builder.getRewardOptions().getPlaceholders().get("SiteName"));
-		assertEquals(" site_test ", voteSite.getDisplayNameForFormatting());
+		assertEquals("site_test", voteSite.getDisplayNameForFormatting());
 		assertFalse(voteSite.getDisplayNameForFormatting().contains("\u2060"));
 		assertEquals(voteSite.getDisplayNameForFormatting(), RewardDisplayPlaceholders
 				.forDisplay(builder.getRewardOptions().getPlaceholders()).get("SiteName"));
