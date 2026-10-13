@@ -843,7 +843,7 @@ public abstract class VoteCacheHandler {
 			return false;
 		}
 		try {
-			Collection<String> keys = jsonStorage.getServerVotes(server);
+			Collection<String> keys = reservedJournalKeys(server, false);
 			int index = nextCacheIndex(keys);
 			vote.setServerVoteCacheJsonKey(String.valueOf(index));
 			jsonStorage.addVote(server, index, vote);
@@ -868,7 +868,7 @@ public abstract class VoteCacheHandler {
 			return false;
 		}
 		try {
-			Collection<String> keys = jsonStorage.getOnlineVotes(uuid);
+			Collection<String> keys = reservedJournalKeys(uuid, true);
 			int index = nextCacheIndex(keys);
 			vote.setOnlineVoteCacheJsonKey(String.valueOf(index));
 			jsonStorage.addVoteOnline(uuid, index, vote);
@@ -876,6 +876,28 @@ public abstract class VoteCacheHandler {
 		} catch (RuntimeException e) {
 			debug1(e);
 			return false;
+		}
+	}
+
+	private Collection<String> reservedJournalKeys(String owner, boolean online) {
+		Collection<String> loaded = online ? jsonStorage.getOnlineVotes(owner) : jsonStorage.getServerVotes(owner);
+		Set<String> keys = new LinkedHashSet<>();
+		if (loaded != null) keys.addAll(loaded);
+		Path path = jsonStorage.getStoragePath();
+		if (path == null) return keys;
+		try {
+			var document = VoteCacheDurability.readJournal(path);
+			String lane = online ? "OnlineCache" : "VoteCache";
+			if (!document.has(lane)) return keys;
+			var owners = document.get(lane);
+			if (!owners.isJsonObject()) throw new IllegalStateException("Unresolved cache lane structure");
+			if (!owners.getAsJsonObject().has(owner)) return keys;
+			var rows = owners.getAsJsonObject().get(owner);
+			if (!rows.isJsonObject()) throw new IllegalStateException("Unresolved cache owner structure");
+			for (var entry : rows.getAsJsonObject().entrySet()) keys.add(entry.getKey());
+			return keys;
+		} catch (IOException failure) {
+			throw new IllegalStateException("Unable to reserve persisted vote journal keys", failure);
 		}
 	}
 

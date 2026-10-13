@@ -67,7 +67,8 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 			var loaded = GsonConfigurationLoader.builder()
 					.source(() -> new java.io.BufferedReader(new java.io.StringReader(document.toString())))
 					.build().load();
-			if (!loaded.isMap()) throw new IOException("Vote cache must contain a JSON object");
+			// readJournal already verifies the raw object. Configurate can normalize
+			// an object containing only null cache entries to an empty root.
 			super.setConf(loaded);
 			writesPaused = false;
 			journalLoaded = true;

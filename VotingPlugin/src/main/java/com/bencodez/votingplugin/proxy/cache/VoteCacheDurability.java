@@ -122,9 +122,58 @@ public final class VoteCacheDurability {
 	}
 
 	private static boolean preserveValue(JsonObject parent, String key, JsonElement value) {
-		if (value.equals(parent.get(key))) return false;
-		parent.add(key, value.deepCopy());
+		JsonElement current = parent.get(key);
+		JsonElement retained = value.deepCopy();
+		if (sameRecoveryOwner(value, current)) {
+			// Keep corrupt identity/position evidence, but persist actual completion
+			// progress of the same owner instead of silently reverting that update.
+			JsonObject original = retained.getAsJsonObject(), updated = current.getAsJsonObject();
+			for (String field : new String[] {"BroadcastForwarded", "ProxyBroadcastHandled", "BroadcastTargets",
+					"BroadcastForwardedServers", "HttpDeliveryIds", "HttpBroadcastDeliveryIds", "RewardDelivered",
+					"WasOnlineKnown", "WasOnline", "DelayValidationKnown", "DelayValidated"})
+				if (updated.has(field)) original.add(field, updated.get(field).deepCopy());
+		}
+		if (retained.equals(current)) return false;
+		parent.add(key, retained);
 		return true;
+	}
+
+	private static boolean sameRecoveryOwner(JsonElement previous, JsonElement candidate) {
+		if (candidate == null || !previous.isJsonObject() || !candidate.isJsonObject()) return false;
+		JsonObject left = previous.getAsJsonObject(), right = candidate.getAsJsonObject();
+		try {
+			java.util.UUID leftId = recoveryVoteId(left), rightId = recoveryVoteId(right);
+			if (leftId != null || rightId != null) return leftId != null && leftId.equals(rightId);
+			if (!left.has("CachedBatchSourceRowId") || !right.has("CachedBatchSourceRowId")
+					|| !left.get("CachedBatchSourceRowId").isJsonPrimitive()
+					|| !right.get("CachedBatchSourceRowId").isJsonPrimitive()
+					|| !left.getAsJsonPrimitive("CachedBatchSourceRowId").isNumber()
+					|| !right.getAsJsonPrimitive("CachedBatchSourceRowId").isNumber()) return false;
+			int source = new java.math.BigDecimal(left.get("CachedBatchSourceRowId").getAsString()).intValueExact();
+			if (source <= 0 || source != new java.math.BigDecimal(right.get("CachedBatchSourceRowId")
+					.getAsString()).intValueExact()) return false;
+			for (String field : new String[] {"Name", "UUID", "Service", "Text"})
+				if (!left.has(field) || !right.has(field) || !left.get(field).isJsonPrimitive()
+						|| !right.get(field).isJsonPrimitive() || !left.getAsJsonPrimitive(field).isString()
+						|| !right.getAsJsonPrimitive(field).isString() || !left.get(field).equals(right.get(field))) return false;
+			return left.has("Real") && right.has("Real") && left.get("Real").isJsonPrimitive()
+					&& right.get("Real").isJsonPrimitive() && left.getAsJsonPrimitive("Real").isBoolean()
+					&& right.getAsJsonPrimitive("Real").isBoolean() && left.get("Real").equals(right.get("Real"))
+					&& left.has("Time") && right.has("Time") && left.get("Time").isJsonPrimitive()
+					&& right.get("Time").isJsonPrimitive() && left.getAsJsonPrimitive("Time").isNumber()
+					&& right.getAsJsonPrimitive("Time").isNumber()
+					&& new java.math.BigDecimal(left.get("Time").getAsString()).longValueExact()
+					== new java.math.BigDecimal(right.get("Time").getAsString()).longValueExact();
+		} catch (RuntimeException invalid) { return false; }
+	}
+
+	private static java.util.UUID recoveryVoteId(JsonObject data) {
+		String field = data.has("VoteId") ? "VoteId" : "VoteID";
+		if (!data.has(field)) return null;
+		if (!data.get(field).isJsonPrimitive() || !data.getAsJsonPrimitive(field).isString())
+			throw new IllegalArgumentException("Invalid persisted vote identity");
+		String value = data.get(field).getAsString();
+		return value.isEmpty() ? null : java.util.UUID.fromString(value);
 	}
 
 	/** Enforces JSON lexical rules which older Gson non-lenient readers leave permissive. */

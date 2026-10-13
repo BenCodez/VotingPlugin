@@ -893,6 +893,104 @@ class CachedVoteBatchDurabilityTest {
 	}
 
 	@TestFactory
+	Stream<DynamicTest> sqlInsertFallbackReservesRawNullKeysAndRetainsNewVoteIdentity() {
+		return lanes((velocity, online) -> {
+			PreparedJournal prepared = preparedJournal(velocity, online, false);
+			JsonObject journal = JsonParser.parseString(prepared.cleanBytes()).getAsJsonObject();
+			JsonObject rows = new JsonObject(), owners = new JsonObject();
+			rows.add("0", com.google.gson.JsonNull.INSTANCE);
+			owners.add(owner(online), rows);
+			journal.add(online ? "OnlineCache" : "VoteCache", owners);
+			Files.writeString(prepared.storage().getStoragePath(), journal.toString());
+			IVoteCache storage = cache(velocity);
+			VoteCacheHandler recovering = sqlHandler(storage, online, List.of(), List.of());
+			recovering.load();
+			OfflineBungeeVote fresh = vote(UUID.randomUUID());
+			// The SQL mock returns zero for insertion, exercising the actual emergency fallback.
+			add(recovering, online, fresh);
+			assertEquals("1", online ? fresh.getOnlineVoteCacheJsonKey() : fresh.getServerVoteCacheJsonKey());
+			JsonObject saved = JsonParser.parseString(Files.readString(storage.getStoragePath())).getAsJsonObject();
+			assertTrue(journalRows(saved, online).has("0"));
+			assertTrue(journalRows(saved, online).get("0").isJsonNull());
+			assertEquals(fresh.getVoteId().toString(), journalRows(saved, online).getAsJsonObject("1").get("VoteId").getAsString());
+			assertFalse(recovering.prepareCachedVoteBatch(owner(online), online, List.of(fresh), 1));
+			assertFalse(fresh.hasCachedVoteBatch());
+			VoteCacheHandler restarted = sqlHandler(cache(velocity), online, List.of(), List.of());
+			restarted.load();
+			assertEquals(1, votes(restarted, online).size());
+			OfflineBungeeVote restored = votes(restarted, online).get(0);
+			assertEquals(fresh.getVoteId(), restored.getVoteId());
+			assertEquals("1", online ? restored.getOnlineVoteCacheJsonKey() : restored.getServerVoteCacheJsonKey());
+			assertFalse(restarted.prepareCachedVoteBatch(owner(online), online, List.of(restored), 1));
+			JsonObject reopened = JsonParser.parseString(Files.readString(storage.getStoragePath())).getAsJsonObject();
+			assertEquals(journalRows(saved, online), journalRows(reopened, online));
+			verifyOnlyCheckedSqlReads(restarted);
+		});
+	}
+
+	@TestFactory
+	Stream<DynamicTest> invalidBatchOwnerDeliveryUpdatesPersistWithoutReplacingReplayEvidence() {
+		return lanes((velocity, online) -> {
+			PreparedJournal prepared = preparedJournal(velocity, online, false);
+			JsonObject journal = JsonParser.parseString(prepared.cleanBytes()).getAsJsonObject();
+			JsonObject malformed = sourceRow(journal, online, 41);
+			malformed.addProperty("CachedBatchNumber", "invalid-position");
+			Files.writeString(prepared.storage().getStoragePath(), journal.toString());
+			IVoteCache storage = cache(velocity);
+			VoteCacheHandler recovering = sqlHandler(storage, online, prepared.sqlVotes(), List.of(41, 42));
+			recovering.load();
+			OfflineBungeeVote invalid = sqlRow(recovering, online, 41), clean = sqlRow(recovering, online, 42);
+			assertEquals(prepared.identities().get(0), invalid.getVoteId());
+			assertEquals(41, invalid.getCachedBatchSourceRowId());
+			assertFalse(invalid.isCachedVoteBatchValid());
+			assertFalse(invalid.isCachedBatchDurable());
+			ProxyVoteCacheTable serverTable = (ProxyVoteCacheTable) getField(recovering, "voteCacheTable");
+			ProxyOnlineVoteCacheTable onlineTable = (ProxyOnlineVoteCacheTable) getField(recovering, "onlineVoteCacheTable");
+			if (online) when(onlineTable.updateProxyBroadcastState(any())).thenReturn(true);
+			else when(serverTable.updateProxyBroadcastState(any(), eq(BACKEND))).thenReturn(true);
+			invalid.setRewardDelivered(true);
+			assertTrue(online ? recovering.updateOnlineVote(PLAYER, invalid) : recovering.updateServerVote(BACKEND, invalid));
+			// The next checked SQL snapshot reflects the successful SQL delivery-state update.
+			prepared.sqlVotes().get(0).setRewardDelivered(true);
+			JsonObject expected = malformed.deepCopy();
+			expected.addProperty("RewardDelivered", true);
+			JsonObject updated = JsonParser.parseString(Files.readString(storage.getStoragePath())).getAsJsonObject();
+			assertEquals(expected, sourceRow(updated, online, 41), "delivery success did not preserve updated flags and original evidence");
+			assertFalse(recovering.prepareCachedVoteBatch(owner(online), online, List.of(invalid), 1));
+
+			clean.setRewardDelivered(true);
+			assertTrue(online ? recovering.updateOnlineVote(PLAYER, clean) : recovering.updateServerVote(BACKEND, clean));
+			JsonObject healthyUpdated = JsonParser.parseString(Files.readString(storage.getStoragePath())).getAsJsonObject();
+			assertTrue(sourceRow(healthyUpdated, online, 42).get("RewardDelivered").getAsBoolean());
+			remove(recovering, online, clean);
+			JsonObject afterRemoval = JsonParser.parseString(Files.readString(storage.getStoragePath())).getAsJsonObject();
+			assertEquals(expected, sourceRow(afterRemoval, online, 41));
+			assertEquals(1, journalRows(afterRemoval, online).size());
+
+			// A different occurrence written at the occupied key cannot claim its delivery state or evidence.
+			String occupiedKey = journalRows(afterRemoval, online).keySet().iterator().next();
+			OfflineBungeeVote differentIdentity = vote(UUID.randomUUID());
+			differentIdentity.setRewardDelivered(false);
+			if (online) storage.addVoteOnline(PLAYER, Integer.parseInt(occupiedKey), differentIdentity);
+			else storage.addVote(BACKEND, Integer.parseInt(occupiedKey), differentIdentity);
+			storage.saveDurably();
+			JsonObject guarded = JsonParser.parseString(Files.readString(storage.getStoragePath())).getAsJsonObject();
+			assertEquals(expected, journalRows(guarded, online).getAsJsonObject(occupiedKey));
+			VoteCacheHandler restarted = sqlHandler(cache(velocity), online, List.of(prepared.sqlVotes().get(0)), List.of(41));
+			restarted.load();
+			assertEquals(1, votes(restarted, online).size());
+			OfflineBungeeVote restored = sqlRow(restarted, online, 41);
+			assertEquals(invalid.getVoteId(), restored.getVoteId());
+			assertTrue(restored.isRewardDelivered());
+			assertFalse(restored.isCachedVoteBatchValid());
+			assertFalse(restored.isCachedBatchDurable());
+			assertFalse(restarted.prepareCachedVoteBatch(owner(online), online, List.of(restored), 1));
+			assertEquals(expected, sourceRow(JsonParser.parseString(Files.readString(storage.getStoragePath())).getAsJsonObject(), online, 41));
+			verifyOnlyCheckedSqlReads(restarted);
+		});
+	}
+
+	@TestFactory
 	Stream<DynamicTest> unusedNullFieldsAndIgnoredVoteIdAliasStillAllowLegacyBatchStaging() {
 		return lanes((velocity, online) -> {
 			PreparedJournal prepared = preparedJournal(velocity, online, false);
