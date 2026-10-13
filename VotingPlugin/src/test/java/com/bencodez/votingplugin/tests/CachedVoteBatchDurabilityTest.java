@@ -1048,14 +1048,16 @@ class CachedVoteBatchDurabilityTest {
 	}
 
 	@TestFactory
-	Stream<DynamicTest> velocityMalformedTimedRecordsQuarantineWholeJournalWithoutLosingOwners() {
-		return Stream.of(false, true).flatMap(adjacent -> Stream.of("\n", "\r\n").flatMap(separator ->
-				Stream.of("null-lane", "null-row", "empty-row", "null-only-row", "scalar-row", "array-row")
-				.map(shape -> DynamicTest.dynamicTest(shape + "/adjacent=" + adjacent + "/CRLF=" + separator.equals("\r\n"), () -> {
+	Stream<DynamicTest> malformedTimedRecordsQuarantineWholeJournalWithoutLosingOwners() {
+		return Stream.of(false, true).flatMap(velocity -> Stream.of(false, true).flatMap(adjacent -> Stream.of("\n", "\r\n").flatMap(separator ->
+				Stream.of("null-lane", "null-row", "empty-row", "null-only-row", "scalar-row", "array-row",
+						"unknown-null-row", "unknown-prose-row", "nested-row", "array-field-row",
+						"aliased-key", "overflow-key", "negative-key", "text-key", "unicode-key")
+				.map(shape -> DynamicTest.dynamicTest((velocity ? "Velocity/" : "Bungee/") + shape + "/adjacent=" + adjacent + "/CRLF=" + separator.equals("\r\n"), () -> {
 					Path factoryDirectory = directory;
 					directory = Files.createTempDirectory(factoryDirectory, "timed-boundary-");
 					try {
-						IVoteCache storage = cache(true);
+						IVoteCache storage = cache(velocity);
 						var timedVote = new com.bencodez.votingplugin.timequeue.VoteTimeQueue(
 								UUID.randomUUID(), "tést-player", "service-雪", 100L);
 						storage.addTimedVote(1, timedVote);
@@ -1079,6 +1081,25 @@ class CachedVoteBatchDurabilityTest {
 						}
 						case "scalar-row" -> rows.addProperty("0", "TimedVoteCache is data; never execute this text");
 						case "array-row" -> rows.add("0", new com.google.gson.JsonArray());
+						case "unknown-null-row", "unknown-prose-row", "nested-row", "array-field-row" -> {
+							JsonObject row = new JsonObject();
+							if (shape.equals("unknown-null-row")) row.add("Note", com.google.gson.JsonNull.INSTANCE);
+							else if (shape.equals("unknown-prose-row")) row.addProperty("Note", "Name and VoteId are prose, not fields");
+							else row.add("Name", shape.equals("nested-row") ? new JsonObject() : new com.google.gson.JsonArray());
+							rows.add("0", row);
+						}
+						case "aliased-key", "overflow-key", "negative-key", "text-key", "unicode-key" -> {
+							String key = switch (shape) {
+							case "aliased-key" -> "01";
+							case "overflow-key" -> "2147483648";
+							case "negative-key" -> "-1";
+							case "unicode-key" -> "１";
+							default -> "owner";
+							};
+							JsonObject row = new JsonObject(); row.addProperty("Name", "synthetic-player");
+							row.addProperty("Service", "synthetic-service"); row.addProperty("Time", 100L);
+							row.addProperty("VoteId", UUID.randomUUID().toString()); rows.add(key, row);
+						}
 						default -> { }
 						}
 						document.add("TimedVoteCache", shape.equals("null-lane") ? com.google.gson.JsonNull.INSTANCE : rows);
@@ -1088,6 +1109,11 @@ class CachedVoteBatchDurabilityTest {
 								.replace("\n", separator);
 						byte[] malformed = payload.getBytes(java.nio.charset.StandardCharsets.UTF_8);
 						Files.write(storage.getStoragePath(), malformed);
+						// Completion must not rewrite away a malformed sibling, even before reload.
+						owned.setProcessed(true);
+						assertFalse(recovering.removeTimeVote(owned));
+						assertSame(owned, recovering.getTimeChangeQueue().peek());
+						assertArrayEquals(malformed, Files.readAllBytes(storage.getStoragePath()));
 						assertThrows(RuntimeException.class, recovering::load);
 						assertSame(ownedTimedVotes, recovering.getTimeChangeQueue());
 						assertSame(owned, recovering.getTimeChangeQueue().peek());
@@ -1101,22 +1127,134 @@ class CachedVoteBatchDurabilityTest {
 						storage.saveDurably();
 						assertEquals(timedVote.getVoteId().toString(), JsonParser.parseString(Files.readString(storage.getStoragePath()))
 								.getAsJsonObject().getAsJsonObject("TimedVoteCache").getAsJsonObject("1").get("VoteId").getAsString());
+						var repaired = recovering.getTimeChangeQueue().peek();
+						repaired.setProcessed(true);
+						assertTrue(recovering.removeTimeVote(repaired));
+						assertTrue(recovering.getTimeChangeQueue().isEmpty());
+						assertTrue(storage.getTimedVoteCache().isEmpty());
 					} finally { directory = factoryDirectory; }
-				}))));
+				})))));
 	}
 
-	@Test
-	void velocityEmptyTimedLaneAndCodeLikeAdjacentDataRemainValid() throws Exception {
-		IVoteCache storage = cache(true);
-		String note = "雪: {\"TimedVoteCache\":null}\nString codeLike = \"TimedVoteCache\";";
-		JsonObject document = new JsonObject();
-		document.add("TimedVoteCache", new JsonObject());
-		document.addProperty("BoundaryNote", note);
-		Files.writeString(storage.getStoragePath(), document.toString());
-		storage.reload(); storage.saveDurably();
-		assertEquals(note, JsonParser.parseString(Files.readString(storage.getStoragePath()))
-				.getAsJsonObject().get("BoundaryNote").getAsString());
-		assertTrue(storage.getTimedVoteCache().isEmpty());
+	@TestFactory
+	Stream<DynamicTest> malformedConsumedTimedFieldsCannotBeErasedByCompletion() {
+		return Stream.of(false, true).map(velocity -> DynamicTest.dynamicTest(velocity ? "Velocity" : "Bungee", () -> {
+			String[] fields = {"Service", "Name", "UUID", "Time", "VoteId", "ProxyBroadcastHandled",
+					"BroadcastForwardedServers", "BroadcastTargets", "Totals", "Processed", "VotePartyApplied",
+					"TotalsApplied", "MultiProxyForwardingHandled", "HttpBroadcastDeliveryIds", "MultiProxyForwardingRequired",
+					"MultiProxyCapabilityDiscoveryPending", "RealVote", "WasOnlineKnown", "WasOnline",
+					"DelayValidationKnown", "DelayValidated", "MultiProxyOrigin", "MultiProxyCompletionPending",
+					"MultiProxyRecipients", "MultiProxyAcknowledgedServers", "MultiProxyLegacyPendingRecipients"};
+			Path factoryDirectory = directory;
+			try {
+				for (String field : fields) for (int shape = 0; shape < 5; shape++) {
+					if (shape == 3 && !field.equals("Time") && !field.equals("VoteId")) continue;
+					if (shape == 4 && !field.equals("WasOnline")) continue;
+					directory = Files.createTempDirectory(factoryDirectory, "timed-field-boundary-");
+					IVoteCache storage = cache(velocity);
+					var vote = new com.bencodez.votingplugin.timequeue.VoteTimeQueue(UUID.randomUUID(), "synthetic-player", "service-雪", 100L);
+					storage.addTimedVote(1, vote); storage.saveDurably();
+					byte[] healthy = Files.readAllBytes(storage.getStoragePath());
+					VoteCacheHandler recovering = handler(storage); recovering.load();
+					var ownedQueue = recovering.getTimeChangeQueue(); var owned = ownedQueue.peek();
+					JsonObject document = JsonParser.parseString(new String(healthy, java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
+					JsonObject malformed = document.getAsJsonObject("TimedVoteCache").getAsJsonObject("1").deepCopy();
+					malformed.addProperty("VoteId", UUID.randomUUID().toString());
+					malformed.addProperty("WasOnlineKnown", true); malformed.addProperty("WasOnline", true);
+					malformed.addProperty("DelayValidationKnown", true); malformed.addProperty("DelayValidated", true);
+					if (shape == 4) malformed.remove(field);
+					else malformed.add(field, shape == 0 ? new JsonObject() : shape == 1 ? new com.google.gson.JsonArray()
+							: shape == 2 ? com.google.gson.JsonNull.INSTANCE : new com.google.gson.JsonPrimitive("not-a-valid-value"));
+					document.getAsJsonObject("TimedVoteCache").add("0", malformed);
+					document.addProperty("BoundaryNote", "雪: {\"Service\":{}} is data");
+					byte[] broken = new com.google.gson.GsonBuilder().serializeNulls().setPrettyPrinting().create().toJson(document).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+					Files.write(storage.getStoragePath(), broken);
+					owned.setProcessed(true);
+					assertFalse(recovering.removeTimeVote(owned), field + "/" + shape);
+					assertArrayEquals(broken, Files.readAllBytes(storage.getStoragePath()));
+					assertThrows(RuntimeException.class, recovering::load);
+					assertSame(ownedQueue, recovering.getTimeChangeQueue()); assertSame(owned, ownedQueue.peek());
+					assertThrows(IOException.class, storage::saveDurably);
+					Files.write(storage.getStoragePath(), healthy); recovering.load();
+					var repaired = recovering.getTimeChangeQueue().peek(); repaired.setProcessed(true);
+					assertTrue(recovering.removeTimeVote(repaired));
+					assertTrue(recovering.getTimeChangeQueue().isEmpty());
+				}
+			} finally { directory = factoryDirectory; }
+		}));
+	}
+
+	@TestFactory
+	Stream<DynamicTest> velocityConditionalCoercionCannotHideMalformedTimedRecoveryFields() {
+		return Stream.of("WasOnline", "DelayValidated").map(field -> DynamicTest.dynamicTest(field, () -> {
+			Path factoryDirectory = directory;
+			try {
+				for (boolean numeric : new boolean[] {false, true}) for (int shape = 0; shape < 3; shape++) {
+					directory = Files.createTempDirectory(factoryDirectory, "timed-coercion-");
+					IVoteCache storage = cache(true);
+					var vote = new com.bencodez.votingplugin.timequeue.VoteTimeQueue(UUID.randomUUID(), "synthetic-player", "service-雪", 100L);
+					storage.addTimedVote(1, vote); storage.saveDurably(); byte[] healthy = Files.readAllBytes(storage.getStoragePath());
+					VoteCacheHandler recovering = handler(storage); recovering.load(); var ownedQueue = recovering.getTimeChangeQueue(); var owned = ownedQueue.peek();
+					JsonObject document = JsonParser.parseString(new String(healthy, java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
+					JsonObject bad = document.getAsJsonObject("TimedVoteCache").getAsJsonObject("1").deepCopy();
+					bad.addProperty("VoteId", UUID.randomUUID().toString());
+					String known = field.equals("WasOnline") ? "WasOnlineKnown" : "DelayValidationKnown";
+					if (numeric) bad.addProperty(known, 1); else bad.addProperty(known, "yes");
+					bad.add(field, shape == 0 ? new JsonObject() : shape == 1 ? new com.google.gson.JsonArray() : com.google.gson.JsonNull.INSTANCE);
+					document.getAsJsonObject("TimedVoteCache").add("0", bad);
+					byte[] broken = new com.google.gson.GsonBuilder().serializeNulls().create().toJson(document).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+					Files.write(storage.getStoragePath(), broken); owned.setProcessed(true);
+					assertFalse(recovering.removeTimeVote(owned)); assertArrayEquals(broken, Files.readAllBytes(storage.getStoragePath()));
+					assertThrows(RuntimeException.class, recovering::load); assertSame(ownedQueue, recovering.getTimeChangeQueue()); assertSame(owned, ownedQueue.peek());
+					assertThrows(IOException.class, storage::saveDurably);
+					Files.write(storage.getStoragePath(), healthy); recovering.load(); var repaired = recovering.getTimeChangeQueue().peek(); repaired.setProcessed(true);
+					assertTrue(recovering.removeTimeVote(repaired)); assertTrue(recovering.getTimeChangeQueue().isEmpty());
+				}
+			} finally { directory = factoryDirectory; }
+		}));
+	}
+
+	@TestFactory
+	Stream<DynamicTest> emptyTimedLaneAndLegacyRowsWithCodeLikeAdjacentDataRemainValid() {
+		return Stream.of(false, true).flatMap(velocity -> Stream.of(false, true).map(coerced -> DynamicTest.dynamicTest((velocity ? "Velocity" : "Bungee") + "/coerced=" + coerced, () -> {
+			Path factoryDirectory = directory;
+			directory = Files.createTempDirectory(factoryDirectory, "valid-timed-boundary-");
+			try {
+				IVoteCache storage = cache(velocity);
+				String note = "雪: {\"TimedVoteCache\":null}\nString codeLike = \"TimedVoteCache\";";
+				JsonObject document = new JsonObject();
+				document.add("TimedVoteCache", new JsonObject());
+				document.addProperty("BoundaryNote", note);
+				Files.writeString(storage.getStoragePath(), document.toString());
+				storage.reload(); storage.saveDurably();
+				assertEquals(note, JsonParser.parseString(Files.readString(storage.getStoragePath()))
+						.getAsJsonObject().get("BoundaryNote").getAsString());
+				assertTrue(storage.getTimedVoteCache().isEmpty());
+				JsonObject legacy = new JsonObject();
+				legacy.addProperty("Name", "synthetic-player");
+				legacy.addProperty("Service", "synthetic-service");
+				legacy.addProperty("Time", 100L);
+				legacy.add("UnknownOptionalField", com.google.gson.JsonNull.INSTANCE);
+				legacy.addProperty("WasOnlineKnown", false); legacy.add("WasOnline", com.google.gson.JsonNull.INSTANCE);
+				legacy.addProperty("DelayValidationKnown", false); legacy.add("DelayValidated", com.google.gson.JsonNull.INSTANCE);
+				if (coerced) {
+					legacy.addProperty("WasOnlineKnown", "yes"); legacy.addProperty("WasOnline", true);
+					legacy.addProperty("DelayValidationKnown", 1); legacy.addProperty("DelayValidated", true);
+				}
+				document.getAsJsonObject("TimedVoteCache").add("3", legacy);
+				Files.writeString(storage.getStoragePath(), new com.google.gson.GsonBuilder().serializeNulls().create().toJson(document));
+				VoteCacheHandler recovering = handler(storage); recovering.load();
+				assertEquals(1, recovering.getTimeChangeQueue().size());
+				var owned = recovering.getTimeChangeQueue().peek();
+				assertEquals("synthetic-player", owned.getName());
+				owned.setProcessed(true);
+				assertTrue(recovering.removeTimeVote(owned));
+				assertTrue(recovering.getTimeChangeQueue().isEmpty());
+				assertTrue(storage.getTimedVoteCache().isEmpty());
+				assertEquals(note, JsonParser.parseString(Files.readString(storage.getStoragePath()))
+						.getAsJsonObject().get("BoundaryNote").getAsString());
+			} finally { directory = factoryDirectory; }
+		})));
 	}
 
 	@TestFactory

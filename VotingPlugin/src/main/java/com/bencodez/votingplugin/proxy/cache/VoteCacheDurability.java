@@ -41,7 +41,55 @@ public final class VoteCacheDurability {
 			JsonElement document = readValue(reader, 0);
 			if (!document.isJsonObject() || reader.peek() != JsonToken.END_DOCUMENT)
 				throw new IOException("Vote cache must contain one JSON object");
-			return document.getAsJsonObject();
+			JsonObject journal = document.getAsJsonObject();
+			validateTimedRows(journal);
+			return journal;
+		}
+	}
+
+	/** Rejects timed recovery evidence that queue reconstruction cannot safely retain. */
+	private static void validateTimedRows(JsonObject journal) throws IOException {
+		if (!journal.has("TimedVoteCache")) return;
+		JsonElement timed = journal.get("TimedVoteCache");
+		if (!timed.isJsonObject()) throw new IOException("Invalid timed vote cache structure");
+		for (var entry : timed.getAsJsonObject().entrySet()) {
+			// Queue rewrites address rows by integer index. Aliases or out-of-range
+			// keys cannot retain distinct durable owners through that representation.
+			if (!entry.getKey().matches("0|[1-9][0-9]*"))
+				throw new IOException("Timed vote cache key requires recovery");
+			try { Integer.parseInt(entry.getKey()); }
+			catch (NumberFormatException invalid) { throw new IOException("Timed vote cache key requires recovery"); }
+			JsonElement row = entry.getValue();
+			if (!row.isJsonObject()) throw new IOException("Timed vote cache entry requires recovery");
+			JsonObject fields = row.getAsJsonObject();
+			boolean readable = false;
+			for (String name : new String[] {"Name", "UUID", "Service", "Time", "VoteId"})
+				if (fields.has(name) && fields.get(name).isJsonPrimitive()) readable = true;
+			if (!readable) throw new IOException("Timed vote cache entry requires recovery");
+			try {
+				// Check the fields consumed by timed reconstruction, including optional
+				// progress. Unknown values and inactive conditional fields remain legacy data.
+				for (String name : new String[] {"Name", "UUID", "Service", "Time", "VoteId",
+						"ProxyBroadcastHandled", "BroadcastForwardedServers", "BroadcastTargets", "Totals",
+						"Processed", "VotePartyApplied", "TotalsApplied", "MultiProxyForwardingHandled",
+						"HttpBroadcastDeliveryIds", "MultiProxyForwardingRequired", "MultiProxyCapabilityDiscoveryPending",
+						"RealVote", "WasOnlineKnown", "DelayValidationKnown", "MultiProxyOrigin",
+						"MultiProxyCompletionPending", "MultiProxyRecipients", "MultiProxyAcknowledgedServers",
+						"MultiProxyLegacyPendingRecipients"})
+					if (fields.has(name) && !fields.get(name).isJsonPrimitive())
+						throw new IOException("Timed vote cache entry requires recovery");
+				if (fields.has("Time")) fields.get("Time").getAsLong();
+				if (fields.has("VoteId") && !fields.get("VoteId").getAsString().isEmpty())
+					java.util.UUID.fromString(fields.get("VoteId").getAsString());
+				if (fields.has("WasOnlineKnown") && fields.get("WasOnlineKnown").getAsBoolean()
+						&& (!fields.has("WasOnline") || !fields.get("WasOnline").isJsonPrimitive()))
+					throw new IOException("Timed vote cache entry requires recovery");
+				if (fields.has("DelayValidationKnown") && fields.get("DelayValidationKnown").getAsBoolean()
+						&& fields.has("DelayValidated") && !fields.get("DelayValidated").isJsonPrimitive())
+					throw new IOException("Timed vote cache entry requires recovery");
+			} catch (RuntimeException invalid) {
+				throw new IOException("Timed vote cache entry requires recovery");
+			}
 		}
 	}
 

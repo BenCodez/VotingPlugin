@@ -67,17 +67,7 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 			var loaded = GsonConfigurationLoader.builder()
 					.source(() -> new java.io.BufferedReader(new java.io.StringReader(document.toString())))
 					.build().load();
-			// Timed outbox rows have no opaque-row preservation during save. Never
-			// accept a raw timed entry that Configurate would drop or reclassify.
-			if (document.has("TimedVoteCache")) {
-				var timed = document.get("TimedVoteCache");
-				if (!timed.isJsonObject()) throw new IOException("Invalid timed vote cache structure");
-				for (var entry : timed.getAsJsonObject().entrySet()) {
-					if (!entry.getValue().isJsonObject() || (!loaded.node("TimedVoteCache", entry.getKey()).isMap()
-							|| loaded.node("TimedVoteCache", entry.getKey()).childrenMap().isEmpty()))
-						throw new IOException("Timed vote cache entry requires recovery");
-				}
-			}
+			validateTimedRows(document, loaded);
 			// readJournal already verifies the raw object. Configurate can normalize
 			// an object containing only null cache entries to an empty root.
 			super.setConf(loaded);
@@ -89,6 +79,24 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 		} catch (RuntimeException failure) {
 			writesPaused = true;
 			throw failure;
+		}
+	}
+
+	/** Checks raw recovery fields using the same normalized flag coercion as the timed decoder. */
+	private static void validateTimedRows(JsonObject document, org.spongepowered.configurate.ConfigurationNode loaded)
+			throws IOException {
+		if (!document.has("TimedVoteCache")) return;
+		for (var entry : document.getAsJsonObject("TimedVoteCache").entrySet()) {
+			var node = loaded.node("TimedVoteCache", entry.getKey());
+			if (!node.isMap() || node.childrenMap().isEmpty())
+				throw new IOException("Timed vote cache entry requires recovery");
+			JsonObject raw = entry.getValue().getAsJsonObject();
+			if (node.node("WasOnlineKnown").getBoolean()
+					&& (!raw.has("WasOnline") || !raw.get("WasOnline").isJsonPrimitive()))
+				throw new IOException("Timed vote cache entry requires recovery");
+			if (node.node("DelayValidationKnown").getBoolean()
+					&& raw.has("DelayValidated") && !raw.get("DelayValidated").isJsonPrimitive())
+				throw new IOException("Timed vote cache entry requires recovery");
 		}
 	}
 
@@ -113,6 +121,11 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 		if (journalLoaded) {
 			try {
 				previous = VoteCacheDurability.readJournal(target);
+				String rawPrevious = previous.toString();
+				var previousNodes = GsonConfigurationLoader.builder()
+						.source(() -> new java.io.BufferedReader(new java.io.StringReader(rawPrevious)))
+						.build().load();
+				validateTimedRows(previous, previousNodes);
 				PendingPluginMessageVotePartyRewards.fromCacheJson(previous);
 			}
 			catch (IOException | RuntimeException failure) {
