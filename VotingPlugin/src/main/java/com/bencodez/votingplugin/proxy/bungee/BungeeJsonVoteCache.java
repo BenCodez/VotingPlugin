@@ -126,8 +126,12 @@ public class BungeeJsonVoteCache extends BungeeJsonFile implements IVoteCache {
 	public synchronized void saveDurably() throws IOException {
 		if (writesPaused) throw new IOException("Vote cache writes require a successful reload");
 		Path target = getStoragePath().toAbsolutePath().normalize();
+		com.google.gson.JsonObject previous = null;
 		if (journalLoaded) {
-			try { PendingPluginMessageVotePartyRewards.fromCacheJson(VoteCacheDurability.readJournal(target)); }
+			try {
+				previous = VoteCacheDurability.readJournal(target);
+				PendingPluginMessageVotePartyRewards.fromCacheJson(previous);
+			}
 			catch (IOException | RuntimeException failure) {
 				writesPaused = true;
 				throw new IOException("Vote cache is unreadable; reload is required before saving", failure);
@@ -140,6 +144,10 @@ public class BungeeJsonVoteCache extends BungeeJsonFile implements IVoteCache {
 		try {
 			Files.writeString(staged, new GsonBuilder().setPrettyPrinting().create().toJson(getConf()),
 					StandardCharsets.UTF_8);
+			var candidate = VoteCacheDurability.readJournal(staged);
+			if (previous != null && hasEmergencyJournalMarker()
+					&& VoteCacheDurability.preserveUnresolvedCacheRows(previous, candidate))
+				Files.writeString(staged, candidate.toString(), StandardCharsets.UTF_8);
 			PendingPluginMessageVotePartyRewards.fromCacheJson(VoteCacheDurability.readJournal(staged));
 			DurableFiles.publishStagedFile(staged, target);
 		} finally {
