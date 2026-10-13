@@ -991,6 +991,135 @@ class CachedVoteBatchDurabilityTest {
 	}
 
 	@TestFactory
+	Stream<DynamicTest> rawOpaqueOrdinaryRowsFenceBothLanesUntilCompleteRepair() {
+		return lanes((velocity, online) -> {
+			for (String raw : List.of("{\"CachedBatchNumber\":null,\"CachedBatchSize\":null,\"CachedBatchSourceRowId\":null}",
+					"{}", "{\"Name\":null,\"UUID\":null,\"Service\":null,\"Time\":null,\"Real\":null,\"Text\":null}",
+					"{\"VoteId\":null}", "{\"HttpDeliveryIds\":null}", "{\"UnusedOptionalField\":null}",
+					"{\"CachedBatchNumber\":{},\"CachedBatchSize\":{},\"CachedBatchSourceRowId\":{}}",
+					"{\"UnusedOptionalField\":\"Name = not a vote; UUID = prose\"}",
+					"{\"UnusedOptionalField\":{}}", "{\"UnusedOptionalField\":[]}")) {
+				PreparedJournal prepared = preparedJournal(velocity, online, false);
+				JsonObject journal = JsonParser.parseString(prepared.cleanBytes()).getAsJsonObject();
+				JsonObject rows = new JsonObject(), owners = new JsonObject();
+				rows.add("9", JsonParser.parseString(raw)); owners.add(owner(!online), rows);
+				String lane = online ? "VoteCache" : "OnlineCache";
+				journal.add(lane, owners);
+				String malformed = journal.toString();
+				Files.writeString(prepared.storage().getStoragePath(), malformed);
+				IVoteCache storage = cache(velocity);
+				VoteCacheHandler recovering = sqlHandler(storage, online,
+						List.of(prepared.sqlVotes().get(0), prepared.sqlVotes().get(1), vote(null)), List.of(41, 42, 43));
+				recovering.load();
+				OfflineBungeeVote clean = sqlRow(recovering, online, 42), fresh = sqlRow(recovering, online, 43);
+				assertTrue(clean.isCachedBatchDurable());
+				assertTrue(recovering.prepareCachedVoteBatch(owner(online), online, List.of(clean), 1));
+				assertFalse(recovering.prepareCachedVoteBatch(owner(online), online, List.of(fresh), 1), raw);
+				assertNull(fresh.getVoteId()); assertFalse(fresh.hasCachedVoteBatch());
+				assertEquals(malformed, Files.readString(storage.getStoragePath()));
+				storage.saveDurably();
+				JsonObject saved = JsonParser.parseString(Files.readString(storage.getStoragePath())).getAsJsonObject();
+				assertNotNull(saved.get(lane), "opaque lane disappeared");
+				assertNotNull(saved.getAsJsonObject(lane).get(owner(!online)), "opaque owner disappeared");
+				assertEquals(JsonParser.parseString(raw), journalRows(saved, !online).get("9"), "routine save erased opaque row");
+				ProxyVoteCacheTable serverTable = (ProxyVoteCacheTable) getField(recovering, "voteCacheTable");
+				ProxyOnlineVoteCacheTable onlineTable = (ProxyOnlineVoteCacheTable) getField(recovering, "onlineVoteCacheTable");
+				if (online) when(onlineTable.updateProxyBroadcastState(any())).thenReturn(true);
+				else when(serverTable.updateProxyBroadcastState(any(), eq(BACKEND))).thenReturn(true);
+				clean.setRewardDelivered(true);
+				assertTrue(online ? recovering.updateOnlineVote(PLAYER, clean) : recovering.updateServerVote(BACKEND, clean));
+				prepared.sqlVotes().get(1).setRewardDelivered(true);
+				if (online) verify(onlineTable).updateProxyBroadcastState(clean);
+				else verify(serverTable).updateProxyBroadcastState(clean, BACKEND);
+				saved = JsonParser.parseString(Files.readString(storage.getStoragePath())).getAsJsonObject();
+				assertEquals(JsonParser.parseString(raw), journalRows(saved, !online).get("9"), "healthy update erased opaque row");
+				recovering.load();
+				assertTrue(votes(recovering, !online).isEmpty(), "opaque prose became a cached reward owner");
+				assertFalse(recovering.prepareCachedVoteBatch(owner(online), online,
+						List.of(sqlRow(recovering, online, 43)), 1), "save/reload cleared opaque ownership without repair");
+				journal = saved; journal.remove(lane); Files.writeString(storage.getStoragePath(), journal.toString());
+				storage.reload();
+				assertFalse(recovering.prepareCachedVoteBatch(owner(online), online, List.of(fresh), 1));
+				recovering.load();
+				verifyOnlyCheckedSqlReads(recovering, 3);
+				assertTrue(recovering.prepareCachedVoteBatch(owner(online), online, List.of(sqlRow(recovering, online, 43)), 1));
+			}
+		});
+	}
+
+	@TestFactory
+	Stream<DynamicTest> velocityMalformedTimedRecordsQuarantineWholeJournalWithoutLosingOwners() {
+		return Stream.of(false, true).flatMap(adjacent -> Stream.of("\n", "\r\n").flatMap(separator ->
+				Stream.of("null-lane", "null-row", "empty-row", "null-only-row", "scalar-row", "array-row")
+				.map(shape -> DynamicTest.dynamicTest(shape + "/adjacent=" + adjacent + "/CRLF=" + separator.equals("\r\n"), () -> {
+					Path factoryDirectory = directory;
+					directory = Files.createTempDirectory(factoryDirectory, "timed-boundary-");
+					try {
+						IVoteCache storage = cache(true);
+						var timedVote = new com.bencodez.votingplugin.timequeue.VoteTimeQueue(
+								UUID.randomUUID(), "tést-player", "service-雪", 100L);
+						storage.addTimedVote(1, timedVote);
+						storage.addVote(BACKEND, 2, vote(UUID.randomUUID()));
+						storage.saveDurably();
+						byte[] healthy = Files.readAllBytes(storage.getStoragePath());
+						VoteCacheHandler recovering = handler(storage);
+						recovering.load();
+						var ownedTimedVotes = recovering.getTimeChangeQueue();
+						assertEquals(1, ownedTimedVotes.size());
+						var owned = ownedTimedVotes.peek();
+						JsonObject document = adjacent ? JsonParser.parseString(new String(healthy,
+								java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject() : new JsonObject();
+						JsonObject rows = new JsonObject();
+						if (adjacent) rows = document.getAsJsonObject("TimedVoteCache");
+						switch (shape) {
+						case "null-row" -> rows.add("0", com.google.gson.JsonNull.INSTANCE);
+						case "empty-row" -> rows.add("0", new JsonObject());
+						case "null-only-row" -> {
+							JsonObject row = new JsonObject(); row.add("Name", com.google.gson.JsonNull.INSTANCE); rows.add("0", row);
+						}
+						case "scalar-row" -> rows.addProperty("0", "TimedVoteCache is data; never execute this text");
+						case "array-row" -> rows.add("0", new com.google.gson.JsonArray());
+						default -> { }
+						}
+						document.add("TimedVoteCache", shape.equals("null-lane") ? com.google.gson.JsonNull.INSTANCE : rows);
+						// Exercise the complete persisted wrapper, UTF-8 data and physical line endings.
+						if (adjacent) document.addProperty("BoundaryNote", "雪 before TimedVoteCache; {\"TimedVoteCache\":null} is text\nnext line");
+						String payload = new com.google.gson.GsonBuilder().serializeNulls().setPrettyPrinting().create().toJson(document)
+								.replace("\n", separator);
+						byte[] malformed = payload.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+						Files.write(storage.getStoragePath(), malformed);
+						assertThrows(RuntimeException.class, recovering::load);
+						assertSame(ownedTimedVotes, recovering.getTimeChangeQueue());
+						assertSame(owned, recovering.getTimeChangeQueue().peek());
+						storage.save();
+						assertThrows(IOException.class, storage::saveDurably);
+						assertArrayEquals(malformed, Files.readAllBytes(storage.getStoragePath()));
+						Files.write(storage.getStoragePath(), healthy);
+						recovering.load();
+						assertEquals(1, recovering.getTimeChangeQueue().size());
+						assertEquals(timedVote.getVoteId(), recovering.getTimeChangeQueue().peek().getVoteId());
+						storage.saveDurably();
+						assertEquals(timedVote.getVoteId().toString(), JsonParser.parseString(Files.readString(storage.getStoragePath()))
+								.getAsJsonObject().getAsJsonObject("TimedVoteCache").getAsJsonObject("1").get("VoteId").getAsString());
+					} finally { directory = factoryDirectory; }
+				}))));
+	}
+
+	@Test
+	void velocityEmptyTimedLaneAndCodeLikeAdjacentDataRemainValid() throws Exception {
+		IVoteCache storage = cache(true);
+		String note = "雪: {\"TimedVoteCache\":null}\nString codeLike = \"TimedVoteCache\";";
+		JsonObject document = new JsonObject();
+		document.add("TimedVoteCache", new JsonObject());
+		document.addProperty("BoundaryNote", note);
+		Files.writeString(storage.getStoragePath(), document.toString());
+		storage.reload(); storage.saveDurably();
+		assertEquals(note, JsonParser.parseString(Files.readString(storage.getStoragePath()))
+				.getAsJsonObject().get("BoundaryNote").getAsString());
+		assertTrue(storage.getTimedVoteCache().isEmpty());
+	}
+
+	@TestFactory
 	Stream<DynamicTest> unusedNullFieldsAndIgnoredVoteIdAliasStillAllowLegacyBatchStaging() {
 		return lanes((velocity, online) -> {
 			PreparedJournal prepared = preparedJournal(velocity, online, false);

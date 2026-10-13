@@ -67,6 +67,17 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 			var loaded = GsonConfigurationLoader.builder()
 					.source(() -> new java.io.BufferedReader(new java.io.StringReader(document.toString())))
 					.build().load();
+			// Timed outbox rows have no opaque-row preservation during save. Never
+			// accept a raw timed entry that Configurate would drop or reclassify.
+			if (document.has("TimedVoteCache")) {
+				var timed = document.get("TimedVoteCache");
+				if (!timed.isJsonObject()) throw new IOException("Invalid timed vote cache structure");
+				for (var entry : timed.getAsJsonObject().entrySet()) {
+					if (!entry.getValue().isJsonObject() || (!loaded.node("TimedVoteCache", entry.getKey()).isMap()
+							|| loaded.node("TimedVoteCache", entry.getKey()).childrenMap().isEmpty()))
+						throw new IOException("Timed vote cache entry requires recovery");
+				}
+			}
 			// readJournal already verifies the raw object. Configurate can normalize
 			// an object containing only null cache entries to an empty root.
 			super.setConf(loaded);

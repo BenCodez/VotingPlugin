@@ -76,7 +76,7 @@ public final class VoteCacheDurability {
 	private static boolean unresolvedRow(JsonElement row) {
 		if (!row.isJsonObject()) return true;
 		JsonObject data = row.getAsJsonObject();
-		if (hasUndecodableVoteFields(data)) return true;
+		if (isOpaqueRecoveryRow(new GsonDataNode(data)) || hasUndecodableVoteFields(data)) return true;
 		if (!data.has("CachedBatchNumber") && !data.has("CachedBatchSize")
 				&& !data.has("CachedBatchSourceRowId")) return false;
 		try {
@@ -98,6 +98,17 @@ public final class VoteCacheDurability {
 			return values[2] < 0 || !(values[0] == 0 && values[1] == 0
 					|| values[0] > 0 && values[0] <= values[1]);
 		} catch (RuntimeException invalid) { return true; }
+	}
+
+	/** Shares opaque-row ownership classification between reconstruction and persistence. */
+	static boolean isOpaqueRecoveryRow(DataNode data) {
+		for (String field : new String[] {"Name", "UUID", "Service", "Time", "Real", "Text", "VoteId", "VoteID"}) {
+			if (data.has(field)) {
+				DataNode value = data.get(field);
+				if (value != null && value.isPrimitive()) return false;
+			}
+		}
+		return true;
 	}
 
 	private static boolean hasUndecodableVoteFields(JsonObject data) {

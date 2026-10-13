@@ -1843,8 +1843,20 @@ public abstract class VoteCacheHandler {
 			if (!owners.isJsonObject()) return false;
 			for (var owner : owners.getAsJsonObject().entrySet()) {
 				if (!owner.getValue().isJsonObject()) return false;
-				for (var row : owner.getValue().getAsJsonObject().entrySet())
+				Collection<String> loadedKeys = lane.equals("VoteCache") ? jsonStorage.getServerVotes(owner.getKey())
+						: jsonStorage.getOnlineVotes(owner.getKey());
+				for (var row : owner.getValue().getAsJsonObject().entrySet()) {
 					if (!row.getValue().isJsonObject()) return false;
+					// A normalized-away binding is unresolved even when its raw object
+					// survives structural parsing. Inspect every raw row before clearing.
+					if (loadedKeys == null || !loadedKeys.contains(row.getKey())) return false;
+					try {
+						DataNode data = new GsonDataNode(row.getValue());
+						validateSqlJournalIdentity(data);
+						OfflineBungeeVote vote = decodeJsonVote(data);
+						if (vote == null || !vote.isCachedVoteBatchValid()) return false;
+					} catch (RuntimeException invalid) { return false; }
+				}
 			}
 		}
 		return true;
@@ -1859,6 +1871,8 @@ public abstract class VoteCacheHandler {
 
 	private void validateSqlJournalIdentity(DataNode data) {
 		if (data == null || !data.isObject()) throw new IllegalArgumentException("Invalid SQL vote journal row");
+		if (VoteCacheDurability.isOpaqueRecoveryRow(data))
+			throw new IllegalArgumentException("Opaque SQL vote journal row");
 		// Old emergency rows without replay metadata retain their established optional fields.
 		if (!data.has("CachedBatchNumber") && !data.has("CachedBatchSize")
 				&& !data.has("CachedBatchSourceRowId")) return;
