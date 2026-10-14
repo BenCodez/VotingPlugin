@@ -16,20 +16,21 @@ import com.bencodez.votingplugin.core.maintenance.AutoCreateVoteSitesReminderSta
 class AutoCreateVoteSitesReminderStateTest {
 
 	@Test
-	void firstReminderUsesInclusiveThresholdAndSevenDayDefaults() {
+	void firstReminderUsesStartupThresholdAndFortyEightHourRepeatDefault() {
 		long threshold = AutoCreateVoteSitesReminderState.DEFAULT_THRESHOLD_MILLIS;
-		assertEquals(TimeUnit.DAYS.toMillis(7), threshold);
-		assertEquals(threshold, AutoCreateVoteSitesReminderState.DEFAULT_REPEAT_MILLIS);
+		assertEquals(0, threshold);
+		assertEquals(TimeUnit.HOURS.toMillis(48), AutoCreateVoteSitesReminderState.DEFAULT_REPEAT_MILLIS);
 		AutoCreateVoteSitesReminderState state = fresh(0);
-		Candidate before = state.propose(nanos(threshold - 1), true, true, threshold, threshold);
-		assertFalse(before.reminderDue());
-		state.commit(before);
-		Candidate boundary = state.propose(nanos(threshold), true, true, threshold, threshold);
+		Candidate first = state.propose(0, true, true, threshold,
+				AutoCreateVoteSitesReminderState.DEFAULT_REPEAT_MILLIS);
+		assertTrue(first.reminderDue());
+		assertEquals(new Snapshot(0, 0), first.snapshot());
+		state.commit(first);
+		Candidate boundary = state.propose(nanos(AutoCreateVoteSitesReminderState.DEFAULT_REPEAT_MILLIS), true, true,
+				threshold, AutoCreateVoteSitesReminderState.DEFAULT_REPEAT_MILLIS);
 		assertTrue(boundary.reminderDue());
-		assertEquals(new Snapshot(threshold, threshold), boundary.snapshot());
-		assertEquals(new Snapshot(threshold - 1, -1), state.snapshot());
-		state.commit(boundary);
-		assertFalse(state.propose(nanos(threshold + 1), true, true, threshold, threshold).reminderDue());
+		assertEquals(new Snapshot(AutoCreateVoteSitesReminderState.DEFAULT_REPEAT_MILLIS,
+				AutoCreateVoteSitesReminderState.DEFAULT_REPEAT_MILLIS), boundary.snapshot());
 	}
 
 	@Test
@@ -238,12 +239,14 @@ class AutoCreateVoteSitesReminderStateTest {
 	}
 
 	@Test
-	void intervalsRejectNonPositiveAndOutOfRangeValuesEvenWhileDisabled() {
+	void intervalsAllowStartupThresholdButRequirePositiveBoundedRepeatsEvenWhileDisabled() {
 		AutoCreateVoteSitesReminderState state = fresh(0);
-		for (long invalid : new long[] { -1, 0, AutoCreateVoteSitesReminderState.MAX_INTERVAL_MILLIS + 1, Long.MAX_VALUE }) {
+		for (long invalid : new long[] { -1, AutoCreateVoteSitesReminderState.MAX_INTERVAL_MILLIS + 1, Long.MAX_VALUE }) {
 			assertThrows(IllegalArgumentException.class, () -> state.propose(0, false, false, invalid, 1));
 			assertThrows(IllegalArgumentException.class, () -> state.propose(0, false, false, 1, invalid));
 		}
+		assertThrows(IllegalArgumentException.class, () -> state.propose(0, false, false, 0, 0));
+		assertFalse(state.propose(0, false, false, 0, 1).reminderDue());
 		assertEquals(new Snapshot(0, -1), state.snapshot());
 		assertFalse(state.propose(0, true, true, AutoCreateVoteSitesReminderState.MAX_INTERVAL_MILLIS,
 				AutoCreateVoteSitesReminderState.MAX_INTERVAL_MILLIS).reminderDue());

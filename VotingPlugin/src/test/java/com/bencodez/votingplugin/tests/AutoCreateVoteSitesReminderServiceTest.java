@@ -29,6 +29,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.io.TempDir;
 
+import com.bencodez.votingplugin.core.maintenance.AutoCreateVoteSitesReminderState;
 import com.bencodez.votingplugin.core.maintenance.AutoCreateVoteSitesReminderState.Snapshot;
 import com.bencodez.votingplugin.maintenance.AutoCreateVoteSitesReminderService.Settings;
 import com.bencodez.votingplugin.util.DurableFiles;
@@ -99,6 +100,53 @@ class AutoCreateVoteSitesReminderServiceTest {
 		h.executor.firePeriodic();
 		assertEquals(1, h.factories);
 		assertEquals(1, h.executor.schedules);
+	}
+
+	@Test
+	void defaultStartupNagAndTwoDayRepeatSurviveReloadAndRestart() throws Exception {
+		long period = AutoCreateVoteSitesReminderState.DEFAULT_REPEAT_MILLIS;
+		Settings settings = new Settings(true, true,
+				AutoCreateVoteSitesReminderState.DEFAULT_THRESHOLD_MILLIS, period);
+		Harness first = new Harness(directory, 0, settings);
+		first.service.start();
+		assertEquals(0, first.reminders());
+		first.tickAt(0);
+		assertEquals(1, first.reminders());
+		assertEquals(new Snapshot(0, 0), first.saved());
+		first.service.reload(settings);
+		first.tickAt(period - 1);
+		assertEquals(1, first.reminders());
+		first.tickAt(period);
+		assertEquals(2, first.reminders());
+		CompletableFuture<Void> closed = first.service.closeAsync();
+		first.executor.runNext();
+		closed.join();
+
+		long restartMillis = TimeUnit.DAYS.toMillis(100);
+		Harness second = new Harness(directory, nanos(restartMillis), settings);
+		second.service.start();
+		second.tickAt(restartMillis);
+		assertEquals(0, second.reminders(), "Restart must preserve the last durable reminder");
+		second.tickAt(restartMillis + period - 1);
+		assertEquals(0, second.reminders());
+		second.tickAt(restartMillis + period);
+		assertEquals(1, second.reminders());
+	}
+
+	@Test
+	void enablingAutoCreationAtStartupThresholdWarnsOnceWithoutConfigOrClockReset() throws Exception {
+		Settings disabled = new Settings(true, false, 0, AutoCreateVoteSitesReminderState.DEFAULT_REPEAT_MILLIS);
+		Settings enabled = new Settings(true, true, 0, AutoCreateVoteSitesReminderState.DEFAULT_REPEAT_MILLIS);
+		Harness h = new Harness(directory, 0, disabled);
+		h.service.start();
+		h.tickAt(0);
+		assertEquals(0, h.reminders());
+		h.service.reload(enabled);
+		h.tickAt(0);
+		assertEquals(1, h.reminders());
+		h.service.reload(enabled);
+		h.tickAt(0);
+		assertEquals(1, h.reminders());
 	}
 
 	@Test

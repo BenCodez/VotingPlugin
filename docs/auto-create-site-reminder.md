@@ -11,8 +11,8 @@ option to false and reload. This stops the nag while preserving configured sites
 and explicit administrative site creation. The nag never changes configuration,
 vote matching, totals, or rewards.
 
-The first nag appears after seven cumulative active plugin days; another may
-appear after each further seven active days while the option remains enabled.
+The first nag appears on the first active startup checkpoint; another may
+appear after each further 48 cumulative active hours while the option remains enabled.
 Downtime is excluded. The internal checkpoint keeps reloads/restarts from
 resetting progress or repeating a recent nag. Existing installations begin
 counting when first using this feature; historical uptime is not guessed.

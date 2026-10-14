@@ -22,10 +22,10 @@ public final class AutoCreateVoteSitesReminderService {
 
 	public record Settings(boolean enabled, boolean autoCreateEnabled, long afterMillis, long repeatMillis) {
 		public Settings {
-			if (afterMillis <= 0 || repeatMillis <= 0
+			if (afterMillis < 0 || repeatMillis <= 0
 					|| afterMillis > AutoCreateVoteSitesReminderState.MAX_INTERVAL_MILLIS
 					|| repeatMillis > AutoCreateVoteSitesReminderState.MAX_INTERVAL_MILLIS) {
-				throw new IllegalArgumentException("Reminder intervals must be positive and bounded");
+				throw new IllegalArgumentException("Reminder intervals must be non-negative and bounded");
 			}
 		}
 	}

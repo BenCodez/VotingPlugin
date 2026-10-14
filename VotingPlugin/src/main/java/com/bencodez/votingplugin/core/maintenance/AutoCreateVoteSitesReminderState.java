@@ -18,8 +18,10 @@ import java.util.concurrent.TimeUnit;
 public final class AutoCreateVoteSitesReminderState {
 
 	public static final long NEVER_REMINDED = -1;
-	public static final long DEFAULT_THRESHOLD_MILLIS = TimeUnit.DAYS.toMillis(7);
-	public static final long DEFAULT_REPEAT_MILLIS = TimeUnit.DAYS.toMillis(7);
+	/** The first reminder is emitted on the first active checkpoint. */
+	public static final long DEFAULT_THRESHOLD_MILLIS = 0;
+	/** Subsequent reminders are bounded to one every 48 active hours. */
+	public static final long DEFAULT_REPEAT_MILLIS = TimeUnit.HOURS.toMillis(48);
 	public static final long MAX_INTERVAL_MILLIS = Long.MAX_VALUE / 1_000_000;
 	private static final long NANOS_PER_MILLI = 1_000_000;
 
@@ -83,6 +85,9 @@ public final class AutoCreateVoteSitesReminderState {
 			long thresholdMillis, long repeatMillis) {
 		validateInterval(thresholdMillis);
 		validateInterval(repeatMillis);
+		if (repeatMillis == 0) {
+			throw new IllegalArgumentException("Reminder repeat interval must be positive");
+		}
 		long elapsedNanos = nowNanos - checkpointNanos;
 		long elapsedMillis = elapsedNanos > 0 ? elapsedNanos / NANOS_PER_MILLI : 0;
 		long total = saturatingAdd(snapshot.totalRuntimeMillis(), elapsedMillis);
@@ -111,7 +116,7 @@ public final class AutoCreateVoteSitesReminderState {
 	}
 
 	private static void validateInterval(long millis) {
-		if (millis <= 0 || millis > MAX_INTERVAL_MILLIS) {
+		if (millis < 0 || millis > MAX_INTERVAL_MILLIS) {
 			throw new IllegalArgumentException("Reminder interval is outside the supported range");
 		}
 	}

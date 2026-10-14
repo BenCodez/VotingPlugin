@@ -37,14 +37,14 @@ class AutoCreateVoteSitesReminderConfigTest {
 	}
 
 	@Test
-	void enabledAutoCreationGetsFixedWeeklyNagWithoutExtraSettings() throws Exception {
+	void enabledAutoCreationGetsStartupAndTwoDayNagWithoutExtraSettings() throws Exception {
 		Config config = mock(Config.class);
 		when(config.isAutoCreateVoteSites()).thenReturn(true);
 		Settings settings = settings(config);
 		assertTrue(settings.enabled());
 		assertTrue(settings.autoCreateEnabled());
-		assertEquals(TimeUnit.DAYS.toMillis(7), settings.afterMillis());
-		assertEquals(TimeUnit.DAYS.toMillis(7), settings.repeatMillis());
+		assertEquals(0, settings.afterMillis());
+		assertEquals(TimeUnit.HOURS.toMillis(48), settings.repeatMillis());
 		verify(config, never()).getData();
 	}
 

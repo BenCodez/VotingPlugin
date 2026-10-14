@@ -89,6 +89,7 @@ import com.bencodez.votingplugin.control.BackendControlConnector;
 import com.bencodez.votingplugin.data.ServerData;
 import com.bencodez.votingplugin.maintenance.AutoCreateVoteSitesReminderService;
 import com.bencodez.votingplugin.maintenance.AutoCreateVoteSitesReminderService.Settings;
+import com.bencodez.votingplugin.core.maintenance.AutoCreateVoteSitesReminderState;
 import com.bencodez.votingplugin.discord.DiscordHandler;
 import com.bencodez.votingplugin.listeners.BlockBreak;
 import com.bencodez.votingplugin.integration.votifier.VotifierIntegration;
@@ -1968,8 +1969,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	}
 
 	private Settings autoCreateVoteSitesReminderSettings() {
-		return new Settings(true, configFile.isAutoCreateVoteSites(), TimeUnit.DAYS.toMillis(7),
-				TimeUnit.DAYS.toMillis(7));
+		return new Settings(true, configFile.isAutoCreateVoteSites(),
+				AutoCreateVoteSitesReminderState.DEFAULT_THRESHOLD_MILLIS,
+				AutoCreateVoteSitesReminderState.DEFAULT_REPEAT_MILLIS);
 	}
 
 	private void stopAutoCreateVoteSitesSetupReminder() {
