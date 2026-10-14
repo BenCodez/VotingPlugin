@@ -376,6 +376,29 @@ class AutoCreateVoteSitesReminderStoreTest {
 	}
 
 	@Test
+	void successfulPublicationFollowedByStagingCleanupFailureIsReportedAsPublished() throws Exception {
+		new AutoCreateVoteSitesReminderStore(directory).save(new Snapshot(1000, -1));
+		Snapshot published = new Snapshot(2000, 2000);
+		Path[] obstruction = new Path[1];
+		AutoCreateVoteSitesReminderStore store = new AutoCreateVoteSitesReminderStore(directory, (staged, target) -> {
+			DurableFiles.publishStagedFile(staged, target);
+			obstruction[0] = Files.createDirectory(staged);
+			Files.writeString(staged.resolve("obstruction"), "test");
+		});
+		try {
+			PublishedException uncertainty = assertThrows(PublishedException.class, () -> store.save(published));
+			assertTrue(uncertainty.getCause() instanceof IOException);
+			assertEquals(published, new AutoCreateVoteSitesReminderStore(directory).load());
+		} finally {
+			if (obstruction[0] != null) {
+				Files.deleteIfExists(obstruction[0].resolve("obstruction"));
+				Files.deleteIfExists(obstruction[0]);
+			}
+		}
+		assertEquals(List.of(FILE_NAME), children());
+	}
+
+	@Test
 	void cleanupFailureIsSuppressedOntoPrimaryPublicationFailure() throws Exception {
 		new AutoCreateVoteSitesReminderStore(directory).save(new Snapshot(1000, -1));
 		IOException primary = new IOException("Simulated publication failure with cleanup failure");

@@ -160,7 +160,8 @@ public final class AutoCreateVoteSitesReminderStore {
 				if (failure != null) {
 					failure.addSuppressed(cleanup);
 				} else {
-					throw cleanup;
+					throw new DurableFiles.PublishedException(cleanup instanceof IOException io ? io
+							: new IOException("Reminder staging cleanup failed after publication", cleanup));
 				}
 			}
 		}

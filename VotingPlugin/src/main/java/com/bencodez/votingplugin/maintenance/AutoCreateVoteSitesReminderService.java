@@ -15,6 +15,7 @@ import java.util.logging.Logger;
 import com.bencodez.votingplugin.core.maintenance.AutoCreateVoteSitesReminderState;
 import com.bencodez.votingplugin.core.maintenance.AutoCreateVoteSitesReminderState.Candidate;
 import com.bencodez.votingplugin.core.maintenance.AutoCreateVoteSitesReminderState.Snapshot;
+import com.bencodez.votingplugin.util.DurableFiles.PublishedException;
 
 /** Owner-only console reminder; all file work runs on its bounded background worker. */
 public final class AutoCreateVoteSitesReminderService {
@@ -51,6 +52,7 @@ public final class AutoCreateVoteSitesReminderService {
 	private AutoCreateVoteSitesReminderStore store;
 	private AutoCreateVoteSitesReminderState state;
 	private boolean failed;
+	private boolean checkpointRequired;
 	private boolean waitingReported;
 
 	public AutoCreateVoteSitesReminderService(Path directory, ScheduledExecutorService executor,
@@ -122,19 +124,34 @@ public final class AutoCreateVoteSitesReminderService {
 			}
 			waitingReported = false;
 			if (state == null || failed) {
-				Snapshot saved = store.load();
-				if (saved == null && state != null) {
+				Snapshot saved;
+				try {
+					saved = store.load();
+				} catch (IOException | RuntimeException unverified) {
+					checkpointRequired = true;
+					throw unverified;
+				}
+				if (saved == null && checkpointRequired) {
 					throw new IOException("Reminder checkpoint was removed while running");
 				}
+				if (saved != null) checkpointRequired = true;
 				state = new AutoCreateVoteSitesReminderState(saved == null ? new Snapshot(0, -1) : saved,
 						state == null && !failed ? startedNanos : nowNanos);
 				failed = false;
+			} else if (checkpointRequired && store.load() == null) {
+				throw new IOException("Reminder checkpoint was removed while running");
 			}
 			recoveryRequested.set(false);
 			Settings current = settings;
 			Candidate candidate = state.propose(nowNanos, !finalCheckpoint && current.enabled(),
 					current.autoCreateEnabled(), current.afterMillis(), current.repeatMillis());
-			store.save(candidate.snapshot());
+			try {
+				store.save(candidate.snapshot());
+			} catch (PublishedException uncertain) {
+				checkpointRequired = true;
+				throw uncertain;
+			}
+			checkpointRequired = true;
 			state.commit(candidate);
 			// Do not publish a stale warning if shutdown or configuration changed during I/O.
 			if (candidate.reminderDue() && closing.get() == null && current.equals(settings)) {

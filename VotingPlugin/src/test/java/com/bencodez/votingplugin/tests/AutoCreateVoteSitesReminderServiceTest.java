@@ -136,6 +136,28 @@ class AutoCreateVoteSitesReminderServiceTest {
 	}
 
 	@Test
+	void initialCorruptCheckpointRemovalDoesNotResetHistoryAndRepairRecovers() throws Exception {
+		Snapshot original = new Snapshot(2000, 2000);
+		new AutoCreateVoteSitesReminderStore(directory).save(original);
+		Path checkpoint = directory.resolve(".auto-create-sites-reminder.dat");
+		Files.write(checkpoint, new byte[] { 1, 2, 3 });
+		Harness h = new Harness(directory, 0, enabled());
+		h.service.start();
+		h.tickAt(0);
+		assertEquals(0, h.publications);
+		Files.delete(checkpoint);
+		h.service.reload(enabled());
+		h.tickAt(1000);
+		assertFalse(Files.exists(checkpoint), "An invalid prior checkpoint cannot become fresh absent state");
+		assertEquals(0, h.publications);
+		new AutoCreateVoteSitesReminderStore(directory).save(original);
+		h.service.reload(enabled());
+		h.tickAt(1500);
+		assertEquals(original, h.saved());
+		assertEquals(0, h.reminders());
+	}
+
+	@Test
 	void storePublicationCompletesBeforeConsoleReminder() throws Exception {
 		Harness h = new Harness(directory, 0, enabled());
 		h.service.start();
@@ -166,6 +188,131 @@ class AutoCreateVoteSitesReminderServiceTest {
 		h.tickAt(2900);
 		assertEquals(1, h.reminders());
 		assertEquals(new Snapshot(1000, 1000), h.saved());
+	}
+
+	@Test
+	void firstSaveFailureBeforePublicationRecoversAfterStorageRepairAndReload() throws Exception {
+		Harness h = new Harness(directory, 0, enabled());
+		h.service.start();
+		h.failure = Failure.BEFORE_PUBLICATION;
+		h.tickAt(1000);
+		assertFalse(Files.exists(h.target()));
+		assertEquals(1, h.publications);
+		assertEquals(0, h.reminders());
+		assertEquals(1, h.warnings.size());
+		h.tickAt(2000);
+		assertEquals(1, h.publications);
+		assertEquals(1, h.warnings.size());
+		h.failure = Failure.NONE;
+		h.service.reload(new Settings(false, true, 1000, 500));
+		h.tickAt(2000);
+		assertTrue(Files.exists(h.target()), "An allocated model is not proof of a previously published record");
+		assertEquals(2, h.publications);
+		assertEquals(-1, h.saved().lastReminderRuntimeMillis());
+		assertEquals(0, h.reminders());
+		long threshold = h.saved().totalRuntimeMillis() + 1000;
+		h.service.reload(new Settings(true, true, threshold, 500));
+		h.tickAt(3000);
+		assertEquals(new Snapshot(threshold, threshold), h.saved());
+		assertEquals(1, h.reminders());
+	}
+
+	@Test
+	void loadedCheckpointRemovalAfterFailedSaveRemainsFenced() throws Exception {
+		new AutoCreateVoteSitesReminderStore(directory).save(new Snapshot(1000, 1000));
+		Harness h = new Harness(directory, 0, enabled());
+		h.service.start();
+		h.failure = Failure.BEFORE_PUBLICATION;
+		h.tickAt(100);
+		assertEquals(new Snapshot(1000, 1000), h.saved());
+		assertEquals(1, h.publications);
+		Files.delete(h.target());
+		h.failure = Failure.NONE;
+		h.service.reload(enabled());
+		h.tickAt(2000);
+		assertFalse(Files.exists(h.target()), "A previously loaded checkpoint cannot be reset after removal");
+		assertEquals(1, h.publications);
+		assertEquals(0, h.reminders());
+		assertEquals(2, h.warnings.size());
+		h.tickAt(3000);
+		assertEquals(1, h.publications);
+		assertEquals(2, h.warnings.size());
+	}
+
+	@Test
+	void successfulCheckpointRemovalAfterLaterSaveFailureRemainsFenced() throws Exception {
+		Harness h = new Harness(directory, 0, enabled());
+		h.service.start();
+		h.tickAt(100);
+		assertEquals(new Snapshot(100, -1), h.saved());
+		h.failure = Failure.BEFORE_PUBLICATION;
+		h.tickAt(1000);
+		assertEquals(new Snapshot(100, -1), h.saved());
+		assertEquals(2, h.publications);
+		Files.delete(h.target());
+		h.failure = Failure.NONE;
+		h.service.reload(enabled());
+		h.tickAt(2000);
+		assertFalse(Files.exists(h.target()), "A successfully published checkpoint cannot be reset after removal");
+		assertEquals(2, h.publications);
+		assertEquals(0, h.reminders());
+		assertEquals(2, h.warnings.size());
+		h.tickAt(3000);
+		assertEquals(2, h.publications);
+		assertEquals(2, h.warnings.size());
+	}
+
+	@Test
+	void normalTickAfterKnownCheckpointRemovalPausesUntilValidRepairAndReload() throws Exception {
+		Harness h = new Harness(directory, 0, enabled());
+		h.service.start();
+		h.tickAt(100);
+		assertEquals(new Snapshot(100, -1), h.saved());
+		Files.delete(h.target());
+		h.tickAt(200);
+		assertFalse(Files.exists(h.target()), "A normal checkpoint must not recreate known removed state");
+		assertEquals(1, h.publications);
+		assertEquals(1, h.warnings.size());
+		assertEquals(0, h.reminders());
+		h.tickAt(300);
+		assertEquals(1, h.publications);
+		assertEquals(1, h.warnings.size());
+		h.service.reload(enabled());
+		h.tickAt(500);
+		assertFalse(Files.exists(h.target()), "Reload must preserve the known-removal fence");
+		assertEquals(1, h.publications);
+		assertEquals(2, h.warnings.size());
+		new AutoCreateVoteSitesReminderStore(directory).save(new Snapshot(1000, 1000));
+		h.service.reload(enabled());
+		h.tickAt(500);
+		assertEquals(new Snapshot(1000, 1000), h.saved());
+		assertEquals(2, h.publications);
+		assertEquals(0, h.reminders());
+		h.tickAt(1000);
+		assertEquals(new Snapshot(1500, 1500), h.saved());
+		assertEquals(1, h.reminders());
+	}
+
+	@Test
+	void initialUncertainPublicationFollowedByRemovalRemainsFenced() throws Exception {
+		Harness h = new Harness(directory, 0, enabled());
+		h.service.start();
+		h.failure = Failure.AFTER_PUBLICATION;
+		h.tickAt(1000);
+		assertEquals(new Snapshot(1000, 1000), h.saved());
+		assertEquals(0, h.reminders());
+		assertEquals(1, h.publications);
+		Files.delete(h.target());
+		h.failure = Failure.NONE;
+		h.service.reload(enabled());
+		h.tickAt(2000);
+		assertFalse(Files.exists(h.target()), "Uncertain publication must retain the removal fence");
+		assertEquals(1, h.publications);
+		assertEquals(0, h.reminders());
+		assertEquals(2, h.warnings.size());
+		h.tickAt(3000);
+		assertEquals(1, h.publications);
+		assertEquals(2, h.warnings.size());
 	}
 
 	@Test
