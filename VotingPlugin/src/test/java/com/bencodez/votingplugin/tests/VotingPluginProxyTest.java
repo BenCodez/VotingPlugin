@@ -2647,6 +2647,37 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
+	void restoringCurrentHttpConfigurationBeforeManualReloadDoesNotReplaceRuntime() throws Exception {
+		HttpProxyTransportServer transport = Mockito.mock(HttpProxyTransportServer.class);
+		setProxyField(votingPluginProxy, "httpTransportServer", transport);
+		var scheduler = Mockito.mock(java.util.concurrent.ScheduledExecutorService.class);
+		var queued = new java.util.ArrayDeque<Runnable>();
+		Mockito.doAnswer(call -> {
+			queued.add(call.getArgument(0));
+			return Mockito.mock(java.util.concurrent.ScheduledFuture.class);
+		}).when(scheduler).schedule(Mockito.any(Runnable.class), Mockito.anyLong(), Mockito.any(java.util.concurrent.TimeUnit.class));
+		votingPluginProxy.setSchedulerForTest(scheduler);
+		votingPluginProxy.setPendingHttpTransportDeliveries(true);
+		votingPluginProxy.setMethod(BungeeMethod.HTTP);
+		Mockito.when(votingPluginProxy.getConfig().getBungeeMethod()).thenReturn("REDIS");
+		votingPluginProxy.reloadFromControl();
+		assertEquals(1, queued.size());
+
+		// Configuration publication can precede entry into the manual reload.
+		// Run the old callback in that exact window, without a timing assumption.
+		Mockito.when(votingPluginProxy.getConfig().getBungeeMethod()).thenReturn("HTTP");
+		queued.remove().run();
+		assertEquals(0, votingPluginProxy.getReloadCoreCalls(),
+				"an unchanged live HTTP listener needs no deferred runtime replacement");
+		assertEquals(BungeeMethod.HTTP, votingPluginProxy.getMethod());
+		assertFalse(votingPluginProxy.isRetainingHttpTransportForDeferredReconciliation());
+		assertTrue(queued.isEmpty(), "a cancelled transport change must not keep polling");
+		Mockito.verify(transport, Mockito.never()).close();
+		votingPluginProxy.reloadFromControl();
+		assertEquals(0, votingPluginProxy.getReloadCoreCalls());
+	}
+
+	@Test
 	void concurrentManualReloadInvalidatesQueuedDeferredHttpReload() throws Exception {
 		HttpProxyTransportServer transport = Mockito.mock(HttpProxyTransportServer.class);
 		setProxyField(votingPluginProxy, "httpTransportServer", transport);
