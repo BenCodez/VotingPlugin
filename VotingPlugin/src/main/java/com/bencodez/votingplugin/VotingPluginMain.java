@@ -87,6 +87,8 @@ import com.bencodez.votingplugin.cooldown.CoolDownCheck;
 import com.bencodez.votingplugin.control.BackendControlAutoEnrollment;
 import com.bencodez.votingplugin.control.BackendControlConnector;
 import com.bencodez.votingplugin.data.ServerData;
+import com.bencodez.votingplugin.maintenance.AutoCreateVoteSitesReminderService;
+import com.bencodez.votingplugin.maintenance.AutoCreateVoteSitesReminderService.Settings;
 import com.bencodez.votingplugin.discord.DiscordHandler;
 import com.bencodez.votingplugin.listeners.BlockBreak;
 import com.bencodez.votingplugin.integration.votifier.VotifierIntegration;
@@ -296,6 +298,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Getter
 	private ScheduledExecutorService voteTimer;
+	private volatile AutoCreateVoteSitesReminderService autoCreateVoteSitesSetupReminder;
+	private ScheduledExecutorService autoCreateVoteSitesReminderWorker;
 
 	@Getter
 	private UserManager votingPluginUserManager;
@@ -722,6 +726,16 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		voteTester = new VoteTester(plugin);
 
 		loadVoteTimer();
+		BoundedScheduledExecutor setupReminderWorker = new BoundedScheduledExecutor(1, 4);
+		setupReminderWorker.setThreadFactory(runnable -> {
+			Thread worker = new Thread(runnable, "VotingPlugin-SiteSetupReminder");
+			worker.setDaemon(true);
+			return worker;
+		});
+		autoCreateVoteSitesReminderWorker = setupReminderWorker;
+		autoCreateVoteSitesSetupReminder = new AutoCreateVoteSitesReminderService(getDataFolder().toPath(),
+				setupReminderWorker, getLogger(), autoCreateVoteSitesReminderSettings());
+		autoCreateVoteSitesSetupReminder.start();
 		getVotingPluginUserManager().startSharedPointTransferRecovery();
 
 		if (bungeeSettings.isUseBungeecoord()) {
@@ -1944,11 +1958,37 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Override
 	public void onDisable() {
+		stopAutoCreateVoteSitesSetupReminder();
 		if (offlineVoteOwnerHandoffs != null) offlineVoteOwnerHandoffs.close();
 		try {
 			shutdownVoteReminders();
 		} finally {
 			super.onDisable();
+		}
+	}
+
+	private Settings autoCreateVoteSitesReminderSettings() {
+		try {
+			return new Settings(configFile.isAutoCreateVoteSitesReminderEnabled(), configFile.isAutoCreateVoteSites(),
+					TimeUnit.DAYS.toMillis(configFile.getAutoCreateVoteSitesReminderAfterDays()),
+					TimeUnit.DAYS.toMillis(configFile.getAutoCreateVoteSitesReminderRepeatDays()));
+		} catch (IllegalArgumentException invalid) {
+			getLogger().warning("AutoCreateVoteSitesReminder.AfterDays and RepeatDays must be positive "
+					+ "and at most 106751. The setup reminder is disabled until corrected and reloaded.");
+			return new Settings(false, configFile.isAutoCreateVoteSites(), TimeUnit.DAYS.toMillis(7),
+					TimeUnit.DAYS.toMillis(7));
+		}
+	}
+
+	private void stopAutoCreateVoteSitesSetupReminder() {
+		AutoCreateVoteSitesReminderService current = autoCreateVoteSitesSetupReminder;
+		autoCreateVoteSitesSetupReminder = null;
+		ScheduledExecutorService worker = autoCreateVoteSitesReminderWorker;
+		autoCreateVoteSitesReminderWorker = null;
+		try {
+			if (current != null) current.closeAsync();
+		} finally {
+			if (worker != null) worker.shutdown();
 		}
 	}
 
@@ -1961,6 +2001,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Override
 	public void onUnLoad() {
+		stopAutoCreateVoteSitesSetupReminder();
 		placeholderPlayerPresence.clear();
 		stopBackendHostedControlLifecycle();
 		stopBackendControlConnectorLifecycle();
@@ -2127,6 +2168,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		try {
 		configFile.reloadData();
 		configFile.loadValues();
+		AutoCreateVoteSitesReminderService setupReminder = autoCreateVoteSitesSetupReminder;
+		if (setupReminder != null) setupReminder.reload(autoCreateVoteSitesReminderSettings());
 
 		configVoteSites.reloadData();
 

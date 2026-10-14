@@ -345,6 +345,31 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean autoCreateVoteSites = true;
 
+	@ConfigDataBoolean(path = "AutoCreateVoteSitesReminder.Enabled", defaultValue = true)
+	@Getter
+	private boolean autoCreateVoteSitesReminderEnabled = true;
+
+	public int getAutoCreateVoteSitesReminderAfterDays() {
+		return autoCreateVoteSitesReminderDays("AutoCreateVoteSitesReminder.AfterDays");
+	}
+
+	public int getAutoCreateVoteSitesReminderRepeatDays() {
+		return autoCreateVoteSitesReminderDays("AutoCreateVoteSitesReminder.RepeatDays");
+	}
+
+	private int autoCreateVoteSitesReminderDays(String path) {
+		Object value = getData().get(path);
+		if (value == null) return 7;
+		if (!(value instanceof Integer || value instanceof Long)) {
+			throw new IllegalArgumentException("Reminder interval must be an integer");
+		}
+		long days = ((Number) value).longValue();
+		if (days < 1 || days > 106751) {
+			throw new IllegalArgumentException("Reminder interval is out of range");
+		}
+		return (int) days;
+	}
+
 	@ConfigDataBoolean(path = "CountFakeVotes")
 	@Getter
 	private boolean countFakeVotes = true;
