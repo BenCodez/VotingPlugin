@@ -49,3 +49,11 @@ not prove a reward ran or failed.
 The stopped vote timer remains visible until overflow and event-handler cleanup finishes. A missing timer is treated as
 rejected admission, allowing a late Votifier callback to use the existing overflow path rather than fail on a null
 reference. No accepted task is run inline on the event thread as a fallback.
+
+Timed-vote shutdown persistence has one retained daemon worker per handler. Each shutdown call waits at most one second
+for that worker, including when a preparation/completion write holds the queue monitor or the shutdown write itself
+stalls. Repeated calls join the same pending work; a completed failure remains retryable with the original queue/index.
+An interrupted wait preserves the caller's interrupt flag and does not cancel persistence. A timeout reports pending
+ownership, **not confirmed recovery**: if the process exits before storage resumes, new pending writes may not finish.
+Stopping is published before waiting, so a stalled preparation cannot authorize a new event when it resumes after stop.
+This bound covers the timed-queue persistence handoff; it does not promise a deadline for every other subsystem's I/O.

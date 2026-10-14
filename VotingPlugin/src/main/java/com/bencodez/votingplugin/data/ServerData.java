@@ -422,6 +422,24 @@ public class ServerData {
 		}
 	}
 
+	/** Restore an undispatched occurrence and its pending suffix for ordinary restart recovery. */
+	public void abortTimedVoteDispatch(UUID id, java.util.Collection<VoteTimeQueue> pending) {
+		synchronized (plugin.getServerDataFile()) {
+			String path = "UncertainTimedVotes." + id;
+			Object previousCache = getData().get("TimedVoteCache");
+			Object previousRecord = getData().get(path);
+			try {
+				setTimedVoteCache(pending);
+				getData().set(path, null);
+				saveTimedVoteCache();
+			} catch (RuntimeException | Error failure) {
+				getData().set("TimedVoteCache", previousCache);
+				getData().set(path, previousRecord);
+				throw failure;
+			}
+		}
+	}
+
 	/** Clear only a confirmed dispatch record; failed writes retain its live representation. */
 	public void completeTimedVoteDispatch(UUID id) {
 		synchronized (plugin.getServerDataFile()) {

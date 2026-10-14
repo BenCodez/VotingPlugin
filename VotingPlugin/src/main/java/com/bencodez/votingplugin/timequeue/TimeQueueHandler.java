@@ -5,9 +5,13 @@ import java.time.ZoneId;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.event.EventHandler;
@@ -31,11 +35,13 @@ public class TimeQueueHandler implements Listener {
 
 	private VotingPluginMain plugin;
 	private final Object persistenceLock = new Object();
-	private boolean stopping;
+	private volatile boolean stopping;
+	private final AtomicReference<FutureTask<Void>> shutdownSave = new AtomicReference<>();
 	private final AtomicBoolean processing = new AtomicBoolean();
 	private VoteTimeQueue dispatchingVote;
 	private UUID dispatchId;
 	private boolean dispatchEnded;
+	private boolean dispatchStarted;
 	private int persistedShutdownVotes;
 	private final AtomicBoolean retryPending = new AtomicBoolean();
 	private final AtomicInteger retryAttempts = new AtomicInteger();
@@ -155,6 +161,9 @@ public class TimeQueueHandler implements Listener {
 						clearDispatch();
 						throw failure;
 					}
+					// A preparation resumed after stop is still eligible for normal recovery.
+					if (stopping) return;
+					dispatchStarted = true;
 				}
 				try {
 					plugin.getServer().getPluginManager().callEvent(voteEvent);
@@ -192,6 +201,7 @@ public class TimeQueueHandler implements Listener {
 		dispatchingVote = null;
 		dispatchId = null;
 		dispatchEnded = false;
+		dispatchStarted = false;
 	}
 
 	private void checkpointPendingVotes() {
@@ -212,17 +222,73 @@ public class TimeQueueHandler implements Listener {
 	 * Saves pending votes to server data.
 	 */
 	public void save() {
+		if (stopping) {
+			saveForShutdown();
+			return;
+		}
 		synchronized (persistenceLock) {
 			if (stopping) persistPendingVotes();
 			else checkpointPendingVotes();
 		}
 	}
 
-	/** Seal processing and durably retain late admissions from tasks that ignore interruption. */
+	/** Seal processing and retain one persistence owner without an unbounded lifecycle wait. */
 	public void saveForShutdown() {
-		synchronized (persistenceLock) {
-			stopping = true;
-			persistPendingVotes();
+		stopping = true;
+		FutureTask<Void> save;
+		while (true) {
+			save = shutdownSave.get();
+			if (save != null) {
+				if (!save.isDone()) break;
+				shutdownSave.compareAndSet(save, null);
+				continue;
+			}
+			FutureTask<Void> candidate = new FutureTask<Void>(() -> {
+				try {
+					synchronized (persistenceLock) { persistPendingVotes(); }
+				} catch (RuntimeException | Error failure) {
+					try {
+						plugin.getLogger().warning("Timed vote shutdown persistence failed; pending votes remain owned for retry. Recovery is not confirmed.");
+					} catch (RuntimeException | Error ignored) { }
+					throw failure;
+				}
+				return null;
+			}) {
+				@Override protected void done() {
+					// Late admission failures must be retryable after this owner completes.
+					shutdownSave.compareAndSet(this, null);
+				}
+			};
+			FutureTask<Void> existing = shutdownSave.compareAndExchange(null, candidate);
+			if (existing == null) {
+				save = candidate;
+				try {
+					Thread worker = new Thread(candidate, "VotingPlugin-timed-vote-shutdown");
+					worker.setDaemon(true);
+					worker.start();
+				}
+				catch (RuntimeException | Error failure) {
+					candidate.cancel(false);
+					shutdownSave.compareAndSet(candidate, null);
+					throw failure;
+				}
+				break;
+			}
+		}
+		try {
+			save.get(1, TimeUnit.SECONDS);
+			shutdownSave.compareAndSet(save, null);
+		} catch (TimeoutException pending) {
+			plugin.getLogger().warning("Timed vote shutdown persistence is still pending; its worker retains ownership. Recovery is not yet confirmed.");
+		} catch (InterruptedException interrupted) {
+			Thread.currentThread().interrupt();
+			plugin.getLogger().warning("Timed vote shutdown persistence wait was interrupted; its worker retains ownership.");
+		} catch (ExecutionException failure) {
+			shutdownSave.compareAndSet(save, null);
+			Throwable cause = failure.getCause();
+			if (cause instanceof Error error) throw error;
+			if (cause instanceof RuntimeException runtime) throw runtime;
+			throw new IllegalStateException("Timed vote shutdown persistence failed", cause);
 		}
 	}
 
@@ -231,7 +297,14 @@ public class TimeQueueHandler implements Listener {
 		VoteTimeQueue vote;
 		while ((vote = timeChangeQueue.peek()) != null) {
 			if (vote == dispatchingVote) {
-				retainUncertainDispatch();
+				if (dispatchStarted) retainUncertainDispatch();
+				else {
+					var pending = timeChangeQueue.stream().toList();
+					plugin.getServerData().abortTimedVoteDispatch(dispatchId, pending);
+					timeChangeQueue.removeAll(pending);
+					persistedShutdownVotes = pending.size();
+					clearDispatch();
+				}
 			} else {
 				plugin.getServerData().addTimeVoted(persistedShutdownVotes, vote);
 				persistedShutdownVotes++;

@@ -25,6 +25,74 @@ class TimeQueueRecoveryCheckpointTest {
     @TempDir Path directory;
 
     @Test
+    void stoppingDuringPreparationRestoresTheUndispatchedVoteForActualRestartRecovery() throws Exception {
+        Fixture fixture = new Fixture(directory.resolve("aborted-preparation.yml"));
+        fixture.handler.addVote("First", "site");
+        fixture.handler.addVote("Later", "site");
+        fixture.handler.save();
+        var entered = new java.util.concurrent.CountDownLatch(1);
+        var release = new java.util.concurrent.CountDownLatch(1);
+        doAnswer(call -> {
+            call.callRealMethod();
+            entered.countDown();
+            assertTrue(release.await(10, java.util.concurrent.TimeUnit.SECONDS));
+            return null;
+        }).when(fixture.yaml).save(fixture.path.toFile());
+        var callers = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            var delivery = callers.submit(fixture.handler::processQueue);
+            assertTrue(entered.await(5, java.util.concurrent.TimeUnit.SECONDS));
+            callers.submit(fixture.handler::saveForShutdown).get(2, java.util.concurrent.TimeUnit.SECONDS);
+            release.countDown();
+            delivery.get(5, java.util.concurrent.TimeUnit.SECONDS);
+            fixture.handler.saveForShutdown();
+            verify(fixture.plugin.getServer().getPluginManager(), never()).callEvent(any());
+            assertEquals(List.of("First", "Later"), new Fixture(fixture.path).names());
+            assertTrue(fixture.stored().getConfigurationSection("VotingPlugin.UncertainTimedVotes").getKeys(false).isEmpty());
+            assertEquals("keep", fixture.stored().getString("Adjacent.Value"));
+        } finally {
+            release.countDown();
+            callers.shutdownNow();
+            assertTrue(callers.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS));
+            fixture.handler.saveForShutdown();
+        }
+    }
+
+    @Test
+    void failedLateAdmissionRemainsRetryableAfterTheEarlierShutdownSaveSucceeded() throws Exception {
+        Fixture fixture = new Fixture(directory.resolve("late-admission.yml"));
+        fixture.handler.addVote("First", "site");
+        fixture.handler.saveForShutdown();
+        Path saved = fixture.blockWrites();
+        assertThrows(java.io.UncheckedIOException.class, () -> fixture.handler.addVote("Late", "site"));
+        assertEquals(List.of("Late"), fixture.names());
+        fixture.repair(saved);
+        fixture.handler.saveForShutdown();
+        assertTrue(fixture.names().isEmpty());
+        assertEquals(List.of("First", "Late"), new Fixture(fixture.path).names());
+        assertEquals("keep", fixture.stored().getString("Adjacent.Value"));
+    }
+
+    @Test
+    void abortedPreparationWriteFailurePreservesBothWrappersUntilRepairAndRetry() throws Exception {
+        Fixture fixture = new Fixture(directory.resolve("abort-retry.yml"));
+        VoteTimeQueue first = new VoteTimeQueue("First", "site", 123L);
+        VoteTimeQueue later = new VoteTimeQueue("Later", "site", 456L);
+        UUID id = new UUID(1, 2);
+        fixture.data.prepareTimedVoteDispatch(id, first, List.of(later));
+        Path saved = fixture.blockWrites();
+        assertThrows(java.io.UncheckedIOException.class,
+                () -> fixture.data.abortTimedVoteDispatch(id, List.of(first, later)));
+        assertEquals("Later", fixture.yaml.getString("VotingPlugin.TimedVoteCache.0.Name"));
+        assertEquals("First", fixture.yaml.getString("VotingPlugin.UncertainTimedVotes." + id + ".Name"));
+        fixture.repair(saved);
+        fixture.data.abortTimedVoteDispatch(id, List.of(first, later));
+        assertEquals(List.of("First", "Later"), new Fixture(fixture.path).names());
+        assertTrue(fixture.stored().getConfigurationSection("VotingPlugin.UncertainTimedVotes").getKeys(false).isEmpty());
+        assertEquals("keep", fixture.stored().getString("Adjacent.Value"));
+    }
+
+    @Test
     void cancelledDispatchKeepsTheUndispatchedSuffixBothLiveAndRecoverable() throws Exception {
         Fixture fixture = new Fixture(directory.resolve("ServerData.yml"));
         fixture.handler.addVote("First", "site");
