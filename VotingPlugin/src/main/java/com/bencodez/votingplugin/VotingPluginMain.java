@@ -317,6 +317,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	private volatile VotingPluginBackgroundTask backgroundTask;
 	private volatile AtomicBoolean basicBungeeUpdateRunning;
+	private final AtomicBoolean unloadCompleted = new AtomicBoolean();
 
 	private synchronized AtomicBoolean basicBungeeUpdateAdmission() {
 		if (basicBungeeUpdateRunning == null) basicBungeeUpdateRunning = new AtomicBoolean();
@@ -1903,6 +1904,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	@Override
 	public void onPreLoad() {
 		plugin = this;
+		unloadCompleted.set(false);
 
 		setupFiles();
 		if ("SQLITE".equalsIgnoreCase(configFile.getData().getString("DataStorage", "SQLITE"))) {
@@ -1944,11 +1946,13 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Override
 	public void onDisable() {
-		if (offlineVoteOwnerHandoffs != null) offlineVoteOwnerHandoffs.close();
 		try {
-			shutdownVoteReminders();
+			runShutdownStep("offline vote handoffs", () -> {
+				if (offlineVoteOwnerHandoffs != null) offlineVoteOwnerHandoffs.close();
+			});
 		} finally {
-			super.onDisable();
+			try { shutdownVoteReminders(); }
+			finally { super.onDisable(); }
 		}
 	}
 
@@ -1961,48 +1965,79 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Override
 	public void onUnLoad() {
+		if (!unloadCompleted.compareAndSet(false, true)) {
+			runShutdownStep("time queue retry", () -> {
+				if (timeQueueHandler != null) timeQueueHandler.saveForShutdown();
+			});
+			return;
+		}
 		placeholderPlayerPresence.clear();
-		stopBackendHostedControlLifecycle();
-		stopBackendControlConnectorLifecycle();
-		if (getBackendProxyHandler() != null) {
+		runShutdownStep("backend hosted Control", this::stopBackendHostedControlLifecycle);
+		runShutdownStep("backend Control connector", this::stopBackendControlConnectorLifecycle);
+		runShutdownStep("backend proxy", () -> {
+			if (getBackendProxyHandler() != null) getBackendProxyHandler().closeForShutdown();
+		});
+		runShutdownStep("backend ordered vote queue", () -> {
+			if (backendOrderedVoteOverflowQueue != null) {
+				backendOrderedVoteOverflowQueue.close();
+				backendOrderedVoteOverflowQueue = null;
+			}
+		});
+		runShutdownStep("webhook manager", () -> {
+			if (webhookManager != null) webhookManager.shutdown();
+		});
+		runShutdownStep("vote timer", this::shutdownVoteTimer);
+		runShutdownStep("Votifier vote queue", () -> {
+			if (votifierVoteOverflowQueue != null) {
+				votifierVoteOverflowQueue.close();
+				votifierVoteOverflowQueue = null;
+			}
+		});
+		runShutdownStep("time queue", () -> {
+			if (timeQueueHandler != null) timeQueueHandler.saveForShutdown();
+		});
+		runShutdownStep("vote reminders", this::shutdownVoteReminders);
+		runShutdownStep("cooldown checker", () -> {
+			if (coolDownCheck != null) {
+				coolDownCheck.shutdown();
+				coolDownCheck = null;
+			}
+		});
+		runShutdownStep("signs", () -> {
+			if (signs != null) signs.storeSigns();
+		});
+		runShutdownStep("event handlers", () -> HandlerList.unregisterAll(this));
+		// Late producers must see rejection until their overflow and handler cleanup finishes.
+		voteTimer = null;
+		if (plugin == this) plugin = null;
+	}
+
+	private void runShutdownStep(String name, Runnable step) {
+		try {
+			step.run();
+		} catch (RuntimeException | Error failure) {
 			try {
-				getBackendProxyHandler().closeForShutdown();
-			} catch (Exception e) {
-				debug(e);
+				getLogger().log(java.util.logging.Level.WARNING, "Failed to shut down " + name, failure);
+			} catch (RuntimeException | Error ignored) {
+				// Logging must not prevent the next independent cleanup step.
 			}
 		}
-		if (backendOrderedVoteOverflowQueue != null) {
-			backendOrderedVoteOverflowQueue.close();
-			backendOrderedVoteOverflowQueue = null;
-		}
-		if (webhookManager != null) {
-			webhookManager.shutdown();
-		}
-		voteTimer.shutdown();
+	}
+
+	private void shutdownVoteTimer() {
+		if (voteTimer == null) return;
 		try {
-			voteTimer.awaitTermination(1, TimeUnit.SECONDS);
-		} catch (InterruptedException e) {
-			e.printStackTrace();
+			voteTimer.shutdown();
+			if (!voteTimer.awaitTermination(1, TimeUnit.SECONDS)) voteTimer.shutdownNow();
+		} catch (InterruptedException interrupted) {
+			Thread.currentThread().interrupt();
+			voteTimer.shutdownNow();
+		} catch (RuntimeException failure) {
+			try {
+				getLogger().log(java.util.logging.Level.WARNING, "Failed to shut down vote timer", failure);
+			} catch (RuntimeException | Error ignored) { }
+			voteTimer.shutdownNow();
 		}
-		voteTimer.shutdownNow();
-		if (votifierVoteOverflowQueue != null) {
-			votifierVoteOverflowQueue.close();
-			votifierVoteOverflowQueue = null;
-		}
-		if (timeQueueHandler != null) {
-			timeQueueHandler.save();
-		}
-
-		shutdownVoteReminders();
-
-		if (coolDownCheck != null) {
-			coolDownCheck.shutdown();
-			coolDownCheck = null;
-		}
-
-		getSigns().storeSigns();
-		HandlerList.unregisterAll(plugin);
-		plugin = null;
 	}
 
 	/**

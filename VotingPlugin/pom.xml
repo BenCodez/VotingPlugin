@@ -519,7 +519,7 @@
         <dependency>
             <groupId>com.bencodez</groupId>
             <artifactId>simpleapi</artifactId>
-            <version>1.0.2-SNAPSHOT</version>
+            <version>1.0.2-20261011.161601-40</version>
             <scope>compile</scope>
         </dependency>
         <dependency>

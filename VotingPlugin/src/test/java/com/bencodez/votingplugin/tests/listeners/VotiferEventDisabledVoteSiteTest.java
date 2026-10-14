@@ -167,4 +167,13 @@ public class VotiferEventDisabledVoteSiteTest {
 		verify(overflowQueue).enqueue("Steve", SERVICE_SITE);
 		verify(pluginManager, never()).callEvent(any(PlayerVoteEvent.class));
 	}
+
+	@Test
+	void unavailableTimerUsesTheSameOverflowAdmissionPath() {
+		when(plugin.getVoteTimer()).thenReturn(null);
+		when(overflowQueue.enqueue("Steve", SERVICE_SITE)).thenReturn(true);
+		listener.onVotiferEvent(createVoteEvent(SERVICE_SITE));
+		verify(overflowQueue).enqueue("Steve", SERVICE_SITE);
+		verify(pluginManager, never()).callEvent(any(PlayerVoteEvent.class));
+	}
 }
