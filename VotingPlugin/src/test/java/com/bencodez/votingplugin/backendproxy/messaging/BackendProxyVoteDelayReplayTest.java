@@ -256,11 +256,11 @@ class BackendProxyVoteDelayReplayTest {
                 return null;
             }).when(user).setTime(eq(site), anyLong());
 
-            // Run the production event adapter without constructing a storage-backed user.
+            // Run the cancellation-aware production event adapter used by the router.
             var pluginField = VotingPluginUser.class.getDeclaredField("plugin");
             pluginField.setAccessible(true);
             pluginField.set(user, plugin);
-            doCallRealMethod().when(user).bungeeVotePluginMessaging(any(), anyLong(), any(VoteTotalsSnapshot.class),
+            doCallRealMethod().when(user).bungeeVotePluginMessagingEvent(any(), anyLong(), any(VoteTotalsSnapshot.class),
                     anyBoolean(), anyBoolean(), anyBoolean(), anyInt(), anyBoolean(), anyBoolean(),
                     anyBoolean(), any(), anyBoolean());
             PlayerVoteListener listener = new PlayerVoteListener(plugin);
