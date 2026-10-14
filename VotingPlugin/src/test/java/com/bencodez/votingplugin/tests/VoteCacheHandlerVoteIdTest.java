@@ -78,8 +78,9 @@ public class VoteCacheHandlerVoteIdTest {
 	private VoteCacheHandler handler;
 
 	@BeforeEach
-	public void setUp() {
+	public void setUp() throws Exception {
 		storage = mock(IVoteCache.class);
+		Files.writeString(tempDir.resolve("vote-cache.json"), "{}");
 		when(storage.getStoragePath()).thenReturn(tempDir.resolve("vote-cache.json"));
 		when(storage.getServerVotes("server")).thenReturn(Collections.emptyList());
 		when(storage.getOnlineVotes("player-uuid")).thenReturn(Collections.emptyList());
@@ -297,6 +298,7 @@ public class VoteCacheHandlerVoteIdTest {
 	public void failedDurableServerSaveRollsBackJsonMutationBeforeRetry() throws Exception {
 		Path journal = Files.createTempFile("votingplugin-server-rollback", ".json");
 		try {
+			Files.writeString(journal, "{}");
 			ArrayList<String> keys = new ArrayList<>();
 			when(storage.getStoragePath()).thenReturn(journal);
 			when(storage.getServerVotes("server")).thenAnswer(invocation -> new ArrayList<>(keys));
@@ -326,6 +328,7 @@ public class VoteCacheHandlerVoteIdTest {
 	public void failedDurableOnlineSaveRollsBackJsonMutationBeforeRetry() throws Exception {
 		Path journal = Files.createTempFile("votingplugin-online-rollback", ".json");
 		try {
+			Files.writeString(journal, "{}");
 			ArrayList<String> keys = new ArrayList<>();
 			when(storage.getStoragePath()).thenReturn(journal);
 			when(storage.getOnlineVotes("player-uuid")).thenAnswer(invocation -> new ArrayList<>(keys));
@@ -355,6 +358,7 @@ public class VoteCacheHandlerVoteIdTest {
 	public void failedRollbackReloadQuarantinesJsonJournal() throws Exception {
 		Path journal = Files.createTempFile("votingplugin-quarantined-journal", ".json");
 		try {
+			Files.writeString(journal, "{}");
 			when(storage.getStoragePath()).thenReturn(journal);
 			doThrow(new java.io.IOException("save failed")).when(storage).saveDurably();
 			doThrow(new IllegalStateException("reload failed")).when(storage).reload();
@@ -383,6 +387,7 @@ public class VoteCacheHandlerVoteIdTest {
 	public void serverVoteIsNotExposedWhenJsonSaveDoesNotReachDisk() throws Exception {
 		Path journal = Files.createTempFile("votingplugin-empty-journal", ".json");
 		try {
+			Files.writeString(journal, "{}");
 			when(storage.getStoragePath()).thenReturn(journal);
 			handler = newVerifyingHandler(storage);
 
@@ -398,6 +403,7 @@ public class VoteCacheHandlerVoteIdTest {
 	public void serverVoteUpdateIsRejectedWhenJsonSaveDoesNotReachDisk() throws Exception {
 		Path journal = Files.createTempFile("votingplugin-empty-update-journal", ".json");
 		try {
+			Files.writeString(journal, "{}");
 			DataNode voteNode = mock(DataNode.class);
 			when(voteNode.isObject()).thenReturn(true);
 			stubString(voteNode, "UUID", "player-uuid");

@@ -413,17 +413,27 @@ DateVoteMilestones:
     Start: '2026-10-01T00:00:00' # Inclusive: occurrences at this instant count.
     End: '2026-11-01T00:00:00' # Exclusive: occurrences at this instant do not count.
     Timezone: 'UTC'
-    # Standalone: leave empty. Proxy: choose exactly ONE backend Server name,
-    # identically on every backend, and use identified all-server delivery.
+    # Ledger owner: empty/omitted means local accounting on standalone servers.
+    # With UseBungeecord enabled, empty/omitted disables new date accounting.
+    # Proxy: set the exact, case-sensitive BungeeSettings.yml Server name of ONE
+    # backend, identically on every backend, with identified all-server delivery.
+    # Reward delivery follows the existing reward settings. Keep matching event
+    # IDs and milestone reward sections on backends that may resolve rewards.
     AccountingServer: ''
     # Configured VoteSites.yml keys (not service names); empty means all sites.
     VoteSites: []
+    # Named milestones use At (one count, list, or bounded range) / Every.
+    # Existing numeric keys with Rewards remain supported; see the guide.
     Milestones:
-      '10':
+      TenVotes:
+        Enabled: true
+        At: 10
         Rewards:
           Messages:
             Player: '&aYou reached 10 votes in %DateVoteEvent%!'
-      '25':
+      TwentyFiveVotes:
+        Enabled: true
+        At: 25
         Rewards:
           Messages:
             Player: '&aYou reached 25 votes in %DateVoteEvent%!'

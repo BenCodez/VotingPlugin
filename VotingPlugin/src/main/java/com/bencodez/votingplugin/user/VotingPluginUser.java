@@ -3007,7 +3007,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 		HashMap<String, String> placeholders = new HashMap<>();
 		placeholders.put("time", timeString);
-		placeholders.put("SiteName", voteSite.getDisplayNameForFormatting());
+		placeholders.put("SiteName", voteSite.getDisplayName());
 		placeholders.put("timesince", timeSince);
 
 		return PlaceholderUtils.replacePlaceHolder(plugin.getGui().getChestVoteLastLine(), placeholders);
@@ -3025,7 +3025,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 		HashMap<String, String> placeholders = new HashMap<>();
 		placeholders.put("time", timeString);
-		placeholders.put("SiteName", voteSite.getDisplayNameForFormatting());
+		placeholders.put("SiteName", voteSite.getDisplayName());
 		placeholders.put("timesince", timeSince);
 
 		return PlaceholderUtils.replacePlaceHolder(plugin.getConfigFile().getFormatCommandsVoteLastLine(),

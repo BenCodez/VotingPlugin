@@ -9,12 +9,17 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.UUID;
+import java.util.List;
+import java.util.stream.Stream;
 
+import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestFactory;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 
@@ -428,5 +433,91 @@ class SharedVoteProcessorTest {
         verify(ops, never()).addOfflineVote(any(), any());
         verify(ops).postVote(eq(site), eq(user), eq("Ben"), eq(457L), any(UUID.class), eq(false));
         verify(ops).addPoints(user);
+    }
+
+    @TestFactory
+    Stream<DynamicTest> delayAuthorizationDoesNotConfuseTimestampsWithQueuedIdentity() {
+        record Delivery(String name, boolean proxy, boolean queued, boolean queueKnown,
+                boolean delayKnown, boolean identified, long incoming, long stored, boolean accepted) { }
+        return List.of(
+                new Delivery("direct matching timestamp", false, false, false, false, true, 321L, 321L, false),
+                new Delivery("direct with proxy queue flags", false, true, true, true, true, 321L, 321L, false),
+                new Delivery("modern live matching timestamp", true, false, true, false, true, 321L, 321L, false),
+                new Delivery("upstream validated live matching timestamp", true, false, true, true, true, 321L, 321L, false),
+                new Delivery("queued without identity", true, true, true, true, false, 321L, 321L, false),
+                new Delivery("explicit validation without queue classification", true, false, false, true, true, 321L, 321L, false),
+                new Delivery("identified queue matching timestamp", true, true, true, true, true, 321L, 321L, true),
+                new Delivery("identified queue older than LastVotes", true, true, true, true, true, 321L, 999L, true),
+                new Delivery("identified queue newer than LastVotes", true, true, true, true, true, 999L, 321L, true),
+                new Delivery("legacy missing identity matching timestamp", true, false, false, false, false, 321L, 321L, true),
+                new Delivery("legacy identified matching timestamp", true, false, false, false, true, 321L, 321L, true),
+                new Delivery("legacy mismatched timestamp", true, false, false, false, true, 320L, 321L, false),
+                new Delivery("legacy zero timestamp", true, false, false, false, false, 0L, 0L, false))
+                .stream().map(delivery -> DynamicTest.dynamicTest(delivery.name(), () -> {
+                    var ops = accepted();
+                    UUID voteId = delivery.identified() ? UUID.randomUUID() : null;
+                    when(ops.proxyVote()).thenReturn(delivery.proxy());
+                    when(ops.proxyVoteId()).thenReturn(voteId);
+                    when(ops.identifiedQueuedProxyVote()).thenReturn(delivery.queued());
+                    when(ops.proxyQueueClassificationKnown()).thenReturn(delivery.queueKnown());
+                    when(ops.proxyDelayValidationKnown()).thenReturn(delivery.delayKnown());
+                    when(ops.incomingTime()).thenReturn(delivery.incoming());
+                    when(ops.lastVoteTime(user, site)).thenReturn(delivery.stored());
+                    when(ops.waitUntilVoteDelay(site)).thenReturn(true);
+                    when(ops.canVoteSite(user, site)).thenReturn(false);
+                    when(ops.userOnline(user)).thenReturn(true);
+                    when(ops.wasOnline()).thenReturn(true);
+                    when(ops.processRewards()).thenReturn(true);
+
+                    SharedVoteProcessor.process(ops);
+
+                    assertAcceptedEffects(ops, delivery.accepted() ? 1 : 0);
+                    verify(ops, times(delivery.accepted() ? 0 : 1))
+                            .giveWaitRewards(site, user, true, delivery.proxy());
+                    if (delivery.accepted() && voteId != null) {
+                        verify(ops).voteStreak(user, delivery.incoming(), voteId);
+                        verify(ops).postVote(site, user, "Ben", delivery.incoming(), voteId, false);
+                    }
+                }));
+    }
+
+    @TestFactory
+    Stream<DynamicTest> directVotesKeepDocumentedDelayExceptions() {
+        return Stream.of("delay disabled", "delay elapsed", "fake vote", "bypass permission")
+                .map(exception -> DynamicTest.dynamicTest(exception, () -> {
+                    var ops = accepted();
+                    when(ops.waitUntilVoteDelay(site)).thenReturn(!exception.equals("delay disabled"));
+                    when(ops.canVoteSite(user, site)).thenReturn(exception.equals("delay elapsed"));
+                    when(ops.realVote()).thenReturn(!exception.equals("fake vote"));
+                    when(ops.bypassWaitPermission(user)).thenReturn(exception.equals("bypass permission"));
+                    when(ops.userOnline(user)).thenReturn(true);
+                    when(ops.processRewards()).thenReturn(true);
+
+                    SharedVoteProcessor.process(ops);
+
+                    verify(ops).playerVote(user, site, true, false);
+                    verify(ops).cooldown(user, site);
+                    verify(ops).postVote(eq(site), eq(user), eq("Ben"), anyLong(), any(UUID.class), eq(false));
+                    verify(ops, never()).giveWaitRewards(any(), any(), anyBoolean(), anyBoolean());
+                }));
+    }
+
+    private void assertAcceptedEffects(SharedVoteProcessor.Operations<Object, Object> ops, int count) {
+        verify(ops, times(count)).cache(user);
+        verify(ops, times(count)).updateName(user);
+        verify(ops, times(count)).voteParty(eq(user), anyBoolean(), anyBoolean(), anyBoolean());
+        verify(ops, times(count)).setTime(eq(user), eq(site), anyLong());
+        verify(ops, times(count)).playerVote(eq(user), eq(site), anyBoolean(), anyBoolean());
+        verify(ops, never()).addOfflineVote(any(), any());
+        verify(ops, times(count)).addTotal(user);
+        verify(ops, times(count)).addTotalDaily(user);
+        verify(ops, times(count)).addTotalWeekly(user);
+        verify(ops, times(count)).addPoints(user);
+        verify(ops, times(count)).checkDayVoteStreak(eq(user), anyBoolean());
+        verify(ops, times(count)).milestones(eq(user), any(UUID.class), anyBoolean());
+        verify(ops, times(count)).cooldown(user, site);
+        verify(ops, times(count)).voteStreak(eq(user), anyLong(), any(UUID.class));
+        verify(ops, times(count)).postVote(eq(site), eq(user), eq("Ben"), anyLong(), any(UUID.class), eq(false));
+        verify(ops, times(count)).setUpdate();
     }
 }

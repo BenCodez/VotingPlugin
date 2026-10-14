@@ -12,13 +12,15 @@ import org.bukkit.entity.Player;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.core.datemilestones.DateVoteEvent;
+import com.bencodez.votingplugin.core.datemilestones.DateVoteProgressSnapshot;
 import com.bencodez.advancedcore.api.rewards.DirectlyDefinedReward;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.util.BukkitCompletionScheduler;
 
 /** Owner-defined windows, independently accounted on one backend using original occurrence IDs. */
 public final class DateVoteMilestones {
-    private record Definition(DateVoteEvent event, YamlConfiguration rewards) { }
+    private record Definition(DateVoteEvent event, YamlConfiguration rewards, java.util.Set<Integer> enabledThresholds,
+            java.util.Map<Integer, DateVoteMilestoneConfig.Reward> milestones) { }
     private final VotingPluginMain plugin;
     private volatile List<Definition> definitions = List.of();
     private final java.util.Set<UUID> pendingProgress = new java.util.HashSet<>();
@@ -50,7 +52,10 @@ public final class DateVoteMilestones {
                 DateVoteEvent event = parse(id, section);
                 if (plugin.getBungeeSettings().isUseBungeecoord() && event.accountingServer().isBlank())
                     throw new IllegalArgumentException("Proxy events require one explicit AccountingServer and all-server identified delivery");
-                loaded.add(new Definition(event, rewards));
+                var configured = DateVoteMilestoneConfig.read(section);
+                var enabledThresholds = configured.entrySet().stream().filter(entry -> entry.getValue().enabled())
+                        .map(java.util.Map.Entry::getKey).collect(java.util.stream.Collectors.toUnmodifiableSet());
+                loaded.add(new Definition(event, rewards, enabledThresholds, java.util.Map.copyOf(configured)));
             } catch (Exception invalid) {
                 plugin.getLogger().warning("DateVoteMilestones " + id + " disabled: " + invalid.getMessage());
             }
@@ -62,14 +67,22 @@ public final class DateVoteMilestones {
         String fileId = DateVoteEvent.fileId(id);
         var milestones = section.getConfigurationSection("Milestones");
         if (milestones == null) return;
+        java.util.Map<Integer, DateVoteMilestoneConfig.Reward> configuredRewards = new java.util.LinkedHashMap<>();
+        java.util.Set<Integer> ambiguous = new java.util.HashSet<>();
         int count = 0;
         for (String key : milestones.getKeys(false)) {
             if (++count > 64) break;
-            int threshold;
-            try { threshold = Integer.parseInt(key); }
-            catch (NumberFormatException invalid) { continue; }
-            if (threshold <= 0 || threshold > 4096 || !key.equals(Integer.toString(threshold))) continue;
-            String source = "DateVoteMilestones." + id + ".Milestones." + threshold + ".Rewards";
+            try {
+                for (var entry : DateVoteMilestoneConfig.entry(key, milestones.getConfigurationSection(key)).entrySet()) {
+                    if (configuredRewards.size() >= 64 && !configuredRewards.containsKey(entry.getKey())) continue;
+                    if (configuredRewards.putIfAbsent(entry.getKey(), entry.getValue()) != null) ambiguous.add(entry.getKey());
+                }
+            } catch (IllegalArgumentException invalid) { /* Keep independent valid queued reward handles. */ }
+        }
+        for (var entry : configuredRewards.entrySet()) {
+            int threshold = entry.getKey();
+            if (ambiguous.contains(threshold)) continue;
+            String source = "DateVoteMilestones." + id + ".Milestones." + entry.getValue().key() + ".Rewards";
             var configured = rewards.getConfigurationSection(source);
             if (configured == null) continue;
             String alias = "DateVoteMilestonesRuntime." + fileId + ".Milestones." + threshold + ".Rewards";
@@ -78,11 +91,16 @@ public final class DateVoteMilestones {
                 private String sourcePath(String requested) {
                     if (!requested.equals(alias) && !requested.startsWith(alias + "."))
                         throw new IllegalArgumentException("Unexpected date milestone reward path");
-                    return source + requested.substring(alias.length());
+                    String current = currentRewardSource(plugin.getSpecialRewardsConfig().getData(), id, threshold);
+                    if (current == null) throw new IllegalStateException("Date milestone reward definition is unavailable");
+                    return current + requested.substring(alias.length());
                 }
                 @Override public ConfigurationSection getFileData() {
                     YamlConfiguration data = new YamlConfiguration();
-                    var current = plugin.getSpecialRewardsConfig().getData().getConfigurationSection(source);
+                    var live = plugin.getSpecialRewardsConfig().getData();
+                    String currentSource = currentRewardSource(live, id, threshold);
+                    var current = currentSource == null ? null
+                            : live.getConfigurationSection(currentSource);
                     if (current != null) data.createSection(alias, current.getValues(true));
                     return data;
                 }
@@ -92,19 +110,29 @@ public final class DateVoteMilestones {
             });
         }
     }
+    /** Old registry handles can outlive YAML replacement during reload; resolve by stable threshold. */
+    private static String currentRewardSource(ConfigurationSection live, String id, int threshold) {
+        var milestones = live.getConfigurationSection("DateVoteMilestones." + id + ".Milestones");
+        if (milestones == null) return null;
+        String found = null;
+        int count = 0;
+        for (String key : milestones.getKeys(false)) {
+            if (++count > 64) break;
+            try {
+                if (!DateVoteMilestoneConfig.entry(key, milestones.getConfigurationSection(key)).containsKey(threshold)) continue;
+                if (found != null) return null;
+                found = "DateVoteMilestones." + id + ".Milestones." + key + ".Rewards";
+            } catch (IllegalArgumentException invalid) { /* An unrelated invalid entry does not hide queued rewards. */ }
+        }
+        return found;
+    }
     public static DateVoteEvent parse(String id, ConfigurationSection section) {
         String zone = section.getString("Timezone");
         String start = section.getString("Start"), end = section.getString("End");
         var milestones = section.getConfigurationSection("Milestones");
         if (zone == null || start == null || end == null || milestones == null)
             throw new IllegalArgumentException("Start, End, Timezone and Milestones are required");
-        List<Integer> thresholds = new ArrayList<>();
-        for (String key : milestones.getKeys(false)) {
-            int threshold = Integer.parseInt(key);
-            if (!key.equals(Integer.toString(threshold)) || milestones.getConfigurationSection(key + ".Rewards") == null)
-                throw new IllegalArgumentException("Each numeric milestone must contain Rewards");
-            thresholds.add(threshold);
-        }
+        List<Integer> thresholds = new ArrayList<>(DateVoteMilestoneConfig.read(section).keySet());
         Object rawSites = section.get("VoteSites");
         if (rawSites != null && (!(rawSites instanceof List<?> sites)
                 || sites.stream().anyMatch(site -> !(site instanceof String))))
@@ -115,9 +143,6 @@ public final class DateVoteMilestones {
     }
     static String path(DateVoteEvent event, int threshold) {
         return "DateVoteMilestonesRuntime." + event.fileId() + ".Milestones." + threshold + ".Rewards";
-    }
-    private static String configPath(DateVoteEvent event, int threshold) {
-        return "DateVoteMilestones." + event.id() + ".Milestones." + threshold + ".Rewards";
     }
     /** Owner-thread extension events use the existing ordered storage worker without waiting on gameplay. */
     public boolean deferAccepted(VotingPluginUser user, String site, UUID occurrence, long occurredAt,
@@ -168,6 +193,7 @@ public final class DateVoteMilestones {
             try {
                 for (int threshold : reached) {
                     if (!plugin.getOptions().isProcessRewards()) break;
+                    if (!definition.enabledThresholds().contains(threshold)) continue;
                     var placeholders = new HashMap<String, String>();
                     placeholders.put("DateVoteEvent", event.displayName());
                     placeholders.put("DateVoteThreshold", Integer.toString(threshold));
@@ -185,10 +211,14 @@ public final class DateVoteMilestones {
         return recorded;
     }
     public void progress(Player player) {
+        progress(player, (view, current) -> com.bencodez.votingplugin.commands.gui.player.DateVoteEventsMenu.open(plugin, player, view, current));
+    }
+    /** Display is an entity-owned effect; identity resolution and ledger reads stay on the storage worker. */
+    void progress(Player player, java.util.function.BiConsumer<DateVoteProgressSnapshot, java.util.function.BooleanSupplier> display) {
         BukkitCompletionScheduler.run(plugin, player, () -> {
             UUID uuid = player.getUniqueId();
             String playerName = player.getName();
-            if (!player.hasPermission("VotingPlugin.Commands.Vote.DateEvents") && !player.hasPermission("VotingPlugin.Player")) return;
+            if (!canView(player)) return;
             synchronized (pendingProgress) {
                 if (pendingProgress.contains(uuid) || pendingProgress.size() >= 64) {
                     player.sendMessage("Date voting progress is already being checked or busy. Try again shortly."); return;
@@ -200,33 +230,41 @@ public final class DateVoteMilestones {
                 plugin.getUserManager().getDataManager().getTimer().execute(() -> {
                     try {
                     if (snapshot != definitions || !plugin.isEnabled()) return;
-                    UUID storageId = snapshot.isEmpty() ? uuid
+                    boolean proxyBackend = plugin.getBungeeSettings().isUseBungeecoord();
+                    String server = plugin.getBungeeSettings().getServer();
+                    boolean localProgress = snapshot.stream().anyMatch(d -> !proxyBackend || d.event().accountingServer().equals(server));
+                    UUID storageId = !localProgress ? uuid
                             : plugin.getVotingPluginUserManager().getVotingPluginUser(uuid, playerName).getJavaUUID();
-                    List<String> messages = new ArrayList<>();
-                    if (snapshot.stream().noneMatch(d -> d.event().enabled())) messages.add("No date voting events are enabled.");
+                    List<DateVoteProgressSnapshot.Event> events = new ArrayList<>();
+                    long now = System.currentTimeMillis();
                     for (Definition definition : snapshot) {
                         var event = definition.event();
-                        if (!event.enabled()) continue;
-                        if (plugin.getBungeeSettings().isUseBungeecoord() && !event.accountingServer().equals(plugin.getBungeeSettings().getServer())) {
-                            messages.add(event.displayName() + ": progress is owned by backend " + event.accountingServer()); continue;
+                        var milestones = event.thresholds().stream().map(threshold -> {
+                            var configured = definition.milestones().get(threshold);
+                            var rewards = definition.rewards().getConfigurationSection(path(event, threshold));
+                            var types = rewards == null ? List.<String>of() : rewards.getKeys(false).stream()
+                                    .filter(key -> key.length() <= 64).limit(16).toList();
+                            return new DateVoteProgressSnapshot.Milestone(threshold, configured.key(), configured.enabled(), types);
+                        }).toList();
+                        if (proxyBackend && !event.accountingServer().equals(server)) {
+                            events.add(view(event, DateVoteProgressSnapshot.Availability.REMOTE, null, milestones)); continue;
                         }
                         try {
                             var progress = ledger().progress(event, storageId);
-                            long now = System.currentTimeMillis();
-                            String state = now < event.start() ? "upcoming" : now >= event.end() ? "ended" : "active";
-                            messages.add(event.displayName() + " (" + state + "): " + progress.votes() + " votes; milestones " + event.thresholds()
-                                    + "; submitted " + progress.submittedAwards() + "; deferred " + progress.deferredAwards() + "; pending review " + progress.reservedAwards());
-                        } catch (IOException failure) { messages.add(event.displayName() + ": progress unavailable; ask an administrator."); }
+                            events.add(view(event, DateVoteProgressSnapshot.Availability.OWNED, progress, milestones));
+                        } catch (IOException failure) {
+                            events.add(view(event, DateVoteProgressSnapshot.Availability.UNAVAILABLE, null, milestones));
+                        }
                     }
+                    var result = new DateVoteProgressSnapshot(now, events);
+                    java.util.function.BooleanSupplier current = () -> canView(player) && snapshot == definitions
+                            && plugin.getDateVoteMilestones() == this;
                     BukkitCompletionScheduler.run(plugin, player, () -> {
-                        if (player.isOnline() && plugin.isEnabled() && snapshot == definitions
-                                && (player.hasPermission("VotingPlugin.Commands.Vote.DateEvents") || player.hasPermission("VotingPlugin.Player")))
-                            messages.forEach(player::sendMessage);
+                        if (current.getAsBoolean()) display.accept(result, current);
                     }, () -> { }, () -> { });
                     } catch (RuntimeException unavailable) {
                         BukkitCompletionScheduler.run(plugin, player, () -> {
-                            if (player.isOnline() && plugin.isEnabled() && snapshot == definitions
-                                    && (player.hasPermission("VotingPlugin.Commands.Vote.DateEvents") || player.hasPermission("VotingPlugin.Player")))
+                            if (canView(player) && snapshot == definitions)
                                 player.sendMessage("Date voting progress is temporarily unavailable.");
                         }, () -> { }, () -> { });
                     } finally { synchronized (pendingProgress) { pendingProgress.remove(uuid); } }
@@ -236,5 +274,16 @@ public final class DateVoteMilestones {
                 player.sendMessage("Date voting progress is temporarily unavailable.");
             }
         }, () -> { }, () -> { });
+    }
+    private boolean canView(Player player) {
+        return plugin.isEnabled() && player.isOnline()
+                && (player.hasPermission("VotingPlugin.Commands.Vote.DateEvents") || player.hasPermission("VotingPlugin.Player"));
+    }
+    private static DateVoteProgressSnapshot.Event view(DateVoteEvent event, DateVoteProgressSnapshot.Availability availability,
+            DateVoteLedger.Progress progress, List<DateVoteProgressSnapshot.Milestone> milestones) {
+        return new DateVoteProgressSnapshot.Event(event, availability, progress == null ? 0 : progress.votes(),
+                progress == null ? java.util.Set.of() : progress.submittedAwards(),
+                progress == null ? java.util.Set.of() : progress.deferredAwards(),
+                progress == null ? java.util.Set.of() : progress.reservedAwards(), milestones);
     }
 }

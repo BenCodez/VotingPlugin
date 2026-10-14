@@ -569,7 +569,8 @@ public class BackendProxyMessageRouter {
 		}
 
 		String totalsRaw = nvl(fields.get(VotingPluginWire.K_TOTALS));
-		VoteTotalsSnapshot totals = totalsRaw.isEmpty() ? null : VoteTotalsSnapshot.parseStorage(totalsRaw);
+		VoteTotalsSnapshot totals = !com.bencodez.votingplugin.proxy.VoteOccurrenceMetadata.hasPayload(totalsRaw)
+                ? null : VoteTotalsSnapshot.parseStorage(totalsRaw);
 		VoteSite voteSite = plugin.getVoteSiteManager()
 				.getVoteSite(plugin.getVoteSiteManager().getVoteSiteName(true, service), true);
 		if (voteSite == null) {
@@ -595,7 +596,7 @@ public class BackendProxyMessageRouter {
 		boolean online = fields.containsKey(VotingPluginWire.K_WAS_ONLINE)
 				? Boolean.parseBoolean(fields.get(VotingPluginWire.K_WAS_ONLINE)) : user.isOnline();
 		plugin.getBroadcastHandler().broadcastVote(user.getJavaUUID(), user.getPlayerName(),
-				voteSite.getDisplayNameForFormatting(), online, totals);
+				voteSite.getDisplayName(), online, totals);
 	}
 
 	private WireVoteResult handleWireVoteDelayRejected(JsonEnvelope msg) {

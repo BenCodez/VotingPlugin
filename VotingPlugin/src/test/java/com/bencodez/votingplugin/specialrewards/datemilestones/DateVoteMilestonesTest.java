@@ -8,6 +8,8 @@ import java.util.UUID;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.DynamicTest;
+import org.junit.jupiter.api.TestFactory;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 class DateVoteMilestonesTest {
@@ -30,7 +32,7 @@ class DateVoteMilestonesTest {
         when(plugin.getBungeeSettings().getServer()).thenReturn("owner");
         when(user.getJavaUUID()).thenReturn(player);
         when(plugin.getOptions().isProcessRewards()).thenReturn(true);
-        var m = new DateVoteMilestones(plugin); m.reload(); return m;
+        var m = new DateVoteMilestones(plugin); when(plugin.getDateVoteMilestones()).thenReturn(m); m.reload(); return m;
     }
     @Test void bundledDefaultExampleParsesAndNeverEnablesDateRewards() throws Exception {
         var defaults = new YamlConfiguration();
@@ -56,6 +58,66 @@ class DateVoteMilestonesTest {
         assertFalse(Files.exists(root.resolve("date-vote-milestones")), "disabled defaults must not create accounting state");
         assertTrue(config.getBoolean("EnableMonthlyAwards"), "existing default awards stay intact");
         assertFalse(config.getBoolean("EnableWeeklyAwards"));
+    }
+
+    @TestFactory
+    java.util.stream.Stream<DynamicTest> standaloneUnsetOwnerCountsLocallyAndRetainsDeduplication() {
+        return java.util.Arrays.<String>asList(null, "", "   ").stream().map(owner ->
+                DynamicTest.dynamicTest(owner == null ? "omitted" : owner.isEmpty() ? "empty" : "blank", () -> {
+                    Path factoryRoot = root;
+                    root = Files.createTempDirectory(factoryRoot, "accounting-owner-");
+                    reset(plugin, user);
+                    try {
+                        event("october", owner);
+                        var manager = manager(); UUID occurrence = UUID.randomUUID();
+                        assertTrue(manager.accepted(user, "a", occurrence, time, true, false, false, false, false));
+                        assertTrue(manager.accepted(user, "a", occurrence, time, true, false, false, false, false));
+                        var definition = DateVoteMilestones.parse("october", config.getConfigurationSection("DateVoteMilestones.october"));
+                        assertEquals(1, new DateVoteLedger(root.resolve("date-vote-milestones")).progress(definition, player).votes());
+                        verify(plugin.getRewardHandler(), times(1)).giveReward(eq(user), any(), eq(rewardPath("october")), any());
+                    } finally { root = factoryRoot; }
+                }));
+    }
+
+    @TestFactory
+    java.util.stream.Stream<DynamicTest> proxyUnsetOwnerStopsNewAccountingButRetainsExistingRewardHandles() {
+        return java.util.Arrays.<String>asList(null, "", "   ").stream().map(owner ->
+                DynamicTest.dynamicTest(owner == null ? "omitted" : owner.isEmpty() ? "empty" : "blank", () -> {
+                    Path factoryRoot = root;
+                    root = Files.createTempDirectory(factoryRoot, "accounting-owner-");
+                    reset(plugin, user);
+                    try {
+                        event("october", owner);
+                        when(plugin.getBungeeSettings().isUseBungeecoord()).thenReturn(true);
+                        var manager = manager();
+                        assertTrue(manager.accepted(user, "a", UUID.randomUUID(), time, true, true, true, false, false));
+                        assertFalse(Files.exists(root.resolve("date-vote-milestones")));
+                        verify(plugin.getRewardHandler(), never()).giveReward(any(), any(), anyString(), any());
+                        var handle = org.mockito.ArgumentCaptor.forClass(com.bencodez.advancedcore.api.rewards.DirectlyDefinedReward.class);
+                        verify(plugin).addDirectlyDefinedRewards(handle.capture());
+                        assertEquals(rewardPath("october"), handle.getValue().getPath());
+                        assertEquals("Thanks", handle.getValue().getFileData().getString(handle.getValue().getPath() + ".Messages.Player"));
+                    } finally { root = factoryRoot; }
+                }));
+    }
+
+    @Test void proxyAccountingOwnerRequiresExactCaseAndValidSiblingsStillCount() throws Exception {
+        event("without-owner", ""); event("october", "owner");
+        when(plugin.getBungeeSettings().isUseBungeecoord()).thenReturn(true);
+        var manager = manager(); UUID occurrence = UUID.randomUUID();
+        when(plugin.getBungeeSettings().getServer()).thenReturn("Owner");
+        assertTrue(manager.accepted(user, "a", occurrence, time, true, true, true, false, false));
+        assertFalse(Files.exists(root.resolve("date-vote-milestones")));
+        when(plugin.getBungeeSettings().getServer()).thenReturn("other");
+        assertTrue(manager.accepted(user, "a", occurrence, time, true, true, true, false, false));
+        assertFalse(Files.exists(root.resolve("date-vote-milestones")));
+        when(plugin.getBungeeSettings().getServer()).thenReturn("owner");
+        assertTrue(manager.accepted(user, "a", occurrence, time, true, true, true, false, false));
+        assertTrue(manager.accepted(user, "a", occurrence, time, true, true, true, false, false));
+        var definition = DateVoteMilestones.parse("october", config.getConfigurationSection("DateVoteMilestones.october"));
+        assertEquals(1, new DateVoteLedger(root.resolve("date-vote-milestones")).progress(definition, player).votes());
+        verify(plugin.getRewardHandler(), times(1)).giveReward(eq(user), any(), eq(rewardPath("october")), any());
+        verify(plugin.getRewardHandler(), never()).giveReward(eq(user), any(), eq(rewardPath("without-owner")), any());
     }
 
     @Test void failedOccurrencePublicationIsReportedWithoutCountingOrRepeatingAnAward() throws Exception {
@@ -196,6 +258,106 @@ class DateVoteMilestonesTest {
     private String rewardPath(String id) {
         return DateVoteMilestones.path(DateVoteMilestones.parse(id, config.getConfigurationSection("DateVoteMilestones." + id)), 1);
     }
+    @Test void legacyToNamedReloadAndRestartKeepProgressAwardsAndRewardAliases() throws Exception {
+        event("october", "");
+        config.set("DateVoteMilestones.october.Milestones.2.Rewards.Messages.Player", "Second");
+        var original = DateVoteMilestones.parse("october", config.getConfigurationSection("DateVoteMilestones.october"));
+        var m = manager(); UUID first = UUID.randomUUID();
+        assertTrue(m.accepted(user, "a", first, time, true, false, false, false, false));
+        var rewards = config.getConfigurationSection("DateVoteMilestones.october.Milestones.1.Rewards").getValues(true);
+        config.set("DateVoteMilestones.october.Milestones", null);
+        config.set("DateVoteMilestones.october.Milestones.first.At", 1);
+        config.createSection("DateVoteMilestones.october.Milestones.first.Rewards", rewards);
+        config.set("DateVoteMilestones.october.Milestones.second.At", 2);
+        config.set("DateVoteMilestones.october.Milestones.second.Rewards.Messages.Player", "Second");
+        var renamed = DateVoteMilestones.parse("october", config.getConfigurationSection("DateVoteMilestones.october"));
+        assertEquals(original.fingerprint(), renamed.fingerprint());
+        m.reload(); m = manager();
+        assertTrue(m.accepted(user, "a", first, time, true, false, false, false, false));
+        assertTrue(m.accepted(user, "a", UUID.randomUUID(), time, true, false, false, false, false));
+        var progress = new DateVoteLedger(root.resolve("date-vote-milestones")).progress(renamed, player);
+        assertEquals(2, progress.votes()); assertEquals(java.util.Set.of(1, 2), progress.submittedAwards());
+        verify(plugin.getRewardHandler(), times(1)).giveReward(eq(user), any(), eq(DateVoteMilestones.path(original, 1)), any());
+        verify(plugin.getRewardHandler(), times(1)).giveReward(eq(user), any(), eq(DateVoteMilestones.path(original, 2)), any());
+        var handles = org.mockito.ArgumentCaptor.forClass(com.bencodez.advancedcore.api.rewards.DirectlyDefinedReward.class);
+        verify(plugin, atLeastOnce()).addDirectlyDefinedRewards(handles.capture());
+        var firstHandle = handles.getAllValues().stream().filter(h -> h.getPath().equals(DateVoteMilestones.path(original, 1)))
+                .reduce((a, b) -> b).orElseThrow();
+        assertEquals("Thanks", firstHandle.getFileData().getString(firstHandle.getPath() + ".Messages.Player"));
+        var configurationWriter = plugin.getSpecialRewardsConfig();
+        doAnswer(call -> { config.set(call.getArgument(0), call.getArgument(1)); return null; })
+                .when(configurationWriter).setValue(anyString(), any());
+        firstHandle.setData(firstHandle.getPath() + ".Messages.Player", "Updated");
+        assertEquals("Updated", config.getString("DateVoteMilestones.october.Milestones.first.Rewards.Messages.Player"));
+        assertNull(config.get("DateVoteMilestonesRuntime"));
+    }
+    @Test void disabledNamedMilestoneRetainsQueuedRewardsAndDefersOnlyUnattemptedAwards() throws Exception {
+        event("october", ""); config.set("DateVoteMilestones.october.Milestones", null);
+        config.set("DateVoteMilestones.october.Milestones.first.At", 1);
+        config.set("DateVoteMilestones.october.Milestones.first.Enabled", false);
+        config.set("DateVoteMilestones.october.Milestones.first.Rewards.Messages.Player", "Thanks");
+        var m = manager(); UUID occurrence = UUID.randomUUID();
+        assertTrue(m.accepted(user, "a", occurrence, time, true, false, false, false, false));
+        var definition = DateVoteMilestones.parse("october", config.getConfigurationSection("DateVoteMilestones.october"));
+        assertEquals(java.util.Set.of(1), new DateVoteLedger(root.resolve("date-vote-milestones")).progress(definition, player).deferredAwards());
+        verify(plugin.getRewardHandler(), never()).giveReward(any(), any(), anyString(), any());
+        var handle = org.mockito.ArgumentCaptor.forClass(com.bencodez.advancedcore.api.rewards.DirectlyDefinedReward.class);
+        verify(plugin).addDirectlyDefinedRewards(handle.capture());
+        assertEquals("Thanks", handle.getValue().getFileData().getString(handle.getValue().getPath() + ".Messages.Player"));
+        config.set("DateVoteMilestones.october.Milestones.first.Enabled", true); m = manager();
+        assertTrue(m.accepted(user, "a", occurrence, time, true, false, false, false, false));
+        m = manager(); m.accepted(user, "a", occurrence, time, true, false, false, false, false);
+        verify(plugin.getRewardHandler(), times(1)).giveReward(eq(user), any(), eq(DateVoteMilestones.path(definition, 1)), any());
+        assertEquals(1, new DateVoteLedger(root.resolve("date-vote-milestones")).progress(definition, player).votes());
+    }
+    @Test void preReloadRegistryHandlesResolveRegroupedRewardsAndEditsBeforeRegistryReplacement() throws Exception {
+        event("october", "");
+        config.set("DateVoteMilestones.october.Milestones.2.Rewards.Messages.Player", "Second");
+        var m = manager();
+        var handles = org.mockito.ArgumentCaptor.forClass(com.bencodez.advancedcore.api.rewards.DirectlyDefinedReward.class);
+        verify(plugin, times(2)).addDirectlyDefinedRewards(handles.capture());
+        var registry = new com.bencodez.advancedcore.api.rewards.RewardRegistry(plugin);
+        handles.getAllValues().forEach(registry::addDirectlyDefined);
+        var definition = DateVoteMilestones.parse("october", config.getConfigurationSection("DateVoteMilestones.october"));
+        var oldFirst = registry.getDirectlyDefined(DateVoteMilestones.path(definition, 1));
+        var oldSecond = registry.getDirectlyDefined(DateVoteMilestones.path(definition, 2));
+        config.set("DateVoteMilestones.october.Milestones", null);
+        config.set("DateVoteMilestones.october.Milestones.grouped.At", java.util.List.of(1, 2));
+        config.set("DateVoteMilestones.october.Milestones.grouped.Rewards.Messages.Player", "Grouped");
+        // Real reload ordering: YAML is replaced while the old definitions/registry still serve votes.
+        var rewardHandler = plugin.getRewardHandler();
+        doAnswer(call -> {
+            String alias = call.getArgument(2);
+            assertEquals("Grouped", registry.getDirectlyDefined(alias).getFileData().getString(alias + ".Messages.Player"));
+            return null;
+        }).when(rewardHandler).giveReward(eq(user), any(), anyString(), any());
+        assertTrue(m.accepted(user, "a", UUID.randomUUID(), time, true, false, false, false, false));
+        clearInvocations(plugin); m.reload();
+        verify(plugin, times(2)).addDirectlyDefinedRewards(handles.capture());
+        handles.getAllValues().forEach(registry::addDirectlyDefined);
+        assertSame(oldFirst, registry.getDirectlyDefined(oldFirst.getPath()));
+        assertSame(oldSecond, registry.getDirectlyDefined(oldSecond.getPath()));
+        assertTrue(m.accepted(user, "a", UUID.randomUUID(), time, true, false, false, false, false));
+        var writer = plugin.getSpecialRewardsConfig();
+        doAnswer(call -> { config.set(call.getArgument(0), call.getArgument(1)); return null; })
+                .when(writer).setValue(anyString(), any());
+        oldFirst.setData(oldFirst.getPath() + ".Messages.Player", "Edited");
+        assertEquals("Edited", oldSecond.getFileData().getString(oldSecond.getPath() + ".Messages.Player"));
+        oldSecond.createSection(oldSecond.getPath() + ".Commands");
+        verify(writer).createSection("DateVoteMilestones.october.Milestones.grouped.Rewards.Commands");
+        assertEquals(java.util.Set.of(1, 2), new DateVoteLedger(root.resolve("date-vote-milestones")).progress(definition, player).submittedAwards());
+        verify(plugin.getRewardHandler(), times(2)).giveReward(eq(user), any(), anyString(), any());
+    }
+    @Test void malformedNamedMilestoneDisablesOnlyItsEventAndKeepsIndependentQueuedHandle() {
+        event("october", ""); event("broken", "");
+        config.set("DateVoteMilestones.broken.Milestones.invalid.At", java.util.List.of(1, "garbage"));
+        config.set("DateVoteMilestones.broken.Milestones.invalid.Rewards.Messages.Player", "Invalid");
+        var m = manager(); m.accepted(user, "a", UUID.randomUUID(), time, true, false, false, false, false);
+        verify(plugin.getRewardHandler(), times(1)).giveReward(eq(user), any(), eq(rewardPath("october")), any());
+        var handles = org.mockito.ArgumentCaptor.forClass(com.bencodez.advancedcore.api.rewards.DirectlyDefinedReward.class);
+        verify(plugin, times(2)).addDirectlyDefinedRewards(handles.capture());
+        assertTrue(handles.getAllValues().stream().anyMatch(h -> h.getPath().contains(com.bencodez.votingplugin.core.datemilestones.DateVoteEvent.fileId("broken"))));
+    }
     @Test void disablingStopsAccountingButKeepsQueuedRewardReferencesResolvable() {
         event("october", ""); var m = manager();
         var handles = org.mockito.ArgumentCaptor.forClass(com.bencodez.advancedcore.api.rewards.DirectlyDefinedReward.class);
@@ -285,6 +447,9 @@ class DateVoteMilestonesTest {
         when(playerEntity.hasPermission(anyString())).thenReturn(true);
         when(plugin.isEnabled()).thenReturn(true);
         java.util.Queue<Runnable> worker = new java.util.ArrayDeque<>(), entity = new java.util.ArrayDeque<>();
+        var displayed = new java.util.ArrayList<com.bencodez.votingplugin.core.datemilestones.DateVoteProgressSnapshot>();
+        java.util.function.BiConsumer<com.bencodez.votingplugin.core.datemilestones.DateVoteProgressSnapshot, java.util.function.BooleanSupplier> display
+                = (view, current) -> { assertTrue(current.getAsBoolean()); displayed.add(view); };
         var timer = mock(java.util.concurrent.ScheduledExecutorService.class);
         when(plugin.getUserManager().getDataManager().getTimer()).thenReturn(timer);
         doAnswer(invocation -> { worker.add(invocation.getArgument(0)); return null; }).when(timer).execute(any(Runnable.class));
@@ -295,24 +460,24 @@ class DateVoteMilestonesTest {
                     });
             worker.add(() -> when(user.getJavaUUID()).thenReturn(storageId));
             when(user.getJavaUUID()).thenReturn(player); // Earlier ordered mutation has not yet run.
-            m.progress(playerEntity); entity.remove().run();
-            for (int i = 0; i < 100; i++) { m.progress(playerEntity); entity.remove().run(); }
+            m.progress(playerEntity, display); entity.remove().run();
+            for (int i = 0; i < 100; i++) { m.progress(playerEntity, display); entity.remove().run(); }
             assertEquals(2, worker.size());
             verify(plugin, never()).getTimer();
             verify(plugin.getVotingPluginUserManager(), never()).getVotingPluginUser(any(UUID.class), anyString());
             worker.remove().run(); // The prior mutation must precede the progress lookup.
-            verify(playerEntity, never()).sendMessage(startsWith("october ("));
+            assertTrue(displayed.isEmpty());
             assertEquals(accountingBefore, accountingFiles(root.resolve("date-vote-milestones")),
                     "Progress must preserve every accounting file; the lock file is coordination metadata");
             worker.remove().run(); assertEquals(1, entity.size());
-            entity.remove().run(); verify(playerEntity).sendMessage(contains(": 1 votes;"));
+            entity.remove().run(); assertEquals(1, displayed.size()); assertEquals(1, displayed.getFirst().events().getFirst().votes());
             verify(plugin.getRewardHandler(), never()).giveReward(any(), any(), anyString(), any());
             assertEquals(1, countPlayerRecords(root.resolve("date-vote-milestones")));
             assertEquals(accountingBefore, accountingFiles(root.resolve("date-vote-milestones")));
             clearInvocations(playerEntity);
-            m.progress(playerEntity); entity.remove().run(); worker.remove().run();
+            displayed.clear(); m.progress(playerEntity, display); entity.remove().run(); worker.remove().run();
             m.reload(); entity.remove().run();
-            verify(playerEntity, never()).sendMessage(startsWith("october ("));
+            assertTrue(displayed.isEmpty());
             assertEquals(accountingBefore, accountingFiles(root.resolve("date-vote-milestones")));
         }
     }

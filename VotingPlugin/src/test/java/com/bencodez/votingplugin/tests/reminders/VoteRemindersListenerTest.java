@@ -25,7 +25,7 @@ import com.bencodez.votingplugin.votesites.VoteSite;
 class VoteRemindersListenerTest {
 
 	@Test
-	void postVoteKeepsRawActionValueAndSeparateDisplayValue() {
+	void postVoteUsesTheOriginalReleaseValue() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);
 		VoteRemindersManager manager = mock(VoteRemindersManager.class);
 		VoteSite site = mock(VoteSite.class);
@@ -35,15 +35,14 @@ class VoteRemindersListenerTest {
 		when(event.getUser()).thenReturn(user);
 		when(event.getVoteSite()).thenReturn(site);
 		when(site.getDisplayName()).thenReturn("site_key");
-		when(site.getDisplayNameForFormatting()).thenReturn("site_key");
 
 		new VoteRemindersListener(plugin).onPostVote(event);
 
-		verify(manager).onVoteCast(user, "site_key", "site_key");
+		verify(manager).onVoteCast(user, "site_key");
 	}
 
 	@Test
-	void cooldownKeepsRawActionValueAndSeparateDisplayValue() {
+	void cooldownUsesTheOriginalReleaseValue() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);
 		VoteRemindersManager manager = mock(VoteRemindersManager.class);
 		VoteSite site = mock(VoteSite.class);
@@ -53,7 +52,6 @@ class VoteRemindersListenerTest {
 		when(event.getPlayer()).thenReturn(user);
 		when(event.getSite()).thenReturn(site);
 		when(site.getDisplayName()).thenReturn("site_key");
-		when(site.getDisplayNameForFormatting()).thenReturn("site_key");
 		when(site.getKey()).thenReturn("site_key");
 
 		new VoteRemindersListener(plugin).onCoolDownEnd(event);

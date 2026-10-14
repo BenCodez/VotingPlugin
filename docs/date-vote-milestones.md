@@ -12,17 +12,21 @@ DateVoteMilestones:
     Start: '2026-10-01T00:00:00'
     End: '2026-11-01T00:00:00'
     Timezone: 'UTC'
-    # Empty on a standalone server. On a proxy network, set exactly ONE backend
-    # BungeeSettings.yml Server name here, identically on every backend.
+    # Standalone: empty/omitted means local accounting. In proxy mode it disables
+    # new date accounting; set one exact backend Server name on every backend.
     AccountingServer: ''
     # Configured VoteSites.yml keys, NOT Votifier service names. Empty means all.
     VoteSites: []
     Milestones:
-      '10':
+      TenVotes:
+        Enabled: true
+        At: 10
         Rewards:
           Messages:
             Player: '&aYou reached 10 votes in the October voting event!'
-      '25':
+      TwentyFiveVotes:
+        Enabled: true
+        At: 25
         Rewards:
           Messages:
             Player: '&aYou reached 25 votes in the October voting event!'
@@ -30,7 +34,15 @@ DateVoteMilestones:
             - 'give %player% diamond 1'
 ```
 
-Reload after configuration. `/vote dateevents` displays the player's event counts, thresholds, active/upcoming/ended status and submitted or pending-review awards. Permission: `VotingPlugin.Commands.Vote.DateEvents` or existing `VotingPlugin.Player`. Progress inspection runs on a storage worker and responds on the player's owner scheduler. It never submits rewards. No new PlaceholderAPI placeholder is added; the progress command is the supported display.
+Reload after configuration. `/vote dateevents` opens the event list. Select an event for milestone details; use the page arrows and back button to navigate. The menu shows the player's event counts, next enabled threshold, active/upcoming/ended/disabled status, date window and timezone. Milestone details show submitted, deferred or pending-review state and configured reward types without running or displaying raw reward commands. Permission: `VotingPlugin.Commands.Vote.DateEvents` or existing `VotingPlugin.Player`. Progress inspection runs on a storage worker and opens the menu on the player's owner scheduler. It is a snapshot: run the command again after another vote for updated counts. Reload invalidates earlier menu navigation; reopen the command after changing event configuration. Disabled valid events remain visible, remote-owner events identify their accounting backend, and unavailable progress is shown as unavailable rather than zero. It never submits rewards. No new PlaceholderAPI placeholder is added; the progress command is the supported display.
+
+## Milestone format and compatibility
+
+Date milestones use named reward entries, like `VoteMilestones`, with `Enabled` (defaults to true), `At` and `Every`. The total is always this event's accepted occurrence count. `At` supports an integer, a list, or ranges such as `'10..50 step 10'`; `At: 0` means the first vote, matching the existing milestone convention. `Every: 128` expands to multiples through the event's maximum of 4096 counted occurrences. `At` and `Every` together form a union. Each event supports at most 64 unique thresholds; an expansion exceeding that bound is rejected, so use explicit milestones or a larger interval. A threshold may belong to only one reward entry. `Total`, `Group` and `Limit` are not supported here: each threshold has one persistent award, and the explicit event window supplies its accounting period.
+
+Existing numeric sections such as `Milestones.'10'.Rewards` remain supported without conversion. You may rename them to named entries with `At: 10`, or regroup the same thresholds into one `At` list, keeping the event ID and accounting fields. The ledger seal and queued reward aliases remain based on the threshold, so this does not reset progress or repeat reserved/submitted rewards. Rewards shared by one entry apply at each of its thresholds; queued aliases resolve the currently configured reward section. Do not overlap thresholds between entries. Changing the expanded threshold set after accounting begins still requires a new event ID.
+
+A milestone's `Enabled: false` prevents new reward submissions while keeping its threshold, progress and queued reward handle. Reached, unattempted awards stay deferred. Re-enabling permits submission on the next qualifying accepted notification, including an identified replay, without recounting that occurrence. Reserved/submitted awards are never retried automatically. Keep disabled reward definitions until queued rewards finish. Invalid milestone types, malformed ranges and ambiguous reward definitions disable their event; valid sibling events continue.
 
 ## Membership and ownership
 
@@ -39,6 +51,31 @@ Start is inclusive; end is exclusive. Values are local ISO date-times interprete
 Membership uses the accepted pipeline's authoritative epoch-millisecond occurrence time and occurrence UUID. Standalone ingress captures its timestamp and a fresh local occurrence UUID once at receipt, before executor admission; an external site's untrusted timestamp is not used. Overflow retries and local time-change cache recovery retain that UUID, so a crash after ledger publication but before queue acknowledgement cannot recount the receipt or unlock another date milestone. Distinct receipts receive distinct UUIDs even when their player, service and timestamp match. Current identified proxy deliveries carry a separate `canonicalOccurrenceTime` and original UUID, including delayed offline delivery. BungeeCord and Velocity capture that original occurrence time when admitting the receipt, before scheduler handoff or identity resolution; durable snapshots preserve it even when normal processing has not started. This timestamp remains separate from the receiving proxy's normal processing and cooldown time. Ordinary event processing time, LastVotes, cooldowns, streaks, and post-vote `voteTime` retain their existing receiving-proxy clock semantics. The native vote and post-vote events expose the separate occurrence timestamp. `PlayerVoteEvent.localOccurrenceId` carries only local receipt identity; it does not populate `proxyVoteId` or imply proxy provenance. The existing post-vote `voteUUID` carries the effective occurrence UUID. A vote accepted during a window can count even when delivered after its end. Votes before start or at/after end do not count. Fake/test votes are always excluded. A matching occurrence counts once per player/event; overlapping events each count it once. Enabled-site validation remains part of the normal accepted-vote pipeline. An optional filter selects configured site keys.
 
 For a proxy network, **one backend owns each event ledger**. Set `AccountingServer` to that backend's exact configured server name. Use identified **all-server** delivery so that accounting backend receives every occurrence. Other backends do not increment the event, and their progress command directs players to the owner. Targeted delivery, legacy proxy deliveries missing original IDs/times, and local backend ingress on a proxy-configured server are intentionally excluded. They cannot reliably provide both complete event progress and network deduplication. This does not change their existing normal vote processing. A proxy event without an accounting owner is disabled. Moving the owner requires preserving the owner-local ledger and a new event ID; this feature does not migrate or replicate ledgers automatically.
+
+## AccountingServer configuration
+
+`AccountingServer` selects the backend that maintains the event ledger. Its value is the exact, case-sensitive `Server` from that backend's `BungeeSettings.yml`.
+
+| Installation | AccountingServer | New date accounting |
+| --- | --- | --- |
+| Standalone (`UseBungeecord: false`) | Empty or omitted | Local accepted votes can count and reach configured milestones. |
+| Proxy backend (`UseBungeecord: true`) | Empty, omitted or blank | The event is rejected during reload; no new event progress or milestone submission occurs. Other valid events continue. |
+| Proxy backend | This backend's exact server name | Identified all-server deliveries can count here. |
+| Proxy backend | Another backend's name | This backend does not increment that event; progress points to the accounting owner. |
+
+For a proxy network, reuse the complete example above on the participating backends and replace its owner line with the selected backend, for example:
+
+```yaml
+    AccountingServer: 'event-owner'
+```
+
+Set `BungeeSettings.yml -> Server: event-owner` on that selected backend and give every other backend its own distinct server name. Configure identified all-server vote delivery so the owner receives each occurrence. A missing owner or a name whose case differs from the owner's server name prevents accounting there. Changing the owner after the event is sealed requires a new event ID and preserving the original ledger for reconciliation.
+
+Configure the same event ID, window, timezone, accounting owner, site filters and expanded milestone thresholds on backends using the event. Each backend that may receive queued or shared rewards needs a corresponding `Milestones.<milestone ID>.Rewards` section with matching `At`/`Every` thresholds, or the supported legacy numeric reward sections. Use one entry per threshold; do not add numeric sections alongside named entries for the same counts. Keep reward contents consistent with the intended delivery, including any deliberate server-specific differences. The accounting owner stores progress locally; neither owner selection nor shared vote totals copy or compare another backend's event definitions or reward handles.
+
+An event omitted or invalid on the accounting owner cannot accumulate new progress. An event omitted on another backend has no local progress entry or reward handle. Missing threshold sections can prevent a queued reward from resolving, and different sections can resolve the same reward identity to different configured effects. Test the intended receiving backends before enabling the event and retain disabled definitions and reward sections while queued rewards remain.
+
+Reward submission uses the existing AdvancedCore reward handler and the normal vote-delivery server context. An empty `AccountingServer` does not enable global date rewards in proxy mode. Existing queued reward handles are registered separately from accounting validation, so an invalid owner setting can stop new accounting while an earlier award remains resolvable.
 
 ## Persistence, configuration changes and rewards
 
@@ -54,7 +91,7 @@ Arbitrary commands, inventory changes and ledger publication are not one transac
 
 Persisted player files use a SHA-256 event-ID filename so case-distinct event IDs remain distinct on Windows and other case-insensitive filesystems. Accounting contracts use length-prefixed fields; incomplete reached-award records fail closed for administrator review. Progress resolves the same stored player identity as vote accounting on a worker, including offline UUID normalization. Proxy test flags are preserved into the existing vote event; legacy Java overloads retain their real-vote default. Standalone occurrence membership uses the actual current instant, including daylight-saving rollback.
 
-Disabling an event stops new accounting but retains its existing reward handles for offline/delayed awards. Keep disabled event definitions and their reward sections until previously queued rewards have been delivered; deleting definitions is not a supported cancellation mechanism for submitted rewards. Internal reward references use the case-sensitive event-ID hash, preserving distinct rewards even though AdvancedCore's ordinary registry lookup is case-insensitive. Owner-facing reward configuration and edits remain under the named event's `Milestones.<threshold>.Rewards` section; internal aliases are never saved into `SpecialRewards.yml`. An existing empty definitions file is treated as corruption, not a fresh install.
+Disabling an event stops new accounting but retains its existing reward handles for offline/delayed awards. Keep disabled event definitions and their reward sections until previously queued rewards have been delivered; deleting definitions is not a supported cancellation mechanism for submitted rewards. Internal reward references use the case-sensitive event-ID hash, preserving distinct rewards even though AdvancedCore's ordinary registry lookup is case-insensitive. Owner-facing reward configuration and edits remain under the named event's `Milestones.<milestone ID>.Rewards` section (or the supported legacy numeric section); internal aliases are never saved into `SpecialRewards.yml`. An existing empty definitions file is treated as corruption, not a fresh install.
 
 If definition metadata is missing or omits an event with surviving player history, accounting and progress fail closed for that event until the historical seal is repaired. A new player cannot reseal the old ID under edited accounting fields. Other intact seals and genuinely new event IDs remain usable.
 
@@ -64,7 +101,7 @@ Runtime reward aliases register from canonical milestone reward sections indepen
 
 Proxy transports open only after the existing milestone, streak, vote-party, special-reward, top-voter, shop and placeholder handlers have initialized and reward registration has finished. Date definitions and reward aliases are published before that ingress opens.
 
-If canonical proxy occurrence accounting cannot be durably confirmed, the accepted pipeline finishes its normal processing but marks the dispatch incomplete. The router finishes its remaining normal per-server points mutation and service-site observation before surfacing the date-accounting failure. The ordered proxy lane quarantines and retains the original envelope without acknowledging release or automatically replaying normal totals/rewards. Repair accounting storage and reconcile that original event/site/player/occurrence before manually releasing the quarantined delivery. Confirmed progress with a later reward-submission failure retains the existing DEFERRED/RESERVED award guarantees. Local ingress has no equivalent durable proxy envelope and logs unconfirmed progress for owner reconciliation.
+If canonical proxy occurrence accounting cannot be durably confirmed, the accepted pipeline finishes its normal processing but marks the dispatch incomplete. The router finishes its remaining normal per-server points mutation and service-site observation before surfacing the date-accounting failure. The ordered proxy lane quarantines and retains the original envelope without acknowledging release or automatically replaying normal totals/rewards. Repair accounting storage and reconcile that original event/site/player/occurrence before manually releasing the quarantined delivery. Receipt release retires the completed receipt and sends its acknowledgement; it does not re-enter the normal vote pipeline or replay totals/rewards. Releasing a receipt is not itself a retry of missing date accounting. Confirmed progress with a later reward-submission failure retains the existing DEFERRED/RESERVED award guarantees. Local ingress has no equivalent durable proxy envelope and logs unconfirmed progress for owner reconciliation.
 
 Canonical date accounting requires an explicit transport vote ID; a legacy totals snapshot's correlation UUID is insufficient. `PlayerVoteEvent.proxyVoteId` and `PlayerPostVoteEvent.proxyVoteId` preserve the original explicit wire ID (or remain null when absent). Legacy totals correlation remains the effective identity for normal milestones, streaks, post-vote `voteUUID`, and backend replay fencing. Reliable multi-proxy delivery retains the original wire timestamp in the separate occurrence field through receiving-proxy forwarding, so delivery/retry time does not move a vote into a different event window. Older reliable senders with an explicit origin can supply their original wire time to an updated receiving proxy. Origin-less forwarding and backend envelopes without occurrence provenance remain excluded from canonical date accounting while normal rewards and cooldowns continue. An older intermediate proxy cannot recover occurrence metadata it did not retain; event accounting is unavailable for that route until its receiving proxy is updated. This requires no synchronized upgrade for ordinary voting.
 
@@ -87,3 +124,23 @@ Overflow replay removes a receipt only after the production listener reports suc
 Native event dispatch alone is not completion: Bukkit can skip disabled listeners or catch consumer exceptions while returning normally. Explicit accepted-consumer completion keeps transferred receipts until the pipeline actually returns; a deliberate cancellation before consumer execution remains a completed no-op. A callback resuming during graceful shutdown therefore cannot discard an unprocessed receipt.
 
 Overflow writers hold an exclusive file lease until their final worker publication finishes. A replacement instance waits asynchronously on the existing bounded queue worker before loading that file; it cannot publish an empty or stale snapshot while another writer owns it. The small owner sidecar is retained across shutdown and is not queue data. A blocked predecessor can delay replacement admission, which remains bounded and reports unsuccessful transfers for retry. This coordinates participating plugin instances, including different class loaders; it cannot control older binaries or other software that writes without the lease. Failed final publication remains an explicit reconciliation case.
+
+## Testing the event menu
+
+Run the focused regression suite from the repository root:
+
+```shell
+mvn -B -f VotingPlugin/pom.xml -Dtest=DateVoteEventsMenuTest,DateVoteMenuOpenBoundaryTest,DateVoteProgressSchedulingTest,VoteOccurrenceTotalsReplayTest,DateVoteMilestonesTest,DateVoteMilestoneConfigTest,DateVoteEventTest,DateVoteLedgerTest,BackendDateVoteAccountingRegressionTest,BukkitCompletionSchedulerTest,CorePlatformIsolationTest test
+```
+
+Then run the required clean package and packaged-artifact checks. Automated coverage uses complete synthetic YAML, the real ledger and reward registry, queued storage/entity callbacks, and an inventory boundary fixture. It verifies event and milestone pagination through 64 entries, list/detail/back navigation, start-inclusive/end-exclusive status, deferred/submitted/pending-review awards, literal display text, permission changes, reload fencing, offline/retired players, rejected storage admission, remote ownership, disabled events, empty configuration and corrupt storage. Navigation and inspection must not submit rewards, change accounting files or perform storage work on the player thread.
+
+For an authorized gameplay test on a test server:
+
+1. Leave the bundled example disabled. Create a separate synthetic event with a valid window, explicit timezone and test rewards, then enable it.
+2. Open `/vote dateevents` with either supported permission. Inspect the event window, count, next enabled threshold and milestone preview. Navigate detail pages and back. The menu displays reward types, never executes previews.
+3. Send a qualifying real test receipt through the normal test setup, reopen the menu and verify progress and award state. Duplicate the same identified receipt: it must not increment again or repeat a submitted award.
+4. Verify disabled, upcoming and ended definitions, and a configuration with no events. On a proxy backend, verify a remote-owned event shows its exact owner without a fabricated local count; use matching definitions and identified all-server delivery for the accounting owner.
+5. Revoke permission or reload while a menu is open. Old navigation must not reopen a stale or unauthorized view. Check fresh navigation after restoring permission and reopening the command. Repeat player scheduling checks on the supported server platforms.
+
+A passing local suite is not evidence of a live Paper/Folia/proxy gameplay run; record those results separately when performed.

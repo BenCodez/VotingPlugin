@@ -24,6 +24,8 @@ import com.bencodez.votingplugin.util.DurableFiles;
 
 import org.spongepowered.configurate.gson.GsonConfigurationLoader;
 
+import com.google.gson.JsonObject;
+
 /**
  * JSON-based vote cache implementation for Velocity proxy.
  */
@@ -65,7 +67,9 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 			var loaded = GsonConfigurationLoader.builder()
 					.source(() -> new java.io.BufferedReader(new java.io.StringReader(document.toString())))
 					.build().load();
-			if (!loaded.isMap()) throw new IOException("Vote cache must contain a JSON object");
+			validateTimedRows(document, loaded);
+			// readJournal already verifies the raw object. Configurate can normalize
+			// an object containing only null cache entries to an empty root.
 			super.setConf(loaded);
 			writesPaused = false;
 			journalLoaded = true;
@@ -75,6 +79,24 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 		} catch (RuntimeException failure) {
 			writesPaused = true;
 			throw failure;
+		}
+	}
+
+	/** Checks raw recovery fields using the same normalized flag coercion as the timed decoder. */
+	private static void validateTimedRows(JsonObject document, org.spongepowered.configurate.ConfigurationNode loaded)
+			throws IOException {
+		if (!document.has("TimedVoteCache")) return;
+		for (var entry : document.getAsJsonObject("TimedVoteCache").entrySet()) {
+			var node = loaded.node("TimedVoteCache", entry.getKey());
+			if (!node.isMap() || node.childrenMap().isEmpty())
+				throw new IOException("Timed vote cache entry requires recovery");
+			JsonObject raw = entry.getValue().getAsJsonObject();
+			if (node.node("WasOnlineKnown").getBoolean()
+					&& (!raw.has("WasOnline") || !raw.get("WasOnline").isJsonPrimitive()))
+				throw new IOException("Timed vote cache entry requires recovery");
+			if (node.node("DelayValidationKnown").getBoolean()
+					&& raw.has("DelayValidated") && !raw.get("DelayValidated").isJsonPrimitive())
+				throw new IOException("Timed vote cache entry requires recovery");
 		}
 	}
 
@@ -95,8 +117,17 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 	public synchronized void saveDurably() throws IOException {
 		if (writesPaused) throw new IOException("Vote cache writes require a successful reload");
 		Path target = getStoragePath().toAbsolutePath().normalize();
+		JsonObject previous = null;
 		if (journalLoaded) {
-			try { PendingPluginMessageVotePartyRewards.fromCacheJson(VoteCacheDurability.readJournal(target)); }
+			try {
+				previous = VoteCacheDurability.readJournal(target);
+				String rawPrevious = previous.toString();
+				var previousNodes = GsonConfigurationLoader.builder()
+						.source(() -> new java.io.BufferedReader(new java.io.StringReader(rawPrevious)))
+						.build().load();
+				validateTimedRows(previous, previousNodes);
+				PendingPluginMessageVotePartyRewards.fromCacheJson(previous);
+			}
 			catch (IOException | RuntimeException failure) {
 				writesPaused = true;
 				throw new IOException("Vote cache is unreadable; reload is required before saving", failure);
@@ -114,6 +145,11 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 				Files.writeString(staged, "{}", StandardCharsets.UTF_8);
 			} else {
 				GsonConfigurationLoader.builder().path(staged).build().save(getConf());
+			}
+			JsonObject candidate = VoteCacheDurability.readJournal(staged);
+			if (previous != null && hasEmergencyJournalMarker()
+					&& VoteCacheDurability.preserveUnresolvedCacheRows(previous, candidate)) {
+				Files.writeString(staged, candidate.toString(), StandardCharsets.UTF_8);
 			}
 			PendingPluginMessageVotePartyRewards.fromCacheJson(VoteCacheDurability.readJournal(staged));
 			DurableFiles.publishStagedFile(staged, target);

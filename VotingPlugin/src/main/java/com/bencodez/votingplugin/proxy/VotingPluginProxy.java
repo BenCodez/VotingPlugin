@@ -4085,7 +4085,7 @@ public abstract class VotingPluginProxy {
 					vote.setRealVote(queuedRealVote);
 					vote.setDeliveryStateDirty(true);
 				}
-				VoteTotalsSnapshot queuedTotals = forwardedTotals[1].isEmpty() ? null
+                VoteTotalsSnapshot queuedTotals = !VoteOccurrenceMetadata.hasPayload(forwardedTotals[1]) ? null
 						: VoteTotalsSnapshot.parseStorage(forwardedTotals[1]);
 				QueuedVoteResult result = replayQueuedVote(vote, queuedTotals, queuedRealVote);
 				if (result == QueuedVoteResult.RETRY || result == QueuedVoteResult.RETRY_NONBLOCKING) {
@@ -5007,6 +5007,11 @@ public abstract class VotingPluginProxy {
 			if (configuredMethod == null) configuredMethod = BungeeMethod.PLUGINMESSAGING;
 			retainHttpForPendingDeliveries(configuredMethod);
 			stillPending = deferredHttpTransportReconciliation;
+			// A cancelled transport change may restore the live HTTP configuration
+			// before the manual reload enters this monitor. Nothing needs replacing,
+			// and the existing listener must retain ownership of its pending queue.
+			if (!stillPending && configuredMethod == BungeeMethod.HTTP && httpTransportServer != null
+					&& !hasChangedLiveHttpConfiguration()) return;
 			if (!stillPending) httpTransportReconciliationRunning = true;
 		}
 		if (stillPending) {
@@ -6627,7 +6632,8 @@ public abstract class VotingPluginProxy {
 				}
 				retryState.totalsInput = data;
 				if (queuedVote != null && queuedVote.isTotalsApplied()) {
-					retryState.totals = text != null ? text : VoteTotalsSnapshot.parseStorage(queuedVote.getTotals());
+                    retryState.totals = text != null ? text : VoteOccurrenceMetadata.hasPayload(queuedVote.getTotals())
+                            ? VoteTotalsSnapshot.parseStorage(queuedVote.getTotals()) : null;
 				}
 				retryState.player = requestPlayer;
 				retryState.service = service;

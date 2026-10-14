@@ -2089,6 +2089,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		PluginManager pm = getServer().getPluginManager();
 
 		pm.registerEvents(new PlayerJoinEvent(this), this);
+        pm.registerEvents(new com.bencodez.votingplugin.listeners.DateVoteMenuOpenGuard(), this);
 		pm.registerEvents(new PlayerPostVoteLoggerListener(this), this);
 		pm.registerEvents(new PlayerSpecialRewardLoggerListener(this), this);
 		pm.registerEvents(new VoteShopPurchaseLoggerListener(this), this);

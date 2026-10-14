@@ -49,6 +49,7 @@ import com.bencodez.votingplugin.proxy.ProxyRuntimeReplacementLifecycle;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy.VoteRetryException;
 import com.bencodez.votingplugin.util.MinecraftUsernameValidator;
+import com.bencodez.votingplugin.util.ServiceSiteValidator;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 import com.google.inject.Inject;
 import com.velocitypowered.api.command.CommandMeta;
@@ -574,7 +575,7 @@ public class VotingPluginVelocity {
 			}
 			if (result == IncomingVoteRuntimeResult.PROCESSED) {
 				logger.info("Vote received " + MinecraftUsernameValidator.sanitizeForLog(pending.getPlayer())
-						+ " from service site " + MinecraftUsernameValidator.sanitizeForLog(pending.getService()));
+						+ " from service site " + ServiceSiteValidator.sanitizeForLog(pending.getService()));
 				return;
 			}
 			if (result == IncomingVoteRuntimeResult.RETRY_AFTER_RELOAD) {
