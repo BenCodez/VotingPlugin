@@ -77,8 +77,9 @@ public class VoteCacheHandlerVoteIdTest {
 	private VoteCacheHandler handler;
 
 	@BeforeEach
-	public void setUp() {
+	public void setUp() throws Exception {
 		storage = mock(IVoteCache.class);
+		Files.writeString(tempDir.resolve("vote-cache.json"), "{}");
 		when(storage.getStoragePath()).thenReturn(tempDir.resolve("vote-cache.json"));
 		when(storage.getServerVotes("server")).thenReturn(Collections.emptyList());
 		when(storage.getOnlineVotes("player-uuid")).thenReturn(Collections.emptyList());
@@ -296,6 +297,7 @@ public class VoteCacheHandlerVoteIdTest {
 	public void failedDurableServerSaveRollsBackJsonMutationBeforeRetry() throws Exception {
 		Path journal = Files.createTempFile("votingplugin-server-rollback", ".json");
 		try {
+			Files.writeString(journal, "{}");
 			ArrayList<String> keys = new ArrayList<>();
 			when(storage.getStoragePath()).thenReturn(journal);
 			when(storage.getServerVotes("server")).thenAnswer(invocation -> new ArrayList<>(keys));
@@ -325,6 +327,7 @@ public class VoteCacheHandlerVoteIdTest {
 	public void failedDurableOnlineSaveRollsBackJsonMutationBeforeRetry() throws Exception {
 		Path journal = Files.createTempFile("votingplugin-online-rollback", ".json");
 		try {
+			Files.writeString(journal, "{}");
 			ArrayList<String> keys = new ArrayList<>();
 			when(storage.getStoragePath()).thenReturn(journal);
 			when(storage.getOnlineVotes("player-uuid")).thenAnswer(invocation -> new ArrayList<>(keys));
@@ -354,6 +357,7 @@ public class VoteCacheHandlerVoteIdTest {
 	public void failedRollbackReloadQuarantinesJsonJournal() throws Exception {
 		Path journal = Files.createTempFile("votingplugin-quarantined-journal", ".json");
 		try {
+			Files.writeString(journal, "{}");
 			when(storage.getStoragePath()).thenReturn(journal);
 			doThrow(new java.io.IOException("save failed")).when(storage).saveDurably();
 			doThrow(new IllegalStateException("reload failed")).when(storage).reload();
@@ -382,6 +386,7 @@ public class VoteCacheHandlerVoteIdTest {
 	public void serverVoteIsNotExposedWhenJsonSaveDoesNotReachDisk() throws Exception {
 		Path journal = Files.createTempFile("votingplugin-empty-journal", ".json");
 		try {
+			Files.writeString(journal, "{}");
 			when(storage.getStoragePath()).thenReturn(journal);
 			handler = newVerifyingHandler(storage);
 
@@ -397,11 +402,15 @@ public class VoteCacheHandlerVoteIdTest {
 	public void serverVoteUpdateIsRejectedWhenJsonSaveDoesNotReachDisk() throws Exception {
 		Path journal = Files.createTempFile("votingplugin-empty-update-journal", ".json");
 		try {
+			Files.writeString(journal, "{}");
 			DataNode voteNode = mock(DataNode.class);
 			when(voteNode.isObject()).thenReturn(true);
 			stubString(voteNode, "UUID", "player-uuid");
 			stubString(voteNode, "Service", "Service");
 			stubLong(voteNode, "Time", 100L);
+			stubString(voteNode, "Name", "Player");
+			stubString(voteNode, "Text", "totals");
+			stubBoolean(voteNode, "Real", true);
 			when(storage.getStoragePath()).thenReturn(journal);
 			when(storage.getServerVotes("server")).thenReturn(List.of("4"));
 			when(storage.getServerVotes("server", "4")).thenReturn(voteNode, (DataNode) null);
@@ -650,10 +659,10 @@ public class VoteCacheHandlerVoteIdTest {
 		VoteTimeQueue sqlVote = legacyTimedVote();
 		sqlVote.setTimedVoteCacheRowId(41);
 		handler.getTimeChangeQueue().add(sqlVote);
-		var loadEmergencyVotes = VoteCacheHandler.class.getDeclaredMethod("loadJsonEmergencyVotes");
+		var loadEmergencyVotes = VoteCacheHandler.class.getDeclaredMethod("loadJsonEmergencyVotes", java.util.Set.class, java.util.Set.class);
 		loadEmergencyVotes.setAccessible(true);
 
-		loadEmergencyVotes.invoke(handler);
+		loadEmergencyVotes.invoke(handler, java.util.Set.of(), java.util.Set.of());
 
 		assertEquals(2, handler.getTimeChangeQueue().size());
 		VoteTimeQueue jsonLoaded = handler.getTimeChangeQueue().stream()
@@ -1018,6 +1027,7 @@ public class VoteCacheHandlerVoteIdTest {
 
 		OfflineBungeeVote vote = new OfflineBungeeVote(UUID.randomUUID(), "Player", "player-uuid", "Service", 100L,
 				true, "totals", true, true, Set.of("Server1"), Set.of("Server1"), false);
+		stubString(voteNode, "VoteId", vote.getVoteId().toString());
 		handler.updateServerVote("server", vote);
 
 		verify(storage).addVote("server", 4, vote);
@@ -1036,6 +1046,7 @@ public class VoteCacheHandlerVoteIdTest {
 
 		OfflineBungeeVote vote = new OfflineBungeeVote(UUID.randomUUID(), "Player", "player-uuid", "Service", 100L,
 				true, "totals", true, true, Set.of("Server1"), Set.of("Server1"), false);
+		stubString(voteNode, "VoteId", vote.getVoteId().toString());
 		handler.updateOnlineVote("player-uuid", vote);
 
 		verify(storage).addVoteOnline("player-uuid", 3, vote);
@@ -1451,9 +1462,9 @@ public class VoteCacheHandlerVoteIdTest {
 		ProxyVoteCacheTable voteTable = mock(ProxyVoteCacheTable.class);
 		ProxyOnlineVoteCacheTable onlineTable = mock(ProxyOnlineVoteCacheTable.class);
 		ProxyTimedVoteCacheTable timedTable = mock(ProxyTimedVoteCacheTable.class);
-		when(voteTable.getAllVotes()).thenReturn(Collections.emptyList());
-		when(onlineTable.getAllVotes()).thenReturn(Collections.emptyList());
-		when(timedTable.getAllVotes()).thenReturn(Collections.emptyList());
+		when(voteTable.getAllVotesChecked()).thenReturn(Collections.emptyList());
+		when(onlineTable.getAllVotesChecked()).thenReturn(Collections.emptyList());
+		when(timedTable.getAllVotesChecked()).thenReturn(Collections.emptyList());
 
 		VoteCacheHandler mysqlEnabled = newHandler(storage);
 		setPrivateField(mysqlEnabled, "useMySQL", true);

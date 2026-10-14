@@ -225,6 +225,18 @@ public interface IVoteCache {
 
 	PendingVotePartyProxyEffects getQuarantinedVotePartyProxyEffects();
 
+	/** Legacy storage implementations have no plugin-message party backlog. */
+	default PendingPluginMessageVotePartyRewards getPluginMessageVotePartyRewards() {
+		return PendingPluginMessageVotePartyRewards.empty();
+	}
+
+	/** Unsupported storage must never accept ownership of a nonempty backlog. */
+	default void setPluginMessageVotePartyRewards(PendingPluginMessageVotePartyRewards rewards) {
+		if (rewards == null) throw new IllegalArgumentException("Missing plugin-message vote-party backlog");
+		if (!rewards.deliveries().isEmpty())
+			throw new UnsupportedOperationException("Storage does not support plugin-message vote-party rewards");
+	}
+
 	/**
 	 * Gets the current vote party votes.
 	 *

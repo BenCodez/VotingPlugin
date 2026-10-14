@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin.tests.votesite;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -54,6 +55,19 @@ public class VoteSiteTest {
 	}
 
 	@Test
+	void legacyAutoCreatedFallbackMatchesReleaseWhileIdentityStaysExact() {
+		for (String name : new String[] { "&kSpoofed", "%player_name%", "R&D" }) {
+			when(plugin.getConfigVoteSites().getDisplayName(name)).thenReturn("");
+			VoteSite site = new VoteSite(plugin, name);
+			site.setServiceSite(name);
+			assertEquals(name, site.getServiceSite());
+			assertEquals(name, site.getDisplayName());
+			assertEquals(name, site.getDisplayNameForFormatting());
+			assertFalse(site.getDisplayNameForFormatting().contains("\u2060"));
+		}
+	}
+
+	@Test
 	public void testInitSetsValuesCorrectly() {
 		VoteSite voteSite = new VoteSite(plugin, "site.test");
 
@@ -68,11 +82,11 @@ public class VoteSiteTest {
 	}
 
 	@Test
-	public void serviceSiteFormattingCannotJoinSurroundingColorCodes() {
+	public void serviceSiteFormattingReturnsTheUnchangedReleaseValue() {
 		VoteSite voteSite = new VoteSite(plugin, "site.test");
 
-		assertEquals("ServiceSite", voteSite.getServiceSiteForFormatting().replace("\u2060", ""));
-		assertTrue(("&" + voteSite.getServiceSiteForFormatting()).indexOf("&S") < 0);
+		assertEquals("ServiceSite", voteSite.getServiceSiteForFormatting());
+		assertFalse(voteSite.getServiceSiteForFormatting().contains("\u2060"));
 	}
 
 	@Test
@@ -86,11 +100,11 @@ public class VoteSiteTest {
 
 		assertEquals("ServiceSite", builder.getRewardOptions().getPlaceholders().get("ServiceSite"));
 		assertEquals("ServiceSite", RewardDisplayPlaceholders
-				.forDisplay(builder.getRewardOptions().getPlaceholders()).get("ServiceSite").replace("\u2060", ""));
+				.forDisplay(builder.getRewardOptions().getPlaceholders()).get("ServiceSite"));
 	}
 
 	@Test
-	public void fallbackDisplayNameStaysRawForActionsAndGuardedForFormatting() throws Exception {
+	public void fallbackDisplayNameMatchesReleaseForActionsAndFormatting() throws Exception {
 		when(plugin.getConfigVoteSites().getDisplayName(anyString())).thenReturn("");
 		VoteSite voteSite = new VoteSite(plugin, "site.test");
 		java.lang.reflect.Method factory = VoteSite.class.getDeclaredMethod("createRewardBuilder", String.class,
@@ -100,8 +114,8 @@ public class VoteSiteTest {
 
 		assertEquals("site_test", voteSite.getDisplayName());
 		assertEquals("site_test", builder.getRewardOptions().getPlaceholders().get("SiteName"));
-		assertEquals("site_test", voteSite.getDisplayNameForFormatting().replace("\u2060", ""));
-		assertTrue(voteSite.getDisplayNameForFormatting().startsWith("\u2060"));
+		assertEquals("site_test", voteSite.getDisplayNameForFormatting());
+		assertFalse(voteSite.getDisplayNameForFormatting().contains("\u2060"));
 		assertEquals(voteSite.getDisplayNameForFormatting(), RewardDisplayPlaceholders
 				.forDisplay(builder.getRewardOptions().getPlaceholders()).get("SiteName"));
 

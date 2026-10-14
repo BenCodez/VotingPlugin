@@ -2647,6 +2647,37 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
+	void restoringCurrentHttpConfigurationBeforeManualReloadDoesNotReplaceRuntime() throws Exception {
+		HttpProxyTransportServer transport = Mockito.mock(HttpProxyTransportServer.class);
+		setProxyField(votingPluginProxy, "httpTransportServer", transport);
+		var scheduler = Mockito.mock(java.util.concurrent.ScheduledExecutorService.class);
+		var queued = new java.util.ArrayDeque<Runnable>();
+		Mockito.doAnswer(call -> {
+			queued.add(call.getArgument(0));
+			return Mockito.mock(java.util.concurrent.ScheduledFuture.class);
+		}).when(scheduler).schedule(Mockito.any(Runnable.class), Mockito.anyLong(), Mockito.any(java.util.concurrent.TimeUnit.class));
+		votingPluginProxy.setSchedulerForTest(scheduler);
+		votingPluginProxy.setPendingHttpTransportDeliveries(true);
+		votingPluginProxy.setMethod(BungeeMethod.HTTP);
+		Mockito.when(votingPluginProxy.getConfig().getBungeeMethod()).thenReturn("REDIS");
+		votingPluginProxy.reloadFromControl();
+		assertEquals(1, queued.size());
+
+		// Configuration publication can precede entry into the manual reload.
+		// Run the old callback in that exact window, without a timing assumption.
+		Mockito.when(votingPluginProxy.getConfig().getBungeeMethod()).thenReturn("HTTP");
+		queued.remove().run();
+		assertEquals(0, votingPluginProxy.getReloadCoreCalls(),
+				"an unchanged live HTTP listener needs no deferred runtime replacement");
+		assertEquals(BungeeMethod.HTTP, votingPluginProxy.getMethod());
+		assertFalse(votingPluginProxy.isRetainingHttpTransportForDeferredReconciliation());
+		assertTrue(queued.isEmpty(), "a cancelled transport change must not keep polling");
+		Mockito.verify(transport, Mockito.never()).close();
+		votingPluginProxy.reloadFromControl();
+		assertEquals(0, votingPluginProxy.getReloadCoreCalls());
+	}
+
+	@Test
 	void concurrentManualReloadInvalidatesQueuedDeferredHttpReload() throws Exception {
 		HttpProxyTransportServer transport = Mockito.mock(HttpProxyTransportServer.class);
 		setProxyField(votingPluginProxy, "httpTransportServer", transport);
@@ -2983,7 +3014,9 @@ public class VotingPluginProxyTest {
 				VotingPluginWire.voteBroadcast("uuid", "Player", "Service", 100L, "", false)));
 
 		votingPluginProxy.setPluginMessageDeliveryResult(true);
-		assertTrue(votingPluginProxy.sendPluginMessageImmediately("Server1",
+		assertFalse(votingPluginProxy.sendPluginMessageImmediately("Server1",
+				VotingPluginWire.voteBroadcast("uuid", "Player", "Service", 100L, "", false)));
+		assertTrue(votingPluginProxy.sendPluginMessageImmediately("Server2",
 				VotingPluginWire.voteBroadcast("uuid", "Player", "Service", 100L, "", false)));
 	}
 
@@ -3605,6 +3638,8 @@ public class VotingPluginProxyTest {
 	@Test
 	void pendingServerBroadcastRetriesBeforeOfflineRewardDelivery() {
 		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		Mockito.when(voteCache.prepareCachedVoteBatch(Mockito.anyString(), Mockito.anyBoolean(),
+				Mockito.anyCollection(), Mockito.anyInt())).thenReturn(true);
 		OfflineBungeeVote vote = new OfflineBungeeVote(java.util.UUID.randomUUID(), "Player", "player-uuid",
 				"Service", 100L, true, "totals", false, true, java.util.Set.of("Server1"),
 				java.util.Collections.emptySet(), false);
@@ -3632,6 +3667,8 @@ public class VotingPluginProxyTest {
 	@Test
 	void acceptedCachedRewardRetainsAmbiguousStandaloneBroadcastWithoutRebroadcasting() {
 		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		Mockito.when(voteCache.prepareCachedVoteBatch(Mockito.anyString(), Mockito.anyBoolean(),
+				Mockito.anyCollection(), Mockito.anyInt())).thenReturn(true);
 		OfflineBungeeVote vote = new OfflineBungeeVote(java.util.UUID.randomUUID(), "Player", "player-uuid",
 				"Service", 100L, true, "totals", false, true, java.util.Set.of("Server1"),
 				java.util.Collections.emptySet(), false, java.util.Collections.emptyMap(),
@@ -3660,6 +3697,8 @@ public class VotingPluginProxyTest {
 	@Test
 	void rejectedHttpQueueDeliveryRetainsCachedServerVote() {
 		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		Mockito.when(voteCache.prepareCachedVoteBatch(Mockito.anyString(), Mockito.anyBoolean(),
+				Mockito.anyCollection(), Mockito.anyInt())).thenReturn(true);
 		OfflineBungeeVote vote = new OfflineBungeeVote(java.util.UUID.randomUUID(), "Player", "player-uuid",
 				"Service", 100L, true, "totals");
 		Mockito.when(voteCache.hasVotes("Server1")).thenReturn(true);
@@ -3681,6 +3720,8 @@ public class VotingPluginProxyTest {
 	@Test
 	void rejectedHttpQueueDeliveryRetainsCachedOnlineVote() {
 		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		Mockito.when(voteCache.prepareCachedVoteBatch(Mockito.anyString(), Mockito.anyBoolean(),
+				Mockito.anyCollection(), Mockito.anyInt())).thenReturn(true);
 		OfflineBungeeVote vote = new OfflineBungeeVote(java.util.UUID.randomUUID(), "Player", "player-uuid",
 				"Service", 100L, true, "totals");
 		Mockito.when(voteCache.hasOnlineVotes("player-uuid")).thenReturn(true);
@@ -3703,6 +3744,8 @@ public class VotingPluginProxyTest {
 	@Test
 	void acceptedOnlineRewardRetainsAmbiguousStandaloneBroadcastWithoutRebroadcasting() {
 		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		Mockito.when(voteCache.prepareCachedVoteBatch(Mockito.anyString(), Mockito.anyBoolean(),
+				Mockito.anyCollection(), Mockito.anyInt())).thenReturn(true);
 		OfflineBungeeVote vote = new OfflineBungeeVote(java.util.UUID.randomUUID(), "Player", "player-uuid",
 				"Service", 100L, true, "totals", false, true, java.util.Set.of("Server1"),
 				java.util.Collections.emptySet(), false, java.util.Collections.emptyMap(),

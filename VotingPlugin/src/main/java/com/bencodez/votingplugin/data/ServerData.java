@@ -388,6 +388,71 @@ public class ServerData {
 		saveData();
 	}
 
+	/** Checkpoint the pending suffix without retiring its live queue entries. */
+	public void replaceTimedVoteCache(java.util.Collection<VoteTimeQueue> pending) {
+		synchronized (plugin.getServerDataFile()) {
+			Object previous = getData().get("TimedVoteCache");
+			try {
+				setTimedVoteCache(pending);
+				saveTimedVoteCache();
+			} catch (RuntimeException | Error failure) {
+				getData().set("TimedVoteCache", previous);
+				throw failure;
+			}
+		}
+	}
+
+	/** Publish the recovery suffix and conservative in-flight record in one file save. */
+	public void prepareTimedVoteDispatch(UUID id, VoteTimeQueue vote,
+			java.util.Collection<VoteTimeQueue> pending) {
+		synchronized (plugin.getServerDataFile()) {
+			String path = "UncertainTimedVotes." + id;
+			Object previousCache = getData().get("TimedVoteCache");
+			Object previousRecord = getData().get(path);
+			try {
+				setTimedVoteCache(pending);
+				getData().set(path, null);
+				getData().createSection(path, timedVoteFields(vote));
+				saveTimedVoteCache();
+			} catch (RuntimeException | Error failure) {
+				getData().set("TimedVoteCache", previousCache);
+				getData().set(path, previousRecord);
+				throw failure;
+			}
+		}
+	}
+
+	/** Clear only a confirmed dispatch record; failed writes retain its live representation. */
+	public void completeTimedVoteDispatch(UUID id) {
+		synchronized (plugin.getServerDataFile()) {
+			String path = "UncertainTimedVotes." + id;
+			Object previous = getData().get(path);
+			try {
+				getData().set(path, null);
+				saveTimedVoteCache();
+			} catch (RuntimeException | Error failure) {
+				getData().set(path, previous);
+				throw failure;
+			}
+		}
+	}
+
+	private void setTimedVoteCache(java.util.Collection<VoteTimeQueue> pending) {
+		java.util.Map<String, Object> rows = new java.util.LinkedHashMap<>();
+		int index = 0;
+		for (VoteTimeQueue vote : pending) rows.put(Integer.toString(index++), timedVoteFields(vote));
+		getData().set("TimedVoteCache", null);
+		getData().createSection("TimedVoteCache", rows);
+	}
+
+	private static java.util.Map<String, Object> timedVoteFields(VoteTimeQueue vote) {
+		java.util.Map<String, Object> fields = new java.util.LinkedHashMap<>();
+		fields.put("Name", vote.getName());
+		fields.put("Service", vote.getService());
+		fields.put("Time", vote.getTime());
+		return fields;
+	}
+
 	/** Retain an ambiguous event delivery without making it eligible for automatic replay. */
 	public void addUncertainTimedVote(java.util.UUID id, VoteTimeQueue vote) {
 		synchronized (plugin.getServerDataFile()) {

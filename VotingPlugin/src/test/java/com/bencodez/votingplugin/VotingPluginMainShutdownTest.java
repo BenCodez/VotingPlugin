@@ -34,7 +34,8 @@ class VotingPluginMainShutdownTest {
         setField(plugin, "voteTimer", timer);
         invokeShutdownVoteTimer(plugin);
         assertDoesNotThrow(() -> invokeShutdownVoteTimer(plugin));
-        assertNull(field(plugin, "voteTimer"));
+        org.junit.jupiter.api.Assertions.assertSame(timer, field(plugin, "voteTimer"));
+        org.junit.jupiter.api.Assertions.assertTrue(timer.isShutdown());
     }
 
     @Test
@@ -51,6 +52,35 @@ class VotingPluginMainShutdownTest {
         assertNull(field(plugin, "timeQueueHandler"));
         verify((java.util.concurrent.ExecutorService) field(plugin, "backendHostedControlLifecycle")).shutdownNow();
         verify((java.util.concurrent.ExecutorService) field(plugin, "backendControlConnectorLifecycle")).shutdownNow();
+    }
+
+    @Test
+    void stoppedTimerRemainsVisibleUntilOverflowAndProducerHandlersClose() throws Exception {
+        VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
+        setField(plugin, "unloadCompleted", new java.util.concurrent.atomic.AtomicBoolean());
+        setField(plugin, "placeholderPlayerPresence", new PlaceholderPlayerPresence());
+        initializeEarlyLifecycle(plugin);
+        var timer = java.util.concurrent.Executors.newSingleThreadScheduledExecutor();
+        var queue = mock(com.bencodez.votingplugin.listeners.VotifierVoteOverflowQueue.class);
+        setField(plugin, "voteTimer", timer);
+        setField(plugin, "votifierVoteOverflowQueue", queue);
+        var duringClose = new java.util.concurrent.atomic.AtomicReference<ScheduledExecutorService>();
+        var rejected = new java.util.concurrent.atomic.AtomicBoolean();
+        var ran = new java.util.concurrent.atomic.AtomicBoolean();
+        org.mockito.Mockito.doAnswer(call -> {
+            duringClose.set(plugin.getVoteTimer());
+            rejected.set(!com.bencodez.votingplugin.util.VoteTaskAdmission.trySubmit(plugin.getVoteTimer(),
+                    () -> ran.set(true)));
+            return null;
+        }).when(queue).close();
+        try (var handlers = org.mockito.Mockito.mockStatic(org.bukkit.event.HandlerList.class)) {
+            plugin.onUnLoad();
+            org.junit.jupiter.api.Assertions.assertSame(timer, duringClose.get());
+            org.junit.jupiter.api.Assertions.assertTrue(rejected.get());
+            org.junit.jupiter.api.Assertions.assertFalse(ran.get());
+            handlers.verify(() -> org.bukkit.event.HandlerList.unregisterAll(plugin));
+            assertNull(plugin.getVoteTimer());
+        } finally { timer.shutdownNow(); }
     }
 
     @Test

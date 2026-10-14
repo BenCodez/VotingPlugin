@@ -2007,6 +2007,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			if (signs != null) signs.storeSigns();
 		});
 		runShutdownStep("event handlers", () -> HandlerList.unregisterAll(this));
+		// Late producers must see rejection until their overflow and handler cleanup finishes.
+		voteTimer = null;
 		if (plugin == this) plugin = null;
 	}
 
@@ -2035,8 +2037,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				getLogger().log(java.util.logging.Level.WARNING, "Failed to shut down vote timer", failure);
 			} catch (RuntimeException | Error ignored) { }
 			voteTimer.shutdownNow();
-		} finally {
-			voteTimer = null;
 		}
 	}
 

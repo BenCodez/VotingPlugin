@@ -83,7 +83,7 @@ class TimeQueueShutdownPersistenceTest {
         Fixture f = fixture();
         f.handler.addVote("Saved", "site"); f.handler.save();
         f.handler.addVote("New", "site"); f.handler.processQueue();
-        verify(f.plugin.getServer().getPluginManager()).callEvent(any());
+        verify(f.plugin.getServer().getPluginManager(), times(2)).callEvent(any());
     }
 
     @Test void shutdownRetainsInFlightEventForReviewWithoutWaitingOrReplaying() throws Exception {
@@ -148,13 +148,17 @@ class TimeQueueShutdownPersistenceTest {
         verify(f.data, never()).addTimeVoted(anyInt(), any());
     }
 
-    @Test void directProcessingClearsPreviousCacheBeforeHandingOffRecoveredVote() {
+    @Test void directProcessingPublishesPendingSuffixBeforeHandingOffRecoveredVote() {
         Fixture f = fixture();
         f.handler.addVote("Recovered", "site");
+        f.handler.addVote("Later", "site");
+        VoteTimeQueue first = f.handler.getTimeChangeQueue().peek();
         f.handler.processQueue();
         var calls = inOrder(f.data, f.plugin.getServer().getPluginManager());
-        calls.verify(f.data).clearTimedVoteCache();
+        calls.verify(f.data).prepareTimedVoteDispatch(eq(first.getVoteId()), eq(first),
+                argThat(pending -> pending.size() == 1 && pending.iterator().next().getName().equals("Later")));
         calls.verify(f.plugin.getServer().getPluginManager()).callEvent(any());
+        verify(f.data, never()).clearTimedVoteCache();
         f.handler.addVote("New", "site");
         f.handler.saveForShutdown();
         verify(f.data).addTimeVoted(eq(0), any());

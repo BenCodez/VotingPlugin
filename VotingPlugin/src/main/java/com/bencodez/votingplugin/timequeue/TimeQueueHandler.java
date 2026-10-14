@@ -35,6 +35,7 @@ public class TimeQueueHandler implements Listener {
 	private final AtomicBoolean processing = new AtomicBoolean();
 	private VoteTimeQueue dispatchingVote;
 	private UUID dispatchId;
+	private boolean dispatchEnded;
 	private int persistedShutdownVotes;
 	private final AtomicBoolean retryPending = new AtomicBoolean();
 	private final AtomicInteger retryAttempts = new AtomicInteger();
@@ -121,10 +122,12 @@ public class TimeQueueHandler implements Listener {
 		if (!processing.compareAndSet(false, true)) return;
 		try {
 			synchronized (persistenceLock) {
-				if (stopping || dispatchingVote != null) return;
-				// Every processing entry point retires the previous disk snapshot
-				// before handing any occurrence to event listeners.
-				plugin.getServerData().clearTimedVoteCache();
+				if (stopping) return;
+				if (dispatchingVote != null) {
+					if (!dispatchEnded) return;
+					retainUncertainDispatch();
+					clearDispatch();
+				}
 				persistedShutdownVotes = 0;
 			}
 			while (true) {
@@ -142,14 +145,26 @@ public class TimeQueueHandler implements Listener {
 					if (stopping) return;
 					if (timeChangeQueue.peek() != vote) continue;
 					dispatchingVote = vote;
-					dispatchId = UUID.randomUUID();
+					if (vote.getVoteId() == null) vote.setVoteId(UUID.randomUUID());
+					dispatchId = vote.getVoteId();
+					dispatchEnded = false;
+					try {
+						plugin.getServerData().prepareTimedVoteDispatch(dispatchId, vote,
+								timeChangeQueue.stream().filter(pending -> pending != vote).toList());
+					} catch (RuntimeException | Error failure) {
+						clearDispatch();
+						throw failure;
+					}
 				}
 				try {
 					plugin.getServer().getPluginManager().callEvent(voteEvent);
 				} catch (RuntimeException | Error failure) {
 					synchronized (persistenceLock) {
+						dispatchEnded = true;
 						try {
 							retainUncertainDispatch();
+							clearDispatch();
+							if (!stopping) checkpointPendingVotes();
 						} catch (RuntimeException | Error persistenceFailure) {
 							if (failure != persistenceFailure) failure.addSuppressed(persistenceFailure);
 						}
@@ -157,9 +172,11 @@ public class TimeQueueHandler implements Listener {
 					throw failure;
 				}
 				synchronized (persistenceLock) {
+					dispatchEnded = true;
+					if (!stopping) plugin.getServerData().completeTimedVoteDispatch(dispatchId);
 					timeChangeQueue.remove(vote);
-					dispatchingVote = null;
-					dispatchId = null;
+					clearDispatch();
+					if (voteEvent.isCancelled() && !stopping) checkpointPendingVotes();
 				}
 				if (voteEvent.isCancelled()) {
 					plugin.debug("Vote cancelled");
@@ -169,6 +186,18 @@ public class TimeQueueHandler implements Listener {
 		} finally {
 			processing.set(false);
 		}
+	}
+
+	private void clearDispatch() {
+		dispatchingVote = null;
+		dispatchId = null;
+		dispatchEnded = false;
+	}
+
+	private void checkpointPendingVotes() {
+		plugin.getServerData().replaceTimedVoteCache(
+				timeChangeQueue.stream().filter(vote -> vote != dispatchingVote).toList());
+		persistedShutdownVotes = 0;
 	}
 
 	/** Uncertain event delivery is retained for review, never automatically replayed. */
@@ -183,7 +212,10 @@ public class TimeQueueHandler implements Listener {
 	 * Saves pending votes to server data.
 	 */
 	public void save() {
-		synchronized (persistenceLock) { persistPendingVotes(); }
+		synchronized (persistenceLock) {
+			if (stopping) persistPendingVotes();
+			else checkpointPendingVotes();
+		}
 	}
 
 	/** Seal processing and durably retain late admissions from tasks that ignore interruption. */

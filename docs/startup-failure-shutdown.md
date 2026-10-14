@@ -7,29 +7,45 @@ the interrupt flag when shutdown is interrupted. Repeated unload callbacks are s
 
 ## Building the complete SQL failure fix
 
-The shutdown change works independently, but the MySQL authentication-failure regression also exercises the corrected
-SimpleAPI and AdvancedCore constructors. SimpleAPI PR #111 is merged; AdvancedCore PR #361 supplies the remaining SQL
-initialization fix. The POM pins published SimpleAPI `1.0.2-20261011.161601-40`, so no manual SimpleAPI source installation is needed. CI builds AdvancedCore revision
-`d09f0d891127952f0787aef879380a0b8ee0dde8` while that PR remains under review.
+The MySQL authentication-failure regression exercises the corrected SimpleAPI and AdvancedCore constructors.
+SimpleAPI PR #111 and AdvancedCore PR #361 are merged, and the corrected dependencies are published. The POM pins
+SimpleAPI `1.0.2-20261011.161601-40`; normal Maven resolution supplies AdvancedCore. CI no longer builds an older
+AdvancedCore source checkout before testing VotingPlugin.
 
-With that AdvancedCore revision checked out in a sibling directory, run:
+Run the focused lifecycle and timed-vote regressions, then the required clean package:
 
 ```shell
-mvn -B -f ../AdvancedCore/AdvancedCore/pom.xml clean install
-mvn -B -nsu -f VotingPlugin/pom.xml clean package
+mvn -B -f VotingPlugin/pom.xml -Dtest=VotingPluginMainShutdownTest,TimeQueueShutdownPersistenceTest,TimeQueueRecoveryCheckpointTest,TimeQueueHandlerRejectionTest,VoteTaskAdmissionTest,VotiferEventDisabledVoteSiteTest,VotifierVoteOverflowQueueTest,CorePlatformIsolationTest test
+mvn -B -f VotingPlugin/pom.xml clean package
 ```
 
-`-nsu` preserves the locally installed AdvancedCore snapshot for this build. The CI source pin can be removed once that
-fix is merged and published. This is a build dependency only: the distributable VotingPlugin JAR includes the required
-libraries, and server owners do not need to install separate SimpleAPI or AdvancedCore JARs.
-Invalid MySQL credentials still abort startup; no storage fallback or configuration migration is introduced.
+The distributable VotingPlugin JAR includes the required libraries. Server owners do not need a separate SimpleAPI or
+AdvancedCore installation, storage fallback, configuration migration or schema migration. Invalid MySQL credentials
+still abort startup. The automated SQL test injects an in-process JDBC authentication rejection; it does not establish
+live external MySQL or native Paper/Folia startup behavior.
 
 Timed-vote shutdown publication shares an admission fence with queue additions and cache-clearing callbacks. A task that
-outlives the executor's bounded termination wait persists its late timed vote through that same owner. Successfully
-saved prefixes are retired; an unsuccessful write retains its vote and cache index for a later unload retry, without
-repeating unrelated cleanup. Timed-cache writes report I/O failures rather than relying on the legacy file helper's
-log-only error handling. Ordinary `TimeQueueHandler.save()` remains a checkpoint; `saveForShutdown()` seals processing.
+outlives the executor's bounded termination wait persists its late timed vote through that same owner. Shutdown saves retire successfully saved prefixes; an unsuccessful write retains its vote and cache index for a later
+unload retry, without repeating unrelated cleanup. Timed-cache writes report I/O failures rather than relying on the legacy file helper's
+log-only error handling. Ordinary `TimeQueueHandler.save()` checkpoints pending votes while keeping their live queue entries; `saveForShutdown()` seals processing.
 The existing ServerData file format and persistence model are retained: this is not a new transactional reward system or
 an exactly-once guarantee across arbitrary vote event handlers, chat, rewards and disk writes.
 
 A timed vote remains owned while its event is being prepared. If shutdown wins before event dispatch, it is saved for ordinary timed-cache recovery. Once event dispatch starts, external handlers may already have acted: shutdown or a thrown dispatch error retains that occurrence under `VotingPlugin.UncertainTimedVotes.<id>` in `ServerData.yml` and logs a warning. These records contain the original name, service and timestamp and are **not automatically replayed**. An administrator must compare them with voting data/logs before deciding whether any recovery is needed; a completed event can still leave a conservative review record when shutdown raced it. Repeated persistence attempts use the same ID. Shutdown does not wait indefinitely for external event handlers.
+
+Before each event handoff, the queue saves its undispatched suffix and a conservative in-flight review record together.
+A confirmed normal event return clears only that occurrence's review record. Cancellation also checkpoints any later
+admissions, retaining their live queue entries. Direct and scheduled processing use the same recovery boundary; neither
+clears the whole recovery cache before the first event. Failed preparation does not invoke the event, and failed
+completion publication does not automatically repeat an event that already returned. These writes use the existing
+ServerData YAML persistence model, not a crash-atomic transaction or an exactly-once external-effects guarantee.
+
+A successful quarantine releases the finished dispatch's live guard so unaffected votes can resume. A failed quarantine
+keeps its original identity until a later processing or unload attempt can retain it; that attempt does not invoke the
+ambiguous event again. In-flight records are transient during normal processing, and a crash before actual dispatch can
+leave a conservative record too. Stop processing before manually reconciling retained records; their presence alone does
+not prove a reward ran or failed.
+
+The stopped vote timer remains visible until overflow and event-handler cleanup finishes. A missing timer is treated as
+rejected admission, allowing a late Votifier callback to use the existing overflow path rather than fail on a null
+reference. No accepted task is run inline on the event thread as a fallback.

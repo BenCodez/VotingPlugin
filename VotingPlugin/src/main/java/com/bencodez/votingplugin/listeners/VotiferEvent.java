@@ -1,6 +1,5 @@
 package com.bencodez.votingplugin.listeners;
 
-import java.util.concurrent.RejectedExecutionException;
 
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -135,9 +134,8 @@ public class VotiferEvent implements Listener {
 		plugin.debug("VoteSite: " + voteSite);
 		plugin.debug("IP: " + IP);
 
-		try {
-			plugin.getVoteTimer().submit(() -> processVote(voteSite, voteUsername));
-		} catch (RejectedExecutionException rejected) {
+		if (!com.bencodez.votingplugin.util.VoteTaskAdmission.trySubmit(plugin.getVoteTimer(),
+				() -> processVote(voteSite, voteUsername))) {
 			VotifierVoteOverflowQueue overflow = plugin.getVotifierVoteOverflowQueue();
 			if (overflow == null || !overflow.enqueue(voteUsername, voteSite)) {
 				plugin.getLogger().severe("Votifier vote queue is full; vote was not admitted for "

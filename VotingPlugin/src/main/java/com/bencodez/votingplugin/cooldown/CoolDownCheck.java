@@ -280,7 +280,6 @@ public class CoolDownCheck implements Listener {
 	public void onCoolDownEnd(PlayerVoteSiteCoolDownEndEvent event) {
 		plugin.getRewardHandler().giveReward(event.getPlayer(), event.getSite().getSiteData(), "CoolDownEndRewards",
 				new RewardOptions().addPlaceholder("sitename", event.getSite().getDisplayName())
-						.addDisplayPlaceholder("sitename", event.getSite().getDisplayNameForFormatting())
 						.addPlaceholder("url", event.getSite().getVoteURL(false)));
 	}
 
