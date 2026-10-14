@@ -155,9 +155,7 @@ public final class AutoCreateVoteSitesReminderService {
 			state.commit(candidate);
 			// Do not publish a stale warning if shutdown or configuration changed during I/O.
 			if (candidate.reminderDue() && closing.get() == null && current.equals(settings)) {
-				logger.warning("AutoCreateVoteSites is still enabled after the setup period. "
-						+ "After configuring your voting sites, set AutoCreateVoteSites: false in Config.yml. "
-						+ "This reminder does not change your configuration.");
+				logger.warning("After voting-site setup, set AutoCreateVoteSites: false in Config.yml.");
 			}
 		} catch (IOException | RuntimeException failure) {
 			failed = true;

@@ -1968,16 +1968,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	}
 
 	private Settings autoCreateVoteSitesReminderSettings() {
-		try {
-			return new Settings(configFile.isAutoCreateVoteSitesReminderEnabled(), configFile.isAutoCreateVoteSites(),
-					TimeUnit.DAYS.toMillis(configFile.getAutoCreateVoteSitesReminderAfterDays()),
-					TimeUnit.DAYS.toMillis(configFile.getAutoCreateVoteSitesReminderRepeatDays()));
-		} catch (IllegalArgumentException invalid) {
-			getLogger().warning("AutoCreateVoteSitesReminder.AfterDays and RepeatDays must be positive "
-					+ "and at most 106751. The setup reminder is disabled until corrected and reloaded.");
-			return new Settings(false, configFile.isAutoCreateVoteSites(), TimeUnit.DAYS.toMillis(7),
-					TimeUnit.DAYS.toMillis(7));
-		}
+		return new Settings(true, configFile.isAutoCreateVoteSites(), TimeUnit.DAYS.toMillis(7),
+				TimeUnit.DAYS.toMillis(7));
 	}
 
 	private void stopAutoCreateVoteSitesSetupReminder() {

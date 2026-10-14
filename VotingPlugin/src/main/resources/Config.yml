@@ -188,18 +188,8 @@ DebugLevel: NONE
 GiveDefaultPermission: true
 
 # If true, plugin will automatically generate votesites upon getting a vote
+# Disable after setup; a small periodic console reminder warns while enabled.
 AutoCreateVoteSites: true
-
-# Console reminder to disable automatic site creation after initial setup.
-# Counts cumulative active plugin runtime, excluding downtime. Existing installs
-# start this clock on their first upgrade containing the reminder.
-# Does not change AutoCreateVoteSites or affect explicit admin site creation.
-# Checkpointed each minute; reloads/restarts preserve the clock and reminder marker.
-AutoCreateVoteSitesReminder:
-  Enabled: true
-  # Positive days (maximum 106751); invalid intervals pause this reminder only.
-  AfterDays: 7
-  RepeatDays: 7
 
 # Geyser/Bedrock player support
 # Set prefix used for voting
