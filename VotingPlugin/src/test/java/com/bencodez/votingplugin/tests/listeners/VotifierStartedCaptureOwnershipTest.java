@@ -414,6 +414,115 @@ class VotifierStartedCaptureOwnershipTest {
         }
     }
 
+    @Test void closingReplacementKeepsProvisionalCaptureUntilPredecessorReleasesOwnership() throws Exception {
+        when(plugin.getLogger()).thenReturn(mock(Logger.class));
+        VotifierVoteOverflowQueue predecessor = overflow;
+        UUID recovered = UUID.randomUUID();
+        assertTrue(predecessor.enqueue("Steve", SITE, 123L, recovered));
+        workerTurn(predecessor);
+        overflow = VotifierVoteOverflowQueue.initializeAsync(plugin, listener::processVote, ready::get);
+        when(plugin.getVotifierVoteOverflowQueue()).thenReturn(overflow);
+        workerTurn(overflow);
+        assertFalse(overflow.isInitializationComplete());
+        listener.onVotiferEvent(receipt());
+        var original = retainedReceipt();
+        try {
+            ready.set(false); listener.stop();
+            long began = System.nanoTime(); overflow.close();
+            assertTrue(System.nanoTime() - began < TimeUnit.SECONDS.toNanos(2));
+            assertFalse(worker(overflow).isShutdown(), "closing worker must retain provisional retirement ownership");
+            predecessor.close();
+            assertTrue(worker(overflow).awaitTermination(5, TimeUnit.SECONDS));
+            var rows = disk(); assertEquals(2, rows.size());
+            assertEquals(Set.of(recovered, original.id()), rows.stream()
+                    .map(row -> UUID.fromString((String) row.get("LocalOccurrenceId")))
+                    .collect(java.util.stream.Collectors.toSet()));
+            var retained = rows.stream().filter(row -> original.id().toString().equals(row.get("LocalOccurrenceId"))).findFirst().orElseThrow();
+            assertEquals(original.time(), ((Number) retained.get("Time")).longValue());
+        } finally {
+            predecessor.close(); overflow.close();
+        }
+    }
+
+    @Test void closingReplacementRetainsCapturesAcrossUnknownStorageUntilValidRepair() throws Exception {
+        when(plugin.getLogger()).thenReturn(mock(Logger.class));
+        VotifierVoteOverflowQueue predecessor = overflow;
+        UUID recovered = UUID.randomUUID();
+        assertTrue(predecessor.enqueue("Steve", SITE, 123L, recovered)); workerTurn(predecessor);
+        overflow = VotifierVoteOverflowQueue.initializeAsync(plugin, listener::processVote, ready::get);
+        when(plugin.getVotifierVoteOverflowQueue()).thenReturn(overflow); workerTurn(overflow);
+        listener.onVotiferEvent(receipt()); var original = retainedReceipt();
+        var entered = new CountDownLatch(1); var release = new CountDownLatch(1);
+        Path file = directory.resolve("VotifierVoteQueue.yml"); byte[] valid = null;
+        try {
+            ready.set(false); listener.stop(); overflow.close();
+            worker(overflow).execute(() -> {
+                entered.countDown();
+                try { release.await(10, TimeUnit.SECONDS); }
+                catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
+            });
+            assertTrue(entered.await(5, TimeUnit.SECONDS));
+            predecessor.close(); valid = Files.readAllBytes(file);
+            String broken = "Votes: [unterminated"; Files.writeString(file, broken); release.countDown();
+            var failed = VotifierVoteOverflowQueue.class.getDeclaredField("loadFailed"); failed.setAccessible(true);
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+            while (!failed.getBoolean(overflow) && System.nanoTime() < deadline) Thread.sleep(10);
+            assertTrue(failed.getBoolean(overflow)); assertFalse(worker(overflow).isShutdown());
+            assertEquals(broken, Files.readString(file));
+            Files.delete(file); Thread.sleep(600);
+            assertFalse(Files.exists(file), "observed unknown history cannot become an empty install");
+            assertFalse(worker(overflow).isShutdown());
+            Files.write(file, valid);
+            assertTrue(worker(overflow).awaitTermination(5, TimeUnit.SECONDS));
+            assertEquals(Set.of(recovered, original.id()), disk().stream()
+                    .map(row -> UUID.fromString((String) row.get("LocalOccurrenceId")))
+                    .collect(java.util.stream.Collectors.toSet()));
+        } finally {
+            release.countDown(); predecessor.close();
+            if (!Files.exists(file) && valid != null) Files.write(file, valid);
+            overflow.close();
+        }
+    }
+
+    @Test void legacyConstructorRetirementRunsBeforeItsFinalSnapshot() throws Exception {
+        when(plugin.getLogger()).thenReturn(mock(Logger.class)); overflow.close();
+        overflow = new VotifierVoteOverflowQueue(plugin, (site, user) -> {});
+        UUID id = UUID.randomUUID();
+        var entered = new CountDownLatch(1); var release = new CountDownLatch(1);
+        worker(overflow).execute(() -> {
+            entered.countDown();
+            try { release.await(10, TimeUnit.SECONDS); }
+            catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
+        });
+        assertTrue(entered.await(5, TimeUnit.SECONDS));
+        var accepted = new java.util.concurrent.atomic.AtomicBoolean();
+        overflow.retireCaptures(List.of(new VotifierVoteOverflowQueue.RetiringCapture("Steve", SITE, 123L, id,
+                () -> true, () -> false, accepted::set)));
+        try {
+            overflow.close(); assertFalse(worker(overflow).isShutdown()); release.countDown();
+            assertTrue(worker(overflow).awaitTermination(5, TimeUnit.SECONDS));
+            assertTrue(accepted.get()); assertEquals(id.toString(), disk().getFirst().get("LocalOccurrenceId"));
+        } finally { release.countDown(); overflow.close(); }
+    }
+
+    @Test void waitingRetirementAdmissionIsGloballyBounded() throws Exception {
+        when(plugin.getLogger()).thenReturn(mock(Logger.class));
+        VotifierVoteOverflowQueue predecessor = overflow;
+        overflow = VotifierVoteOverflowQueue.initializeAsync(plugin, (site, user, time, id) -> {}, () -> false);
+        workerTurn(overflow);
+        var batch = new ArrayList<VotifierVoteOverflowQueue.RetiringCapture>();
+        for (int i = 0; i < 256; i++) batch.add(new VotifierVoteOverflowQueue.RetiringCapture("Steve", SITE, 123L,
+                UUID.randomUUID(), () -> true, () -> false, accepted -> {}));
+        var rejected = new java.util.concurrent.atomic.AtomicReference<Boolean>();
+        try {
+            overflow.retireCaptures(batch);
+            overflow.retireCaptures(List.of(new VotifierVoteOverflowQueue.RetiringCapture("Steve", SITE, 456L,
+                    UUID.randomUUID(), () -> true, () -> false, rejected::set)));
+            assertEquals(Boolean.FALSE, rejected.get()); overflow.close(); predecessor.close();
+            assertTrue(worker(overflow).awaitTermination(5, TimeUnit.SECONDS)); assertEquals(256, disk().size());
+        } finally { predecessor.close(); overflow.close(); }
+    }
+
     @Test void throwingRetirementCallbackDoesNotPreventTheRestOfTheBatchBeingRetained() throws Exception {
         when(plugin.getLogger()).thenReturn(mock(Logger.class));
         UUID first = UUID.randomUUID(), second = UUID.randomUUID();

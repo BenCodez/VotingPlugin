@@ -97,6 +97,11 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
     private volatile boolean loadFailed;
     private int pendingIngress;
     private int pendingCaptureAdmissions;
+    private int pendingRetirementCaptures;
+    private boolean retirementRequested;
+    private boolean initializationRetryScheduled;
+    private boolean initializationFailureReported;
+    private boolean queueFileObserved;
     private final Set<UUID> captureReservations = new java.util.HashSet<>();
     private final boolean asynchronousInitialization;
 	private long stateVersion;
@@ -315,49 +320,81 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
     public void retireCaptures(List<RetiringCapture> captures) {
         var snapshot = List.copyOf(captures);
         if (snapshot.size() > MAX_CAPTURED) throw new IllegalArgumentException("capture retirement exceeds capacity");
-        Runnable transfer = () -> {
-            boolean[] results = new boolean[snapshot.size()];
-            for (int index = 0; index < snapshot.size(); index++) {
-                var capture = snapshot.get(index);
-                boolean accepted = false;
+        if (snapshot.isEmpty()) return;
+        class Transfer implements Runnable {
+            @Override public void run() {
                 synchronized (lock) {
-                    if (!closed && loaded && !loadFailed) {
-                        var existing = occurrence(capture.id());
-                        if (capture.completed().getAsBoolean()) {
-                            captureReservations.remove(capture.id());
-                            accepted = true;
-                        } else if (existing != null) {
-                            accepted = matches(existing, capture.username(), capture.serviceSite(), capture.time());
-                            if (accepted) captureReservations.remove(capture.id());
-                        } else if (entries.size() < MAX_RETAINED_ENTRIES
-                                && (captureReservations.contains(capture.id())
-                                    || entries.size() + captureReservations.size() < MAX_RETAINED_ENTRIES)) {
-                            entries.addLast(new PendingVote(capture.username(), capture.serviceSite(), capture.time(),
-                                    capture.id(), capture.executionReleased()));
-                            captureReservations.remove(capture.id());
-                            stateVersion++; requestPersistenceLocked();
-                            accepted = true;
-                        }
+                    if (!closed && (!loaded || loadFailed)) {
+                        scheduleInitializationRetryLocked();
+                        worker.schedule(this, RETRY_DELAY_MILLIS, TimeUnit.MILLISECONDS);
+                        return;
                     }
                 }
-                results[index] = accepted;
-            }
-            for (int index = 0; index < snapshot.size(); index++) {
-                try { snapshot.get(index).completion().accept(results[index]); }
-                catch (RuntimeException | Error failure) {
-                    try { plugin.getLogger().warning("Votifier retirement callback failed; queue ownership is retained"); }
-                    catch (RuntimeException | Error ignored) { }
+                boolean[] results = new boolean[snapshot.size()];
+                try {
+                    for (int index = 0; index < snapshot.size(); index++) {
+                        var capture = snapshot.get(index);
+                        boolean completed = false;
+                        try { completed = capture.completed().getAsBoolean(); }
+                        catch (RuntimeException | Error unknown) { /* Retain unconfirmed completion. */ }
+                        synchronized (lock) {
+                            if (!closed && loaded && !loadFailed) {
+                                var existing = occurrence(capture.id());
+                                if (completed) {
+                                    captureReservations.remove(capture.id());
+                                    results[index] = true;
+                                } else if (existing != null) {
+                                    results[index] = matches(existing, capture.username(), capture.serviceSite(), capture.time());
+                                    if (results[index]) captureReservations.remove(capture.id());
+                                } else if (entries.size() < MAX_RETAINED_ENTRIES
+                                        && (captureReservations.contains(capture.id())
+                                            || entries.size() + captureReservations.size() < MAX_RETAINED_ENTRIES)) {
+                                    entries.addLast(new PendingVote(capture.username(), capture.serviceSite(), capture.time(),
+                                            capture.id(), capture.executionReleased()));
+                                    captureReservations.remove(capture.id());
+                                    stateVersion++; requestPersistenceLocked();
+                                    results[index] = true;
+                                }
+                            }
+                        }
+                    }
+                    // Retain the whole batch before any external completion callback.
+                    for (int index = 0; index < snapshot.size(); index++) {
+                        try { snapshot.get(index).completion().accept(results[index]); }
+                        catch (RuntimeException | Error failure) {
+                            try { plugin.getLogger().warning("Votifier retirement callback failed; queue ownership is retained"); }
+                            catch (RuntimeException | Error ignored) { }
+                        }
+                    }
+                } finally {
+                    synchronized (lock) { pendingRetirementCaptures -= snapshot.size(); }
                 }
             }
-        };
+        }
         boolean submitted = false;
         synchronized (lock) {
-            if (!closed && !closing) {
-                try { worker.execute(transfer); submitted = true; }
-                catch (RejectedExecutionException rejected) { }
+            if (!closed && !closing && pendingRetirementCaptures + snapshot.size() <= MAX_CAPTURED) {
+                pendingRetirementCaptures += snapshot.size();
+                try { worker.execute(new Transfer()); retirementRequested = true; submitted = true; }
+                catch (RejectedExecutionException rejected) { pendingRetirementCaptures -= snapshot.size(); }
             }
         }
-        if (!submitted) for (var capture : snapshot) capture.completion().accept(false);
+        if (!submitted) for (var capture : snapshot) {
+            try { capture.completion().accept(false); }
+            catch (RuntimeException | Error ignored) { /* Reject every bounded caller, including the suffix. */ }
+        }
+    }
+
+    private void scheduleInitializationRetryLocked() {
+        if (closed || initializationRetryScheduled || loaded && !loadFailed) return;
+        initializationRetryScheduled = true;
+        worker.schedule(() -> {
+            synchronized (lock) {
+                initializationRetryScheduled = false;
+                if (closed) return;
+            }
+            load();
+        }, RETRY_DELAY_MILLIS, TimeUnit.MILLISECONDS);
     }
 
     private PendingVote occurrence(UUID id) {
@@ -599,16 +636,24 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 
 	private void load() {
         ArrayDeque<PendingVote> recovered = new ArrayDeque<>();
+        boolean successful = false;
 		try {
-			synchronized (lock) { if (closed) return; }
+			synchronized (lock) { if (closed || loaded && !loadFailed) return; }
 			if (!acquireOwner()) {
-				if (asynchronousInitialization && !closing) {
-					worker.schedule(this::load, RETRY_DELAY_MILLIS, TimeUnit.MILLISECONDS);
-					return;
-				}
+                synchronized (lock) {
+                    if (asynchronousInitialization && !closing || pendingRetirementCaptures > 0) {
+                        scheduleInitializationRetryLocked();
+                        return;
+                    }
+                }
 				throw new IOException("queue file is owned by another active instance");
 			}
-			if (!Files.exists(file, LinkOption.NOFOLLOW_LINKS)) return;
+            if (!Files.exists(file, LinkOption.NOFOLLOW_LINKS)) {
+                if (queueFileObserved) throw new IOException("queue file disappeared before recovery");
+                successful = true;
+                return;
+            }
+            queueFileObserved = true;
 			YamlConfiguration yaml = new YamlConfiguration();
 			yaml.loadFromString(readQueueFile());
 			Object raw = yaml.get("Votes");
@@ -647,20 +692,28 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
                 }
                 recovered.addLast(new PendingVote(name, site, timestamp.longValue(), localOccurrenceId));
 			}
-            synchronized (lock) { entries.addAll(recovered); }
+            synchronized (lock) { entries.clear(); entries.addAll(recovered); }
 			if (skipped) {
 				synchronized (lock) {
 					stateVersion++;
 					requestPersistenceLocked();
 				}
 			}
+            successful = true;
 		} catch (Exception failure) {
             loadFailed = true;
-			plugin.getLogger().warning("Unable to load queued Votifier votes: " + failure.getClass().getSimpleName());
+            if (!initializationFailureReported) {
+                initializationFailureReported = true;
+                plugin.getLogger().warning("Unable to load queued Votifier votes: " + failure.getClass().getSimpleName());
+            }
 		} finally {
             if (ownerLock == null && !loadFailed) return;
+            if (successful) loadFailed = false;
             loaded = true;
-            synchronized (lock) { scheduleDrainLocked(); }
+            synchronized (lock) {
+                scheduleDrainLocked();
+                if (loadFailed && pendingRetirementCaptures > 0) scheduleInitializationRetryLocked();
+            }
         }
 	}
 
@@ -785,16 +838,19 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 
 	@Override
 	public void close() {
-        if (asynchronousInitialization) { closeInitializedWorker(); return; }
-		List<PendingVote> snapshot;
+        List<PendingVote> snapshot = null;
+        boolean initializedWorker;
 		synchronized (lock) {
-			if (closed) return;
-			closed = true;
-			// At-least-once delivery: retain any unacknowledged callback. A callback
-			// interrupted during shutdown must be replayed rather than silently lost.
-			snapshot = new ArrayList<>(entries);
-			persistenceScheduled = false;
+            initializedWorker = asynchronousInitialization || retirementRequested;
+            if (!initializedWorker) {
+                if (closed) return;
+                closed = true;
+                // Legacy callers keep their existing close path until retirement admission.
+                snapshot = new ArrayList<>(entries);
+                persistenceScheduled = false;
+            }
 		}
+        if (initializedWorker) { closeInitializedWorker(); return; }
 		worker.shutdownNow();
 		try {
 			worker.awaitTermination(1, TimeUnit.SECONDS);
@@ -835,6 +891,11 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
         long version;
         synchronized (lock) {
             if (closed) return;
+            if (pendingRetirementCaptures > 0) {
+                if (!loaded || loadFailed) scheduleInitializationRetryLocked();
+                worker.schedule(this::finishClosePublication, RETRY_DELAY_MILLIS, TimeUnit.MILLISECONDS);
+                return;
+            }
             snapshot = new ArrayList<>(entries);
             version = stateVersion;
         }

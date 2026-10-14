@@ -163,3 +163,12 @@ The close caller waits at most one second per call. Failed final publication ret
 and a replacement waits to acquire ownership; a timeout means recovery is unconfirmed. This does not guarantee completion
 if the process exits while storage remains unavailable. Unreadable or unowned initial storage is never replaced with a
 missing-state guess. Normal overflow admission remains distinct from a confirmed durable checkpoint.
+
+A replacement that retires captures before acquiring its predecessor's queue owner keeps one bounded retirement batch
+on the existing worker. It retries ownership and authoritative loading before merging and publishing those receipts;
+close does not discard an uninitialized batch. Unknown or corrupt storage is retained for repair. If an already observed
+queue file disappears, its absence cannot authorize an empty replacement. Retirement admissions across batches remain
+capped at 256; normal and recovered row limits remain unchanged. Provisional receipt admission is not confirmed ownership
+until recovery and capacity checks complete. A queue with no retirement receipts can close without publishing unknown
+initial state. These retries do not extend the caller's shutdown wait or promise recovery if the process exits before
+ownership/storage becomes available.
