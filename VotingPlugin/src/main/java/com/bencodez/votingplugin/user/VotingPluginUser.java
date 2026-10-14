@@ -1003,6 +1003,15 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			boolean wasOnline, boolean broadcast, int num, boolean queuedProxyVote,
 			boolean proxyDelayValidationKnown, boolean proxyQueueClassificationKnown, UUID proxyVoteId,
 			boolean targetedProxyVote) {
+		bungeeVotePluginMessagingEvent(service, time, text, setTotals, wasOnline, broadcast, num, queuedProxyVote,
+				proxyDelayValidationKnown, proxyQueueClassificationKnown, proxyVoteId, targetedProxyVote);
+	}
+
+	/** Dispatches the proxy vote and returns its final cancellation state; null when proxy mode is disabled. */
+	public PlayerVoteEvent bungeeVotePluginMessagingEvent(String service, long time, VoteTotalsSnapshot text, boolean setTotals,
+			boolean wasOnline, boolean broadcast, int num, boolean queuedProxyVote,
+			boolean proxyDelayValidationKnown, boolean proxyQueueClassificationKnown, UUID proxyVoteId,
+			boolean targetedProxyVote) {
 			if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			plugin.debug("Pluginmessaging vote for " + getPlayerName() + " on " + service);
 
@@ -1023,7 +1032,9 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 				voteEvent.setProxyDelayValidationKnown(proxyDelayValidationKnown);
 				voteEvent.setTargetedProxyVote(targetedProxyVote);
 				plugin.getServer().getPluginManager().callEvent(voteEvent);
+			return voteEvent;
 		}
+		return null;
 	}
 
 	/**
