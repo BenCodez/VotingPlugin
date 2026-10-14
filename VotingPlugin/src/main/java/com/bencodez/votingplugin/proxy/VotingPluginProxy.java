@@ -4984,6 +4984,11 @@ public abstract class VotingPluginProxy {
 			if (configuredMethod == null) configuredMethod = BungeeMethod.PLUGINMESSAGING;
 			retainHttpForPendingDeliveries(configuredMethod);
 			stillPending = deferredHttpTransportReconciliation;
+			// A cancelled transport change may restore the live HTTP configuration
+			// before the manual reload enters this monitor. Nothing needs replacing,
+			// and the existing listener must retain ownership of its pending queue.
+			if (!stillPending && configuredMethod == BungeeMethod.HTTP && httpTransportServer != null
+					&& !hasChangedLiveHttpConfiguration()) return;
 			if (!stillPending) httpTransportReconciliationRunning = true;
 		}
 		if (stillPending) {
