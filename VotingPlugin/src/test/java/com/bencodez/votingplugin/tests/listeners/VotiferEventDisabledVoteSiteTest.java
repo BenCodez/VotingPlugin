@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin.tests.listeners;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.doAnswer;
@@ -66,6 +67,8 @@ public class VotiferEventDisabledVoteSiteTest {
 		when(plugin.getVoteSiteManager()).thenReturn(voteSiteManager);
 		when(plugin.getVoteTimer()).thenReturn(voteTimer);
 		when(plugin.getVotifierVoteOverflowQueue()).thenReturn(overflowQueue);
+        when(overflowQueue.reserveCapture(any(java.util.UUID.class)))
+                .thenReturn(VotifierVoteOverflowQueue.CaptureAdmission.ACCEPTED);
 		when(plugin.getServer()).thenReturn(server);
 		when(server.getPluginManager()).thenReturn(pluginManager);
 
@@ -169,12 +172,17 @@ public class VotiferEventDisabledVoteSiteTest {
         // The 257th receipt uses the independently bounded overflow directly.
         verify(overflowQueue).enqueueAfterInitialization(anyString(), anyString(),
                 org.mockito.ArgumentMatchers.anyLong(), any(java.util.UUID.class), any(java.util.function.BooleanSupplier.class), any());
+        doAnswer(call -> {
+            var captures = (java.util.List<VotifierVoteOverflowQueue.RetiringCapture>) call.getArgument(0);
+            captures.forEach(capture -> capture.completion().accept(true)); return null;
+        }).when(overflowQueue).retireCaptures(anyList());
         listener.stop(); listener.stop();
         org.junit.jupiter.api.Assertions.assertEquals(0, listener.getPendingCaptureCount());
         // Cancelled callbacks that later run cannot transfer or process again.
         tasks.forEach(Runnable::run);
-        verify(overflowQueue, org.mockito.Mockito.times(257)).enqueueAfterInitialization(anyString(), anyString(),
+        verify(overflowQueue, org.mockito.Mockito.times(1)).enqueueAfterInitialization(anyString(), anyString(),
                 org.mockito.ArgumentMatchers.anyLong(), any(java.util.UUID.class), any(java.util.function.BooleanSupplier.class), any());
+        verify(overflowQueue).retireCaptures(anyList());
         verify(pluginManager, never()).callEvent(any(PlayerVoteEvent.class));
     }
 

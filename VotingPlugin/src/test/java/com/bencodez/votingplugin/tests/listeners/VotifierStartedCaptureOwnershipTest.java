@@ -338,7 +338,137 @@ class VotifierStartedCaptureOwnershipTest {
         assertTrue(delivered.await(5, TimeUnit.SECONDS)); processingTurn(); workerTurn(overflow);
         assertEquals(1, processed.size()); assertEquals(0, listener.getPendingCaptureCount()); assertEquals(0, overflow.size());
     }
-    @Test void failedFullQueueTransferRetainsStartedOwnershipAndExactCapacity() throws Exception {
+    @Test void shutdownRetainsAnUnstartedCaptureBesideAFullRecoveredQueueAndRestartsItsExactOccurrence() throws Exception {
+        var recovered = recoverFullQueue();
+        var entered = new CountDownLatch(1); var release = new CountDownLatch(1);
+        timer.submit(() -> {
+            entered.countDown();
+            try { release.await(10, TimeUnit.SECONDS); }
+            catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
+        });
+        assertTrue(entered.await(5, TimeUnit.SECONDS));
+        listener.onVotiferEvent(receipt());
+        var original = retainedReceipt();
+        try {
+            ready.set(false); listener.stop();
+            timer.shutdownNow(); assertTrue(timer.awaitTermination(5, TimeUnit.SECONDS));
+            workerTurn(overflow); overflow.close();
+            var rows = disk();
+            assertEquals(257, rows.size(), "Closing a full overflow must retain its accepted normal capture too");
+            assertTrue(rows.stream().map(row -> UUID.fromString((String) row.get("LocalOccurrenceId"))).toList()
+                    .containsAll(recovered));
+            var retained = rows.stream().filter(row -> original.id().toString().equals(row.get("LocalOccurrenceId"))).toList();
+            assertEquals(1, retained.size()); assertEquals(original.time(), ((Number) retained.getFirst().get("Time")).longValue());
+            timer = timer(); when(plugin.getVoteTimer()).thenReturn(timer);
+            ready.set(true);
+            var delivered = new CountDownLatch(257);
+            doAnswer(call -> {
+                var event = call.getArgument(0, PlayerVoteEvent.class);
+                event.setNativeProcessingCompleted(true); processed.add(event); delivered.countDown(); return null;
+            }).when(events).callEvent(any(PlayerVoteEvent.class));
+            overflow = VotifierVoteOverflowQueue.initializeAsync(plugin, listener::processVote, ready::get);
+            when(plugin.getVotifierVoteOverflowQueue()).thenReturn(overflow); workerTurn(overflow);
+            overflow.start(); assertTrue(delivered.await(10, TimeUnit.SECONDS));
+            processingTurn(); workerTurn(overflow);
+            assertEquals(257, processed.stream().map(PlayerVoteEvent::getLocalOccurrenceId).distinct().count());
+            var replay = processed.stream().filter(event -> original.id().equals(event.getLocalOccurrenceId())).toList();
+            assertEquals(1, replay.size()); assertEquals(original.time(), replay.getFirst().getCanonicalOccurrenceTime());
+        } finally { release.countDown(); }
+    }
+
+    @Test void failedFinalWriteRetainsOwnershipUntilRepairAndPreservesTheCaptureForASuccessor() throws Exception {
+        when(plugin.getLogger()).thenReturn(mock(Logger.class));
+        recoverFullQueue();
+        var entered = new CountDownLatch(1); var release = new CountDownLatch(1);
+        timer.submit(() -> {
+            entered.countDown();
+            try { release.await(10, TimeUnit.SECONDS); }
+            catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
+        });
+        assertTrue(entered.await(5, TimeUnit.SECONDS));
+        listener.onVotiferEvent(receipt()); var original = retainedReceipt();
+        Path target = directory.resolve("VotifierVoteQueue.yml");
+        Files.delete(target); Files.createDirectory(target);
+        Path blocker = target.resolve("synthetic-blocker"); Files.writeString(blocker, "synthetic");
+        VotifierVoteOverflowQueue successor = null;
+        try {
+            ready.set(false); listener.stop();
+            timer.shutdownNow(); assertTrue(timer.awaitTermination(5, TimeUnit.SECONDS));
+            overflow.close();
+            successor = VotifierVoteOverflowQueue.initializeAsync(plugin, (site, user, time, id) -> {}, () -> false);
+            workerTurn(successor);
+            assertFalse(successor.isInitializationComplete(), "successor cannot initialize while final publication is uncertain");
+            Files.delete(blocker); Files.delete(target);
+            overflow.close(); assertTrue(worker(overflow).awaitTermination(5, TimeUnit.SECONDS));
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+            while (!successor.isInitializationComplete() && System.nanoTime() < deadline) Thread.sleep(10);
+            assertTrue(successor.isInitializationComplete()); assertEquals(257, successor.size());
+            var rows = disk(); assertEquals(257, rows.size());
+            var row = rows.stream().filter(value -> original.id().toString().equals(value.get("LocalOccurrenceId"))).toList();
+            assertEquals(1, row.size()); assertEquals(original.time(), ((Number) row.getFirst().get("Time")).longValue());
+        } finally {
+            release.countDown();
+            if (Files.isDirectory(target)) { Files.deleteIfExists(blocker); Files.delete(target); }
+            overflow.close();
+            if (successor != null) successor.close();
+        }
+    }
+
+    @Test void throwingRetirementCallbackDoesNotPreventTheRestOfTheBatchBeingRetained() throws Exception {
+        when(plugin.getLogger()).thenReturn(mock(Logger.class));
+        UUID first = UUID.randomUUID(), second = UUID.randomUUID();
+        assertEquals(VotifierVoteOverflowQueue.CaptureAdmission.ACCEPTED, overflow.reserveCapture(first));
+        assertEquals(VotifierVoteOverflowQueue.CaptureAdmission.ACCEPTED, overflow.reserveCapture(second));
+        var completed = new CountDownLatch(1);
+        overflow.retireCaptures(List.of(
+                new VotifierVoteOverflowQueue.RetiringCapture("Steve", SITE, 123L, first, () -> true, () -> false,
+                        accepted -> { throw new IllegalStateException("synthetic callback failure"); }),
+                new VotifierVoteOverflowQueue.RetiringCapture("Steve", SITE, 456L, second, () -> true, () -> false,
+                        accepted -> { assertTrue(accepted); completed.countDown(); })));
+        assertTrue(completed.await(5, TimeUnit.SECONDS));
+        overflow.close();
+        assertEquals(Set.of(first, second), disk().stream().map(row -> UUID.fromString((String) row.get("LocalOccurrenceId")))
+                .collect(java.util.stream.Collectors.toSet()));
+    }
+
+    @Test void combinedFullSnapshotRemainsBoundedAcrossRepeatedRecoveryAndFreshIngress() throws Exception {
+        when(plugin.getLogger()).thenReturn(mock(Logger.class));
+        var recovered = recoverFullQueue();
+        var entered = new CountDownLatch(1); var release = new CountDownLatch(1);
+        timer.submit(() -> {
+            entered.countDown();
+            try { release.await(10, TimeUnit.SECONDS); }
+            catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
+        });
+        assertTrue(entered.await(5, TimeUnit.SECONDS));
+        for (int index = 0; index < 256; index++) listener.onVotiferEvent(receipt());
+        assertEquals(256, listener.getPendingCaptureCount());
+        try {
+            ready.set(false); listener.stop(); listener.stop();
+            timer.shutdownNow(); assertTrue(timer.awaitTermination(5, TimeUnit.SECONDS));
+            workerTurn(overflow); overflow.close();
+            var rows = disk(); assertEquals(512, rows.size());
+            var ids = rows.stream().map(row -> UUID.fromString((String) row.get("LocalOccurrenceId")))
+                    .collect(java.util.stream.Collectors.toSet());
+            assertEquals(512, ids.size()); assertTrue(ids.containsAll(recovered));
+            for (int cycle = 0; cycle < 2; cycle++) {
+                timer = timer(); when(plugin.getVoteTimer()).thenReturn(timer);
+                listener = new VotiferEvent(plugin, ready::get);
+                overflow = VotifierVoteOverflowQueue.initializeAsync(plugin, listener::processVote, ready::get);
+                when(plugin.getVotifierVoteOverflowQueue()).thenReturn(overflow); workerTurn(overflow);
+                assertEquals(512, overflow.size());
+                listener.onVotiferEvent(receipt());
+                assertEquals(0, listener.getPendingCaptureCount(), "full recovered ownership cannot admit another normal capture");
+                assertFalse(overflow.enqueue("Steve", SITE, 123L));
+                listener.stop(); workerTurn(overflow); overflow.close();
+                assertEquals(ids, disk().stream().map(row -> UUID.fromString((String) row.get("LocalOccurrenceId")))
+                        .collect(java.util.stream.Collectors.toSet()));
+                assertTrue(processed.isEmpty()); timer.shutdownNow();
+            }
+        } finally { release.countDown(); }
+    }
+
+    @Test void fullQueueRetirementTransfersStartedOwnershipWithoutLosingTheReceipt() throws Exception {
         for (int index = 0; index < 256; index++) assertTrue(overflow.enqueue("Steve", SITE, 123L));
         var entered = new CountDownLatch(1); var release = new CountDownLatch(1);
         doAnswer(call -> {
@@ -350,10 +480,10 @@ class VotifierStartedCaptureOwnershipTest {
         listener.onVotiferEvent(receipt());
         try {
             assertTrue(entered.await(5, TimeUnit.SECONDS)); ready.set(false); listener.stop(); workerTurn(overflow);
-            assertEquals(1, listener.getPendingCaptureCount()); assertEquals(256, overflow.size());
+            assertEquals(0, listener.getPendingCaptureCount()); assertEquals(257, overflow.size());
             timer.shutdownNow(); assertTrue(timer.awaitTermination(5, TimeUnit.SECONDS));
-            assertEquals(1, listener.getPendingCaptureCount()); assertTrue(processed.isEmpty());
-            overflow.close(); assertEquals(256, disk().size());
+            assertEquals(0, listener.getPendingCaptureCount()); assertTrue(processed.isEmpty());
+            overflow.close(); assertEquals(257, disk().size());
         } finally { release.countDown(); }
     }
     @Test void completionAfterSealedSnapshotReportsUncertaintyWithoutRetiredOverwrite() throws Exception {

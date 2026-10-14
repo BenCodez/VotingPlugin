@@ -45,6 +45,8 @@ import com.bencodez.votingplugin.util.ServiceSiteValidator;
 public final class VotifierVoteOverflowQueue implements AutoCloseable {
 	/* Keep the overflow bounded independently of the executor's 256 admissions. */
 	private static final int MAX_ENTRIES = 256;
+    public static final int MAX_CAPTURED = 256;
+    private static final int MAX_RETAINED_ENTRIES = MAX_ENTRIES + MAX_CAPTURED;
 	private static final long MAX_FILE_BYTES = 4L * 1024L * 1024L;
 	private static final long RETRY_DELAY_MILLIS = 250L;
 	private static final String QUEUE_FILE = "VotifierVoteQueue.yml";
@@ -89,9 +91,13 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 	private boolean started;
 	private boolean closed;
     private boolean closing;
+    private final java.util.concurrent.CompletableFuture<Void> closePublication = new java.util.concurrent.CompletableFuture<>();
+    private boolean closeFailureReported;
     private volatile boolean loaded;
     private volatile boolean loadFailed;
     private int pendingIngress;
+    private int pendingCaptureAdmissions;
+    private final Set<UUID> captureReservations = new java.util.HashSet<>();
     private final boolean asynchronousInitialization;
 	private long stateVersion;
 	private long durableVersion;
@@ -224,14 +230,144 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
             boolean admittedTransfer, java.util.function.BooleanSupplier executionReleased) {
 		if (username == null || serviceSite == null || occurredAt <= 0 || localOccurrenceId == null) return false;
 		synchronized (lock) {
-			if (closed || closing && !admittedTransfer || !loaded || loadFailed || entries.size() >= MAX_ENTRIES) return false;
-			entries.addLast(new PendingVote(username, serviceSite, occurredAt, localOccurrenceId, executionReleased));
+            if (closed || closing && !admittedTransfer || !loaded || loadFailed) return false;
+            var existing = occurrence(localOccurrenceId);
+            if (existing != null) {
+                boolean same = matches(existing, username, serviceSite, occurredAt);
+                if (same) captureReservations.remove(localOccurrenceId);
+                return same;
+            }
+            if (entries.size() >= MAX_ENTRIES || !captureReservations.contains(localOccurrenceId)
+                    && entries.size() + captureReservations.size() >= MAX_RETAINED_ENTRIES) return false;
+            entries.addLast(new PendingVote(username, serviceSite, occurredAt, localOccurrenceId, executionReleased));
+            captureReservations.remove(localOccurrenceId);
 			stateVersion++;
 			requestPersistenceLocked();
 			scheduleDrainLocked();
 			return true;
 		}
 	}
+
+    public enum CaptureAdmission { ACCEPTED, WAITING_FOR_LOAD, REJECTED }
+
+    /** Reserve final-snapshot capacity before the normal executor owns this receipt. */
+    public CaptureAdmission reserveCapture(UUID id) {
+        java.util.Objects.requireNonNull(id);
+        synchronized (lock) {
+            if (closed || closing || loadFailed) return CaptureAdmission.REJECTED;
+            if (!loaded) return CaptureAdmission.WAITING_FOR_LOAD;
+            if (captureReservations.contains(id)) return CaptureAdmission.ACCEPTED;
+            if (captureReservations.size() >= MAX_CAPTURED
+                    || entries.size() + captureReservations.size() >= MAX_RETAINED_ENTRIES)
+                return CaptureAdmission.REJECTED;
+            captureReservations.add(id);
+            return CaptureAdmission.ACCEPTED;
+        }
+    }
+
+    /** Unknown disk capacity is provisional; keep at most one deferred admission per capture. */
+    public void reserveCaptureAfterInitialization(UUID id, Consumer<Boolean> completion) {
+        java.util.Objects.requireNonNull(id); java.util.Objects.requireNonNull(completion);
+        boolean admitted;
+        synchronized (lock) {
+            admitted = !closed && !closing && pendingCaptureAdmissions < MAX_CAPTURED;
+            if (admitted) pendingCaptureAdmissions++;
+        }
+        if (!admitted) { completion.accept(false); return; }
+        var finished = new java.util.concurrent.atomic.AtomicBoolean();
+        class Admission implements Runnable {
+            void finish(boolean accepted) {
+                if (!finished.compareAndSet(false, true)) return;
+                synchronized (lock) { pendingCaptureAdmissions--; }
+                completion.accept(accepted);
+            }
+            @Override public void run() {
+                var result = reserveCapture(id);
+                if (result != CaptureAdmission.WAITING_FOR_LOAD) {
+                    finish(result == CaptureAdmission.ACCEPTED);
+                    return;
+                }
+                try { worker.schedule(this, RETRY_DELAY_MILLIS, TimeUnit.MILLISECONDS); }
+                catch (RejectedExecutionException rejected) { finish(false); }
+            }
+        }
+        var admission = new Admission();
+        try { worker.execute(admission); }
+        catch (RejectedExecutionException rejected) { admission.finish(false); }
+    }
+
+    public void releaseCapture(UUID id) {
+        synchronized (lock) { captureReservations.remove(id); }
+    }
+
+    public record RetiringCapture(String username, String serviceSite, long time, UUID id,
+            java.util.function.BooleanSupplier executionReleased,
+            java.util.function.BooleanSupplier completed, Consumer<Boolean> completion) {
+        public RetiringCapture {
+            java.util.Objects.requireNonNull(username); java.util.Objects.requireNonNull(serviceSite);
+            java.util.Objects.requireNonNull(id); java.util.Objects.requireNonNull(executionReleased);
+            java.util.Objects.requireNonNull(completed); java.util.Objects.requireNonNull(completion);
+            if (time <= 0) throw new IllegalArgumentException("capture receipt time must be positive");
+        }
+    }
+
+    /** One FIFO batch, before close's final snapshot; normal overflow admission stays capped at256. */
+    public void retireCaptures(List<RetiringCapture> captures) {
+        var snapshot = List.copyOf(captures);
+        if (snapshot.size() > MAX_CAPTURED) throw new IllegalArgumentException("capture retirement exceeds capacity");
+        Runnable transfer = () -> {
+            boolean[] results = new boolean[snapshot.size()];
+            for (int index = 0; index < snapshot.size(); index++) {
+                var capture = snapshot.get(index);
+                boolean accepted = false;
+                synchronized (lock) {
+                    if (!closed && loaded && !loadFailed) {
+                        var existing = occurrence(capture.id());
+                        if (capture.completed().getAsBoolean()) {
+                            captureReservations.remove(capture.id());
+                            accepted = true;
+                        } else if (existing != null) {
+                            accepted = matches(existing, capture.username(), capture.serviceSite(), capture.time());
+                            if (accepted) captureReservations.remove(capture.id());
+                        } else if (entries.size() < MAX_RETAINED_ENTRIES
+                                && (captureReservations.contains(capture.id())
+                                    || entries.size() + captureReservations.size() < MAX_RETAINED_ENTRIES)) {
+                            entries.addLast(new PendingVote(capture.username(), capture.serviceSite(), capture.time(),
+                                    capture.id(), capture.executionReleased()));
+                            captureReservations.remove(capture.id());
+                            stateVersion++; requestPersistenceLocked();
+                            accepted = true;
+                        }
+                    }
+                }
+                results[index] = accepted;
+            }
+            for (int index = 0; index < snapshot.size(); index++) {
+                try { snapshot.get(index).completion().accept(results[index]); }
+                catch (RuntimeException | Error failure) {
+                    try { plugin.getLogger().warning("Votifier retirement callback failed; queue ownership is retained"); }
+                    catch (RuntimeException | Error ignored) { }
+                }
+            }
+        };
+        boolean submitted = false;
+        synchronized (lock) {
+            if (!closed && !closing) {
+                try { worker.execute(transfer); submitted = true; }
+                catch (RejectedExecutionException rejected) { }
+            }
+        }
+        if (!submitted) for (var capture : snapshot) capture.completion().accept(false);
+    }
+
+    private PendingVote occurrence(UUID id) {
+        for (var vote : entries) if (vote.localOccurrenceId.equals(id)) return vote;
+        return null;
+    }
+
+    private static boolean matches(PendingVote vote, String username, String site, long time) {
+        return vote.username.equals(username) && vote.serviceSite.equals(site) && vote.time == time;
+    }
 
     /** Completion only; transfers separately report load/capacity admission failure. */
     public boolean isInitializationComplete() { return loaded; }
@@ -464,9 +600,9 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 	private void load() {
         ArrayDeque<PendingVote> recovered = new ArrayDeque<>();
 		try {
-			synchronized (lock) { if (closed || closing) return; }
+			synchronized (lock) { if (closed) return; }
 			if (!acquireOwner()) {
-				if (asynchronousInitialization) {
+				if (asynchronousInitialization && !closing) {
 					worker.schedule(this::load, RETRY_DELAY_MILLIS, TimeUnit.MILLISECONDS);
 					return;
 				}
@@ -477,7 +613,7 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 			yaml.loadFromString(readQueueFile());
 			Object raw = yaml.get("Votes");
 			if (!(raw instanceof List<?> values)) throw new IOException("queue votes are not a list");
-            if (values.size() > MAX_ENTRIES) throw new IOException("queue exceeds entry capacity");
+            if (values.size() > MAX_RETAINED_ENTRIES) throw new IOException("queue exceeds entry capacity");
 			boolean skipped = false;
 			for (Object value : values) {
 				if (!(value instanceof Map<?, ?> map)) {
@@ -615,6 +751,7 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 
 	private void writeSnapshotLocked(List<PendingVote> snapshot) throws IOException {
 		if (ownerLock == null || !ownerLock.isValid()) throw new IOException("queue file ownership is unavailable");
+        if (snapshot.size() > MAX_RETAINED_ENTRIES) throw new IOException("queue snapshot exceeds entry capacity");
 		YamlConfiguration yaml = new YamlConfiguration();
 		List<Map<String, Object>> values = new ArrayList<>();
 		for (PendingVote pending : snapshot) {
@@ -678,28 +815,55 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 
     private void closeInitializedWorker() {
         synchronized (lock) {
-            if (closed || closing) return;
-            closing = true;
-            // FIFO finalization follows loading and every accepted ingress transfer.
-            // Never replace an unreadable disk queue with a guessed empty snapshot.
-            worker.execute(() -> {
-                List<PendingVote> snapshot;
-                synchronized (lock) { closed = true; snapshot = new ArrayList<>(entries); }
-                if (loadFailed) { releaseOwner(); return; }
-                try { synchronized (persistenceWriteLock) { writeSnapshotLocked(snapshot); } }
-                catch (IOException failure) {
-                    plugin.getLogger().warning("Unable to persist queued Votifier votes during shutdown: "
-                            + failure.getClass().getSimpleName());
-                }
-				releaseOwner();
-            });
-            worker.shutdown();
-        }
-        try {
-            if (!worker.awaitTermination(1, TimeUnit.SECONDS)) {
-                plugin.getLogger().warning("Votifier queue shutdown publication is still pending on its worker");
+            if (!closing && !closed) {
+                closing = true;
+                // Keep the existing worker and file owner through failed final publication.
+                worker.execute(this::finishClosePublication);
             }
+        }
+        try { closePublication.get(1, TimeUnit.SECONDS); }
+        catch (java.util.concurrent.TimeoutException pending) {
+            plugin.getLogger().warning("Votifier queue shutdown publication is still pending on its worker; recovery is unconfirmed");
         } catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
+        catch (java.util.concurrent.ExecutionException failure) {
+            throw new IllegalStateException("Votifier queue shutdown publication failed", failure.getCause());
+        }
+    }
+
+    private void finishClosePublication() {
+        List<PendingVote> snapshot;
+        long version;
+        synchronized (lock) {
+            if (closed) return;
+            snapshot = new ArrayList<>(entries);
+            version = stateVersion;
+        }
+        if (loadFailed || !loaded) {
+            // Unreadable/unowned storage is unknown; never replace it with an empty guess.
+            synchronized (lock) { closed = true; }
+            releaseOwner(); worker.shutdown(); closePublication.complete(null);
+            return;
+        }
+        try { synchronized (persistenceWriteLock) { writeSnapshotLocked(snapshot); } }
+        catch (IOException failure) {
+            if (!closeFailureReported) {
+                closeFailureReported = true;
+                try { plugin.getLogger().warning("Unable to publish final Votifier queue; its worker retains ownership for retry"); }
+                catch (RuntimeException | Error ignored) { }
+            }
+            worker.schedule(this::finishClosePublication, RETRY_DELAY_MILLIS, TimeUnit.MILLISECONDS);
+            return;
+        }
+        synchronized (lock) {
+            // A confirmed original callback may have removed a receipt during IO.
+            if (version != stateVersion) {
+                worker.execute(this::finishClosePublication);
+                return;
+            }
+            closed = true;
+            durableVersion = version;
+        }
+        releaseOwner(); worker.shutdown(); closePublication.complete(null);
     }
 
 	private static final class PendingVote {

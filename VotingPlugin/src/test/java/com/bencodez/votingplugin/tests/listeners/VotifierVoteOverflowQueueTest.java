@@ -339,7 +339,7 @@ class VotifierVoteOverflowQueueTest {
         when(plugin.getDataFolder()).thenReturn(dataFolder.toFile());
         when(plugin.getLogger()).thenReturn(Logger.getAnonymousLogger());
         Path file = dataFolder.resolve("VotifierVoteQueue.yml");
-        String original = "Votes:\n" + ("- {Username: Steve, ServiceSite: example.org, Time: 123}\n").repeat(257);
+        String original = "Votes:\n" + ("- {Username: Steve, ServiceSite: example.org, Time: 123}\n").repeat(513);
         Files.writeString(file, original);
         var transferred = new java.util.concurrent.CompletableFuture<Boolean>();
         try (var queue = VotifierVoteOverflowQueue.initializeAsync(plugin, (site, user, time, id) -> { }, () -> false)) {

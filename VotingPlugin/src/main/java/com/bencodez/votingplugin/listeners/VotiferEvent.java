@@ -23,7 +23,8 @@ public class VotiferEvent implements Listener {
 	private final VotingPluginMain plugin;
     private final java.util.function.BooleanSupplier ready;
     private volatile boolean accepting = true;
-    private static final int MAX_CAPTURED = 256;
+    private static final int MAX_CAPTURED = VotifierVoteOverflowQueue.MAX_CAPTURED;
+    private boolean retirementQueued;
     private final Object captureLock = new Object();
     // Receipt ownership only. Entries leave at completed processing or confirmed
     // overflow transfer; STARTED work remains owned until then.
@@ -54,7 +55,18 @@ public class VotiferEvent implements Listener {
     public void stop() {
         synchronized (captureLock) {
             accepting = false;
-            for (CapturedVote vote : java.util.List.copyOf(captured.values())) transferLocked(vote);
+            if (retirementQueued) return;
+            retirementQueued = true;
+            var overflow = plugin.getVotifierVoteOverflowQueue();
+            if (overflow == null) {
+                for (CapturedVote vote : java.util.List.copyOf(captured.values())) transferLocked(vote);
+                return;
+            }
+            var snapshot = captured.values().stream().map(vote -> new VotifierVoteOverflowQueue.RetiringCapture(
+                    vote.username, vote.site, vote.occurredAt, vote.id,
+                    () -> !vote.started || vote.finished && !vote.completed, () -> vote.completed,
+                    admitted -> transferred(vote, admitted))).toList();
+            overflow.retireCaptures(snapshot);
         }
     }
 
@@ -65,7 +77,10 @@ public class VotiferEvent implements Listener {
     private void runCaptured(CapturedVote vote) {
         synchronized (captureLock) {
             if (!captured.containsKey(vote.id) || vote.transferring || vote.started) return;
-            if (!accepting || !ready.getAsBoolean()) { transferLocked(vote); return; }
+            if (!accepting || !ready.getAsBoolean()) {
+                if (accepting || !retirementQueued) transferLocked(vote);
+                return;
+            }
             vote.started = true;
         }
         boolean completed = false;
@@ -81,6 +96,7 @@ public class VotiferEvent implements Listener {
                     if (vote.transferred) acknowledge = vote.recoveryOwner;
                 }
             }
+            if (completed && vote.recoveryOwner != null) vote.recoveryOwner.releaseCapture(vote.id);
             if (acknowledge != null) acknowledge.acknowledgeOccurrence(vote.id);
             else if (vote.transferred && vote.recoveryOwner != null) vote.recoveryOwner.resumeTransfers();
         }
@@ -89,7 +105,8 @@ public class VotiferEvent implements Listener {
     private void transferLocked(CapturedVote vote) {
         if (vote.transferring) return;
         vote.transferring = true;
-        VotifierVoteOverflowQueue overflow = plugin.getVotifierVoteOverflowQueue();
+        VotifierVoteOverflowQueue overflow = vote.recoveryOwner != null
+                ? vote.recoveryOwner : plugin.getVotifierVoteOverflowQueue();
         vote.recoveryOwner = overflow;
         if (overflow == null) { transferred(vote, false); return; }
         overflow.enqueueAfterInitialization(vote.username, vote.site, vote.occurredAt, vote.id,
@@ -100,6 +117,7 @@ public class VotiferEvent implements Listener {
     private void transferred(CapturedVote vote, boolean admitted) {
         boolean completed, retry, reportFailure;
         synchronized (captureLock) {
+            if (vote.transferred && !admitted) return; // Older failure cannot revoke confirmed queue ownership.
             vote.transferred = admitted; completed = vote.completed;
             if (!admitted) vote.transferring = false;
             if (admitted || completed) captured.remove(vote.id);
@@ -121,7 +139,7 @@ public class VotiferEvent implements Listener {
             for (CapturedVote vote : java.util.List.copyOf(captured.values())) {
                 // Ordinary queued/running callbacks retain their original execution.
                 // Only receipts which already attempted a failed handoff need retry.
-                if (vote.recoveryOwner != null && !vote.transferring) transferLocked(vote);
+                if (vote.transferFailureReported && !vote.transferring) transferLocked(vote);
             }
         }
     }
@@ -260,20 +278,51 @@ public class VotiferEvent implements Listener {
 		plugin.debug("IP: " + IP);
 
         CapturedVote capturedVote = new CapturedVote(voteUsername, voteSite, occurredAt, localOccurrenceId);
+        VotifierVoteOverflowQueue.CaptureAdmission admission;
         synchronized (captureLock) {
             if (!accepting) return;
+            var overflow = plugin.getVotifierVoteOverflowQueue();
+            capturedVote.recoveryOwner = overflow;
             if (captured.size() >= MAX_CAPTURED) {
-                // The overflow owns a separate bounded admission lane; do not
-                // require another normal capture/executor slot to reach it.
+                // The overflow owns its independent bounded admission lane.
                 transferLocked(capturedVote);
                 return;
             }
+            admission = overflow == null ? VotifierVoteOverflowQueue.CaptureAdmission.ACCEPTED
+                    : overflow.reserveCapture(localOccurrenceId);
+            if (admission == VotifierVoteOverflowQueue.CaptureAdmission.REJECTED) {
+                plugin.getLogger().severe("Votifier capture capacity unavailable; vote was not admitted");
+                return;
+            }
+            // Reserve known capacity and publish capture ownership together with
+            // respect to stop's snapshot. Unknown capacity remains provisional.
             captured.put(localOccurrenceId, capturedVote);
         }
-        try {
-            plugin.getVoteTimer().submit(() -> runCaptured(capturedVote));
-        } catch (RejectedExecutionException rejected) {
-            synchronized (captureLock) { transferLocked(capturedVote); }
+        if (admission == VotifierVoteOverflowQueue.CaptureAdmission.WAITING_FOR_LOAD) {
+            capturedVote.recoveryOwner.reserveCaptureAfterInitialization(localOccurrenceId,
+                    admitted -> admitCaptured(capturedVote, admitted));
+        } else admitCaptured(capturedVote, true);
+	}
+
+    private void admitCaptured(CapturedVote vote, boolean admitted) {
+        synchronized (captureLock) {
+            if (captured.get(vote.id) != vote) {
+                if (admitted && vote.recoveryOwner != null) vote.recoveryOwner.releaseCapture(vote.id);
+                return;
+            }
+            if (!admitted) {
+                captured.remove(vote.id);
+                plugin.getLogger().severe("Votifier capture capacity unavailable; vote was not admitted");
+                return;
+            }
+            if (!accepting) {
+                if (!retirementQueued) transferLocked(vote);
+                return;
+            }
+        }
+        try { plugin.getVoteTimer().submit(() -> runCaptured(vote)); }
+        catch (RejectedExecutionException rejected) {
+            synchronized (captureLock) { transferLocked(vote); }
         }
     }
 }

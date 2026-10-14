@@ -316,7 +316,10 @@ class DateVotifierStartupCaptureTest {
             originalTime = captureTime.getLong(registry.values().iterator().next());
             try {
                 fixture.capture().stop();
-                assertFalse(fixture.timer.shutdownNow().isEmpty(), "the capture callback never executed");
+                var cancelled = fixture.timer.shutdownNow();
+                if (readyFirst) assertFalse(cancelled.isEmpty(), "the admitted capture callback never executed");
+                // Before queue initialization, the receipt is provisionally owned
+                // by ingress; retirement must save it without executor admission.
             } finally { release.countDown(); }
             assertTrue(fixture.timer.awaitTermination(3, TimeUnit.SECONDS));
             fixture.plugin.getVotifierVoteOverflowQueue().close();
