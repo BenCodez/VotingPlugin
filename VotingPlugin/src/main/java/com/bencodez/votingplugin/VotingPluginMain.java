@@ -156,6 +156,49 @@ import lombok.Setter;
 
 public class VotingPluginMain extends AdvancedCorePlugin {
 
+	private final Object votingNPCLifecycle = new Object();
+	private final java.util.concurrent.atomic.AtomicLong votingNPCConfiguration = new java.util.concurrent.atomic.AtomicLong();
+	private volatile com.bencodez.votingplugin.npc.VotingNPCManager votingNPCManager;
+
+	public com.bencodez.votingplugin.npc.VotingNPCManager getVotingNPCManager() { return votingNPCManager; }
+
+	/** Optional NPC storage is lazy and asynchronous; configuration only schedules owner work. */
+	private void refreshVotingNPCs() {
+		boolean requested = getConfigFile().isVotingNPCsEnabled();
+		long generation = votingNPCConfiguration.incrementAndGet();
+		if (!requested && votingNPCManager == null) return;
+		getBukkitScheduler().runTask(this, () -> {
+			com.bencodez.votingplugin.npc.VotingNPCManager manager;
+			synchronized (votingNPCLifecycle) {
+				if (!isEnabled() || generation != votingNPCConfiguration.get()) return;
+				if (votingNPCManager == null && requested) {
+					try {
+						var created = new com.bencodez.votingplugin.npc.VotingNPCManager(this);
+						Bukkit.getPluginManager().registerEvents(created, this);
+						votingNPCManager = created;
+					} catch (RuntimeException | LinkageError unsupported) {
+						getLogger().warning("Voting NPCs are unavailable on this server; normal voting is unaffected.");
+						return;
+					}
+				}
+				manager = votingNPCManager;
+			}
+			if (manager != null) manager.configure(requested);
+		});
+	}
+
+	private void closeVotingNPCs() {
+		com.bencodez.votingplugin.npc.VotingNPCManager manager;
+		synchronized (votingNPCLifecycle) {
+			votingNPCConfiguration.incrementAndGet();
+			manager = votingNPCManager;
+			votingNPCManager = null;
+		}
+		if (manager != null) {
+			try { manager.close(); } catch (RuntimeException | LinkageError failure) { debug(failure); }
+		}
+	}
+
 	@Getter
 	public static VotingPluginMain plugin;
 
@@ -748,6 +791,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		checkVotifier();
 		registerEvents();
 		refreshPlaceholderPlayerPresence();
+		refreshVotingNPCs();
 
 		loadVoteBroadcast();
 
@@ -1961,6 +2005,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Override
 	public void onUnLoad() {
+		closeVotingNPCs();
 		placeholderPlayerPresence.clear();
 		stopBackendHostedControlLifecycle();
 		stopBackendControlConnectorLifecycle();
@@ -2172,6 +2217,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		loadDirectlyDefined();
 
+		refreshVotingNPCs();
 		if (reconcileHostedControl) restartBackendControlConnector();
 
 		setUpdate(true);
