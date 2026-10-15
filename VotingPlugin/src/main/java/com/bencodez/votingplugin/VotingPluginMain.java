@@ -175,6 +175,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private BroadcastHandler broadcastHandler;
 
 	@Getter
+	private com.bencodez.votingplugin.streaks.VoteStreaksMenu voteStreaksMenu;
+
+	@Getter
 	private BackendProxyHandler backendProxyHandler;
 	private ProcessedVoteCache backendProcessedVoteCache;
 	private BackendOrderedVoteOverflowQueue backendOrderedVoteOverflowQueue;
@@ -1961,6 +1964,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Override
 	public void onUnLoad() {
+		if (voteStreaksMenu != null) voteStreaksMenu.close();
 		placeholderPlayerPresence.clear();
 		stopBackendHostedControlLifecycle();
 		stopBackendControlConnectorLifecycle();
@@ -2045,6 +2049,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	 * Register events.
 	 */
 	private void registerEvents() {
+		voteStreaksMenu = new com.bencodez.votingplugin.streaks.VoteStreaksMenu(this);
+		getServer().getPluginManager().registerEvents(voteStreaksMenu, this);
 		PluginManager pm = getServer().getPluginManager();
 
 		pm.registerEvents(new PlayerJoinEvent(this), this);
@@ -2125,6 +2131,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			boolean updateActiveBackendRuntime) {
 		if (offlineVoteOwnerHandoffs != null) offlineVoteOwnerHandoffs.pause();
 		try {
+		if (voteStreaksMenu != null) voteStreaksMenu.suspend();
 		configFile.reloadData();
 		configFile.loadValues();
 
@@ -2176,6 +2183,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		setUpdate(true);
 		} finally {
+			if (voteStreaksMenu != null) voteStreaksMenu.resume();
 			if (offlineVoteOwnerHandoffs != null) offlineVoteOwnerHandoffs.resume();
 		}
 	}

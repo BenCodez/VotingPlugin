@@ -3486,6 +3486,7 @@ public class CommandLoader {
 	 */
 	private void loadVoteCommand() {
 		plugin.setVoteCommand(new ArrayList<>());
+		com.bencodez.votingplugin.streaks.VoteStreaksCommand.register(plugin);
 		plugin.getVoteCommand().add(new CommandHandler(plugin, new String[] { "Help&?" },
 				"VotingPlugin.Commands.Vote.Help|" + playerPerm, "View help page") {
 
