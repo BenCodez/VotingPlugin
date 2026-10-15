@@ -162,6 +162,44 @@ class VotingNPCManagerTest {
         }
     }
 
+    @Test void unloadedCurrentReservationWakesDifferentPendingIdWithoutRetryingItself() throws Exception {
+        var plugin = mock(VotingPluginMain.class); when(plugin.getLogger()).thenReturn(Logger.getAnonymousLogger());
+        try (var bukkit = mockStatic(Bukkit.class)) {
+            World world = mock(World.class); when(world.getUID()).thenReturn(WORLD);
+            bukkit.when(() -> Bukkit.getWorld(WORLD)).thenReturn(world);
+            when(world.isChunkLoaded(anyInt(), anyInt())).thenReturn(true);
+            var scheduler = new Scheduler(plugin); List<Villager> spawned = installSpawner(world, scheduler);
+            var registry = new VotingNPCRegistry(directory.resolve("unloaded-current-capacity.json")); await(registry.initialLoad());
+            for (int i = 1; i < VotingNPCStore.MAX_NPCS; i++) await(registry.create(definitionAt(i, i * 2)));
+            var manager = new VotingNPCManager(plugin, scheduler, registry, ignored -> { });
+            try {
+                manager.configure(true); scheduler.runNext(scheduler.global, "global");
+                for (int i = 1; i < VotingNPCStore.MAX_NPCS; i++) scheduler.runNext(scheduler.regions, "region");
+                await(manager.create(definitionAt(64, 128)));
+                scheduler.runNext(scheduler.global, "global");
+                assertEquals(64, manager.runtimeCount()); assertEquals(1, scheduler.regions.size());
+                await(manager.remove("npc-1")); await(manager.create(definitionAt(1000, 2000)));
+                scheduler.runNext(scheduler.global, "global"); scheduler.runNext(scheduler.global, "global");
+                assertEquals(1, scheduler.entities.size()); assertTrue(scheduler.global.isEmpty());
+                assertEquals(1, scheduler.regions.size());
+                // The existing queued reservation is now unloaded; the new target remains loaded.
+                when(world.isChunkLoaded(anyInt(), anyInt())).thenAnswer(call -> (Integer) call.getArgument(0) != 8);
+                scheduler.runNext(scheduler.regions, "region");
+                assertEquals(63, manager.runtimeCount());
+                assertEquals(1, scheduler.global.size(), "Released capacity must wake the different waiting ID");
+                scheduler.runNext(scheduler.global, "global");
+                assertEquals(1, scheduler.regions.size(), "Only the pending ID may retry, not the unloaded reservation");
+                scheduler.runNext(scheduler.regions, "region");
+                assertEquals(64, spawned.size()); assertEquals(64, manager.runtimeCount());
+                assertTrue(scheduler.global.isEmpty()); assertTrue(scheduler.regions.isEmpty());
+                verify(world).spawn(argThat(anchor -> anchor.getX() == 2000), eq(Villager.class), any(Consumer.class));
+            } finally {
+                manager.close(); while (!scheduler.entities.isEmpty()) scheduler.runNext(scheduler.entities, "entity");
+                assertTrue(registry.awaitClosed(5, TimeUnit.SECONDS));
+            }
+        }
+    }
+
     @Test void successorWaitsForExactPredecessorCleanupAndCleanupRejectionRetainsOwnership() throws Exception {
         var plugin = mock(VotingPluginMain.class); when(plugin.getLogger()).thenReturn(Logger.getAnonymousLogger());
         try (var bukkit = mockStatic(Bukkit.class)) {

@@ -320,11 +320,10 @@ public final class VotingNPCManager implements Listener, AutoCloseable {
     private void forget(RuntimeNPC npc) { forget(npc, false); }
 
     private void forget(RuntimeNPC npc, boolean capacityReleased) {
-        boolean reconstruct, hadEntity, removed;
+        boolean reconstruct, removed;
         synchronized (npc) {
             reconstruct = npc.entity != null && (npc.reconstructRequested || npc.configuration != configuration
                     || definitions().stream().anyMatch(value -> value.id().equals(npc.definition.id()) && !value.equals(npc.definition)));
-            hadEntity = npc.entity != null;
             if (npc.entityId != null) entities.remove(npc.entityId, npc);
             npc.entity = null;
             removed = resources.remove(npc.definition.id(), npc);
@@ -334,7 +333,7 @@ public final class VotingNPCManager implements Listener, AutoCloseable {
         if (reconstruct && available()) scheduler.global(() -> {
             for (var value : definitions()) if (value.id().equals(npc.definition.id())) ensure(value);
         }, this::report);
-        if (removed && (hadEntity || capacityReleased) && !capacityDemand.isEmpty() && available()
+        if (removed && !capacityDemand.isEmpty() && available()
                 && capacityWakeQueued.compareAndSet(false, true)) {
             scheduler.global(() -> {
                 capacityWakeQueued.set(false);
