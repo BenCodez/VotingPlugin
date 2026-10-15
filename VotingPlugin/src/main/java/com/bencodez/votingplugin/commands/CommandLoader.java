@@ -475,6 +475,7 @@ public class CommandLoader {
 	 */
 	private void loadAdminVoteCommand() {
 		plugin.setAdminVoteCommand(new ArrayList<>());
+		com.bencodez.votingplugin.npc.VotingNPCCommands.register(plugin);
 
 		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "CurrentPluginTime" },
 				"VotingPlugin.Commands.AdminVote.CurrentPluginTime|" + adminPerm, "Current plugin time") {
@@ -3299,6 +3300,14 @@ public class CommandLoader {
 	 * Load tab complete.
 	 */
 	public void loadTabComplete() {
+		TabCompleteHandler.getInstance().addTabCompleteOption(new TabCompleteHandle("(npcid)", new ArrayList<>()) {
+			@Override public void reload() { updateReplacements(); }
+			@Override public void updateReplacements() {
+				var manager = plugin.getVotingNPCManager();
+				setReplace(manager == null ? new ArrayList<>() : new ArrayList<>(manager.definitions().stream()
+						.map(com.bencodez.votingplugin.npc.VotingNPCDefinition::id).toList()));
+			}
+		});
 		ArrayList<String> sites = new ArrayList<>();
 		for (VoteSite site : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
 			sites.add(site.getKey());

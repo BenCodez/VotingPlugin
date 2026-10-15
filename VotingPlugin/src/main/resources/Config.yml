@@ -1256,3 +1256,9 @@ DisableUpdateChecking: false
 # Disable checking permissions on tab complete
 # Could increase performance slightly, but probably not
 DisableAdvancedTab: false
+
+# Optional public vanilla villagers opening the existing voting-site menu.
+# Enable and /av reload, then /av npc create <id> [name]. No Citizens required.
+# Definitions live in VotingNPCs.json; disabling keeps them but removes live NPCs.
+VotingNPCs:
+  Enabled: false

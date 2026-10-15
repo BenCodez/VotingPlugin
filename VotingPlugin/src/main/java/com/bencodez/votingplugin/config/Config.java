@@ -24,6 +24,9 @@ import com.bencodez.votingplugin.topvoter.TopVoter;
 import lombok.Getter;
 
 public class Config extends YMLFile {
+	/** Opt-in persistent vanilla voting NPCs; missing configuration preserves legacy behavior. */
+	public boolean isVotingNPCsEnabled() { return getData().getBoolean("VotingNPCs.Enabled", false); }
+
 
 	/** Explicit permission for executable deployment over private-network plaintext HTTP. */
 	public boolean getControlAllowInsecureHttpPluginDeployment() {
