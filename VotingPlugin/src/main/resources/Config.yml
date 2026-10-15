@@ -188,6 +188,7 @@ DebugLevel: NONE
 GiveDefaultPermission: true
 
 # If true, plugin will automatically generate votesites upon getting a vote
+# Disable after setup; a small periodic console reminder warns while enabled.
 AutoCreateVoteSites: true
 
 # Geyser/Bedrock player support

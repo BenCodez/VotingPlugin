@@ -2,6 +2,7 @@ package com.bencodez.votingplugin.events;
 
 import java.util.UUID;
 
+import org.bukkit.event.Cancellable;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
@@ -12,7 +13,13 @@ import com.bencodez.votingplugin.votesites.VoteSite;
 import lombok.Getter;
 import lombok.Setter;
 
-public class PlayerVoteEvent extends Event {
+/**
+ * Fired before VotingPlugin processes a player vote.
+ *
+ * <p>Cancellation follows Bukkit's {@code ignoreCancelled} dispatch contract.
+ * Integrations must cancel before the MONITOR vote consumer runs.</p>
+ */
+public class PlayerVoteEvent extends Event implements Cancellable {
 
 	/** Stable local receipt identity, separate from proxy transport provenance. */
 	@Getter

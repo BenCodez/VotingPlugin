@@ -58,6 +58,7 @@ class BackendDateVoteAccountingRegressionTest {
     private final AtomicInteger storedPoints = new AtomicInteger(37);
     private final ProcessedVoteCache cache = spy(new ProcessedVoteCache());
     private BackendProxyMessageRouter router;
+    private boolean cancelNext;
     private MockedStatic<Bukkit> bukkit;
     private MockedStatic<com.bencodez.advancedcore.AdvancedCorePlugin> advancedCore;
 
@@ -96,7 +97,7 @@ class BackendDateVoteAccountingRegressionTest {
         field.set(user, plugin);
         doCallRealMethod().when(user).addPoints(anyInt());
         doCallRealMethod().when(user).addPoints(anyInt(), anyBoolean());
-        doCallRealMethod().when(user).bungeeVotePluginMessaging(any(), anyLong(), any(), anyBoolean(), anyBoolean(),
+        doCallRealMethod().when(user).bungeeVotePluginMessagingEvent(any(), anyLong(), any(), anyBoolean(), anyBoolean(),
                 anyBoolean(), anyInt(), anyBoolean(), anyBoolean(), anyBoolean(), any(), anyBoolean(), anyBoolean(), anyLong());
 
         var dispatcher = plugin.getServer().getPluginManager();
@@ -105,6 +106,7 @@ class BackendDateVoteAccountingRegressionTest {
             Event event = call.getArgument(0);
             if (event instanceof PlayerVoteEvent vote) {
                 accepted.add(vote);
+                if (cancelNext) { vote.setCancelled(true); cancelNext = false; }
                 listener.onplayerVote(vote);
             } else if (event instanceof PlayerPostVoteEvent post) {
                 posted.add(post);
@@ -153,6 +155,49 @@ class BackendDateVoteAccountingRegressionTest {
         original.getFields().forEach(builder::put);
         return VotingPluginWire.requestVoteDeliveryAcknowledgement(
                 builder.put(VotingPluginWire.K_QUEUED_DELIVERY, queued).build());
+    }
+
+    @Test
+    void cancelledLiveDeliveryDoesNotCountOrCreditAndDoesNotBlockTheNextAcceptedOccurrence() throws Exception {
+        assertCancelledDeliveryRetiresWithoutEffects(false);
+    }
+
+    @Test
+    void cancelledQueuedDeliveryDoesNotCountOrCreditAndDoesNotBlockTheNextAcceptedOccurrence() throws Exception {
+        assertCancelledDeliveryRetiresWithoutEffects(true);
+    }
+
+    private void assertCancelledDeliveryRetiresWithoutEffects(boolean queued) throws Exception {
+        UUID cancelledId = UUID.randomUUID();
+        cancelNext = true;
+        var outcome = new AtomicReference<OrderedVoteOutcome>();
+        var cancelled = VotingPluginWire.requestVoteDeliveryAcknowledgement(vote(cancelledId, queued));
+        router.handleOrderedVote(cancelled, outcome::set);
+        assertEquals(OrderedVoteOutcome.COMPLETE, outcome.get());
+        router.handleOrderedVote(cancelled, outcome::set);
+        assertEquals(OrderedVoteOutcome.COMPLETE, outcome.get());
+        assertEquals(1, accepted.size(), "completed cancellation must be deduplicated");
+        assertTrue(accepted.get(0).isCancelled());
+        assertEquals(OCCURRED_AT, accepted.get(0).getCanonicalOccurrenceTime());
+        assertEquals(0, progress("october").votes());
+        assertEquals(37, storedPoints.get());
+        assertTrue(posted.isEmpty());
+        verify(user, never()).playerVote(any(), anyBoolean(), anyBoolean());
+        verify(user, never()).addTotal();
+        verify(plugin.getRewardHandler(), never()).giveReward(any(), any(), anyString(), any());
+
+        UUID acceptedId = UUID.randomUUID();
+        router.handleOrderedVote(VotingPluginWire.requestVoteDeliveryAcknowledgement(vote(acceptedId, queued)), outcome::set);
+        assertEquals(OrderedVoteOutcome.COMPLETE, outcome.get());
+        assertEquals(2, accepted.size());
+        assertFalse(accepted.get(1).isCancelled());
+        assertEquals(1, progress("october").votes());
+        assertEquals(37 + POINTS, storedPoints.get());
+        assertEquals(1, posted.size());
+        verify(user, times(1)).playerVote(site, true, true);
+        verify(user, times(1)).addTotal();
+        assertTrue(cache.hasCompletedEffects(cancelledId));
+        assertTrue(cache.hasCompletedEffects(acceptedId));
     }
 
     @Test

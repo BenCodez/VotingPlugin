@@ -1032,6 +1032,25 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			boolean wasOnline, boolean broadcast, int num, boolean queuedProxyVote,
 			boolean proxyDelayValidationKnown, boolean proxyQueueClassificationKnown, UUID proxyVoteId,
 			boolean targetedProxyVote, boolean realVote, long canonicalOccurrenceTime) {
+		bungeeVotePluginMessagingEvent(service, time, text, setTotals, wasOnline, broadcast, num, queuedProxyVote,
+				proxyDelayValidationKnown, proxyQueueClassificationKnown, proxyVoteId, targetedProxyVote,
+				realVote, canonicalOccurrenceTime);
+	}
+
+	/** Dispatches a legacy proxy vote and returns its final cancellation state. */
+	public PlayerVoteEvent bungeeVotePluginMessagingEvent(String service, long time, VoteTotalsSnapshot text, boolean setTotals,
+			boolean wasOnline, boolean broadcast, int num, boolean queuedProxyVote,
+			boolean proxyDelayValidationKnown, boolean proxyQueueClassificationKnown, UUID proxyVoteId,
+			boolean targetedProxyVote) {
+		return bungeeVotePluginMessagingEvent(service, time, text, setTotals, wasOnline, broadcast, num, queuedProxyVote,
+				proxyDelayValidationKnown, proxyQueueClassificationKnown, proxyVoteId, targetedProxyVote, true, time);
+	}
+
+	/** Preserves occurrence provenance and returns final cancellation; null when proxy mode is disabled. */
+	public PlayerVoteEvent bungeeVotePluginMessagingEvent(String service, long time, VoteTotalsSnapshot text, boolean setTotals,
+			boolean wasOnline, boolean broadcast, int num, boolean queuedProxyVote,
+			boolean proxyDelayValidationKnown, boolean proxyQueueClassificationKnown, UUID proxyVoteId,
+			boolean targetedProxyVote, boolean realVote, long canonicalOccurrenceTime) {
 			if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			plugin.debug("Pluginmessaging vote for " + getPlayerName() + " on " + service);
 
@@ -1054,7 +1073,9 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 				voteEvent.setTargetedProxyVote(targetedProxyVote);
 				plugin.getServer().getPluginManager().callEvent(voteEvent);
 				if (voteEvent.isDateMilestoneAccountingFailed()) throw new DateMilestoneAccountingException();
+			return voteEvent;
 		}
+		return null;
 	}
 
 	/**

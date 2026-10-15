@@ -165,7 +165,7 @@ class VoteOccurrenceTotalsReplayTest {
         router.handleOrderedVote(envelope, completion::set);
         assertEquals(OrderedVoteOutcome.COMPLETE, completion.get());
         verify(party).replace(current, required);
-        verify(user).bungeeVotePluginMessaging(eq("synthetic-service"), eq(QUEUE_TIME),
+        verify(user).bungeeVotePluginMessagingEvent(eq("synthetic-service"), eq(QUEUE_TIME),
                 argThat(value -> value.getAllTimeTotal() == allTime && value.getVotePartyCurrent() == current
                         && value.getVotePartyRequired() == required), eq(true), eq(false), eq(false), eq(1),
                 eq(false), eq(false), eq(true), eq(OCCURRENCE), eq(false), eq(true), eq(occurrenceTime));

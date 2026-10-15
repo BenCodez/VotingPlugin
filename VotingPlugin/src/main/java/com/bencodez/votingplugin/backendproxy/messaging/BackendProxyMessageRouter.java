@@ -716,11 +716,12 @@ public class BackendProxyMessageRouter {
 		user.cache();
 		boolean wasOnline = vote.wasOnlineKnown ? vote.wasOnline : user.isOnline();
 		boolean queuedDelivery = vote.queuedDeliveryKnown ? vote.queuedDelivery : vote.delayValidated;
+		com.bencodez.votingplugin.events.PlayerVoteEvent dispatchedEvent = null;
 		VotingPluginUser.DateMilestoneAccountingException dateAccountingFailure = null;
 		try {
 			// Keep totals correlation for replay fencing, but only the original wire ID
 			// identifies a canonical transport occurrence in the native event.
-			user.bungeeVotePluginMessaging(vote.service, vote.time, totals, !vote.manageTotals,
+			dispatchedEvent = user.bungeeVotePluginMessagingEvent(vote.service, vote.time, totals, !vote.manageTotals,
 					wasOnline, vote.broadcast, vote.num, queuedDelivery, vote.delayValidationKnown,
 					vote.queuedDeliveryKnown, vote.voteId,
 					VotingPluginWire.SUB_VOTE_ONLINE.equals(msg.getSubChannel()), vote.realVote,
@@ -728,7 +729,8 @@ public class BackendProxyMessageRouter {
 		} catch (VotingPluginUser.DateMilestoneAccountingException incomplete) {
 			dateAccountingFailure = incomplete;
 		}
-		if (plugin.getBungeeSettings().isPerServerPoints()) {
+		if ((dispatchedEvent == null || !dispatchedEvent.isCancelled())
+				&& plugin.getBungeeSettings().isPerServerPoints()) {
 			user.addPoints(plugin.getConfigFile().getPointsOnVote());
 		}
 		if (vote.service != null && !vote.service.isEmpty()) {

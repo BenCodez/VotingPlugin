@@ -154,7 +154,7 @@ public class TimeQueueHandler implements Listener {
 
 			if (voteEvent.isCancelled()) {
 				plugin.debug("Vote cancelled");
-				return;
+				continue;
 			}
 		}
 	}
