@@ -16,6 +16,8 @@ import com.bencodez.votingplugin.timequeue.TimeQueueHandler;
 class TimeQueueShutdownBoundTest {
     @Test void storageFailureAfterTimeoutIsReportedAndCanRetryAtTheSameIndex() throws Exception {
         VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+        // Resolve logging before parallel callbacks; avoid lazy deep-stub creation racing the interrupted caller.
+        when(plugin.getLogger()).thenReturn(mock(java.util.logging.Logger.class));
         ServerData data = mock(ServerData.class);
         when(plugin.getServerData()).thenReturn(data);
         when(data.getTimedVoteCacheKeys()).thenReturn(Set.of());
@@ -58,6 +60,8 @@ class TimeQueueShutdownBoundTest {
 
     @Test void interruptedWaitPreservesTheFlagAndLeavesPersistenceOwned() throws Exception {
         VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+        // Resolve logging before parallel callbacks; avoid lazy deep-stub creation racing the interrupted caller.
+        when(plugin.getLogger()).thenReturn(mock(java.util.logging.Logger.class));
         ServerData data = mock(ServerData.class);
         when(plugin.getServerData()).thenReturn(data);
         when(data.getTimedVoteCacheKeys()).thenReturn(Set.of());
@@ -96,6 +100,8 @@ class TimeQueueShutdownBoundTest {
 
     private void exerciseStalledWrite(String phase) throws Exception {
         VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+        // Resolve logging before parallel callbacks; avoid lazy deep-stub creation racing the interrupted caller.
+        when(plugin.getLogger()).thenReturn(mock(java.util.logging.Logger.class));
         ServerData data = mock(ServerData.class);
         when(plugin.getServerData()).thenReturn(data);
         when(data.getTimedVoteCacheKeys()).thenReturn(Set.of());

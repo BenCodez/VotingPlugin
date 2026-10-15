@@ -99,7 +99,7 @@ class TimeQueueHandlerRejectionTest {
 		TimeQueueHandler handler = new TimeQueueHandler(plugin);
 		org.mockito.ArgumentCaptor<Runnable> retry = org.mockito.ArgumentCaptor.forClass(Runnable.class);
 		verify(plugin.getBukkitScheduler()).runTaskLaterAsynchronously(
-				org.mockito.ArgumentMatchers.eq(plugin), retry.capture(), org.mockito.ArgumentMatchers.eq(20L));
+				org.mockito.ArgumentMatchers.eq(plugin), retry.capture(), org.mockito.ArgumentMatchers.eq(1L));
 
 		reset(voteTimer);
 		retry.getValue().run();

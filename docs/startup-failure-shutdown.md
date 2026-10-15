@@ -2,8 +2,10 @@
 
 VotingPlugin may be unloaded after a partial startup. Shutdown therefore treats each optional subsystem independently:
 a failed close does not prevent the remaining queues, reminders, cooldown checks, signs, handlers, or executors from being
-cleaned up. The vote timer uses a bounded termination wait, forces cancellation if it does not terminate, and restores
-the interrupt flag when shutdown is interrupted. Repeated unload callbacks are safe after the first unload completes.
+cleaned up. Each unload step is marked complete only after it returns successfully. A repeated unload retries steps
+that propagated a failure and skips successful steps, while timed persistence continues through its existing coalesced
+retry owner. A timer whose shutdown fails retains its reference for the next cleanup attempt. The vote timer uses a bounded termination wait, forces cancellation if it does not terminate, and restores
+the interrupt flag when shutdown is interrupted. Concurrent unload callbacks do not start a second cleanup pass; repeated callbacks remain safe.
 
 ## Building the complete SQL failure fix
 
@@ -35,7 +37,8 @@ A timed vote remains owned while its event is being prepared. If shutdown wins b
 
 Before each event handoff, the queue saves its undispatched suffix and a conservative in-flight review record together.
 A confirmed normal event return clears only that occurrence's review record. Cancellation also checkpoints any later
-admissions, retaining their live queue entries. Direct and scheduled processing use the same recovery boundary; neither
+admissions, then continues draining other queued votes. A later checkpoint failure retains the undispatched suffix
+both live and recoverable. Direct and scheduled processing use the same recovery boundary; neither
 clears the whole recovery cache before the first event. Failed preparation does not invoke the event, and failed
 completion publication does not automatically repeat an event that already returned. These writes use the existing
 ServerData YAML persistence model, not a crash-atomic transaction or an exactly-once external-effects guarantee.
@@ -57,3 +60,29 @@ An interrupted wait preserves the caller's interrupt flag and does not cancel pe
 ownership, **not confirmed recovery**: if the process exits before storage resumes, new pending writes may not finish.
 Stopping is published before waiting, so a stalled preparation cannot authorize a new event when it resumes after stop.
 This bound covers the timed-queue persistence handoff; it does not promise a deadline for every other subsystem's I/O.
+
+Participating VotingPlugin generations reserve the server-data path in the JVM before AdvancedCore initializes or reads
+its file. A replacement fails before startup if the previous generation still owns a write or shutdown handoff. It does
+not wait for that filesystem operation on the lifecycle thread. The pending worker keeps its reservation through the
+entire write and until stopped vote producers terminate, including an empty initial snapshot followed by late admission
+and an initial publication failure. Disable also retains one coalesced retirement reservation independently of the timed
+queue, covering AdvancedCore's heartbeat, login, inventory and time-checker executors until they actually terminate.
+Failed startup remains reserved until its disable cleanup runs; a missing timed queue does not imply those writers stopped.
+SDK server-data saves also retain the generation directly at both normal and durable time-transition publication hooks,
+so platform-scheduled callbacks outside those executors, including the SDK version update, cannot overwrite a successor.
+The adapter delegates to the existing SDK configuration/file rather than keeping a copied YAML state. VotingPlugin's
+server-data wrapper remains bound to its original file and generation even if the plugin object is enabled again.
+Lazy first access validates ownership before exposing mutable configuration. A retained SDK file keeps its predecessor
+fence during re-enable until AdvancedCore actually creates the replacement file.
+After that work ends, normal startup can proceed. Stale generations cannot publish through these server-data save methods
+after a successor owns the path; failed shutdown writes remain retryable until such replacement.
+This coordinates participating generations at the same normalized path within a JVM, including separate class loaders;
+it is not a multi-process or filesystem-alias coordination contract. Existing YAML, dependencies and configuration remain
+unchanged. A full process restart clears the old JVM's workers and in-memory reservations.
+
+Normal preparation, completion and quarantine/checkpoint failures retain their existing vote/identity and request one
+coalesced retry with bounded backoff. Retry admission does not reset failure backoff; successful processing does. The
+processing guard is released before requesting another attempt. Shutdown fences those callbacks, and ambiguous completed
+events are quarantined without being dispatched again. The installed SimpleAPI asynchronous delay is in seconds; retries
+start at one second and cap at sixty seconds. Rejected retry scheduling reports retained ownership, not durable
+recovery that has not been confirmed.

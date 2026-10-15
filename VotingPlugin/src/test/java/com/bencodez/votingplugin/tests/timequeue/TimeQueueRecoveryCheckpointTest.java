@@ -93,13 +93,20 @@ class TimeQueueRecoveryCheckpointTest {
     }
 
     @Test
-    void cancelledDispatchKeepsTheUndispatchedSuffixBothLiveAndRecoverable() throws Exception {
+    void cancelledDispatchKeepsSuffixRecoverableWhenNextPreparationFails() throws Exception {
         Fixture fixture = new Fixture(directory.resolve("ServerData.yml"));
         fixture.handler.addVote("First", "site");
         fixture.handler.addVote("Later", "site");
         fixture.handler.save();
         assertEquals(2, fixture.handler.getTimeChangeQueue().size());
         AtomicInteger deliveries = new AtomicInteger();
+        ServerData data = spy(fixture.data);
+        when(fixture.plugin.getServerData()).thenReturn(data);
+        AtomicInteger preparations = new AtomicInteger();
+        doAnswer(call -> {
+            if (preparations.incrementAndGet() == 2) throw new IllegalStateException("synthetic next-checkpoint failure");
+            return call.callRealMethod();
+        }).when(data).prepareTimedVoteDispatch(any(), any(), any());
         var events = fixture.plugin.getServer().getPluginManager();
         doAnswer(call -> {
             PlayerVoteEvent event = call.getArgument(0);
@@ -111,7 +118,8 @@ class TimeQueueRecoveryCheckpointTest {
             event.setCancelled(true);
             return null;
         }).when(events).callEvent(any());
-        fixture.handler.processQueue();
+        assertThrows(IllegalStateException.class, fixture.handler::processQueue);
+        assertEquals(2, preparations.get(), "cancellation must continue to the next pending occurrence");
         assertEquals(1, deliveries.get());
         assertEquals(List.of("Later", "LateAdmission"), fixture.handler.getTimeChangeQueue().stream().map(v -> v.getName()).toList());
         YamlConfiguration after = fixture.stored();
@@ -120,6 +128,37 @@ class TimeQueueRecoveryCheckpointTest {
         Fixture restarted = new Fixture(fixture.path);
         assertEquals(List.of("Later", "LateAdmission"), restarted.handler.getTimeChangeQueue().stream().map(v -> v.getName()).toList());
         assertEquals("keep", after.getString("Adjacent.Value"));
+    }
+
+    @Test
+    void cancelledDispatchContinuesThroughLateAdmissionsWithRealDurableCheckpoints() throws Exception {
+        Fixture fixture = new Fixture(directory.resolve("cancel-and-drain.yml"));
+        fixture.handler.addVote("Cancelled", "site");
+        fixture.handler.addVote("Accepted", "site");
+        fixture.handler.save();
+        var delivered = new java.util.ArrayList<String>();
+        var events = fixture.plugin.getServer().getPluginManager();
+        doAnswer(call -> {
+            PlayerVoteEvent event = call.getArgument(0);
+            delivered.add(event.getPlayer());
+            var uncertain = fixture.stored().getConfigurationSection("VotingPlugin.UncertainTimedVotes");
+            assertEquals(1, uncertain.getKeys(false).size());
+            String id = uncertain.getKeys(false).iterator().next();
+            assertEquals(event.getPlayer(), uncertain.getString(id + ".Name"));
+            if (event.getPlayer().equals("Cancelled")) {
+                fixture.handler.addVote("LateAdmission", "site");
+                event.setCancelled(true);
+            }
+            return null;
+        }).when(events).callEvent(any());
+        fixture.handler.processQueue();
+        assertEquals(List.of("Cancelled", "Accepted", "LateAdmission"), delivered);
+        assertTrue(fixture.names().isEmpty());
+        assertTrue(new Fixture(fixture.path).names().isEmpty(), "completed entries must not return after restart");
+        assertTrue(fixture.stored().getConfigurationSection("VotingPlugin.UncertainTimedVotes").getKeys(false).isEmpty());
+        assertEquals("keep", fixture.stored().getString("Adjacent.Value"));
+        fixture.handler.processQueue();
+        assertEquals(3, delivered.size(), "another drain must not repeat a completed occurrence");
     }
 
     @Test

@@ -317,7 +317,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	private volatile VotingPluginBackgroundTask backgroundTask;
 	private volatile AtomicBoolean basicBungeeUpdateRunning;
-	private final AtomicBoolean unloadCompleted = new AtomicBoolean();
+	private final AtomicBoolean unloadInProgress = new AtomicBoolean();
+	private Set<String> completedUnloadSteps;
 
 	private synchronized AtomicBoolean basicBungeeUpdateAdmission() {
 		if (basicBungeeUpdateRunning == null) basicBungeeUpdateRunning = new AtomicBoolean();
@@ -1901,10 +1902,54 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		configFile.saveData();
 	}
 
+	@Getter
+	private volatile com.bencodez.votingplugin.util.ServerDataPublicationFence serverDataPublicationFence;
+
+	private volatile com.bencodez.votingplugin.data.GenerationFencedServerDataFile fencedServerDataFile;
+
+	@Override
+	public com.bencodez.advancedcore.data.ServerData getServerDataFile() {
+		var file = super.getServerDataFile();
+		var current = fencedServerDataFile;
+		if (current != null && current.wraps(file)) return current;
+		synchronized (this) {
+			file = super.getServerDataFile();
+			var owner = serverDataPublicationFence;
+			if (file == null || owner == null) return file;
+			current = fencedServerDataFile;
+			if (current == null || !current.wraps(file)) {
+				current = new com.bencodez.votingplugin.data.GenerationFencedServerDataFile(this, file, owner);
+				fencedServerDataFile = current;
+			}
+			return current;
+		}
+	}
+
+	/** Capture the existing AdvancedCore executors which can still publish server-data state. */
+	public ScheduledExecutorService[] getServerDataWriterExecutors() {
+		var checker = getTimeChecker();
+		return new ScheduledExecutorService[] { getTimer(), getLoginTimer(), getInventoryTimer(),
+				checker == null ? null : checker.getTimer() };
+	}
+
+	@Override
+	public void onEnable() {
+		synchronized (this) {
+			// Bind a retained SDK file before changing owner. AdvancedCore replaces its
+			// private file only later in loadHook(), after onPreLoad().
+			if (serverDataPublicationFence != null) getServerDataFile();
+			serverDataPublicationFence = com.bencodez.votingplugin.util.ServerDataPublicationFence.beginGeneration(
+					getDataFolder().toPath().resolve("ServerData.yml"));
+		}
+		// Failed startup can already own SDK writers; disable must retire them before replacement.
+		super.onEnable();
+	}
+
 	@Override
 	public void onPreLoad() {
 		plugin = this;
-		unloadCompleted.set(false);
+		unloadInProgress.set(false);
+		completedUnloadSteps = new java.util.HashSet<>();
 
 		setupFiles();
 		if ("SQLITE".equalsIgnoreCase(configFile.getData().getString("DataStorage", "SQLITE"))) {
@@ -1946,13 +1991,26 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Override
 	public void onDisable() {
+		runShutdownStep("server-data writer retirement", () -> {
+			if (serverDataPublicationFence != null) {
+				var coreWriters = getServerDataWriterExecutors();
+				var writers = java.util.Arrays.copyOf(coreWriters, coreWriters.length + 1);
+				writers[coreWriters.length] = voteTimer;
+				serverDataPublicationFence.retainUntilTermination(writers);
+			}
+		});
 		try {
 			runShutdownStep("offline vote handoffs", () -> {
 				if (offlineVoteOwnerHandoffs != null) offlineVoteOwnerHandoffs.close();
 			});
 		} finally {
 			try { shutdownVoteReminders(); }
-			finally { super.onDisable(); }
+			finally {
+				try { super.onDisable(); }
+				finally { runShutdownStep("server-data publication owner", () -> {
+					if (serverDataPublicationFence != null) serverDataPublicationFence.retire();
+				}); }
+			}
 		}
 	}
 
@@ -1965,62 +2023,71 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Override
 	public void onUnLoad() {
-		if (!unloadCompleted.compareAndSet(false, true)) {
+		if (!unloadInProgress.compareAndSet(false, true)) {
 			runShutdownStep("time queue retry", () -> {
 				if (timeQueueHandler != null) timeQueueHandler.saveForShutdown();
 			});
 			return;
 		}
-		placeholderPlayerPresence.clear();
-		runShutdownStep("backend hosted Control", this::stopBackendHostedControlLifecycle);
-		runShutdownStep("backend Control connector", this::stopBackendControlConnectorLifecycle);
-		runShutdownStep("backend proxy", () -> {
-			if (getBackendProxyHandler() != null) getBackendProxyHandler().closeForShutdown();
-		});
-		runShutdownStep("backend ordered vote queue", () -> {
-			if (backendOrderedVoteOverflowQueue != null) {
-				backendOrderedVoteOverflowQueue.close();
-				backendOrderedVoteOverflowQueue = null;
-			}
-		});
-		runShutdownStep("webhook manager", () -> {
-			if (webhookManager != null) webhookManager.shutdown();
-		});
-		runShutdownStep("vote timer", this::shutdownVoteTimer);
-		runShutdownStep("Votifier vote queue", () -> {
-			if (votifierVoteOverflowQueue != null) {
-				votifierVoteOverflowQueue.close();
-				votifierVoteOverflowQueue = null;
-			}
-		});
-		runShutdownStep("time queue", () -> {
-			if (timeQueueHandler != null) timeQueueHandler.saveForShutdown();
-		});
-		runShutdownStep("vote reminders", this::shutdownVoteReminders);
-		runShutdownStep("cooldown checker", () -> {
-			if (coolDownCheck != null) {
-				coolDownCheck.shutdown();
-				coolDownCheck = null;
-			}
-		});
-		runShutdownStep("signs", () -> {
-			if (signs != null) signs.storeSigns();
-		});
-		runShutdownStep("event handlers", () -> HandlerList.unregisterAll(this));
-		// Late producers must see rejection until their overflow and handler cleanup finishes.
-		voteTimer = null;
-		if (plugin == this) plugin = null;
+		try {
+			if (completedUnloadSteps == null) completedUnloadSteps = new java.util.HashSet<>();
+			runUnloadStep("player presence", placeholderPlayerPresence::clear);
+			runUnloadStep("backend hosted Control", this::stopBackendHostedControlLifecycle);
+			runUnloadStep("backend Control connector", this::stopBackendControlConnectorLifecycle);
+			runUnloadStep("backend proxy", () -> {
+				if (getBackendProxyHandler() != null) getBackendProxyHandler().closeForShutdown();
+			});
+			runUnloadStep("backend ordered vote queue", () -> {
+				if (backendOrderedVoteOverflowQueue != null) {
+					backendOrderedVoteOverflowQueue.close();
+					backendOrderedVoteOverflowQueue = null;
+				}
+			});
+			runUnloadStep("webhook manager", () -> {
+				if (webhookManager != null) webhookManager.shutdown();
+			});
+			runUnloadStep("vote timer", this::shutdownVoteTimer);
+			runUnloadStep("Votifier vote queue", () -> {
+				if (votifierVoteOverflowQueue != null) {
+					votifierVoteOverflowQueue.close();
+					votifierVoteOverflowQueue = null;
+				}
+			});
+			runShutdownStep("time queue", () -> {
+				if (timeQueueHandler != null) timeQueueHandler.saveForShutdown();
+			});
+			runUnloadStep("vote reminders", this::shutdownVoteReminders);
+			runUnloadStep("cooldown checker", () -> {
+				if (coolDownCheck != null) {
+					coolDownCheck.shutdown();
+					coolDownCheck = null;
+				}
+			});
+			runUnloadStep("signs", () -> {
+				if (signs != null) signs.storeSigns();
+			});
+			runUnloadStep("event handlers", () -> HandlerList.unregisterAll(this));
+			// Late producers must see rejection until their overflow and handler cleanup finishes.
+			if (completedUnloadSteps.contains("vote timer")) voteTimer = null;
+			if (plugin == this) plugin = null;
+		} finally { unloadInProgress.set(false); }
 	}
 
-	private void runShutdownStep(String name, Runnable step) {
+	private void runUnloadStep(String name, Runnable step) {
+		if (!completedUnloadSteps.contains(name) && runShutdownStep(name, step)) completedUnloadSteps.add(name);
+	}
+
+	private boolean runShutdownStep(String name, Runnable step) {
 		try {
 			step.run();
+			return true;
 		} catch (RuntimeException | Error failure) {
 			try {
 				getLogger().log(java.util.logging.Level.WARNING, "Failed to shut down " + name, failure);
 			} catch (RuntimeException | Error ignored) {
 				// Logging must not prevent the next independent cleanup step.
 			}
+			return false;
 		}
 	}
 

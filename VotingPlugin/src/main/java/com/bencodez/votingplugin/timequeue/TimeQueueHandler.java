@@ -29,7 +29,6 @@ import lombok.Getter;
  * The TimeQueueHandler class manages time-based vote queue processing.
  */
 public class TimeQueueHandler implements Listener {
-	private static final long TICKS_PER_SECOND = 20L;
 	@Getter
 	private Queue<VoteTimeQueue> timeChangeQueue = new ConcurrentLinkedQueue<>();
 
@@ -100,8 +99,6 @@ public class TimeQueueHandler implements Listener {
 		if (!admitted) {
 			plugin.getLogger().warning("Unable to schedule time-queue processing because vote processing is busy; queued votes were retained.");
 			scheduleRetry();
-		} else {
-			retryAttempts.set(0);
 		}
 	}
 
@@ -109,15 +106,14 @@ public class TimeQueueHandler implements Listener {
 		if (timeChangeQueue.isEmpty() || !retryPending.compareAndSet(false, true)) return;
 		int attempt = Math.min(6, retryAttempts.getAndIncrement());
 		long delaySeconds = Math.min(60L, 1L << attempt);
-		long delayTicks = delaySeconds * TICKS_PER_SECOND;
 		try {
 			plugin.getBukkitScheduler().runTaskLaterAsynchronously(plugin, () -> {
 				retryPending.set(false);
 				if (!timeChangeQueue.isEmpty()) scheduleQueueProcessing(0, TimeUnit.SECONDS);
-			}, delayTicks);
+			}, delaySeconds);
 		} catch (RuntimeException rejected) {
 			retryPending.set(false);
-			plugin.getLogger().warning("Unable to queue a time-queue retry; pending votes remain persisted for recovery.");
+			plugin.getLogger().warning("Unable to queue a time-queue retry; pending votes remain owned for recovery.");
 		}
 	}
 
@@ -126,6 +122,7 @@ public class TimeQueueHandler implements Listener {
 	 */
 	public void processQueue() {
 		if (!processing.compareAndSet(false, true)) return;
+		boolean retry = false;
 		try {
 			synchronized (persistenceLock) {
 				if (stopping) return;
@@ -189,11 +186,16 @@ public class TimeQueueHandler implements Listener {
 				}
 				if (voteEvent.isCancelled()) {
 					plugin.debug("Vote cancelled");
-					return;
+					continue;
 				}
 			}
+		} catch (RuntimeException | Error failure) {
+			retry = !stopping;
+			throw failure;
 		} finally {
 			processing.set(false);
+			if (retry) scheduleRetry();
+			else retryAttempts.set(0);
 		}
 	}
 
@@ -243,8 +245,17 @@ public class TimeQueueHandler implements Listener {
 				shutdownSave.compareAndSet(save, null);
 				continue;
 			}
+			var publicationOwner = new AtomicReference<com.bencodez.votingplugin.util.ServerDataPublicationFence.Lease>();
+			var producers = plugin.getVoteTimer();
+			var coreWriters = plugin.getServerDataWriterExecutors();
 			FutureTask<Void> candidate = new FutureTask<Void>(() -> {
-				try {
+				try (var owner = publicationOwner.get()) {
+					try { synchronized (persistenceLock) { persistPendingVotes(); } }
+					finally {
+						// Publication failure does not terminate previously admitted producers.
+						awaitRetiringProducers(producers);
+						if (coreWriters != null) for (var writer : coreWriters) awaitWriterTermination(writer);
+					}
 					synchronized (persistenceLock) { persistPendingVotes(); }
 				} catch (RuntimeException | Error failure) {
 					try {
@@ -263,11 +274,14 @@ public class TimeQueueHandler implements Listener {
 			if (existing == null) {
 				save = candidate;
 				try {
+					var fence = plugin.getServerDataPublicationFence();
+					publicationOwner.set(fence == null ? null : fence.acquire());
 					Thread worker = new Thread(candidate, "VotingPlugin-timed-vote-shutdown");
 					worker.setDaemon(true);
 					worker.start();
 				}
 				catch (RuntimeException | Error failure) {
+					if (publicationOwner.get() != null) publicationOwner.get().close();
 					candidate.cancel(false);
 					shutdownSave.compareAndSet(candidate, null);
 					throw failure;
@@ -290,6 +304,22 @@ public class TimeQueueHandler implements Listener {
 			if (cause instanceof RuntimeException runtime) throw runtime;
 			throw new IllegalStateException("Timed vote shutdown persistence failed", cause);
 		}
+	}
+
+	private void awaitRetiringProducers(java.util.concurrent.ScheduledExecutorService producers) {
+		if (producers == null || !producers.isShutdown()) return;
+		awaitWriterTermination(producers);
+	}
+
+	private void awaitWriterTermination(java.util.concurrent.ScheduledExecutorService producers) {
+		if (producers == null) return;
+		boolean interrupted = false;
+		try {
+			while (!producers.isTerminated()) {
+				try { producers.awaitTermination(100, TimeUnit.MILLISECONDS); }
+				catch (InterruptedException ignored) { interrupted = true; }
+			}
+		} finally { if (interrupted) Thread.currentThread().interrupt(); }
 	}
 
 	/** Remove only a successfully saved prefix; failures retain the same next slot for retry. */

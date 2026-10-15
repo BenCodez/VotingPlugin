@@ -21,6 +21,36 @@ import com.bencodez.votingplugin.topvoter.TopVoter;
 public class ServerData {
 
 	private VotingPluginMain plugin = VotingPluginMain.plugin;
+	private volatile com.bencodez.advancedcore.data.ServerData generationFile;
+	private final Object generationBinding = new Object();
+	private volatile com.bencodez.votingplugin.util.ServerDataPublicationFence generationFence;
+
+	private com.bencodez.advancedcore.data.ServerData getFile() {
+		var current = generationFile;
+		if (current != null) return current;
+		synchronized (generationBinding) {
+			if (generationFile == null) {
+				var owner = getPublicationFence();
+				// Reject an old lazy wrapper before exposing successor mutable state.
+				try (var lease = owner == null ? null : owner.acquire()) {
+					var file = plugin.getServerDataFile();
+					if (file instanceof GenerationFencedServerDataFile guarded && !guarded.belongsTo(owner))
+						throw new IllegalStateException("Server-data file belongs to another generation");
+					generationFile = file;
+				}
+			}
+			return generationFile;
+		}
+	}
+
+	private com.bencodez.votingplugin.util.ServerDataPublicationFence getPublicationFence() {
+		var current = generationFence;
+		if (current != null) return current;
+		synchronized (generationBinding) {
+			if (generationFence == null) generationFence = plugin.getServerDataPublicationFence();
+			return generationFence;
+		}
+	}
 
 	/**
 	 * Constructs a new ServerData.
@@ -29,6 +59,7 @@ public class ServerData {
 	 */
 	public ServerData(VotingPluginMain plugin) {
 		this.plugin = plugin;
+		this.generationFence = plugin.getServerDataPublicationFence();
 	}
 
 	/**
@@ -87,7 +118,7 @@ public class ServerData {
 	 * @param vote the vote time queue entry
 	 */
 	public void addTimeVoted(int num, VoteTimeQueue vote) {
-		synchronized (plugin.getServerDataFile()) {
+		synchronized (getFile()) {
 			getData().set("TimedVoteCache." + num + ".Name", vote.getName());
 			getData().set("TimedVoteCache." + num + ".Service", vote.getService());
 			getData().set("TimedVoteCache." + num + ".Time", vote.getTime());
@@ -108,7 +139,7 @@ public class ServerData {
 	 * Clears the timed vote cache.
 	 */
 	public void clearTimedVoteCache() {
-		synchronized (plugin.getServerDataFile()) {
+		synchronized (getFile()) {
 			getData().set("TimedVoteCache", null);
 			saveTimedVoteCache();
 		}
@@ -147,10 +178,10 @@ public class ServerData {
 	 * @return the data
 	 */
 	public ConfigurationSection getData() {
-		ConfigurationSection data = plugin.getServerDataFile().getData().getConfigurationSection("VotingPlugin");
+		ConfigurationSection data = getFile().getData().getConfigurationSection("VotingPlugin");
 		if (data == null) {
-			plugin.getServerDataFile().getData().createSection("VotingPlugin");
-			data = plugin.getServerDataFile().getData().getConfigurationSection("VotingPlugin");
+			getFile().getData().createSection("VotingPlugin");
+			data = getFile().getData().getConfigurationSection("VotingPlugin");
 		}
 		return data;
 	}
@@ -181,7 +212,7 @@ public class ServerData {
 	 * @return persisted service-site observations
 	 */
 	public synchronized List<String> getServiceSitesReadOnly() {
-		ConfigurationSection root = plugin.getServerDataFile().getData().getConfigurationSection("VotingPlugin");
+		ConfigurationSection root = getFile().getData().getConfigurationSection("VotingPlugin");
 		return root == null ? List.of() : List.copyOf(root.getStringList("GottenServiceSites"));
 	}
 
@@ -344,7 +375,7 @@ public class ServerData {
 	 * Reload data.
 	 */
 	public void reloadData() {
-		plugin.getServerDataFile().reloadData();
+		getFile().reloadData();
 	}
 
 	/**
@@ -390,7 +421,7 @@ public class ServerData {
 
 	/** Checkpoint the pending suffix without retiring its live queue entries. */
 	public void replaceTimedVoteCache(java.util.Collection<VoteTimeQueue> pending) {
-		synchronized (plugin.getServerDataFile()) {
+		synchronized (getFile()) {
 			Object previous = getData().get("TimedVoteCache");
 			try {
 				setTimedVoteCache(pending);
@@ -405,7 +436,7 @@ public class ServerData {
 	/** Publish the recovery suffix and conservative in-flight record in one file save. */
 	public void prepareTimedVoteDispatch(UUID id, VoteTimeQueue vote,
 			java.util.Collection<VoteTimeQueue> pending) {
-		synchronized (plugin.getServerDataFile()) {
+		synchronized (getFile()) {
 			String path = "UncertainTimedVotes." + id;
 			Object previousCache = getData().get("TimedVoteCache");
 			Object previousRecord = getData().get(path);
@@ -424,7 +455,7 @@ public class ServerData {
 
 	/** Restore an undispatched occurrence and its pending suffix for ordinary restart recovery. */
 	public void abortTimedVoteDispatch(UUID id, java.util.Collection<VoteTimeQueue> pending) {
-		synchronized (plugin.getServerDataFile()) {
+		synchronized (getFile()) {
 			String path = "UncertainTimedVotes." + id;
 			Object previousCache = getData().get("TimedVoteCache");
 			Object previousRecord = getData().get(path);
@@ -442,7 +473,7 @@ public class ServerData {
 
 	/** Clear only a confirmed dispatch record; failed writes retain its live representation. */
 	public void completeTimedVoteDispatch(UUID id) {
-		synchronized (plugin.getServerDataFile()) {
+		synchronized (getFile()) {
 			String path = "UncertainTimedVotes." + id;
 			Object previous = getData().get(path);
 			try {
@@ -473,7 +504,7 @@ public class ServerData {
 
 	/** Retain an ambiguous event delivery without making it eligible for automatic replay. */
 	public void addUncertainTimedVote(java.util.UUID id, VoteTimeQueue vote) {
-		synchronized (plugin.getServerDataFile()) {
+		synchronized (getFile()) {
 			String path = "UncertainTimedVotes." + id;
 			getData().set(path + ".Name", vote.getName());
 			getData().set(path + ".Service", vote.getService());
@@ -484,8 +515,9 @@ public class ServerData {
 
 	/** Timed votes must observe write failures before their in-memory queue is retired. */
 	private void saveTimedVoteCache() {
-		try {
-			plugin.getServerDataFile().getData().save(plugin.getServerDataFile().getdFile());
+		var fence = getPublicationFence();
+		try (var owner = fence == null ? null : fence.acquire()) {
+			getFile().getData().save(getFile().getdFile());
 		} catch (java.io.IOException failure) {
 			throw new java.io.UncheckedIOException("Failed to save timed vote cache", failure);
 		}
@@ -493,8 +525,11 @@ public class ServerData {
 
 	/** Saves server data through the existing general-purpose file helper. */
 	public synchronized void saveData() {
-		synchronized (plugin.getServerDataFile()) {
-			plugin.getServerDataFile().saveData();
+		var fence = getPublicationFence();
+		try (var owner = fence == null ? null : fence.acquire()) {
+			synchronized (getFile()) {
+				getFile().saveData();
+			}
 		}
 	}
 

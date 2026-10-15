@@ -42,7 +42,7 @@ class VotingPluginMainShutdownTest {
     void publicUnloadSkipsLateOptionalResourcesAndIsIdempotent() throws Exception {
         VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
         setField(plugin, "plugin", plugin);
-        setField(plugin, "unloadCompleted", new java.util.concurrent.atomic.AtomicBoolean());
+        setField(plugin, "unloadInProgress", new java.util.concurrent.atomic.AtomicBoolean());
         setField(plugin, "placeholderPlayerPresence", new PlaceholderPlayerPresence());
         initializeEarlyLifecycle(plugin);
 
@@ -57,7 +57,7 @@ class VotingPluginMainShutdownTest {
     @Test
     void stoppedTimerRemainsVisibleUntilOverflowAndProducerHandlersClose() throws Exception {
         VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
-        setField(plugin, "unloadCompleted", new java.util.concurrent.atomic.AtomicBoolean());
+        setField(plugin, "unloadInProgress", new java.util.concurrent.atomic.AtomicBoolean());
         setField(plugin, "placeholderPlayerPresence", new PlaceholderPlayerPresence());
         initializeEarlyLifecycle(plugin);
         var timer = java.util.concurrent.Executors.newSingleThreadScheduledExecutor();
@@ -87,7 +87,7 @@ class VotingPluginMainShutdownTest {
     void publicUnloadCleansInitializedQueueAndSignResources() throws Exception {
         VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
         setField(plugin, "plugin", plugin);
-        setField(plugin, "unloadCompleted", new java.util.concurrent.atomic.AtomicBoolean());
+        setField(plugin, "unloadInProgress", new java.util.concurrent.atomic.AtomicBoolean());
         setField(plugin, "placeholderPlayerPresence", new PlaceholderPlayerPresence());
         initializeEarlyLifecycle(plugin);
         Signs signs = mock(Signs.class);
@@ -107,7 +107,7 @@ class VotingPluginMainShutdownTest {
     void failedCleanupDoesNotSkipLaterResources() throws Exception {
         VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
         setField(plugin, "plugin", plugin);
-        setField(plugin, "unloadCompleted", new java.util.concurrent.atomic.AtomicBoolean());
+        setField(plugin, "unloadInProgress", new java.util.concurrent.atomic.AtomicBoolean());
         setField(plugin, "placeholderPlayerPresence", new PlaceholderPlayerPresence());
         initializeEarlyLifecycle(plugin);
         Signs signs = mock(Signs.class);
@@ -127,9 +127,89 @@ class VotingPluginMainShutdownTest {
     }
 
     @Test
+    void repeatedUnloadRetriesFailedBackendAndWebhookWithoutRepeatingSuccessfulResources() throws Exception {
+        VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
+        setField(plugin, "unloadInProgress", new java.util.concurrent.atomic.AtomicBoolean());
+        setField(plugin, "placeholderPlayerPresence", new PlaceholderPlayerPresence());
+        initializeEarlyLifecycle(plugin);
+        var backend = mock(com.bencodez.votingplugin.backendproxy.BackendProxyHandler.class);
+        var webhook = mock(VotingPluginWebhookManager.class);
+        var signs = mock(Signs.class);
+        org.mockito.Mockito.doReturn(backend).when(plugin).getBackendProxyHandler();
+        org.mockito.Mockito.doThrow(new IllegalStateException("synthetic backend close failure")).doNothing()
+                .when(backend).closeForShutdown();
+        org.mockito.Mockito.doThrow(new IllegalStateException("synthetic webhook close failure")).doNothing()
+                .when(webhook).shutdown();
+        setField(plugin, "webhookManager", webhook); setField(plugin, "signs", signs);
+        try (var handlers = org.mockito.Mockito.mockStatic(org.bukkit.event.HandlerList.class)) {
+            assertDoesNotThrow(plugin::onUnLoad);
+            assertDoesNotThrow(plugin::onUnLoad);
+            assertDoesNotThrow(plugin::onUnLoad);
+            verify(backend, org.mockito.Mockito.times(2)).closeForShutdown();
+            verify(webhook, org.mockito.Mockito.times(2)).shutdown();
+            verify(signs).storeSigns();
+            handlers.verify(() -> org.bukkit.event.HandlerList.unregisterAll(plugin));
+        }
+    }
+
+    @Test
+    void failedTimerShutdownRetainsItsReferenceUntilARepeatCanStopIt() throws Exception {
+        VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
+        setField(plugin, "unloadInProgress", new java.util.concurrent.atomic.AtomicBoolean());
+        setField(plugin, "placeholderPlayerPresence", new PlaceholderPlayerPresence());
+        initializeEarlyLifecycle(plugin);
+        var timer = mock(ScheduledExecutorService.class);
+        org.mockito.Mockito.doThrow(new IllegalStateException("synthetic forced stop failure"))
+                .doThrow(new IllegalStateException("synthetic repeated forced stop failure"))
+                .doAnswer(call -> java.util.List.of())
+                .when(timer).shutdownNow();
+        setField(plugin, "voteTimer", timer);
+        try (var handlers = org.mockito.Mockito.mockStatic(org.bukkit.event.HandlerList.class)) {
+            assertDoesNotThrow(plugin::onUnLoad);
+            org.junit.jupiter.api.Assertions.assertSame(timer, plugin.getVoteTimer());
+            assertDoesNotThrow(plugin::onUnLoad);
+            assertDoesNotThrow(plugin::onUnLoad);
+            assertNull(plugin.getVoteTimer());
+            verify(timer, org.mockito.Mockito.times(2)).shutdown();
+            verify(timer, org.mockito.Mockito.times(3)).shutdownNow();
+            handlers.verify(() -> org.bukkit.event.HandlerList.unregisterAll(plugin));
+        }
+    }
+
+    @Test
+    void concurrentUnloadDoesNotRepeatAnActiveResourceClose() throws Exception {
+        VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
+        setField(plugin, "unloadInProgress", new java.util.concurrent.atomic.AtomicBoolean());
+        setField(plugin, "placeholderPlayerPresence", new PlaceholderPlayerPresence());
+        initializeEarlyLifecycle(plugin);
+        var backend = mock(com.bencodez.votingplugin.backendproxy.BackendProxyHandler.class);
+        org.mockito.Mockito.doReturn(backend).when(plugin).getBackendProxyHandler();
+        var entered = new java.util.concurrent.CountDownLatch(1);
+        var release = new java.util.concurrent.CountDownLatch(1);
+        var worker = java.util.concurrent.Executors.newSingleThreadExecutor();
+        org.mockito.Mockito.doAnswer(call -> {
+            entered.countDown();
+            org.junit.jupiter.api.Assertions.assertTrue(release.await(10, java.util.concurrent.TimeUnit.SECONDS));
+            return null;
+        }).when(backend).closeForShutdown();
+        try {
+            var first = worker.submit(plugin::onUnLoad);
+            org.junit.jupiter.api.Assertions.assertTrue(entered.await(5, java.util.concurrent.TimeUnit.SECONDS));
+            assertDoesNotThrow(plugin::onUnLoad);
+            verify(backend).closeForShutdown();
+            release.countDown(); first.get(5, java.util.concurrent.TimeUnit.SECONDS);
+            assertDoesNotThrow(plugin::onUnLoad);
+            verify(backend).closeForShutdown();
+        } finally {
+            release.countDown(); worker.shutdownNow();
+            org.junit.jupiter.api.Assertions.assertTrue(worker.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS));
+        }
+    }
+
+    @Test
     void repeatedUnloadRetriesOnlyFailedTimedVotePersistence() throws Exception {
         VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
-        setField(plugin, "unloadCompleted", new java.util.concurrent.atomic.AtomicBoolean());
+        setField(plugin, "unloadInProgress", new java.util.concurrent.atomic.AtomicBoolean());
         setField(plugin, "placeholderPlayerPresence", new PlaceholderPlayerPresence());
         initializeEarlyLifecycle(plugin);
         TimeQueueHandler timeQueue = mock(TimeQueueHandler.class);
@@ -190,7 +270,7 @@ class VotingPluginMainShutdownTest {
     void failedForcedTimerStopStillClosesInitializedQueuesAndListenersOnce() throws Exception {
         VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
         setField(plugin, "plugin", plugin);
-        setField(plugin, "unloadCompleted", new java.util.concurrent.atomic.AtomicBoolean());
+        setField(plugin, "unloadInProgress", new java.util.concurrent.atomic.AtomicBoolean());
         setField(plugin, "placeholderPlayerPresence", new PlaceholderPlayerPresence());
         initializeEarlyLifecycle(plugin);
         ScheduledExecutorService timer = mock(ScheduledExecutorService.class);
@@ -210,7 +290,8 @@ class VotingPluginMainShutdownTest {
             verify(reminders).shutdown();
             handlers.verify(() -> org.bukkit.event.HandlerList.unregisterAll(plugin));
         }
-        assertNull(field(plugin, "voteTimer"));
+        org.junit.jupiter.api.Assertions.assertSame(timer, field(plugin, "voteTimer"));
+        verify(timer, org.mockito.Mockito.times(4)).shutdownNow();
         assertNull(field(plugin, "votifierVoteOverflowQueue"));
     }
 
@@ -223,7 +304,7 @@ class VotingPluginMainShutdownTest {
         org.mockito.Mockito.doReturn(java.util.logging.Logger.getLogger("startup-fixture")).when(plugin).getLogger();
         org.mockito.Mockito.when(options.getDebug().isDebug()).thenReturn(true);
         setField(plugin, "plugin", plugin);
-        setField(plugin, "unloadCompleted", new java.util.concurrent.atomic.AtomicBoolean());
+        setField(plugin, "unloadInProgress", new java.util.concurrent.atomic.AtomicBoolean());
         setField(plugin, "placeholderPlayerPresence", new PlaceholderPlayerPresence());
         initializeEarlyLifecycle(plugin);
         var logger = mock(java.util.logging.Logger.class);
