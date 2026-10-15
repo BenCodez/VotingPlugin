@@ -91,7 +91,7 @@ class VotingNPCManagerTest {
                 verify(spawned.getFirst()).setPersistent(false);
                 verify(spawned.getFirst()).setAI(false);
                 verify(spawned.getFirst()).setCustomName("\u00a7aVote");
-                Player player = mock(Player.class);
+                Player player = mock(Player.class); when(player.getUniqueId()).thenReturn(new UUID(0, 100));
                 Villager unrelated = mock(Villager.class); when(unrelated.getUniqueId()).thenReturn(new UUID(0, 99));
                 var interact = new PlayerInteractEntityEvent(player, unrelated, EquipmentSlot.HAND);
                 manager.interact(interact); assertFalse(interact.isCancelled());
@@ -99,6 +99,16 @@ class VotingNPCManagerTest {
                 manager.damage(damage); verify(damage, never()).setCancelled(anyBoolean());
                 var protectedDamage = mock(EntityDamageEvent.class); when(protectedDamage.getEntity()).thenReturn(spawned.getFirst());
                 manager.damage(protectedDamage); verify(protectedDamage).setCancelled(true);
+                var hostileTarget = new org.bukkit.event.entity.EntityTargetEvent(unrelated, spawned.getFirst(),
+                        org.bukkit.event.entity.EntityTargetEvent.TargetReason.CLOSEST_ENTITY);
+                manager.target(hostileTarget);
+                assertTrue(hostileTarget.isCancelled(), "ordinary mobs must not target a tracked NPC");
+                var normalTarget = new org.bukkit.event.entity.EntityTargetEvent(unrelated, player,
+                        org.bukkit.event.entity.EntityTargetEvent.TargetReason.CLOSEST_ENTITY);
+                manager.target(normalTarget); assertFalse(normalTarget.isCancelled());
+                var clearedTarget = new org.bukkit.event.entity.EntityTargetEvent(unrelated, null,
+                        org.bukkit.event.entity.EntityTargetEvent.TargetReason.FORGOT_TARGET);
+                manager.target(clearedTarget); assertFalse(clearedTarget.isCancelled());
                 var witch = mock(org.bukkit.entity.Witch.class);
                 var transform = new org.bukkit.event.entity.EntityTransformEvent(spawned.getFirst(), List.of(witch),
                         org.bukkit.event.entity.EntityTransformEvent.TransformReason.LIGHTNING);

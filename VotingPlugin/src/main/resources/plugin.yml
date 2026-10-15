@@ -170,6 +170,8 @@ permissions:
     description: Allows mod commands
   VotingPlugin.Admin:
     description: Allows admincommands
+    children:
+      VotingPlugin.Commands.AdminVote: true
   VotingPlugin.TopVoter.Ignore:
     description: Allows you to be exempt from top voter
   VotingPlugin.NoRemind:
@@ -199,3 +201,5 @@ permissions:
   VotingPlugin.Commands.AdminVote.NPC:
     description: Create, inspect, list and remove saved vanilla voting NPCs
     default: op
+    children:
+      VotingPlugin.Commands.AdminVote: true

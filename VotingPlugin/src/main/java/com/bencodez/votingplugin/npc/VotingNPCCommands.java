@@ -62,14 +62,14 @@ public final class VotingNPCCommands {
                 String name = args.length > 3 ? String.join(" ", Arrays.copyOfRange(args, 3, args.length)) : "&aVote";
                 VotingNPCDefinition definition = new VotingNPCDefinition(args[2], UUID.randomUUID(), at.getWorld().getUID(),
                         at.getX(), at.getY(), at.getZ(), at.getYaw(), at.getPitch(), name);
-                confirm(plugin, sender, manager.create(definition),
+                confirm(plugin, sender, manager, manager.create(definition),
                         ignored -> "Saved voting NPC '" + definition.id() + "'. Its villager appears when the area is loaded and available.");
             } catch (IllegalArgumentException invalid) {
                 sender.sendMessage("Use a lowercase ID of 1-40 letters, digits, underscores or hyphens, and a name of 1-128 characters without controls.");
             }
             break;
         case "remove":
-            confirm(plugin, sender, manager.remove(args[2]), removed -> removed
+            confirm(plugin, sender, manager, manager.remove(args[2]), removed -> removed
                     ? "Removed saved voting NPC '" + args[2] + "'; exact entity cleanup has been requested."
                     : "No voting NPC has that ID.");
             break;
@@ -88,12 +88,32 @@ public final class VotingNPCCommands {
         }
     }
 
-    private static <T> void confirm(VotingPluginMain plugin, CommandSender sender, CompletionStage<T> completion,
+    private static String failureMessage(VotingNPCManager manager, Throwable failure) {
+        while ((failure instanceof java.util.concurrent.CompletionException
+                || failure instanceof java.util.concurrent.ExecutionException) && failure.getCause() != null) {
+            failure = failure.getCause();
+        }
+        if (manager.available()) {
+            if (failure instanceof VotingNPCRegistry.ValidationFailure validation) {
+                return switch (validation.reason) {
+                case DUPLICATE_ID -> "That voting NPC ID already exists. Use a different ID or remove it first.";
+                case DUPLICATE_IDENTITY -> "That voting NPC identity already exists. No definition was changed.";
+                case LIMIT -> "The 64 voting NPC limit has been reached. Remove an NPC before creating another.";
+                };
+            }
+            if (failure instanceof java.util.concurrent.RejectedExecutionException) {
+                return "Voting NPC storage is busy. Wait for pending changes to finish before retrying.";
+            }
+        }
+        return "Voting NPC change was not confirmed. Check storage and reload before retrying; no success is assumed.";
+    }
+
+    private static <T> void confirm(VotingPluginMain plugin, CommandSender sender, VotingNPCManager manager, CompletionStage<T> completion,
             java.util.function.Function<T, String> message) {
         completion.whenComplete((value, failure) -> onSender(plugin, sender, () -> {
             if (!allowed(sender)) return;
             sender.sendMessage(failure == null ? message.apply(value)
-                    : "Voting NPC change was not confirmed. Check storage and reload before retrying; no success is assumed.");
+                    : failureMessage(manager, failure));
         }));
     }
 }

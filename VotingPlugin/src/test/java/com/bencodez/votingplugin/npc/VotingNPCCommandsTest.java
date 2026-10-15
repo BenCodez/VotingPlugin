@@ -65,6 +65,39 @@ class VotingNPCCommandsTest {
         for (var handler : f.handlers) assertEquals("VotingPlugin.Commands.AdminVote.NPC|VotingPlugin.Admin", handler.getPerm());
     }
 
+    @Test void metadataGrantsTheAdminRootGateWithoutGrantingOtherAdminLeaves() throws Exception {
+        org.bukkit.plugin.PluginDescriptionFile description;
+        try (var input = getClass().getResourceAsStream("/plugin.yml")) {
+            assertNotNull(input); description = new org.bukkit.plugin.PluginDescriptionFile(input);
+        }
+        var permissions = description.getPermissions().stream().collect(java.util.stream.Collectors.toMap(
+                permission -> permission.getName().toLowerCase(java.util.Locale.ROOT), java.util.function.Function.identity()));
+        var plugin = mock(VotingPluginMain.class); when(plugin.isEnabled()).thenReturn(true);
+        var pm = mock(org.bukkit.plugin.PluginManager.class);
+        when(pm.getDefaultPermissions(false)).thenReturn(java.util.Set.of());
+        when(pm.getPermission(anyString())).thenAnswer(call -> permissions.get(((String)call.getArgument(0)).toLowerCase(java.util.Locale.ROOT)));
+        try (var bukkit = mockStatic(org.bukkit.Bukkit.class)) {
+            bukkit.when(org.bukkit.Bukkit::getPluginManager).thenReturn(pm);
+            var server = mock(org.bukkit.Server.class); when(server.getPluginManager()).thenReturn(pm);
+            bukkit.when(org.bukkit.Bukkit::getServer).thenReturn(server);
+            for (String grant : List.of("VotingPlugin.Commands.AdminVote.NPC", "VotingPlugin.Admin")) {
+                var permissible = new org.bukkit.permissions.PermissibleBase(mock(org.bukkit.permissions.ServerOperator.class));
+                permissible.addAttachment(plugin, grant, true);
+                CommandSender sender = mock(CommandSender.class);
+                when(sender.hasPermission(anyString())).thenAnswer(call -> permissible.hasPermission((String)call.getArgument(0)));
+                var root = new org.bukkit.command.Command("av") {
+                    @Override public boolean execute(CommandSender sender, String label, String[] args) { return true; }
+                };
+                root.setPermission("VotingPlugin.Commands.AdminVote");
+                assertTrue(root.testPermissionSilent(sender), grant);
+                if (grant.endsWith(".NPC")) {
+                    assertFalse(permissible.hasPermission("VotingPlugin.Commands.AdminVote.Edit.Config"));
+                    assertFalse(permissible.hasPermission("VotingPlugin.Admin"));
+                }
+            }
+        }
+    }
+
     @Test void capturesPlayerStateOnlyOnOwnerAndSuccessOnlyAfterDurableCompletion() {
         var f = new Fixture(); Player player = f.player();
         var completion = new CompletableFuture<VotingNPCDefinition>();
@@ -101,6 +134,42 @@ class VotingNPCCommandsTest {
         verify(player).sendMessage(contains("was not confirmed"));
         verify(player, never()).sendMessage(contains("Synthetic private"));
         verify(player, never()).sendMessage(startsWith("Removed saved"));
+    }
+
+    @Test void validationRejectionsHaveFixedActionableMessagesAndUnavailableStorageStaysConservative() {
+        for (var reason : VotingNPCRegistry.Rejection.values()) {
+            var f = new Fixture(); Player player = f.player();
+            when(f.manager.create(any())).thenReturn(CompletableFuture.failedFuture(
+                    new java.util.concurrent.CompletionException(new VotingNPCRegistry.ValidationFailure(reason))));
+            f.command("Create", 3).execute(player, new String[] { "NPC", "Create", "voting" });
+            f.tasks.remove().run(); f.tasks.remove().run();
+            String expected = switch (reason) {
+            case DUPLICATE_ID -> "ID already exists";
+            case DUPLICATE_IDENTITY -> "identity already exists";
+            case LIMIT -> "64 voting NPC limit";
+            };
+            verify(player).sendMessage(contains(expected));
+            verify(player, never()).sendMessage(contains("reload before retrying"));
+        }
+        var f = new Fixture(); Player player = f.player();
+        var pending = new CompletableFuture<VotingNPCDefinition>();
+        when(f.manager.create(any())).thenReturn(pending);
+        f.command("Create", 3).execute(player, new String[] { "NPC", "Create", "voting" }); f.tasks.remove().run();
+        when(f.manager.available()).thenReturn(false);
+        pending.completeExceptionally(new java.util.concurrent.RejectedExecutionException("Synthetic")); f.tasks.remove().run();
+        verify(player).sendMessage(contains("reload before retrying"));
+        verify(player, never()).sendMessage(contains("busy"));
+    }
+
+    @Test void healthyQueueSaturationDoesNotTellTheAdministratorToReloadStorage() {
+        var f = new Fixture(); Player player = f.player();
+        when(f.manager.create(any())).thenReturn(CompletableFuture.failedFuture(
+                new java.util.concurrent.RejectedExecutionException("Synthetic queue rejection")));
+        f.command("Create", 3).execute(player, new String[] { "NPC", "Create", "voting" });
+        f.tasks.remove().run(); f.tasks.remove().run();
+        verify(player).sendMessage(contains("busy"));
+        verify(player, never()).sendMessage(contains("reload before retrying"));
+        verify(player, never()).sendMessage(contains("Synthetic"));
     }
 
     @Test void invalidDefinitionAndConsoleCreationDoNotMutate() {

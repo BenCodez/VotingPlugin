@@ -30,7 +30,8 @@ characters without control characters. `&` legacy colors are supported; names
 are not interpreted as commands, PlaceholderAPI, JavaScript or rich-text actions.
 Creation is player-only. List, inspect and remove also work from console.
 Administration requires `VotingPlugin.Commands.AdminVote.NPC` (operator default)
-or `VotingPlugin.Admin`. Normal vote-URL command permissions still apply when
+or `VotingPlugin.Admin`. Both also permit entering the `/av` command root; the
+NPC permission does not grant other administrative subcommands. Normal vote-URL command permissions still apply when
 a player interacts; an NPC never grants that permission.
 
 Right-click with the main hand to open the existing configured vote-URL GUI.
@@ -56,6 +57,10 @@ world unloads retire tracked entities; loading later reconstructs them. Changing
 `Enabled` to false and reloading removes live NPCs while retaining definitions.
 Reloading does not create a second entity for the same configured ID, including
 when an earlier entity's cleanup is still pending.
+
+Operator-configured directory aliases are supported; the definitions and lock
+files themselves must not be symbolic links. Duplicate IDs, capacity limits and
+a busy worker report fixed actionable messages without requiring a reload.
 
 An invalid/unreadable definition file is unavailable, never an empty successful
 load. Failed or uncertain writes stop further edits until a checked reload;

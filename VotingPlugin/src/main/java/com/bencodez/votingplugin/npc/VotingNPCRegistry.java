@@ -24,6 +24,13 @@ import java.util.concurrent.TimeUnit;
  * not that a world entity has spawned. Callbacks have no player/region ownership.
  */
 final class VotingNPCRegistry implements AutoCloseable {
+    enum Rejection { DUPLICATE_ID, DUPLICATE_IDENTITY, LIMIT }
+    static final class ValidationFailure extends IllegalArgumentException {
+        private static final long serialVersionUID = 1L;
+        final Rejection reason;
+        ValidationFailure(Rejection reason) { super("Voting NPC request rejected"); this.reason = reason; }
+    }
+
     private final Object admission = new Object();
     private final ArrayBlockingQueue<Runnable> queue = new ArrayBlockingQueue<>(128);
     private final CountDownLatch stopped = new CountDownLatch(1);
@@ -75,11 +82,11 @@ final class VotingNPCRegistry implements AutoCloseable {
     CompletionStage<VotingNPCDefinition> create(VotingNPCDefinition definition) {
         return submit(true, () -> {
             if (definition == null) throw new IllegalArgumentException("Voting NPC definition is required");
-            if (definitions.containsKey(definition.id())) throw new IllegalArgumentException("Voting NPC ID already exists");
+            if (definitions.containsKey(definition.id())) throw new ValidationFailure(Rejection.DUPLICATE_ID);
             if (definitions.values().stream().anyMatch(value -> value.identity().equals(definition.identity()))) {
-                throw new IllegalArgumentException("Voting NPC identity already exists");
+                throw new ValidationFailure(Rejection.DUPLICATE_IDENTITY);
             }
-            if (definitions.size() >= VotingNPCStore.MAX_NPCS) throw new RejectedExecutionException("Voting NPC definition limit reached");
+            if (definitions.size() >= VotingNPCStore.MAX_NPCS) throw new ValidationFailure(Rejection.LIMIT);
             var next = new LinkedHashMap<>(definitions);
             next.put(definition.id(), definition);
             publish(next);
@@ -149,8 +156,8 @@ final class VotingNPCRegistry implements AutoCloseable {
 
     private void ownFile() throws IOException {
         if (lease != null && lease.isValid()) return;
-        for (Path parent = lockPath.getParent(); parent != null; parent = parent.getParent()) {
-            if (Files.isSymbolicLink(parent)) throw new IOException("Voting NPC owner path cannot cross a symbolic link");
+        if (!Files.isDirectory(lockPath.getParent().toRealPath(), LinkOption.NOFOLLOW_LINKS)) {
+            throw new IOException("Voting NPC data directory is unavailable");
         }
         FileChannel candidate = FileChannel.open(lockPath, StandardOpenOption.CREATE,
                 StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS);

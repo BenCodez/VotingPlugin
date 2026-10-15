@@ -43,6 +43,29 @@ class VotingNPCRegistryTest {
         }
     }
 
+    @Test void linkedDirectoryAliasesShareTheSameExclusiveOwnerAndLeafLockLinksAreRejected() throws Exception {
+        Path real = Files.createDirectory(directory.resolve("real"));
+        Path linked = Files.createSymbolicLink(directory.resolve("linked"), real);
+        Path file = linked.resolve("npcs.json");
+        var first = new VotingNPCRegistry(file);
+        try {
+            await(first.initialLoad()); await(first.create(definition(1)));
+            var alias = new VotingNPCRegistry(real.resolve("npcs.json"));
+            try { assertThrows(ExecutionException.class, () -> await(alias.initialLoad())); }
+            finally { close(alias); }
+        } finally { close(first); }
+        var recovered = new VotingNPCRegistry(file);
+        try { assertEquals(List.of(definition(1)), await(recovered.initialLoad())); }
+        finally { close(recovered); }
+        Path lock = linked.resolve("other.json.lock");
+        Path unrelated = real.resolve("unrelated"); Files.writeString(unrelated, "unchanged");
+        Files.createSymbolicLink(lock, unrelated);
+        var rejected = new VotingNPCRegistry(linked.resolve("other.json"));
+        try { assertThrows(ExecutionException.class, () -> await(rejected.initialLoad())); }
+        finally { close(rejected); }
+        assertEquals("unchanged", Files.readString(unrelated));
+    }
+
     @Test void orderedDefinitionsAreDurableAndDuplicateRequestsDoNotOverwrite() throws Exception {
         Path file = directory.resolve("npcs.json");
         var registry = new VotingNPCRegistry(file);

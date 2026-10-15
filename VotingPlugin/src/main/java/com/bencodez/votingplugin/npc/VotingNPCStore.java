@@ -102,10 +102,9 @@ class VotingNPCStore {
     }
 
     private void checkParent() throws IOException {
-        for (Path parent = file.getParent(); parent != null; parent = parent.getParent()) {
-            if (Files.isSymbolicLink(parent)) throw new IOException("Voting NPC storage cannot cross a symbolic link");
-        }
-        if (!Files.isDirectory(file.getParent(), LinkOption.NOFOLLOW_LINKS)) {
+        // Operators may place the data directory below a directory alias. Only
+        // the definitions and lease files themselves must remain non-links.
+        if (!Files.isDirectory(file.getParent().toRealPath(), LinkOption.NOFOLLOW_LINKS)) {
             throw new IOException("Voting NPC data directory is unavailable");
         }
     }

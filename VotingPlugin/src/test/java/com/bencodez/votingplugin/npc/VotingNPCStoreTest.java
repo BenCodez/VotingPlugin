@@ -130,6 +130,23 @@ class VotingNPCStoreTest {
         assertEquals("unrelated", Files.readString(target));
     }
 
+    @Test void linkedDirectoriesAllowDurableDefinitionsButLeafLinksStayRejected() throws Exception {
+        Path real = Files.createDirectory(directory.resolve("real"));
+        Path linked = Files.createSymbolicLink(directory.resolve("linked"), real);
+        Path nested = Files.createDirectory(real.resolve("data"));
+        for (Path parent : List.of(linked, linked.resolve("data"))) {
+            Path file = parent.resolve("npcs.json");
+            var store = new VotingNPCStore(file);
+            assertTrue(store.load().isEmpty());
+            store.save(List.of(definition(1)));
+            assertEquals(List.of(definition(1)), new VotingNPCStore(file).load());
+        }
+        Path leaf = linked.resolve("alias.json");
+        Files.createSymbolicLink(leaf, nested.resolve("npcs.json"));
+        assertThrows(IOException.class, () -> new VotingNPCStore(leaf).load());
+        assertEquals(List.of(definition(1)), new VotingNPCStore(nested.resolve("npcs.json")).load());
+    }
+
     @Test void invalidDefinitionsAreRejectedBeforePublication() {
         assertThrows(IllegalArgumentException.class, () -> new VotingNPCDefinition("bad id", new UUID(0, 1),
                 new UUID(1, 0), 0, 64, 0, 0, 0, "Vote"));

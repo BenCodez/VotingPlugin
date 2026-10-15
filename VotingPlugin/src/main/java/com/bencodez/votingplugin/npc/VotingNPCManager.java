@@ -332,7 +332,7 @@ public final class VotingNPCManager implements Listener, AutoCloseable {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
     public void interactAt(PlayerInteractAtEntityEvent event) { interact(event); }
-    private boolean owned(Entity entity) { return entities.containsKey(entity.getUniqueId()); }
+    private boolean owned(Entity entity) { return entity != null && entities.containsKey(entity.getUniqueId()); }
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
     public void damage(EntityDamageEvent event) { if (owned(event.getEntity())) event.setCancelled(true); }
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
@@ -342,7 +342,7 @@ public final class VotingNPCManager implements Listener, AutoCloseable {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
     public void transform(EntityTransformEvent event) { if (owned(event.getEntity())) event.setCancelled(true); }
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
-    public void target(EntityTargetEvent event) { if (owned(event.getEntity())) event.setCancelled(true); }
+    public void target(EntityTargetEvent event) { if (owned(event.getEntity()) || owned(event.getTarget())) event.setCancelled(true); }
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
     public void blockInteract(EntityInteractEvent event) { if (owned(event.getEntity())) event.setCancelled(true); }
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
