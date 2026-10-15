@@ -43,6 +43,10 @@ class VotingNPCManagerTest {
         return new VotingNPCDefinition("voting", new UUID(0, identity), WORLD, 8, 64, 8, 0, 0, "&aVote");
     }
 
+    private static VotingNPCDefinition definitionAt(int identity, double x) {
+        return new VotingNPCDefinition("npc-" + identity, new UUID(0, identity), WORLD, x, 64, 8, 0, 0, "&aVote");
+    }
+
     private static <T> T await(CompletionStage<T> stage) throws Exception {
         return stage.toCompletableFuture().get(5, TimeUnit.SECONDS);
     }
@@ -131,6 +135,33 @@ class VotingNPCManagerTest {
         }
     }
 
+    @Test void freedFullCapacityWakesOnePendingDifferentId() throws Exception {
+        var plugin = mock(VotingPluginMain.class); when(plugin.getLogger()).thenReturn(Logger.getAnonymousLogger());
+        try (var bukkit = mockStatic(Bukkit.class)) {
+            World world = mock(World.class); when(world.getUID()).thenReturn(WORLD);
+            bukkit.when(() -> Bukkit.getWorld(WORLD)).thenReturn(world);
+            when(world.isChunkLoaded(anyInt(), anyInt())).thenReturn(true);
+            var scheduler = new Scheduler(plugin); List<Villager> spawned = installSpawner(world, scheduler);
+            var registry = new VotingNPCRegistry(directory.resolve("capacity.json")); await(registry.initialLoad());
+            for (int i = 1; i <= VotingNPCStore.MAX_NPCS; i++) await(registry.create(definitionAt(i, i * 2)));
+            var manager = new VotingNPCManager(plugin, scheduler, registry, ignored -> { });
+            try {
+                manager.configure(true); scheduler.runNext(scheduler.global, "global");
+                for (int i = 0; i < VotingNPCStore.MAX_NPCS; i++) scheduler.runNext(scheduler.regions, "region");
+                assertEquals(VotingNPCStore.MAX_NPCS, manager.runtimeCount());
+                await(manager.remove("npc-1")); await(manager.create(definitionAt(1000, 2000)));
+                scheduler.runNext(scheduler.global, "global"); scheduler.runNext(scheduler.global, "global");
+                scheduler.runNext(scheduler.entities, "entity");
+                scheduler.runNext(scheduler.global, "global"); scheduler.runNext(scheduler.regions, "region");
+                assertEquals(VotingNPCStore.MAX_NPCS, manager.runtimeCount());
+                assertEquals(VotingNPCStore.MAX_NPCS + 1, spawned.size());
+            } finally {
+                manager.close(); while (!scheduler.entities.isEmpty()) scheduler.runNext(scheduler.entities, "entity");
+                assertTrue(registry.awaitClosed(5, TimeUnit.SECONDS));
+            }
+        }
+    }
+
     @Test void successorWaitsForExactPredecessorCleanupAndCleanupRejectionRetainsOwnership() throws Exception {
         var plugin = mock(VotingPluginMain.class); when(plugin.getLogger()).thenReturn(Logger.getAnonymousLogger());
         try (var bukkit = mockStatic(Bukkit.class)) {
@@ -199,6 +230,52 @@ class VotingNPCManagerTest {
                 if (!scheduler.entities.isEmpty()) scheduler.runNext(scheduler.entities, "entity");
                 assertTrue(registry.awaitClosed(5, TimeUnit.SECONDS));
             }
+        }
+    }
+
+    @Test void queuedRemovedReservationWakesPendingCapacityWithoutEntity() throws Exception {
+        var plugin = mock(VotingPluginMain.class); when(plugin.getLogger()).thenReturn(Logger.getAnonymousLogger());
+        try (var bukkit = mockStatic(Bukkit.class)) {
+            World world = mock(World.class); when(world.getUID()).thenReturn(WORLD);
+            bukkit.when(() -> Bukkit.getWorld(WORLD)).thenReturn(world);
+            when(world.isChunkLoaded(anyInt(), anyInt())).thenReturn(true);
+            var scheduler = new Scheduler(plugin); List<Villager> spawned = installSpawner(world, scheduler);
+            var registry = new VotingNPCRegistry(directory.resolve("queued-capacity.json")); await(registry.initialLoad());
+            for (int i = 1; i <= VotingNPCStore.MAX_NPCS; i++) await(registry.create(definitionAt(i, i * 2)));
+            var manager = new VotingNPCManager(plugin, scheduler, registry, ignored -> { });
+            try {
+                manager.configure(true); scheduler.runNext(scheduler.global, "global");
+                await(manager.remove("npc-1")); await(manager.create(definitionAt(1000, 2000)));
+                scheduler.runNext(scheduler.global, "global"); scheduler.runNext(scheduler.global, "global");
+                for (int i = 0; i <= VotingNPCStore.MAX_NPCS; i++) scheduler.runNext(scheduler.regions, "region");
+                assertTrue(scheduler.regions.isEmpty()); assertTrue(scheduler.global.isEmpty());
+                assertEquals(VotingNPCStore.MAX_NPCS, manager.runtimeCount());
+                assertEquals(VotingNPCStore.MAX_NPCS, spawned.size());
+            } finally {
+                manager.close(); while (!scheduler.entities.isEmpty()) scheduler.runNext(scheduler.entities, "entity");
+                assertTrue(registry.awaitClosed(5, TimeUnit.SECONDS));
+            }
+        }
+    }
+
+    @Test void unloadedQueuedReservationWithPendingCapacityDoesNotRetry() throws Exception {
+        var plugin = mock(VotingPluginMain.class); when(plugin.getLogger()).thenReturn(Logger.getAnonymousLogger());
+        try (var bukkit = mockStatic(Bukkit.class)) {
+            World world = mock(World.class); when(world.getUID()).thenReturn(WORLD);
+            bukkit.when(() -> Bukkit.getWorld(WORLD)).thenReturn(world);
+            when(world.isChunkLoaded(anyInt(), anyInt())).thenReturn(false);
+            var scheduler = new Scheduler(plugin); List<Villager> spawned = installSpawner(world, scheduler);
+            var registry = new VotingNPCRegistry(directory.resolve("unloaded-capacity.json")); await(registry.initialLoad());
+            for (int i = 1; i <= VotingNPCStore.MAX_NPCS; i++) await(registry.create(definitionAt(i, i * 2)));
+            var manager = new VotingNPCManager(plugin, scheduler, registry, ignored -> { });
+            try {
+                manager.configure(true); scheduler.runNext(scheduler.global, "global");
+                await(manager.remove("npc-1")); await(manager.create(definitionAt(1000, 2000)));
+                scheduler.runNext(scheduler.global, "global"); scheduler.runNext(scheduler.global, "global");
+                for (int i = 0; i <= VotingNPCStore.MAX_NPCS; i++) scheduler.runNext(scheduler.regions, "region");
+                assertEquals(0, spawned.size()); assertTrue(scheduler.global.isEmpty());
+                assertTrue(scheduler.regions.isEmpty()); assertEquals(0, manager.runtimeCount());
+            } finally { manager.close(); assertTrue(registry.awaitClosed(5, TimeUnit.SECONDS)); }
         }
     }
 

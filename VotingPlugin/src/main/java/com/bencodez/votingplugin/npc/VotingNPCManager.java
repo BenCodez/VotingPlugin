@@ -49,6 +49,8 @@ public final class VotingNPCManager implements Listener, AutoCloseable {
     private final VotingNPCScheduler scheduler;
     private final Consumer<Player> open;
     private final Map<String, RuntimeNPC> resources = new ConcurrentHashMap<>();
+    private final Set<String> capacityDemand = ConcurrentHashMap.newKeySet();
+    private final AtomicBoolean capacityWakeQueued = new AtomicBoolean();
     private final Map<UUID, RuntimeNPC> entities = new ConcurrentHashMap<>();
     private final Set<ChunkKey> unloadingChunks = ConcurrentHashMap.newKeySet();
     private final Set<UUID> unloadingWorlds = ConcurrentHashMap.newKeySet();
@@ -187,6 +189,7 @@ public final class VotingNPCManager implements Listener, AutoCloseable {
 
     private void reconcile() {
         retryPendingCleanup();
+        capacityDemand.retainAll(definitions().stream().map(VotingNPCDefinition::id).toList());
         List<VotingNPCDefinition> snapshot = definitions();
         Set<ChunkKey> chunks = new HashSet<>();
         Set<UUID> worlds = new HashSet<>();
@@ -223,8 +226,12 @@ public final class VotingNPCManager implements Listener, AutoCloseable {
         synchronized (resources) {
             previous = resources.get(value.id());
             if (previous == null) {
-                if (resources.size() >= VotingNPCStore.MAX_NPCS) return;
+                if (resources.size() >= VotingNPCStore.MAX_NPCS) {
+                    if (capacityDemand.size() < VotingNPCStore.MAX_NPCS) capacityDemand.add(value.id());
+                    return;
+                }
                 resources.put(value.id(), npc);
+                capacityDemand.remove(value.id());
             }
         }
         if (previous != null) {
@@ -248,7 +255,11 @@ public final class VotingNPCManager implements Listener, AutoCloseable {
     private void spawn(RuntimeNPC npc) {
         try {
             synchronized (npc) {
-                if (npc.closed || !current(npc) || !loadedArea(npc)) { forget(npc); return; }
+                if (npc.closed || !current(npc) || !loadedArea(npc)) {
+                    boolean capacityReleased = !npc.closed && !current(npc);
+                    forget(npc, capacityReleased);
+                    return;
+                }
                 if (npc.entity != null) return;
                 Villager spawned = npc.anchor.getWorld().spawn(npc.anchor, Villager.class, villager -> {
                     npc.entity = villager;
@@ -277,7 +288,7 @@ public final class VotingNPCManager implements Listener, AutoCloseable {
         synchronized (npc) {
             npc.closed = true;
             entity = npc.entity;
-            if (entity == null) { forget(npc); return; }
+            if (entity == null) { forget(npc, false); return; }
             if (npc.cleanupQueued) return;
             npc.cleanupQueued = true;
         }
@@ -306,20 +317,33 @@ public final class VotingNPCManager implements Listener, AutoCloseable {
         }
     }
 
-    private void forget(RuntimeNPC npc) {
-        boolean reconstruct;
+    private void forget(RuntimeNPC npc) { forget(npc, false); }
+
+    private void forget(RuntimeNPC npc, boolean capacityReleased) {
+        boolean reconstruct, hadEntity, removed;
         synchronized (npc) {
             reconstruct = npc.entity != null && (npc.reconstructRequested || npc.configuration != configuration
                     || definitions().stream().anyMatch(value -> value.id().equals(npc.definition.id()) && !value.equals(npc.definition)));
+            hadEntity = npc.entity != null;
             if (npc.entityId != null) entities.remove(npc.entityId, npc);
             npc.entity = null;
-            resources.remove(npc.definition.id(), npc);
+            removed = resources.remove(npc.definition.id(), npc);
         }
         // A successor sharing this configured ID must wait for exact predecessor
         // cleanup. Missing/unloaded spawn attempts do not recursively retry.
         if (reconstruct && available()) scheduler.global(() -> {
             for (var value : definitions()) if (value.id().equals(npc.definition.id())) ensure(value);
         }, this::report);
+        if (removed && (hadEntity || capacityReleased) && !capacityDemand.isEmpty() && available()
+                && capacityWakeQueued.compareAndSet(false, true)) {
+            scheduler.global(() -> {
+                capacityWakeQueued.set(false);
+                for (var value : definitions()) if (capacityDemand.contains(value.id())) ensure(value);
+            }, failure -> {
+                capacityWakeQueued.set(false);
+                report(failure);
+            });
+        }
     }
 
     private void report(Throwable failure) {
