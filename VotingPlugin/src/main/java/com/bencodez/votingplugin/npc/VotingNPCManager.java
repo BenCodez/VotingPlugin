@@ -189,7 +189,7 @@ public final class VotingNPCManager implements Listener, AutoCloseable {
         List<VotingNPCDefinition> snapshot = definitions();
         Set<ChunkKey> chunks = new HashSet<>();
         Set<UUID> worlds = new HashSet<>();
-        for (var value : snapshot) { chunks.add(key(value)); worlds.add(value.world()); }
+        for (var value : snapshot) { chunks.addAll(occupiedChunks(value)); worlds.add(value.world()); }
         unloadingChunks.retainAll(chunks);
         unloadingWorlds.retainAll(worlds);
         for (RuntimeNPC npc : resources.values()) if (!current(npc)) retire(npc);
@@ -200,10 +200,21 @@ public final class VotingNPCManager implements Listener, AutoCloseable {
         }, this::report);
     }
 
-    private static ChunkKey key(VotingNPCDefinition value) { return new ChunkKey(value.world(), value.chunkX(), value.chunkZ()); }
+    /** Same conservative half-block bounds used for creation ownership and chunk availability. */
+    private static Set<ChunkKey> occupiedChunks(VotingNPCDefinition value) {
+        Set<ChunkKey> chunks = new HashSet<>();
+        for (double dx : new double[] { -.5, .5 }) for (double dz : new double[] { -.5, .5 }) {
+            chunks.add(new ChunkKey(value.world(), (int) Math.floor(value.x() + dx) >> 4,
+                    (int) Math.floor(value.z() + dz) >> 4));
+        }
+        return chunks;
+    }
+    private boolean unloading(VotingNPCDefinition value) {
+        return occupiedChunks(value).stream().anyMatch(unloadingChunks::contains);
+    }
 
     private void ensure(VotingNPCDefinition value) {
-        if (!available() || !definitions().contains(value) || unloadingWorlds.contains(value.world()) || unloadingChunks.contains(key(value))) return;
+        if (!available() || !definitions().contains(value) || unloadingWorlds.contains(value.world()) || unloading(value)) return;
         World world = Bukkit.getWorld(value.world());
         if (world == null) return;
         RuntimeNPC npc = new RuntimeNPC(value, world, configuration);
@@ -225,7 +236,7 @@ public final class VotingNPCManager implements Listener, AutoCloseable {
     private boolean loadedArea(RuntimeNPC npc) {
         World world = npc.anchor.getWorld();
         if (Bukkit.getWorld(npc.definition.world()) != world || unloadingWorlds.contains(npc.definition.world())
-                || unloadingChunks.contains(key(npc.definition))) return false;
+                || unloading(npc.definition)) return false;
         for (double dx : new double[] { -.5, .5 }) for (double dz : new double[] { -.5, .5 }) {
             Location edge = npc.anchor.clone().add(dx, 0, dz);
             if (!scheduler.owns(edge) || !world.isChunkLoaded(edge.getBlockX() >> 4, edge.getBlockZ() >> 4)) return false;
@@ -353,17 +364,16 @@ public final class VotingNPCManager implements Listener, AutoCloseable {
     public void chunkLoad(ChunkLoadEvent event) {
         UUID world = event.getWorld().getUID();
         unloadingChunks.remove(new ChunkKey(world, event.getChunk().getX(), event.getChunk().getZ()));
-        for (var value : definitions()) if (value.world().equals(world)
-                && Math.abs(value.chunkX() - event.getChunk().getX()) <= 1
-                && Math.abs(value.chunkZ() - event.getChunk().getZ()) <= 1) ensure(value);
+        ChunkKey chunk = new ChunkKey(world, event.getChunk().getX(), event.getChunk().getZ());
+        for (var value : definitions()) if (occupiedChunks(value).contains(chunk)) ensure(value);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void chunkUnload(ChunkUnloadEvent event) {
         ChunkKey chunk = new ChunkKey(event.getWorld().getUID(), event.getChunk().getX(), event.getChunk().getZ());
-        if (definitions().stream().noneMatch(value -> key(value).equals(chunk))) return;
+        if (definitions().stream().noneMatch(value -> occupiedChunks(value).contains(chunk))) return;
         unloadingChunks.add(chunk);
-        for (RuntimeNPC npc : resources.values()) if (key(npc.definition).equals(chunk)) retire(npc);
+        for (RuntimeNPC npc : resources.values()) if (occupiedChunks(npc.definition).contains(chunk)) retire(npc);
     }
 
     @EventHandler(priority = EventPriority.MONITOR)

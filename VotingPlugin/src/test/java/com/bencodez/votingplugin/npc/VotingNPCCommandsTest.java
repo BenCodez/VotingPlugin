@@ -48,6 +48,8 @@ class VotingNPCCommandsTest {
             when(player.isOnline()).thenReturn(true);
             when(player.hasPermission("VotingPlugin.Commands.AdminVote.NPC")).thenReturn(true);
             World world = mock(World.class); when(world.getUID()).thenReturn(new UUID(1, 0));
+            // Location holds its world weakly; retain it as a real online player does.
+            when(player.getWorld()).thenReturn(world);
             when(player.getLocation()).thenReturn(new Location(world, 4, 64, 4));
             return player;
         }

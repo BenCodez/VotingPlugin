@@ -220,6 +220,75 @@ class VotingNPCManagerTest {
         }
     }
 
+    @Test void occupiedNeighbourUnloadRetiresAndReloadReconstructsOnceAtBothCoordinateSigns() throws Exception {
+        for (double position : new double[] {15.75, -.25}) {
+            var plugin = mock(VotingPluginMain.class); when(plugin.getLogger()).thenReturn(Logger.getAnonymousLogger());
+            try (var bukkit = mockStatic(Bukkit.class)) {
+                World world = mock(World.class); when(world.getUID()).thenReturn(WORLD);
+                bukkit.when(() -> Bukkit.getWorld(WORLD)).thenReturn(world);
+                when(world.isChunkLoaded(anyInt(), anyInt())).thenReturn(true);
+                var scheduler = new Scheduler(plugin); List<Villager> spawned = installSpawner(world, scheduler);
+                var registry = new VotingNPCRegistry(directory.resolve("boundary-" + (position > 0) + ".json"));
+                await(registry.initialLoad());
+                var definition = new VotingNPCDefinition("voting", new UUID(0, 1), WORLD, position, 64, position, 0, 0, "Vote");
+                await(registry.create(definition));
+                var manager = new VotingNPCManager(plugin, scheduler, registry, ignored -> { });
+                try {
+                    manager.configure(true); scheduler.runNext(scheduler.global, "global"); scheduler.runNext(scheduler.regions, "region");
+                    manager.chunkUnload(new ChunkUnloadEvent(atChunk(world, 7, 7)));
+                    assertTrue(scheduler.entities.isEmpty(), "unrelated chunk unload must leave NPC alone");
+                    int neighbour = definition.chunkX() + 1;
+                    manager.chunkUnload(new ChunkUnloadEvent(atChunk(world, neighbour, neighbour)));
+                    assertEquals(1, scheduler.entities.size(), "occupied adjacent chunk must trigger entity-owned cleanup");
+                    // Bukkit may still report the unloading chunk as loaded during its event.
+                    manager.chunkLoad(new ChunkLoadEvent(atChunk(world, definition.chunkX(), definition.chunkZ()), false));
+                    scheduler.runNext(scheduler.entities, "entity");
+                    assertEquals(0, manager.runtimeCount()); assertTrue(scheduler.regions.isEmpty());
+                    manager.chunkLoad(new ChunkLoadEvent(atChunk(world, neighbour, neighbour), false));
+                    manager.chunkLoad(new ChunkLoadEvent(atChunk(world, neighbour, neighbour), false));
+                    scheduler.runNext(scheduler.regions, "region");
+                    assertEquals(2, spawned.size()); assertEquals(1, manager.runtimeCount());
+                    verify(world, never()).getChunkAt(anyInt(), anyInt()); verify(world, never()).loadChunk(anyInt(), anyInt());
+                } finally {
+                    manager.close(); if (!scheduler.entities.isEmpty()) scheduler.runNext(scheduler.entities, "entity");
+                    assertTrue(registry.awaitClosed(5, TimeUnit.SECONDS));
+                }
+            }
+        }
+    }
+
+    @Test void neighbourUnloadFenceSurvivesReconciliationAndBlocksDeferredCreation() throws Exception {
+        var plugin = mock(VotingPluginMain.class); when(plugin.getLogger()).thenReturn(Logger.getAnonymousLogger());
+        try (var bukkit = mockStatic(Bukkit.class)) {
+            World world = mock(World.class); when(world.getUID()).thenReturn(WORLD);
+            bukkit.when(() -> Bukkit.getWorld(WORLD)).thenReturn(world);
+            when(world.isChunkLoaded(anyInt(), anyInt())).thenReturn(true);
+            var scheduler = new Scheduler(plugin); List<Villager> spawned = installSpawner(world, scheduler);
+            var registry = new VotingNPCRegistry(directory.resolve("pending-boundary.json")); await(registry.initialLoad());
+            await(registry.create(new VotingNPCDefinition("voting", new UUID(0, 1), WORLD, 15.75, 64, 15.75, 0, 0, "Vote")));
+            var manager = new VotingNPCManager(plugin, scheduler, registry, ignored -> { });
+            try {
+                manager.configure(true); scheduler.runNext(scheduler.global, "global");
+                manager.chunkUnload(new ChunkUnloadEvent(atChunk(world, 1, 1)));
+                scheduler.runNext(scheduler.regions, "region");
+                assertTrue(spawned.isEmpty(), "a deferred creation cannot cross an occupied chunk unload");
+                assertEquals(0, manager.runtimeCount());
+                await(manager.create(new VotingNPCDefinition("other", new UUID(0, 2), WORLD, 40, 64, 40, 0, 0, "Vote")));
+                scheduler.runNext(scheduler.global, "global"); scheduler.runNext(scheduler.regions, "region");
+                assertEquals(1, spawned.size(), "unrelated mutation must not erase the first NPC's occupied-chunk fence");
+                assertTrue(scheduler.regions.isEmpty());
+            } finally {
+                manager.close(); while (!scheduler.entities.isEmpty()) scheduler.runNext(scheduler.entities, "entity");
+                assertTrue(registry.awaitClosed(5, TimeUnit.SECONDS));
+            }
+        }
+    }
+
+    private static Chunk atChunk(World world, int x, int z) {
+        Chunk chunk = mock(Chunk.class); when(chunk.getWorld()).thenReturn(world);
+        when(chunk.getX()).thenReturn(x); when(chunk.getZ()).thenReturn(z); return chunk;
+    }
+
     @Test void disabledFeatureDoesNotReadStorageOrRegisterAnyRuntimeWork() {
         var plugin = mock(VotingPluginMain.class);
         var scheduler = new Scheduler(plugin);

@@ -52,8 +52,9 @@ accepted writes drain during shutdown; shutdown does not wait for file I/O.
 
 Villagers themselves are **nonpersistent**. Definitions recreate them when their
 world and surrounding chunks are available; the plugin never loads distant
-chunks or scans worlds to find NPCs. There are no animation/tick loops. Chunk and
-world unloads retire tracked entities; loading later reconstructs them. Changing
+chunks or scans worlds to find NPCs. There are no animation/tick loops. Unloading
+any chunk occupied by the checked half-block bounds retires its tracked entity;
+chunk/world loading later reconstructs it. Changing
 `Enabled` to false and reloading removes live NPCs while retaining definitions.
 Reloading does not create a second entity for the same configured ID, including
 when an earlier entity's cleanup is still pending.
