@@ -4,6 +4,8 @@
 vote streaks. The singular `/vote streak`, normal `/vote`, voting-site menus,
 and configured reward delivery keep their existing behavior. This feature is
 independent of the experimental GUI test commands.
+If an enabled custom command already matches `streaks` (including an alias),
+that configured command keeps precedence; the new menu does not replace it.
 
 Grant `VotingPlugin.Commands.Vote.Streaks` to players who should use it. This
 permission also passes the `/vote` root command gate and grants no other voting

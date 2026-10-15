@@ -36,6 +36,41 @@ class VoteStreaksCommandTest {
             }
         }
     }
+    @Test void existingCustomStreaksCommandWinsThroughActualRootDispatch() throws Exception {
+        for (String argument : List.of("streaks", "Other&Streaks")) {
+            var plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+            var list = new java.util.concurrent.atomic.AtomicReference<ArrayList<CommandHandler>>();
+            when(plugin.getVoteCommand()).thenAnswer(call -> list.get());
+            doAnswer(call -> { list.set(call.getArgument(0)); return null; }).when(plugin).setVoteCommand(any());
+            when(plugin.getConfigFile().isAddCustomCommands()).thenReturn(true);
+            when(plugin.getConfigFile().getCustomCommands()).thenReturn(new java.util.HashSet<>(List.of("custom")));
+            var custom = new org.bukkit.configuration.file.YamlConfiguration();
+            custom.set("Args", new ArrayList<>(List.of(argument)));
+            when(plugin.getConfigFile().getCustomCommands("custom")).thenReturn(custom);
+            var basic = mock(com.bencodez.advancedcore.command.CommandLoader.class);
+            when(basic.getBasicCommands("VotingPlugin")).thenReturn(new ArrayList<>());
+            var scheduler = mock(BukkitScheduler.class); when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+            var tasks = new java.util.ArrayDeque<Runnable>();
+            doAnswer(call -> { tasks.add(call.getArgument(1)); return null; }).when(scheduler)
+                    .runTaskAsynchronously(eq(plugin), any(Runnable.class));
+            var loader = new com.bencodez.votingplugin.commands.CommandLoader(plugin);
+            var load = loader.getClass().getDeclaredMethod("loadVoteCommand"); load.setAccessible(true);
+            try (var singleton = mockStatic(com.bencodez.advancedcore.command.CommandLoader.class)) {
+                singleton.when(com.bencodez.advancedcore.command.CommandLoader::getInstance).thenReturn(basic);
+                load.invoke(loader);
+            }
+            var configured = list.get().stream().filter(c -> java.util.Arrays.equals(c.getArgs(), new String[]{argument}))
+                    .findFirst().orElseThrow();
+            var observed = spy(configured); doNothing().when(observed).execute(any(), any());
+            list.get().set(list.get().indexOf(configured), observed);
+            Player player = mock(Player.class); when(player.hasPermission(anyString())).thenReturn(true);
+            assertTrue(new com.bencodez.votingplugin.commands.executers.CommandVote(plugin)
+                    .onCommand(player, null, "vote", new String[]{"streaks"}));
+            assertEquals(1, tasks.size()); tasks.remove().run();
+            verify(observed).execute(eq(player), org.mockito.AdditionalMatchers.aryEq(new String[]{"streaks"}));
+            verifyNoInteractions(plugin.getVoteStreaksMenu());
+        }
+    }
     @Test void realDispatchPreservesExistingHandlersAndUsesDedicatedPlayerPermission() {
         var plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS); var old = mock(CommandHandler.class);
         var commands = new ArrayList<>(List.of(old)); when(plugin.getVoteCommand()).thenReturn(commands);
