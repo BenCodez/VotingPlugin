@@ -150,12 +150,50 @@ class VotingNPCManagerTest {
                 scheduler.runNext(scheduler.global, "global"); scheduler.runNext(scheduler.global, "global");
                 assertEquals(1, spawned.size()); assertEquals(1, manager.runtimeCount());
                 verify(spawned.getFirst(), never()).remove();
+                // A rejected cleanup keeps ownership; repeated load notifications may
+                // request a retry, but must never create a successor or duplicate task.
+                manager.chunkLoad(new ChunkLoadEvent(chunk(world), false));
+                manager.chunkLoad(new ChunkLoadEvent(chunk(world), false));
+                assertEquals(1, spawned.size()); assertEquals(1, manager.runtimeCount());
                 scheduler.rejectCleanup = false;
-                manager.configure(true); scheduler.runNext(scheduler.global, "global");
+                manager.chunkLoad(new ChunkLoadEvent(chunk(world), false));
                 scheduler.runNext(scheduler.entities, "entity");
                 verify(spawned.getFirst()).remove();
                 scheduler.runNext(scheduler.global, "global"); scheduler.runNext(scheduler.regions, "region");
                 assertEquals(2, spawned.size()); assertEquals(1, manager.runtimeCount());
+            } finally {
+                scheduler.rejectCleanup = false; manager.close();
+                if (!scheduler.entities.isEmpty()) scheduler.runNext(scheduler.entities, "entity");
+                assertTrue(registry.awaitClosed(5, TimeUnit.SECONDS));
+            }
+        }
+    }
+
+    @Test void transientUnloadCleanupRetriesAtLoadAndCoalescesUntilRemovalFinishes() throws Exception {
+        var plugin = mock(VotingPluginMain.class); when(plugin.getLogger()).thenReturn(Logger.getAnonymousLogger());
+        try (var bukkit = mockStatic(Bukkit.class)) {
+            World world = mock(World.class); when(world.getUID()).thenReturn(WORLD);
+            bukkit.when(() -> Bukkit.getWorld(WORLD)).thenReturn(world);
+            when(world.isChunkLoaded(anyInt(), anyInt())).thenReturn(true);
+            var scheduler = new Scheduler(plugin); List<Villager> spawned = installSpawner(world, scheduler);
+            var registry = new VotingNPCRegistry(directory.resolve("npcs.json")); await(registry.initialLoad());
+            await(registry.create(definition(1)));
+            var manager = new VotingNPCManager(plugin, scheduler, registry, ignored -> { });
+            try {
+                manager.configure(true); scheduler.runNext(scheduler.global, "global"); scheduler.runNext(scheduler.regions, "region");
+                Chunk chunk = chunk(world); scheduler.rejectCleanup = true;
+                manager.chunkUnload(new ChunkUnloadEvent(chunk));
+                assertEquals(1, manager.runtimeCount()); assertTrue(scheduler.global.isEmpty());
+                assertTrue(scheduler.entities.isEmpty(), "rejection must not create an autonomous retry loop");
+                scheduler.rejectCleanup = false;
+                manager.chunkLoad(new ChunkLoadEvent(chunk, false));
+                manager.chunkLoad(new ChunkLoadEvent(chunk, false));
+                assertEquals(1, scheduler.entities.size(), "a queued exact predecessor cleanup must coalesce");
+                assertEquals(1, spawned.size());
+                scheduler.runNext(scheduler.entities, "entity"); verify(spawned.getFirst()).remove();
+                scheduler.runNext(scheduler.global, "global"); scheduler.runNext(scheduler.regions, "region");
+                assertEquals(2, spawned.size()); assertEquals(1, manager.runtimeCount());
+                assertTrue(scheduler.entities.isEmpty()); assertTrue(scheduler.global.isEmpty());
             } finally {
                 scheduler.rejectCleanup = false; manager.close();
                 if (!scheduler.entities.isEmpty()) scheduler.runNext(scheduler.entities, "entity");

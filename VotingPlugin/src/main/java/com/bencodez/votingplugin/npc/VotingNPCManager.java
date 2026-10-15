@@ -186,6 +186,7 @@ public final class VotingNPCManager implements Listener, AutoCloseable {
     }
 
     private void reconcile() {
+        retryPendingCleanup();
         List<VotingNPCDefinition> snapshot = definitions();
         Set<ChunkKey> chunks = new HashSet<>();
         Set<UUID> worlds = new HashSet<>();
@@ -287,10 +288,22 @@ public final class VotingNPCManager implements Listener, AutoCloseable {
     }
 
     private void cleanupFailed(RuntimeNPC npc, Throwable failure) {
-        synchronized (npc) { npc.cleanupQueued = false; }
+        synchronized (npc) {
+            npc.cleanupQueued = false;
+            npc.reconstructRequested = true;
+        }
         // Keep the exact identity and capacity reservation. Rejected scheduling
         // is not successful removal and must not permit duplicate reconstruction.
         report(failure);
+    }
+
+    private void retryPendingCleanup() {
+        for (RuntimeNPC npc : resources.values()) {
+            synchronized (npc) {
+                if (!npc.closed || !npc.reconstructRequested || npc.cleanupQueued || npc.entity == null) continue;
+            }
+            retire(npc);
+        }
     }
 
     private void forget(RuntimeNPC npc) {
@@ -364,6 +377,7 @@ public final class VotingNPCManager implements Listener, AutoCloseable {
     public void chunkLoad(ChunkLoadEvent event) {
         UUID world = event.getWorld().getUID();
         unloadingChunks.remove(new ChunkKey(world, event.getChunk().getX(), event.getChunk().getZ()));
+        retryPendingCleanup();
         ChunkKey chunk = new ChunkKey(world, event.getChunk().getX(), event.getChunk().getZ());
         for (var value : definitions()) if (occupiedChunks(value).contains(chunk)) ensure(value);
     }
