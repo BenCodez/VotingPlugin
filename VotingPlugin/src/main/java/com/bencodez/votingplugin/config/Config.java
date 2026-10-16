@@ -809,6 +809,10 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean topVoterAwardsTies = true;
 
+	@ConfigDataBoolean(path = "HideTopVoterIfNotPlayedBefore")
+	@Getter
+	private boolean hideTopVoterIfNotPlayedBefore = false;
+
 	@ConfigDataBoolean(path = "TopVoterIgnorePermission")
 	@Getter
 	private boolean topVoterIgnorePermission = false;

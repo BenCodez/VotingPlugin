@@ -51,7 +51,7 @@ public class VoteTopVoter extends GUIHandler {
 		String topVoter = top.getName();
 
 		@SuppressWarnings("unchecked")
-		LinkedHashMap<TopVoterPlayer, Integer> topVotes = (LinkedHashMap<TopVoterPlayer, Integer>) plugin.getTopVoter(top)
+		LinkedHashMap<TopVoterPlayer, Integer> topVotes = (LinkedHashMap<TopVoterPlayer, Integer>) plugin.getTopVoterDisplay(top)
 				.clone();
 
 		com.bencodez.simpleapi.dialog.MultiActionDialogBuilder dialog = plugin.getDialogService().multiAction(player)
@@ -148,7 +148,7 @@ public class VoteTopVoter extends GUIHandler {
 			String topVoter = top.getName();
 			@SuppressWarnings("unchecked")
 			LinkedHashMap<TopVoterPlayer, Integer> topVotes = (LinkedHashMap<TopVoterPlayer, Integer>) plugin
-					.getTopVoter(top).clone();
+					.getTopVoterDisplay(top).clone();
 			users = topVotes.entrySet();
 
 			ConfigurationSection customization = plugin.getGui().getChestVoteTopCustomization();
