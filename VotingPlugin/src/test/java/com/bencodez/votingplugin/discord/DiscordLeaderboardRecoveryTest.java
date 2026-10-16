@@ -20,6 +20,7 @@ import github.scarsz.discordsrv.dependencies.jda.api.exceptions.ErrorResponseExc
 class DiscordLeaderboardRecoveryTest {
     static final class Fixture implements AutoCloseable {
         final VotingPluginMain plugin=mock(VotingPluginMain.class);
+        final Logger logger=mock(Logger.class);
         final Config config=mock(Config.class);final ServerData data=mock(ServerData.class);
         final TextChannel channel=mock(TextChannel.class);
         final MessageAction edit=mock(MessageAction.class),send=mock(MessageAction.class);
@@ -31,7 +32,7 @@ class DiscordLeaderboardRecoveryTest {
         final DiscordHandler handler;
         Fixture() {
             when(plugin.getConfigFile()).thenReturn(config);when(plugin.getServerData()).thenReturn(data);
-            when(plugin.getLogger()).thenReturn(Logger.getLogger("synthetic-discord"));when(plugin.isEnabled()).thenReturn(true);
+            when(plugin.getLogger()).thenReturn(logger);when(plugin.isEnabled()).thenReturn(true);
             when(plugin.getTopVoterDisplayGeneration()).thenAnswer(call->generation.get());
             when(plugin.getTopVoterDisplay(any())).thenAnswer(call->new LinkedHashMap<>(board));
             when(config.getDiscordSRVTopVoterChannel(any())).thenReturn(1L);
@@ -52,6 +53,54 @@ class DiscordLeaderboardRecoveryTest {
         void unknown() {var error=mock(ErrorResponseException.class);when(error.getErrorResponse()).thenReturn(ErrorResponse.UNKNOWN_MESSAGE);editFailure.accept(error);}
         void drain() {int bound=20;while(!worker.isEmpty()){assertTrue(bound-->0);worker.remove().run();}}
         public void close(){}
+    }
+    @Test void failedSendStillPublishesOneExplicitCoalescedRefreshInEverySendMode() {
+        for(int mode=0;mode<3;mode++)try(var f=new Fixture()) {
+            if(mode==0)when(f.config.isDiscordSRVTopVoterNewMessageOnUpdate(any())).thenReturn(true);
+            if(mode==1)f.handler.getTopVoterMessageIds().put(TopVoter.Monthly,0L);
+            if(mode==2){f.publish();f.unknown();f.drain();}
+            else f.handler.publishTopVoterMessage(TopVoter.Monthly,f.board);
+            f.board.clear();f.board.put(f.first,100);
+            f.handler.publishTopVoterMessage(TopVoter.Monthly,f.board);
+            var failed=f.sendFailure;failed.accept(new IllegalStateException("synthetic transient failure"));f.drain();
+            verify(f.channel,times(2)).sendMessageEmbeds(any(MessageEmbed.class));
+            assertTrue(f.sent.getDescription().contains("SyntheticFirst"));
+            f.sendFailure.accept(new IllegalStateException("synthetic repeated failure"));f.drain();
+            verify(f.channel,times(2)).sendMessageEmbeds(any(MessageEmbed.class));
+        }
+    }
+    @Test void failedPublicationWarnsWithoutEchoingExceptionContent() {
+        for(boolean send:List.of(false,true))try(var f=new Fixture()) {
+            if(send){when(f.config.isDiscordSRVTopVoterNewMessageOnUpdate(any())).thenReturn(true);
+                f.handler.publishTopVoterMessage(TopVoter.Monthly,f.board);
+                f.sendFailure.accept(new IllegalStateException("synthetic-private-detail"));}
+            else {f.publish();f.editFailure.accept(new IllegalStateException("synthetic-private-detail"));}
+            verify(f.logger).warning(argThat((String text)->text.contains("Discord")&&!text.contains("synthetic-private-detail")));
+        }
+    }
+    @Test void staleFailedSendCannotFlushAnOlderCoalescedRequest() {
+        try(var f=new Fixture()) {
+            when(f.config.isDiscordSRVTopVoterNewMessageOnUpdate(any())).thenReturn(true);
+            f.handler.publishTopVoterMessage(TopVoter.Monthly,f.board);
+            f.handler.publishTopVoterMessage(TopVoter.Monthly,f.board);
+            f.generation.incrementAndGet();f.sendFailure.accept(new IllegalStateException("synthetic stale failure"));f.drain();
+            verify(f.channel,times(1)).sendMessageEmbeds(any(MessageEmbed.class));verifyNoInteractions(f.logger);
+        }
+    }
+    @Test void missingChannelBuildAndRecoveryFailuresHaveRedactedDiagnostics() {
+        for(int mode=0;mode<3;mode++)try(var f=new Fixture()) {
+            if(mode==0) {
+                var absent=new DiscordHandler(f.plugin) {@Override TextChannel leaderboardChannel(long id){return null;}};
+                absent.publishTopVoterMessage(TopVoter.Monthly,f.board);
+            } else if(mode==1) {
+                when(f.config.getDiscordSRVTopVoterTitle(any())).thenThrow(new IllegalStateException("synthetic-private-detail"));
+                f.handler.publishTopVoterMessage(TopVoter.Monthly,f.board);
+            } else {
+                doThrow(new IllegalStateException("synthetic-private-detail")).when(f.data).setTopVoterMessageId(TopVoter.Monthly,0L);
+                f.publish();f.unknown();f.drain();
+            }
+            verify(f.logger).warning(argThat((String text)->text.contains("Discord")&&!text.contains("synthetic-private-detail")));
+        }
     }
     @Test void recoveryReprojectsCurrentEvidenceAfterJoinAndWorkerQueueDelay() {
         try(var f=new Fixture()) {
@@ -182,7 +231,8 @@ class DiscordLeaderboardRecoveryTest {
                 var message=mock(Message.class);when(message.getIdLong()).thenReturn(12L);
                 doThrow(new IllegalStateException("synthetic persistence failure")).when(f.data).setTopVoterMessageId(TopVoter.Monthly,12L);
                 f.sendSuccess.accept(message);
-                assertThrows(IllegalStateException.class,f::drain);
+                assertDoesNotThrow(f::drain);
+                verify(f.logger).warning(contains("storing a message ID"));
                 assertEquals(0L,f.handler.getTopVoterMessageIds().get(TopVoter.Monthly));
                 f.handler.publishTopVoterMessage(TopVoter.Monthly,f.board);
                 verify(f.channel,times(2)).sendMessageEmbeds(any(MessageEmbed.class));

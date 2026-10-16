@@ -35,6 +35,39 @@ class TopVoterDisplayIntegrationTest {
         Field field = VotingPluginMain.class.getDeclaredField(name); field.setAccessible(true); field.set(target, value);
     }
 
+    @Test void realPluginBudgetsEvidenceForCurrentLastAndPreviousMonthRankings() throws Exception {
+        var plugin=mock(VotingPluginMain.class,CALLS_REAL_METHODS);
+        field(plugin,"topVoterDisplayGeneration",new java.util.concurrent.atomic.AtomicLong());
+        doReturn(true).when(plugin).isEnabled();var config=mock(Config.class);
+        when(config.isHideTopVoterIfNotPlayedBefore()).thenReturn(true);field(plugin,"configFile",config);
+        var options=mock(AdvancedCoreConfigOptions.class);when(options.isOnlineMode()).thenReturn(true);
+        doReturn(options).when(plugin).getOptions();doNothing().when(plugin).registerEvents(any(TopVoterDisplayFilter.class));
+        var state=new TopVoterState();field(plugin,"topVoterState",state);
+        var current=state.getTopVoters(TopVoter.Monthly);var last=state.getLastMonthTopVoters();
+        var previous=new LinkedHashMap<TopVoterPlayer,Integer>();var month=YearMonth.of(2024,1);
+        state.getPreviousMonthsTopVoters().put(month,previous);
+        for(int id=0;id<3000;id++) {
+            current.put(new TopVoterPlayer(new UUID(0x4000L,Long.MIN_VALUE|id),"Current"+id,1L),id);
+            last.put(new TopVoterPlayer(new UUID(0x4000L,Long.MIN_VALUE|(id+3000)),"Last"+id,1L),id);
+            previous.put(new TopVoterPlayer(new UUID(0x4000L,Long.MIN_VALUE|(id+6000)),"Previous"+id,1L),id);
+        }
+        var cache=mock(UuidLookup.class);when(cache.getCachedUUID(anyString())).thenReturn("");
+        var calls=new java.util.concurrent.atomic.AtomicInteger();
+        doAnswer(call->{java.util.Collection<UUID> aliases=call.getArgument(0);assertFalse(aliases.contains(null));
+            calls.incrementAndGet();return CompletableFuture.completedStage(PlayerPresence.NEVER_JOINED);})
+                .when(plugin).checkPlayerPresenceIdentitiesAsync(anyCollection(),eq(true));
+        try(var lookup=mockStatic(UuidLookup.class)) {
+            lookup.when(UuidLookup::getInstance).thenReturn(cache);plugin.initializeTopVoterDisplayFilter();
+            for(int round=0;round<3;round++) {
+                assertTrue(plugin.getTopVoterDisplay(TopVoter.Monthly).isEmpty());
+                assertTrue(plugin.getLastMonthTopVoterDisplay().isEmpty());
+                assertTrue(plugin.getPreviousMonthTopVoterDisplay(month).isEmpty());
+            }
+            assertEquals(9000,calls.get());assertEquals(3000,current.size());
+            assertEquals(3000,last.size());assertEquals(3000,previous.size());
+        }
+    }
+
     private byte[] nativeHistory(UUID identity) throws Exception {
         var raw = new java.io.ByteArrayOutputStream();
         try (var data = new java.io.DataOutputStream(raw)) {

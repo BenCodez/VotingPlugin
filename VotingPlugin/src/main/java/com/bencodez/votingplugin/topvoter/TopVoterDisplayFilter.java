@@ -36,6 +36,8 @@ public final class TopVoterDisplayFilter implements AutoCloseable, Listener {
     private final Function<TopVoterPlayer, List<UUID>> identities;
     private final BiFunction<TopVoterPlayer, List<UUID>, CompletionStage<PlayerPresence>> lookup;
     private final LongSupplier clock;
+    private final LongSupplier rankingRowBudget;
+    private volatile int cacheLimit = MAX_CACHED;
     private final LinkedHashMap<Identity, Evidence> cache = new LinkedHashMap<>(16, 0.75f, true);
     private int pending;
     private boolean closed;
@@ -58,19 +60,48 @@ public final class TopVoterDisplayFilter implements AutoCloseable, Listener {
 
     public TopVoterDisplayFilter(Function<TopVoterPlayer, List<UUID>> identities,
             BiFunction<TopVoterPlayer, List<UUID>, CompletionStage<PlayerPresence>> lookup, LongSupplier clock) {
+        this(identities, lookup, clock, () -> 0L);
+    }
+
+    /** The owner supplies the row count already retained in current and historical ranking maps. */
+    public TopVoterDisplayFilter(Function<TopVoterPlayer, List<UUID>> identities,
+            BiFunction<TopVoterPlayer, List<UUID>, CompletionStage<PlayerPresence>> lookup, LongSupplier clock,
+            LongSupplier rankingRowBudget) {
         this.identities = Objects.requireNonNull(identities);
         this.lookup = Objects.requireNonNull(lookup);
         this.clock = Objects.requireNonNull(clock);
+        this.rankingRowBudget = Objects.requireNonNull(rankingRowBudget);
     }
 
     /** Pending, failed, missing or stale evidence remains visible until a checked result arrives. */
     public LinkedHashMap<TopVoterPlayer, Integer> project(Map<TopVoterPlayer, Integer> rankings, boolean enabled) {
+        if (enabled) reserveRankingRows(rankings.size());
         var visible = new LinkedHashMap<TopVoterPlayer, Integer>();
         for (var entry : rankings.entrySet()) {
             if (!enabled || evidence(entry.getKey()) != PlayerPresence.NEVER_JOINED)
                 visible.put(entry.getKey(), entry.getValue());
         }
         return visible;
+    }
+
+    private void reserveRankingRows(int rows) {
+        long requested = rows;
+        // Read owner state outside the evidence monitor. A racing replacement may leave
+        // a temporary unknown budget; keep the previous bound until the next refresh.
+        try { requested = Math.max(requested, rankingRowBudget.getAsLong()); }
+        catch (RuntimeException unavailable) { requested = Math.max(requested, cacheLimit); }
+        synchronized (cache) {
+            cacheLimit = (int) Math.min(Integer.MAX_VALUE, Math.max(MAX_CACHED, requested));
+            trimCompletedEvidence(cacheLimit);
+        }
+    }
+
+    /** Called under cache; in-flight requests retain their bounded admission until completion. */
+    private void trimCompletedEvidence(int limit) {
+        var oldest = cache.entrySet().iterator();
+        while (cache.size() > limit && oldest.hasNext()) {
+            if (!oldest.next().getValue().pending) oldest.remove();
+        }
     }
 
     /** Await admitted checks without blocking their worker; unavailable rows stay visible. */
@@ -118,11 +149,8 @@ public final class TopVoterDisplayFilter implements AutoCloseable, Listener {
             if (!reuse) {
                 if (pending >= MAX_PENDING) return PlayerPresence.UNKNOWN;
                 if (record != null) cache.remove(key);
-                if (cache.size() >= MAX_CACHED) {
-                    var oldest = cache.entrySet().iterator();
-                    while (oldest.hasNext()) if (!oldest.next().getValue().pending) { oldest.remove(); break; }
-                }
-                if (cache.size() >= MAX_CACHED) return PlayerPresence.UNKNOWN;
+                if (cache.size() >= cacheLimit) trimCompletedEvidence(cacheLimit - 1);
+                if (cache.size() >= cacheLimit) return PlayerPresence.UNKNOWN;
                 record = new Evidence(); cache.put(key, record); pending++;
                 record.joinGeneration = joinGeneration;
                 record.snapshot = new TopVoterPlayer(key.uuid(), key.name(), player.getLastVoteTime());
@@ -202,6 +230,7 @@ public final class TopVoterDisplayFilter implements AutoCloseable, Listener {
                 if (!currentScope) cache.remove(key, record);
                 else { record.value = result; record.completed = clock.getAsLong(); }
             }
+            trimCompletedEvidence(cacheLimit);
         }
         // Completion may invoke projection callbacks, which resolve aliases outside this monitor.
         record.settled.complete(null);

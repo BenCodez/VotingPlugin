@@ -186,16 +186,19 @@ public class DiscordHandler {
 						}
 						// Joins and TTL/scope changes can revoke omissions while publication is queued.
 						// Recheck current evidence without opening another asynchronous deadline.
-						if (again || (failure == null && snapshot != null))
-							publishTopVoterMessage(top, plugin.getTopVoterDisplay(top));
-						else plugin.getLogger().warning("Unable to prepare Discord Top Voters: " + top);
+						if (again || (failure == null && snapshot != null)) {
+							try { publishTopVoterMessage(top, plugin.getTopVoterDisplay(top)); }
+							catch (RuntimeException unavailable) { warnLeaderboardFailure("preparing a current display for " + top); }
+						} else plugin.getLogger().warning("Unable to prepare Discord Top Voters: " + top);
 					});
 				} catch (RuntimeException rejected) {
 					synchronized (preparing) { preparing.remove(top, update); }
+					if (currentGeneration(update.generation)) warnLeaderboardFailure("preparation worker admission for " + top);
 				}
 			});
 		} catch (RuntimeException unavailable) {
 			synchronized (preparing) { preparing.remove(top, update); }
+			if (currentGeneration(update.generation)) warnLeaderboardFailure("preparing evidence for " + top);
 		}
 	}
 
@@ -203,8 +206,10 @@ public class DiscordHandler {
 		long generation = plugin.getTopVoterDisplayGeneration();
 		if (!currentGeneration(generation)) return;
 		boolean newMessage = plugin.getConfigFile().isDiscordSRVTopVoterNewMessageOnUpdate(top);
-		TextChannel channel = leaderboardChannel(plugin.getConfigFile().getDiscordSRVTopVoterChannel(top));
-		if (channel == null) return;
+		TextChannel channel;
+		try { channel = leaderboardChannel(plugin.getConfigFile().getDiscordSRVTopVoterChannel(top)); }
+		catch (RuntimeException unavailable) { warnLeaderboardFailure("channel lookup for " + top); return; }
+		if (channel == null) { warnLeaderboardFailure("missing channel for " + top); return; }
 		Publication publication;
 		long existingId;
 		synchronized (publications) {
@@ -219,12 +224,12 @@ public class DiscordHandler {
 		}
 		try {
 			var embed = buildTopVoterEmbed(plugin.getConfigFile().getDiscordSRVTopVoterTitle(top), plugin.getTopVoterDisplay(top)).build();
-			if (!current(top, publication)) { finish(top, publication, false); return; }
+			if (!current(top, publication)) { finish(top, publication); return; }
 			if (publication.sending) send(top, channel, publication, embed);
 			else channel.editMessageEmbedsById(existingId, embed).queue(
-					message -> finish(top, publication, true),
+					message -> finish(top, publication),
 					error -> handleMessageUpdateFailure(top, channel, publication, error));
-		} catch (RuntimeException unavailable) { finish(top, publication, false); }
+		} catch (RuntimeException unavailable) { failPublication(top, publication, "preparing or submitting a message"); }
 	}
 
 	private boolean current(TopVoter top, Publication publication) {
@@ -242,20 +247,32 @@ public class DiscordHandler {
 		return current(top, publication);
 	}
 
-	private void finish(TopVoter top, Publication publication, boolean flush) {
+	private void finish(TopVoter top, Publication publication) {
 		boolean again;
 		synchronized (publications) {
 			if (publications.get(top) != publication) return;
 			publications.remove(top);
 			again = publication.again;
 		}
-		if (flush && again) dispatchLeaderboard(publication.generation,
+		// A queued request is independent of whether the previous network operation succeeded.
+		if (again) dispatchLeaderboard(publication.generation,
 				() -> publishTopVoterMessage(top, plugin.getTopVoterDisplay(top)), () -> { });
+	}
+
+	private void warnLeaderboardFailure(String stage) {
+		// Provider exceptions can contain request URLs or message content. Report the phase only.
+		plugin.getLogger().warning("Unable to publish Discord Top Voters (" + stage
+				+ "). Check the Discord channel, permissions and configuration; a later update can retry.");
+	}
+
+	private void failPublication(TopVoter top, Publication publication, String stage) {
+		try { if (current(top, publication)) warnLeaderboardFailure(stage + " for " + top); }
+		finally { finish(top, publication); }
 	}
 
 	private void send(TopVoter top, TextChannel channel, Publication publication,
 			github.scarsz.discordsrv.dependencies.jda.api.entities.MessageEmbed embed) {
-		if (!current(top, publication)) { finish(top, publication, false); return; }
+		if (!current(top, publication)) { finish(top, publication); return; }
 		channel.sendMessageEmbeds(embed).queue(message -> {
 			synchronized (publications) {
 				if (publications.get(top) != publication || publication.completing) return;
@@ -270,9 +287,10 @@ public class DiscordHandler {
 					synchronized (publications) {
 						if (publications.get(top) == publication) topVoterMessageIds.put(top, id);
 					}
-				} finally { finish(top, publication, true); }
-			}, () -> finish(top, publication, false));
-		}, failure -> finish(top, publication, false));
+				} catch (RuntimeException failure) { warnLeaderboardFailure("storing a message ID for " + top); }
+				finally { finish(top, publication); }
+			}, () -> finish(top, publication));
+		}, failure -> failPublication(top, publication, "sending a message"));
 	}
 
 	TextChannel leaderboardChannel(long channelId) {
@@ -329,18 +347,26 @@ public class DiscordHandler {
 		if (!currentGeneration(generation)) { discarded.run(); return; }
 		try {
 			plugin.getTimer().execute(() -> {
-				if (currentGeneration(generation)) action.run(); else discarded.run();
+				try {
+					if (currentGeneration(generation)) action.run(); else discarded.run();
+				} catch (RuntimeException failure) {
+					try { if (currentGeneration(generation)) warnLeaderboardFailure("asynchronous publication"); }
+					finally { discarded.run(); }
+				}
 			});
-		} catch (RuntimeException rejected) { discarded.run(); }
+		} catch (RuntimeException rejected) {
+			try { if (currentGeneration(generation)) warnLeaderboardFailure("worker admission"); }
+			finally { discarded.run(); }
+		}
 	}
 
 	private void handleMessageUpdateFailure(TopVoter top, TextChannel channel, Publication publication,
 			Throwable error) {
-		if (!current(top, publication)) { finish(top, publication, false); return; }
+		if (!current(top, publication)) { finish(top, publication); return; }
 		if (!plugin.getConfigFile().isDiscordSRVTopVoterAutoRecoverMessageOnFailure()
 				|| !(error instanceof ErrorResponseException response)
 				|| response.getErrorResponse() != ErrorResponse.UNKNOWN_MESSAGE) {
-			finish(top, publication, false);
+			failPublication(top, publication, "editing a message");
 			return;
 		}
 		synchronized (publications) {
@@ -350,7 +376,7 @@ public class DiscordHandler {
 		}
 		dispatchLeaderboard(publication.generation, () -> {
 			try {
-				if (!persist(top, publication, 0L)) { finish(top, publication, false); return; }
+				if (!persist(top, publication, 0L)) { finish(top, publication); return; }
 				synchronized (publications) {
 					if (publications.get(top) != publication) return;
 					topVoterMessageIds.put(top, 0L);
@@ -359,7 +385,7 @@ public class DiscordHandler {
 				var replacement = buildTopVoterEmbed(plugin.getConfigFile().getDiscordSRVTopVoterTitle(top),
 						plugin.getTopVoterDisplay(top)).build();
 				send(top, channel, publication, replacement);
-			} catch (RuntimeException failure) { finish(top, publication, false); }
+			} catch (RuntimeException failure) { failPublication(top, publication, "recovering a deleted message"); }
 		}, () -> {
 			// Rejected admission has no effects; the same failed edit may be retried.
 			synchronized (publications) {

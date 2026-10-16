@@ -22,7 +22,10 @@ joined. Ordinary online-only history still supports negative results; unmapped m
 visible. Older SDKs preserve positive history but cannot certify this wider negative scope.
 
 Pending results remain visible until a later display refresh. Evidence is cached for up to 30 seconds,
-with at most 128 requests in flight and 8,192 cached identities. Saturation and failures retain rows.
+with at most 128 requests in flight. Evidence capacity starts at 8,192 identities and grows to the
+row count already loaded across current, last-month and historical ranking maps. Unlimited boards
+therefore retain fresh checked evidence without cycling it out on each projection; removed boards
+reduce the capacity on later projections. Saturation and failures retain rows.
 Negative evidence revalidates the exact current cache-only identity scope, including uncertainty markers,
 at completion and display. Joins invalidate matching negative/pending evidence; reload and shutdown retire the display generation.
 Checked historical aliases are included in join invalidation even after a name change. Discord prepares

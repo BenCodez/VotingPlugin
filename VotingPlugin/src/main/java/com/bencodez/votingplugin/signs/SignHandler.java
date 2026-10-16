@@ -87,6 +87,11 @@ public class SignHandler {
 
 	private void updateSkull(SkullFrame frame, Location target, Runnable absent) {
 		onOwner(frame, target, () -> {
+			Block block = target.getBlock();
+			if (!(block.getState() instanceof Skull)) {
+				if (absent != null) absent.run();
+				return;
+			}
 			String name = frame.name(); UUID identity = frame.identity();
 			// Queued region work may outlive the evidence used by the sign render.
 			TopVoter period = displayPeriod();
@@ -97,7 +102,7 @@ public class SignHandler {
 				} else { name = "No Player"; identity = null; }
 			}
 			if (!current(frame)) return;
-			if (!checkSkull(target.getBlock(), name, identity, frame) && absent != null) absent.run();
+			if (!checkSkull(block, name, identity, frame) && absent != null) absent.run();
 		});
 	}
 

@@ -547,9 +547,20 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		var filter = new com.bencodez.votingplugin.topvoter.TopVoterDisplayFilter(row ->
 				com.bencodez.votingplugin.topvoter.TopVoterPresenceIdentity
 						.identities(row, onlineMode, UuidLookup.getInstance()::getCachedUUID),
-				(row, aliases) -> checkTopVoterPresence(aliases, onlineMode));
+				(row, aliases) -> checkTopVoterPresence(aliases, onlineMode), System::nanoTime,
+				this::topVoterDisplayRankingRows);
 		registerEvents(filter);
 		topVoterDisplayFilter = filter;
+	}
+
+	/** Cache capacity follows already loaded rankings, including disjoint historical identities. */
+	private long topVoterDisplayRankingRows() {
+		var state = topVoterState;
+		if (state == null) return 0L;
+		long rows = state.getLastMonthTopVoters().size();
+		for (var board : state.getTopVoters().values()) if (board != null) rows += board.size();
+		for (var board : state.getPreviousMonthsTopVoters().values()) if (board != null) rows += board.size();
+		return rows;
 	}
 
 	private java.util.concurrent.CompletionStage<com.bencodez.advancedcore.api.user.presence.PlayerPresence>

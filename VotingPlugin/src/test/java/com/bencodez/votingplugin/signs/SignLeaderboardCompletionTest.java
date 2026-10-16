@@ -69,6 +69,12 @@ class SignLeaderboardCompletionTest {
         }
         public void close() { filter.close(); service.close(); }
     }
+    @Test void nonSkullTargetDoesNotProjectTheWholeLeaderboard() {
+        try(var f=new Fixture()) {
+            clearInvocations(f.plugin);f.handler.checkSkulls();
+            verify(f.plugin,never()).getTopVoterDisplay(any());
+        }
+    }
     @Test void signOnlyRefreshCompletesAfterLookupEvenWhenRefreshIntervalExceedsEvidenceTtl() {
         try (var f = new Fixture()) {
             for (int round = 0; round < 2; round++) {

@@ -39,6 +39,7 @@ class DiscordLeaderboardCompletionTest {
         Fixture() {
             raw.put(never, 100); raw.put(joined, 90);
             when(plugin.isEnabled()).thenReturn(true);
+            when(plugin.getLogger()).thenReturn(mock(java.util.logging.Logger.class));
             when(plugin.getServerData()).thenReturn(mock(ServerData.class));
             when(plugin.getTopVoterDisplayGeneration()).thenAnswer(call -> generation.get());
             when(plugin.getTopVoterDisplayAsync(any())).thenAnswer(call -> filter.projectAsync(raw, true));
@@ -53,6 +54,17 @@ class DiscordLeaderboardCompletionTest {
             while (!worker.isEmpty()) { assertTrue(bound-- > 0, "Completion must not retry indefinitely"); worker.remove().run(); }
         }
         @Override public void close() { filter.close(); service.close(); }
+    }
+
+    @Test void asynchronousProjectionFailureHasARedactedDiagnosticAndReleasesPreparation() {
+        try(var f=new Fixture()) {
+            doThrow(new IllegalStateException("synthetic-private-detail")).when(f.plugin).getTopVoterDisplay(any());
+            f.handler.updateTopVoterMessageId(TopVoter.Monthly);assertDoesNotThrow(f::drain);
+            verify(f.plugin.getLogger()).warning(argThat((String text)->text.contains("Discord")&&!text.contains("synthetic-private-detail")));
+            assertEquals(0,f.handler.posts);
+            doAnswer(call->f.filter.project(f.raw,true)).when(f.plugin).getTopVoterDisplay(any());
+            f.handler.updateTopVoterMessageId(TopVoter.Monthly);f.drain();assertEquals(1,f.handler.posts);
+        }
     }
 
     @Test void freshAndExpiredUpdatesOnPresenceWorkerPublishOnlyCompletedProjection() {

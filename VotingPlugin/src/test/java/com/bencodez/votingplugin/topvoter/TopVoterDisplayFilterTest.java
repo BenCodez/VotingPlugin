@@ -79,6 +79,40 @@ class TopVoterDisplayFilterTest {
         }
     }
 
+    @Test void unlimitedBoardReusesEveryFreshEvidenceRowWithoutFlickerOrRepeatedReads() {
+        var calls=new AtomicInteger();var pending=new java.util.concurrent.atomic.AtomicBoolean();
+        var raw=new LinkedHashMap<TopVoterPlayer,Integer>();
+        for(int id=0;id<10000;id++)raw.put(row(id),id);
+        try(var filter=new TopVoterDisplayFilter(player->{calls.incrementAndGet();return pending.get()
+                ?new CompletableFuture<>():CompletableFuture.completedStage(PlayerPresence.NEVER_JOINED);},()->0L)) {
+            assertTrue(filter.project(raw,true).isEmpty());assertEquals(10000,calls.get());pending.set(true);
+            assertTrue(filter.project(raw,true).isEmpty(),"Fresh negatives must not flicker during an unchanged projection");
+            assertEquals(10000,calls.get());assertEquals(10000,raw.size());
+        }
+    }
+
+    @Test void loadedCurrentAndHistoricalBoardsShareAStableBudgetAndStillExpireOrInvalidate() {
+        var calls=new AtomicInteger();var time=new AtomicLong();var budget=new AtomicLong(20000);
+        var current=new LinkedHashMap<TopVoterPlayer,Integer>();var historical=new LinkedHashMap<TopVoterPlayer,Integer>();
+        for(int id=0;id<10000;id++){current.put(row(id),id);historical.put(row(id+10000),id);}
+        try(var filter=new TopVoterDisplayFilter(player->java.util.List.of(player.getUuid()),
+                (player,aliases)->{calls.incrementAndGet();return CompletableFuture.completedStage(PlayerPresence.NEVER_JOINED);},
+                time::get,budget::get)) {
+            assertTrue(filter.project(current,true).isEmpty());assertTrue(filter.project(historical,true).isEmpty());
+            assertEquals(20000,calls.get());
+            for(int i=0;i<3;i++){assertTrue(filter.project(current,true).isEmpty());assertTrue(filter.project(historical,true).isEmpty());}
+            assertEquals(20000,calls.get());
+            var joined=current.keySet().iterator().next();filter.joined(joined.getUuid(),joined.getPlayerName());
+            assertTrue(filter.project(current,true).isEmpty());assertEquals(20001,calls.get());
+            time.set(java.util.concurrent.TimeUnit.SECONDS.toNanos(31));
+            assertTrue(filter.project(current,true).isEmpty());assertEquals(30001,calls.get());
+            budget.set(0L);
+            assertTrue(filter.project(board(row(30000)),true).isEmpty());
+            var cache=TopVoterDisplayFilter.class.getDeclaredField("cache");cache.setAccessible(true);
+            assertTrue(((java.util.Map<?,?>)cache.get(filter)).size()<=8192,"Removing loaded boards restores the baseline retention bound");
+        }catch(ReflectiveOperationException failure){throw new AssertionError(failure);}
+    }
+
     @Test void exactCandidateAsyncPresenceServiceSuppliesCheckedDisplayEvidence() {
         var tasks = new java.util.ArrayDeque<Runnable>(); var first = row(1); var second = row(2); var raw = board(first, second);
         try (var service = new PlayerPresenceService(tasks::add,
