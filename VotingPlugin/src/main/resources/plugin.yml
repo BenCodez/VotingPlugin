@@ -195,3 +195,7 @@ permissions:
   VotingPlugin.Login.RemindVotes.All:
     description: Remind if player can vote on all votesites, rather than any
     default: false
+
+  VotingPlugin.Commands.Vote.DateEvents:
+    description: View owner-configured date event progress
+    default: false

@@ -137,7 +137,7 @@ class VotifierVoteOverflowQueueTest {
 	@Test
 	void retriesPersistenceAfterTransientWriteFailure(@TempDir Path temporaryDirectory) throws Exception {
 		Path dataFolder = temporaryDirectory.resolve("data");
-		Files.writeString(dataFolder, "temporarily blocking the data directory");
+		Files.createDirectory(dataFolder);
 		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
 		Logger logger = mock(Logger.class);
 		ScheduledExecutorService voteTimer = mock(ScheduledExecutorService.class);
@@ -148,12 +148,13 @@ class VotifierVoteOverflowQueueTest {
 				.when(voteTimer).submit(any(Runnable.class));
 
 		VotifierVoteOverflowQueue queue = new VotifierVoteOverflowQueue(plugin, (site, user) -> { });
+		// Fail publication after initialization establishes exclusive ownership.
+		Files.createDirectory(dataFolder.resolve("VotifierVoteQueue.yml"));
 		try {
 			assertTrue(queue.enqueue("Steve", "example.org"));
 			verify(logger, timeout(2_000)).warning(org.mockito.ArgumentMatchers.contains(
 					"Unable to persist queued Votifier votes"));
-			Files.delete(dataFolder);
-			Files.createDirectory(dataFolder);
+			Files.delete(dataFolder.resolve("VotifierVoteQueue.yml"));
 			waitForFile(dataFolder.resolve("VotifierVoteQueue.yml"));
 		} finally {
 			queue.close();
@@ -163,7 +164,7 @@ class VotifierVoteOverflowQueueTest {
 	@Test
 	void doesNotDrainUntilWriteFailureIsRecovered(@TempDir Path temporaryDirectory) throws Exception {
 		Path dataFolder = temporaryDirectory.resolve("data");
-		Files.writeString(dataFolder, "temporarily blocking the data directory");
+		Files.createDirectory(dataFolder);
 		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
 		Logger logger = mock(Logger.class);
 		ScheduledExecutorService voteTimer = mock(ScheduledExecutorService.class);
@@ -177,6 +178,8 @@ class VotifierVoteOverflowQueueTest {
 		}).when(voteTimer).submit(any(Runnable.class));
 
 		VotifierVoteOverflowQueue queue = new VotifierVoteOverflowQueue(plugin, (site, user) -> { });
+		// Fail publication after initialization establishes exclusive ownership.
+		Files.createDirectory(dataFolder.resolve("VotifierVoteQueue.yml"));
 		try {
 			assertTrue(queue.enqueue("Steve", "example.org"));
 			queue.start();
@@ -184,8 +187,7 @@ class VotifierVoteOverflowQueueTest {
 					"Unable to persist queued Votifier votes"));
 			verify(voteTimer, org.mockito.Mockito.never()).submit(any(Runnable.class));
 
-			Files.delete(dataFolder);
-			Files.createDirectory(dataFolder);
+			Files.delete(dataFolder.resolve("VotifierVoteQueue.yml"));
 			waitForFile(dataFolder.resolve("VotifierVoteQueue.yml"));
 			assertTrue(submissionAccepted.await(2, TimeUnit.SECONDS),
 					"queued vote was not admitted after persistence recovered");
@@ -254,6 +256,99 @@ class VotifierVoteOverflowQueueTest {
 			restarted.close();
 		}
 	}
+
+    @Test
+    void legacyRowsReceiveDistinctDurableIdsBeforeDrainAndMalformedIdsFailClosed(@TempDir Path dataFolder) throws Exception {
+        VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+        ScheduledExecutorService voteTimer = Executors.newSingleThreadScheduledExecutor();
+        when(plugin.getDataFolder()).thenReturn(dataFolder.toFile());
+        when(plugin.getVoteTimer()).thenReturn(voteTimer);
+        Path file = dataFolder.resolve("VotifierVoteQueue.yml");
+        Files.writeString(file, """
+                Votes:
+                - {Username: Steve, ServiceSite: example.org, Time: 123}
+                - {Username: Steve, ServiceSite: example.org, Time: 123}
+                - {Username: Steve, ServiceSite: example.org, Time: 123, LocalOccurrenceId: bad}
+                - {Username: Steve, ServiceSite: example.org, Time: 123, LocalOccurrenceId: 1-1-1-1-1}
+                - {Username: Steve, ServiceSite: example.org, Time: 123, LocalOccurrenceId: 12}
+                """);
+        var received = new java.util.concurrent.CopyOnWriteArrayList<java.util.UUID>();
+        var done = new CountDownLatch(2);
+        VotifierVoteOverflowQueue queue = new VotifierVoteOverflowQueue(plugin,
+                (site, user, time, id) -> { received.add(id); done.countDown(); }, () -> true);
+        try {
+            assertEquals(2, queue.size());
+            // Closing before admission forces the automatic legacy migration to disk.
+            queue.close();
+            var durable = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(file.toFile()).getMapList("Votes");
+            assertEquals(2, durable.size());
+            var expected = durable.stream().map(row -> java.util.UUID.fromString((String) row.get("LocalOccurrenceId"))).toList();
+            assertEquals(2, expected.stream().distinct().count(), "identical historical receipt fields are distinct rows");
+            try (var restarted = new VotifierVoteOverflowQueue(plugin, (site, user, time, id) -> {
+                var admitted = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(file.toFile()).getMapList("Votes");
+                assertTrue(admitted.stream().anyMatch(row -> id.toString().equals(row.get("LocalOccurrenceId"))),
+                        "the occurrence must be published before admission");
+                assertEquals(123L, time);
+                received.add(id); done.countDown();
+            }, () -> true)) {
+                restarted.start();
+                assertTrue(done.await(3, TimeUnit.SECONDS));
+                assertEquals(expected, received);
+            }
+        } finally { queue.close(); voteTimer.shutdownNow(); }
+    }
+
+    @Test
+    void asyncLoadingPreservesFullRecoveredQueueAndRejectsNewTransfers(@TempDir Path dataFolder) throws Exception {
+        VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+        when(plugin.getDataFolder()).thenReturn(dataFolder.toFile());
+        when(plugin.getLogger()).thenReturn(Logger.getAnonymousLogger());
+        try (var seed = new VotifierVoteOverflowQueue(plugin, (site, user) -> { })) {
+            for (int index = 0; index < 256; index++) assertTrue(seed.enqueue("Steve", "example.org", 123L));
+            org.junit.jupiter.api.Assertions.assertFalse(seed.enqueue("Steve", "example.org", 123L));
+        }
+        var before = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(dataFolder.resolve("VotifierVoteQueue.yml").toFile()).getMapList("Votes");
+        var transferred = new java.util.concurrent.CompletableFuture<Boolean>();
+        try (var resumed = VotifierVoteOverflowQueue.initializeAsync(plugin, (site, user, time, id) -> { }, () -> false)) {
+            resumed.enqueueAfterInitialization("Alex", "new.example.org", 456L, java.util.UUID.randomUUID(), transferred::complete);
+            org.junit.jupiter.api.Assertions.assertFalse(transferred.get(3, TimeUnit.SECONDS));
+            assertEquals(256, resumed.size());
+        }
+        var after = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(dataFolder.resolve("VotifierVoteQueue.yml").toFile()).getMapList("Votes");
+        assertEquals(before, after, "recovered identities must not be overwritten or truncated");
+    }
+
+    @Test
+    void asyncUnreadableStoreRejectsTransferAndClosePreservesOriginalFile(@TempDir Path dataFolder) throws Exception {
+        VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+        when(plugin.getDataFolder()).thenReturn(dataFolder.toFile());
+        when(plugin.getLogger()).thenReturn(Logger.getAnonymousLogger());
+        Path file = dataFolder.resolve("VotifierVoteQueue.yml");
+        String corrupt = "Votes: {not: a-list}\n"; Files.writeString(file, corrupt);
+        var transferred = new java.util.concurrent.CompletableFuture<Boolean>();
+        try (var queue = VotifierVoteOverflowQueue.initializeAsync(plugin, (site, user, time, id) -> { }, () -> false)) {
+            queue.enqueueAfterInitialization("Steve", "example.org", 456L, java.util.UUID.randomUUID(), transferred::complete);
+            org.junit.jupiter.api.Assertions.assertFalse(transferred.get(3, TimeUnit.SECONDS));
+        }
+        assertEquals(corrupt, Files.readString(file));
+    }
+
+    @Test
+    void overCapacityRecoveredStoreFailsClosedWithoutTruncation(@TempDir Path dataFolder) throws Exception {
+        VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+        when(plugin.getDataFolder()).thenReturn(dataFolder.toFile());
+        when(plugin.getLogger()).thenReturn(Logger.getAnonymousLogger());
+        Path file = dataFolder.resolve("VotifierVoteQueue.yml");
+        String original = "Votes:\n" + ("- {Username: Steve, ServiceSite: example.org, Time: 123}\n").repeat(513);
+        Files.writeString(file, original);
+        var transferred = new java.util.concurrent.CompletableFuture<Boolean>();
+        try (var queue = VotifierVoteOverflowQueue.initializeAsync(plugin, (site, user, time, id) -> { }, () -> false)) {
+            queue.enqueueAfterInitialization("Alex", "new.example.org", 456L, java.util.UUID.randomUUID(), transferred::complete);
+            org.junit.jupiter.api.Assertions.assertFalse(transferred.get(3, TimeUnit.SECONDS));
+            assertEquals(0, queue.size(), "an over-capacity file cannot be partially admitted");
+        }
+        assertEquals(original, Files.readString(file));
+    }
 
 	private static void waitForFile(Path file) throws Exception {
 		long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);

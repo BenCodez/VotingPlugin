@@ -5,11 +5,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.times;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 
 import java.nio.file.Path;
-import java.util.UUID;
 import java.util.ArrayList;
 import org.mockito.ArgumentCaptor;
 import java.util.logging.Logger;
@@ -35,15 +33,15 @@ class ServiceSiteVoteLoggingRegressionTest {
 		String[] services = { "Minecraft-MP.com", "PlanetMinecraft.com", "Minecraft Servers", "R&D",
 				"Top100Servers.net", "Safe\nName", "Safe\u2060Name", null };
 		for (String service : services) {
-			processBungeeVote(plugin, service, "player.name");
+			PendingIncomingVote pending = processBungeeVote(plugin, service, "player.name");
 			verify(runtime).vote(eq("player.name"), eq(service), eq(true), eq(true), eq(0L), eq(null), eq(null),
-					any(UUID.class));
+					eq(pending.getVoteId()), eq(pending.getAcceptedAt()));
 
 		}
 		String longService = "x".repeat(140);
-		processBungeeVote(plugin, longService, "example_player");
+		PendingIncomingVote pending = processBungeeVote(plugin, longService, "example_player");
 		verify(runtime).vote(eq("example_player"), eq(longService), eq(true), eq(true), eq(0L), eq(null), eq(null),
-				any(UUID.class));
+				eq(pending.getVoteId()), eq(pending.getAcceptedAt()));
 		assertReceiptLogs(logger, services);
 	}
 
@@ -59,15 +57,15 @@ class ServiceSiteVoteLoggingRegressionTest {
 			String[] services = { "Minecraft-MP.com", "PlanetMinecraft.com", "Minecraft Servers", "R&D",
 					"Top100Servers.net", "Safe\nName", "Safe\u2060Name", null };
 			for (String service : services) {
-				processVelocityVote(plugin, service, "player.name");
+				PendingIncomingVote pending = processVelocityVote(plugin, service, "player.name");
 				verify(runtime).vote(eq("player.name"), eq(service), eq(true), eq(false), eq(0L), eq(null), eq(null),
-					any(UUID.class));
+					eq(pending.getVoteId()), eq(pending.getAcceptedAt()));
 
 			}
 			String longService = "x".repeat(140);
-			processVelocityVote(plugin, longService, "example_player");
+			PendingIncomingVote pending = processVelocityVote(plugin, longService, "example_player");
 			verify(runtime).vote(eq("example_player"), eq(longService), eq(true), eq(false), eq(0L), eq(null), eq(null),
-					any(UUID.class));
+					eq(pending.getVoteId()), eq(pending.getAcceptedAt()));
 			ArgumentCaptor<String> logs = ArgumentCaptor.forClass(String.class);
 			verify(logger, times(services.length + 1)).info(logs.capture());
 			assertEquals(expectedReceiptLogs(services), logs.getAllValues());
@@ -97,16 +95,18 @@ class ServiceSiteVoteLoggingRegressionTest {
 		setField(plugin, "runtimeOperational", true);
 	}
 
-	private static void processBungeeVote(VotingPluginBungee plugin, String service, String player) throws Exception {
+	private static PendingIncomingVote processBungeeVote(VotingPluginBungee plugin, String service, String player) throws Exception {
 		PendingIncomingVote pending = ((PendingIncomingVoteQueue) getField(plugin, "pendingIncomingVotes"))
 				.admit(player, service);
 		invokePendingProcessor(plugin, pending);
+		return pending;
 	}
 
-	private static void processVelocityVote(VotingPluginVelocity plugin, String service, String player) throws Exception {
+	private static PendingIncomingVote processVelocityVote(VotingPluginVelocity plugin, String service, String player) throws Exception {
 		PendingIncomingVote pending = ((PendingIncomingVoteQueue) getField(plugin, "pendingIncomingVotes"))
 				.admit(player, service);
 		invokePendingProcessor(plugin, pending);
+		return pending;
 	}
 
 	private static void assertReceiptLogs(Logger logger, String[] services) {

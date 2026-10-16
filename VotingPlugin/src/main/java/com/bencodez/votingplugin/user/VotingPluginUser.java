@@ -1003,24 +1003,64 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			boolean wasOnline, boolean broadcast, int num, boolean queuedProxyVote,
 			boolean proxyDelayValidationKnown, boolean proxyQueueClassificationKnown, UUID proxyVoteId,
 			boolean targetedProxyVote) {
-		bungeeVotePluginMessagingEvent(service, time, text, setTotals, wasOnline, broadcast, num, queuedProxyVote,
-				proxyDelayValidationKnown, proxyQueueClassificationKnown, proxyVoteId, targetedProxyVote);
+		bungeeVotePluginMessaging(service, time, text, setTotals, wasOnline, broadcast, num, queuedProxyVote,
+				proxyDelayValidationKnown, proxyQueueClassificationKnown, proxyVoteId, targetedProxyVote, true);
 	}
 
-	/** Dispatches the proxy vote and returns its final cancellation state; null when proxy mode is disabled. */
+	/**
+	 * Normal event processing finished, but date accounting was not confirmed.
+	 * A router must finish its remaining normal effects before quarantining the envelope.
+	 */
+	public static final class DateMilestoneAccountingException extends IllegalStateException {
+		private static final long serialVersionUID = 1L;
+
+		private DateMilestoneAccountingException() {
+			super("Date milestone accounting is incomplete; retain the durable proxy envelope for reconciliation");
+		}
+	}
+
+	/** Preserve the canonical wire real/test flag; existing callers retain their historical real-vote default. */
+	public void bungeeVotePluginMessaging(String service, long time, VoteTotalsSnapshot text, boolean setTotals,
+			boolean wasOnline, boolean broadcast, int num, boolean queuedProxyVote,
+			boolean proxyDelayValidationKnown, boolean proxyQueueClassificationKnown, UUID proxyVoteId,
+			boolean targetedProxyVote, boolean realVote) {
+		bungeeVotePluginMessaging(service, time, text, setTotals, wasOnline, broadcast, num, queuedProxyVote,
+				proxyDelayValidationKnown, proxyQueueClassificationKnown, proxyVoteId, targetedProxyVote, realVote, time);
+	}
+
+	public void bungeeVotePluginMessaging(String service, long time, VoteTotalsSnapshot text, boolean setTotals,
+			boolean wasOnline, boolean broadcast, int num, boolean queuedProxyVote,
+			boolean proxyDelayValidationKnown, boolean proxyQueueClassificationKnown, UUID proxyVoteId,
+			boolean targetedProxyVote, boolean realVote, long canonicalOccurrenceTime) {
+		bungeeVotePluginMessagingEvent(service, time, text, setTotals, wasOnline, broadcast, num, queuedProxyVote,
+				proxyDelayValidationKnown, proxyQueueClassificationKnown, proxyVoteId, targetedProxyVote,
+				realVote, canonicalOccurrenceTime);
+	}
+
+	/** Dispatches a legacy proxy vote and returns its final cancellation state. */
 	public PlayerVoteEvent bungeeVotePluginMessagingEvent(String service, long time, VoteTotalsSnapshot text, boolean setTotals,
 			boolean wasOnline, boolean broadcast, int num, boolean queuedProxyVote,
 			boolean proxyDelayValidationKnown, boolean proxyQueueClassificationKnown, UUID proxyVoteId,
 			boolean targetedProxyVote) {
+		return bungeeVotePluginMessagingEvent(service, time, text, setTotals, wasOnline, broadcast, num, queuedProxyVote,
+				proxyDelayValidationKnown, proxyQueueClassificationKnown, proxyVoteId, targetedProxyVote, true, time);
+	}
+
+	/** Preserves occurrence provenance and returns final cancellation; null when proxy mode is disabled. */
+	public PlayerVoteEvent bungeeVotePluginMessagingEvent(String service, long time, VoteTotalsSnapshot text, boolean setTotals,
+			boolean wasOnline, boolean broadcast, int num, boolean queuedProxyVote,
+			boolean proxyDelayValidationKnown, boolean proxyQueueClassificationKnown, UUID proxyVoteId,
+			boolean targetedProxyVote, boolean realVote, long canonicalOccurrenceTime) {
 			if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			plugin.debug("Pluginmessaging vote for " + getPlayerName() + " on " + service);
 
 			PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSiteManager().getVoteSite(service, true),
-					getPlayerName(), service, true);
+					getPlayerName(), service, realVote);
 			voteEvent.setBungee(true);
 			voteEvent.setVotingPluginUser(this);
 			voteEvent.setForceBungee(true);
 			voteEvent.setTime(time);
+			voteEvent.setCanonicalOccurrenceTime(canonicalOccurrenceTime);
 			voteEvent.setAddTotals(setTotals);
 			voteEvent.setBungeeTextTotals(text);
 			voteEvent.setProxyVoteId(proxyVoteId);
@@ -1032,6 +1072,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 				voteEvent.setProxyDelayValidationKnown(proxyDelayValidationKnown);
 				voteEvent.setTargetedProxyVote(targetedProxyVote);
 				plugin.getServer().getPluginManager().callEvent(voteEvent);
+				if (voteEvent.isDateMilestoneAccountingFailed()) throw new DateMilestoneAccountingException();
 			return voteEvent;
 		}
 		return null;

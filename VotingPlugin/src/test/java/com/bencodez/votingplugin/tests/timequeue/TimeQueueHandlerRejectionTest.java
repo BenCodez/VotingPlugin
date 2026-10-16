@@ -108,4 +108,119 @@ class TimeQueueHandlerRejectionTest {
 				org.mockito.ArgumentMatchers.eq(TimeUnit.SECONDS));
 		assertEquals(1, handler.getTimeChangeQueue().size());
 	}
+
+    @Test
+    void actualCacheWriterAndReplayKeepProcessingAndOccurrenceClocksSeparate() throws Exception {
+        var stored = new org.bukkit.configuration.file.YamlConfiguration();
+        ServerData writer = org.mockito.Mockito.spy(new ServerData(plugin));
+        org.mockito.Mockito.doReturn(stored).when(writer).getData();
+        org.mockito.Mockito.doNothing().when(writer).saveData();
+        var captured = new com.bencodez.votingplugin.timequeue.VoteTimeQueue("Steve", "example.org", 789L);
+        java.util.UUID occurrenceId = java.util.UUID.randomUUID();
+        captured.setLocalOccurrenceId(occurrenceId);
+        captured.setCanonicalOccurrenceTime(456L);
+        writer.addTimeVoted(0, captured);
+        writer.addTimeVoted(1, new com.bencodez.votingplugin.timequeue.VoteTimeQueue("Alex", "example.org", 123L));
+        assertEquals(occurrenceId.toString(), stored.getString("TimedVoteCache.0.LocalOccurrenceId"));
+        assertEquals(789L, stored.getLong("TimedVoteCache.0.Time"));
+        assertEquals(456L, stored.getLong("TimedVoteCache.0.CanonicalOccurrenceTime"));
+        org.junit.jupiter.api.Assertions.assertFalse(stored.contains("TimedVoteCache.1.CanonicalOccurrenceTime"));
+        var restored = new org.bukkit.configuration.file.YamlConfiguration();
+        restored.loadFromString(stored.saveToString());
+        // Malformed optional metadata fails Date provenance, retaining ordinary replay.
+        restored.set("TimedVoteCache.2.Name", "Invalid"); restored.set("TimedVoteCache.2.Service", "example.org");
+        restored.set("TimedVoteCache.2.Time", 321L); restored.set("TimedVoteCache.2.CanonicalOccurrenceTime", "bad");
+        restored.set("TimedVoteCache.3.Name", "Corrupt"); restored.set("TimedVoteCache.3.Service", "example.org");
+        restored.set("TimedVoteCache.3.Time", 654L); restored.set("TimedVoteCache.3.LocalOccurrenceId", "bad");
+        restored.set("TimedVoteCache.4.Name", "ShortId"); restored.set("TimedVoteCache.4.Service", "example.org");
+        restored.set("TimedVoteCache.4.Time", 654L); restored.set("TimedVoteCache.4.LocalOccurrenceId", "1-1-1-1-1");
+        org.mockito.Mockito.doReturn(restored).when(writer).getData();
+        when(plugin.getServerData()).thenReturn(writer);
+        TimeQueueHandler handler = new TimeQueueHandler(plugin);
+        var replayed = new java.util.ArrayList<PlayerVoteEvent>();
+        var eventManager = plugin.getServer().getPluginManager();
+        org.mockito.Mockito.doAnswer(call -> { replayed.add(call.getArgument(0)); return null; })
+                .when(eventManager).callEvent(any());
+        var migratedId = handler.getTimeChangeQueue().stream().filter(vote -> "Alex".equals(vote.getName()))
+                .findFirst().orElseThrow().getLocalOccurrenceId();
+        assertEquals(migratedId.toString(), restored.getString("TimedVoteCache.1.LocalOccurrenceId"));
+        var secondResume = new TimeQueueHandler(plugin);
+        assertEquals(migratedId, secondResume.getTimeChangeQueue().stream().filter(vote -> "Alex".equals(vote.getName()))
+                .findFirst().orElseThrow().getLocalOccurrenceId());
+        handler.processQueue();
+        assertEquals(3, replayed.size());
+        var byName = replayed.stream().collect(java.util.stream.Collectors.toMap(PlayerVoteEvent::getPlayer, event -> event));
+        assertEquals(occurrenceId, byName.get("Steve").getLocalOccurrenceId());
+        org.junit.jupiter.api.Assertions.assertNull(byName.get("Steve").getProxyVoteId());
+        org.junit.jupiter.api.Assertions.assertFalse(byName.get("Steve").isBungee());
+        assertEquals(migratedId, byName.get("Alex").getLocalOccurrenceId());
+        assertEquals(789L, byName.get("Steve").getTime()); assertEquals(Long.valueOf(456L), byName.get("Steve").getCanonicalOccurrenceTime());
+        assertEquals(123L, byName.get("Alex").getTime()); org.junit.jupiter.api.Assertions.assertNull(byName.get("Alex").getCanonicalOccurrenceTime());
+        assertEquals(321L, byName.get("Invalid").getTime()); assertEquals(Long.valueOf(-1L), byName.get("Invalid").getCanonicalOccurrenceTime());
+    }
+
+    @Test
+    void actualAdmissionSaveAndRestartReplayRetainLocalId() throws Exception {
+        var stored = new org.bukkit.configuration.file.YamlConfiguration();
+        ServerData writer = org.mockito.Mockito.spy(new ServerData(plugin));
+        org.mockito.Mockito.doReturn(stored).when(writer).getData();
+        org.mockito.Mockito.doNothing().when(writer).saveData();
+        when(plugin.getServerData()).thenReturn(writer);
+        TimeQueueHandler original = new TimeQueueHandler(plugin);
+        java.util.UUID occurrenceId = java.util.UUID.randomUUID();
+        original.addVote("Steve", "example.org", 456L, occurrenceId);
+        long queueTime = original.getTimeChangeQueue().element().getTime();
+        original.save();
+        var restored = new org.bukkit.configuration.file.YamlConfiguration();
+        restored.loadFromString(stored.saveToString());
+        org.mockito.Mockito.doReturn(restored).when(writer).getData();
+        TimeQueueHandler resumed = new TimeQueueHandler(plugin);
+        org.mockito.ArgumentCaptor<PlayerVoteEvent> replay = org.mockito.ArgumentCaptor.forClass(PlayerVoteEvent.class);
+        resumed.processQueue();
+        verify(plugin.getServer().getPluginManager()).callEvent(replay.capture());
+        assertEquals(occurrenceId, replay.getValue().getLocalOccurrenceId());
+        assertEquals(queueTime, replay.getValue().getTime());
+        assertEquals(Long.valueOf(456L), replay.getValue().getCanonicalOccurrenceTime());
+        org.junit.jupiter.api.Assertions.assertNull(replay.getValue().getProxyVoteId());
+    }
+
+    @Test
+    void legacyTimedIdsAreStableEvenIfSaveHasNotPublishedAndIdenticalRowsRemainDistinct() throws Exception {
+        var legacy = new org.bukkit.configuration.file.YamlConfiguration();
+        for (String key : java.util.List.of("0", "1")) {
+            legacy.set("TimedVoteCache." + key + ".Name", "Steve");
+            legacy.set("TimedVoteCache." + key + ".Service", "example.org");
+            legacy.set("TimedVoteCache." + key + ".Time", 123L);
+        }
+        String beforeMigration = legacy.saveToString();
+        ServerData writer = org.mockito.Mockito.spy(new ServerData(plugin));
+        org.mockito.Mockito.doReturn(legacy).when(writer).getData();
+        org.mockito.Mockito.doNothing().when(writer).saveData();
+        when(plugin.getServerData()).thenReturn(writer);
+        var first = new TimeQueueHandler(plugin).getTimeChangeQueue().stream()
+                .map(com.bencodez.votingplugin.timequeue.VoteTimeQueue::getLocalOccurrenceId).toList();
+        assertEquals(2, first.stream().distinct().count());
+        org.mockito.Mockito.verify(writer, org.mockito.Mockito.times(2)).saveData();
+        // Simulate a restart that sees only the old on-disk representation.
+        var unpublished = new org.bukkit.configuration.file.YamlConfiguration();
+        unpublished.loadFromString(beforeMigration);
+        org.mockito.Mockito.doReturn(unpublished).when(writer).getData();
+        var second = new TimeQueueHandler(plugin).getTimeChangeQueue().stream()
+                .map(com.bencodez.votingplugin.timequeue.VoteTimeQueue::getLocalOccurrenceId).toList();
+        assertEquals(first, second);
+    }
+
+    @Test
+    void timeChangeAdmissionPreservesCapturedReceiptWithoutReplacingQueueTime() {
+        when(serverData.getTimedVoteCacheKeys()).thenReturn(Set.of());
+        TimeQueueHandler handler = new TimeQueueHandler(plugin);
+        java.util.UUID occurrenceId = java.util.UUID.randomUUID();
+        long before = System.currentTimeMillis(); handler.addVote("Steve", "example.org", 456L, occurrenceId); long after = System.currentTimeMillis();
+        var queued = handler.getTimeChangeQueue().element();
+        org.junit.jupiter.api.Assertions.assertTrue(queued.getTime() >= before && queued.getTime() <= after);
+        assertEquals(456L, queued.getCanonicalOccurrenceTime());
+        assertEquals(occurrenceId, queued.getLocalOccurrenceId());
+        org.junit.jupiter.api.Assertions.assertNull(queued.getVoteId());
+    }
+
 }

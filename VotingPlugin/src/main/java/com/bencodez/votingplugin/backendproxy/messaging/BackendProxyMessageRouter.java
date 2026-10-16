@@ -569,7 +569,8 @@ public class BackendProxyMessageRouter {
 		}
 
 		String totalsRaw = nvl(fields.get(VotingPluginWire.K_TOTALS));
-		VoteTotalsSnapshot totals = totalsRaw.isEmpty() ? null : VoteTotalsSnapshot.parseStorage(totalsRaw);
+		VoteTotalsSnapshot totals = !com.bencodez.votingplugin.proxy.VoteOccurrenceMetadata.hasPayload(totalsRaw)
+                ? null : VoteTotalsSnapshot.parseStorage(totalsRaw);
 		VoteSite voteSite = plugin.getVoteSiteManager()
 				.getVoteSite(plugin.getVoteSiteManager().getVoteSiteName(true, service), true);
 		if (voteSite == null) {
@@ -715,16 +716,29 @@ public class BackendProxyMessageRouter {
 		user.cache();
 		boolean wasOnline = vote.wasOnlineKnown ? vote.wasOnline : user.isOnline();
 		boolean queuedDelivery = vote.queuedDeliveryKnown ? vote.queuedDelivery : vote.delayValidated;
-		var event = user.bungeeVotePluginMessagingEvent(vote.service, vote.time, totals, !vote.manageTotals,
-				wasOnline, vote.broadcast, vote.num, queuedDelivery, vote.delayValidationKnown,
-				vote.queuedDeliveryKnown, voteId,
-				VotingPluginWire.SUB_VOTE_ONLINE.equals(msg.getSubChannel()));
-		if ((event == null || !event.isCancelled()) && plugin.getBungeeSettings().isPerServerPoints()) {
+		com.bencodez.votingplugin.events.PlayerVoteEvent dispatchedEvent = null;
+		VotingPluginUser.DateMilestoneAccountingException dateAccountingFailure = null;
+		try {
+			// Keep totals correlation for replay fencing, but only the original wire ID
+			// identifies a canonical transport occurrence in the native event.
+			dispatchedEvent = user.bungeeVotePluginMessagingEvent(vote.service, vote.time, totals, !vote.manageTotals,
+					wasOnline, vote.broadcast, vote.num, queuedDelivery, vote.delayValidationKnown,
+					vote.queuedDeliveryKnown, vote.voteId,
+					VotingPluginWire.SUB_VOTE_ONLINE.equals(msg.getSubChannel()), vote.realVote,
+					vote.canonicalOccurrenceTime);
+		} catch (VotingPluginUser.DateMilestoneAccountingException incomplete) {
+			dateAccountingFailure = incomplete;
+		}
+		if ((dispatchedEvent == null || !dispatchedEvent.isCancelled())
+				&& plugin.getBungeeSettings().isPerServerPoints()) {
 			user.addPoints(plugin.getConfigFile().getPointsOnVote());
 		}
 		if (vote.service != null && !vote.service.isEmpty()) {
 			plugin.getServerData().addServiceSite(vote.service);
 		}
+		// Date accounting cannot suppress normal points/service observations. Keep
+		// the reservation incomplete so reconciliation cannot replay normal rewards.
+		if (dateAccountingFailure != null) throw dateAccountingFailure;
 		return new WireVoteResult(voteId, true, false);
 	}
 
