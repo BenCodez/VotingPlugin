@@ -4292,6 +4292,8 @@ public class CommandLoader {
 			new VoteBest(plugin, player, user).open();
 		} else if (MessageAPI.startsWithIgnoreCase(slot, "streak")) {
 			new VoteStreak(plugin, player, user).open();
+		} else if (MessageAPI.startsWithIgnoreCase(slot, "streaks")) {
+			 plugin.getVoteStreaksMenu().open(player);
 		}
 	}
 
