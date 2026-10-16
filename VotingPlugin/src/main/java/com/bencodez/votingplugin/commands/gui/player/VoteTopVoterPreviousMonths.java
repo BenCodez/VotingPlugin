@@ -60,7 +60,7 @@ public class VoteTopVoterPreviousMonths extends GUIHandler {
 			return;
 		}
 
-		Set<Entry<TopVoterPlayer, Integer>> users = plugin.getPreviousMonthsTopVoters().get(yearMonth).entrySet();
+		Set<Entry<TopVoterPlayer, Integer>> users = plugin.getPreviousMonthTopVoterDisplay(yearMonth).entrySet();
 
 		com.bencodez.simpleapi.dialog.MultiActionDialogBuilder dialog = plugin.getDialogService().multiAction(player)
 				.placeholder("player", user.getPlayerName())
@@ -160,7 +160,7 @@ public class VoteTopVoterPreviousMonths extends GUIHandler {
 			player.sendMessage(ChatColor.RED + "Can't open previous months, no data");
 			return;
 		}
-		users = plugin.getPreviousMonthsTopVoters().get(yearMonth).entrySet();
+		users = plugin.getPreviousMonthTopVoterDisplay(yearMonth).entrySet();
 
 		BInventory inv = new BInventory(plugin.getGui().getChestVoteTopName());
 		inv.addPlaceholder("topvoter", yearMonth.toString());
