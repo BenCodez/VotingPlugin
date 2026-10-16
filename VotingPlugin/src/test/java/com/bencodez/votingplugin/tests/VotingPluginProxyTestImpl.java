@@ -1,5 +1,7 @@
 package com.bencodez.votingplugin.tests;
 
+import com.bencodez.votingplugin.tests.support.ReflectiveAccess;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -496,7 +498,7 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 						HttpProxyTransportServer.DeliveryRetryException.class
 								.getDeclaredConstructor(String.class, Throwable.class);
 				constructor.setAccessible(true);
-				throw constructor.newInstance(generatedHttpRetryId, new IllegalStateException("publication ambiguous"));
+				throw ReflectiveAccess.newInstance(constructor, new Object[]{generatedHttpRetryId, new IllegalStateException("publication ambiguous")});
 			} catch (ReflectiveOperationException failure) {
 				throw new AssertionError(failure);
 			}
@@ -557,7 +559,7 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 					HttpProxyTransportServer.DeliveryRetryException.class
 							.getDeclaredConstructor(String.class, Throwable.class);
 			constructor.setAccessible(true);
-			return constructor.newInstance(deliveryId, new IllegalStateException("publication ambiguous"));
+			return ReflectiveAccess.newInstance(constructor, new Object[]{deliveryId, new IllegalStateException("publication ambiguous")});
 		} catch (ReflectiveOperationException failure) {
 			throw new AssertionError(failure);
 		}
@@ -628,7 +630,7 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 		try {
 			java.lang.reflect.Field field = VotingPluginProxy.class.getDeclaredField("globalMessageProxyHandler");
 			field.setAccessible(true);
-			field.set(this, handler);
+			ReflectiveAccess.set(field, this, handler);
 		} catch (ReflectiveOperationException e) {
 			throw new IllegalStateException(e);
 		}

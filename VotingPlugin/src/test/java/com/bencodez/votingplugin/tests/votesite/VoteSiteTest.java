@@ -1,5 +1,7 @@
 package com.bencodez.votingplugin.tests.votesite;
 
+import com.bencodez.votingplugin.tests.support.ReflectiveAccess;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -96,7 +98,7 @@ public class VoteSiteTest {
 				boolean.class, boolean.class);
 		factory.setAccessible(true);
 
-		RewardBuilder builder = (RewardBuilder) factory.invoke(voteSite, "Rewards", true, false);
+		RewardBuilder builder = (RewardBuilder) ReflectiveAccess.invoke(factory, voteSite, new Object[]{"Rewards", true, false});
 
 		assertEquals("ServiceSite", builder.getRewardOptions().getPlaceholders().get("ServiceSite"));
 		assertEquals("ServiceSite", RewardDisplayPlaceholders
@@ -110,7 +112,7 @@ public class VoteSiteTest {
 		java.lang.reflect.Method factory = VoteSite.class.getDeclaredMethod("createRewardBuilder", String.class,
 				boolean.class, boolean.class);
 		factory.setAccessible(true);
-		RewardBuilder builder = (RewardBuilder) factory.invoke(voteSite, "Rewards", true, false);
+		RewardBuilder builder = (RewardBuilder) ReflectiveAccess.invoke(factory, voteSite, new Object[]{"Rewards", true, false});
 
 		assertEquals("site_test", voteSite.getDisplayName());
 		assertEquals("site_test", builder.getRewardOptions().getPlaceholders().get("SiteName"));

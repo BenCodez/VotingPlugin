@@ -1,5 +1,7 @@
 package com.bencodez.votingplugin.tests;
 
+import com.bencodez.votingplugin.tests.support.ReflectiveAccess;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -1418,7 +1420,7 @@ class CachedVoteBatchDurabilityTest {
 		for (var pair : List.of(new Object[] {"useMySQL", true}, new Object[] {"voteCacheTable", serverTable},
 				new Object[] {"onlineVoteCacheTable", onlineTable}, new Object[] {"timedVoteCacheTable", timedTable})) {
 			Field field = VoteCacheHandler.class.getDeclaredField((String) pair[0]);
-			field.setAccessible(true); field.set(handler, pair[1]);
+			field.setAccessible(true); ReflectiveAccess.set(field, handler, pair[1]);
 		}
 		return handler;
 	}
