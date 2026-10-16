@@ -58,8 +58,11 @@ class VotifierStartedCaptureOwnershipTest {
     }
     @AfterEach void close() { timer.shutdownNow(); overflow.close(); }
     private com.vexsoftware.votifier.model.VotifierEvent receipt() {
+        return receipt("Steve");
+    }
+    private com.vexsoftware.votifier.model.VotifierEvent receipt(String username) {
         var vote = mock(Vote.class); when(vote.getServiceName()).thenReturn(SITE);
-        when(vote.getUsername()).thenReturn("Steve"); when(vote.getAddress()).thenReturn("127.0.0.1");
+        when(vote.getUsername()).thenReturn(username); when(vote.getAddress()).thenReturn("127.0.0.1");
         var event = mock(com.vexsoftware.votifier.model.VotifierEvent.class); when(event.getVote()).thenReturn(vote); return event;
     }
     private static ScheduledThreadPoolExecutor worker(VotifierVoteOverflowQueue queue) throws Exception {
@@ -68,6 +71,10 @@ class VotifierStartedCaptureOwnershipTest {
     }
     private static void workerTurn(VotifierVoteOverflowQueue queue) throws Exception { worker(queue).submit(() -> {}).get(5, TimeUnit.SECONDS); }
     private void processingTurn() throws Exception { timer.submit(() -> {}).get(5, TimeUnit.SECONDS); }
+    private int pendingIngress() throws Exception {
+        var field = VotifierVoteOverflowQueue.class.getDeclaredField("pendingIngress"); field.setAccessible(true);
+        return field.getInt(overflow);
+    }
     private List<Map<?, ?>> disk() { return YamlConfiguration.loadConfiguration(directory.resolve("VotifierVoteQueue.yml").toFile()).getMapList("Votes"); }
     private record CapturedReceipt(UUID id, long time) { }
     private CapturedReceipt retainedReceipt() throws Exception {
@@ -89,6 +96,113 @@ class VotifierStartedCaptureOwnershipTest {
         assertEquals(256, overflow.size());
         return ids;
     }
+    @Test void saturatedIngressWaitsForInitializationAndPreservesEveryReceipt() throws Exception {
+        when(plugin.getLogger()).thenReturn(mock(Logger.class));
+        var predecessor = overflow;
+        overflow = VotifierVoteOverflowQueue.initializeAsync(plugin, listener::processVote, ready::get);
+        when(plugin.getVotifierVoteOverflowQueue()).thenReturn(overflow); workerTurn(overflow);
+        var delivered = new CountDownLatch(257);
+        doAnswer(call -> {
+            var event = call.getArgument(0, PlayerVoteEvent.class);
+            event.setNativeProcessingCompleted(true); processed.add(event); delivered.countDown(); return null;
+        }).when(events).callEvent(any(PlayerVoteEvent.class));
+        try {
+            for (int index = 0; index < 256; index++) listener.onVotiferEvent(receipt());
+            long before = System.currentTimeMillis(); listener.onVotiferEvent(receipt("Extra"));
+            long after = System.currentTimeMillis(); workerTurn(overflow);
+            assertFalse(overflow.isInitializationComplete());
+            assertEquals(256, listener.getPendingCaptureCount());
+            assertEquals(1, pendingIngress(), "saturated receipt must remain owned until initialization resolves");
+            overflow.start(); predecessor.close();
+            assertTrue(delivered.await(5, TimeUnit.SECONDS));
+            processingTurn(); workerTurn(overflow);
+            assertEquals(257, processed.stream().map(PlayerVoteEvent::getLocalOccurrenceId).distinct().count());
+            var extra = processed.stream().filter(event -> "Extra".equals(event.getPlayer())).findFirst().orElseThrow();
+            assertTrue(extra.getCanonicalOccurrenceTime() >= before && extra.getCanonicalOccurrenceTime() <= after);
+            assertEquals(0, pendingIngress()); assertEquals(0, listener.getPendingCaptureCount());
+        } finally { ready.set(false); listener.stop(); predecessor.close(); overflow.close(); }
+    }
+
+    @Test void closingSaturatedReplacementPublishesBoundedPendingIngressWithCaptures() throws Exception {
+        when(plugin.getLogger()).thenReturn(mock(Logger.class));
+        var predecessor = overflow;
+        overflow = VotifierVoteOverflowQueue.initializeAsync(plugin, listener::processVote, ready::get);
+        when(plugin.getVotifierVoteOverflowQueue()).thenReturn(overflow); workerTurn(overflow);
+        try {
+            for (int index = 0; index < 256; index++) listener.onVotiferEvent(receipt());
+            long before = System.currentTimeMillis();
+            for (int index = 0; index < 256; index++) listener.onVotiferEvent(receipt("Extra" + index));
+            long after = System.currentTimeMillis();
+            listener.onVotiferEvent(receipt("BeyondCapacity")); workerTurn(overflow);
+            assertEquals(256, listener.getPendingCaptureCount()); assertEquals(256, pendingIngress());
+            ready.set(false); listener.stop(); overflow.close();
+            assertFalse(worker(overflow).isShutdown(), "final publication must retain both bounded ownership lanes");
+            predecessor.close(); assertTrue(worker(overflow).awaitTermination(5, TimeUnit.SECONDS));
+            var rows = disk(); assertEquals(512, rows.size());
+            assertEquals(512, rows.stream().map(row -> row.get("LocalOccurrenceId")).distinct().count());
+            assertFalse(rows.stream().anyMatch(row -> "BeyondCapacity".equals(row.get("Username"))));
+            var extra = rows.stream().filter(row -> "Extra255".equals(row.get("Username"))).findFirst().orElseThrow();
+            long occurredAt = ((Number) extra.get("Time")).longValue();
+            assertTrue(occurredAt >= before && occurredAt <= after);
+            UUID id = UUID.fromString((String) extra.get("LocalOccurrenceId"));
+            try (var restarted = VotifierVoteOverflowQueue.initializeAsync(plugin, (site, user, time, occurrence) -> {}, () -> false)) {
+                workerTurn(restarted); assertEquals(512, restarted.size());
+                assertTrue(disk().stream().anyMatch(row -> id.toString().equals(row.get("LocalOccurrenceId"))
+                        && ((Number) row.get("Time")).longValue() == occurredAt));
+            }
+        } finally { ready.set(false); listener.stop(); predecessor.close(); overflow.close(); }
+    }
+
+    @Test void closingIngressWithoutCaptureRetirementWaitsForFileOwner() throws Exception {
+        when(plugin.getLogger()).thenReturn(mock(Logger.class));
+        var predecessor = overflow;
+        overflow = VotifierVoteOverflowQueue.initializeAsync(plugin, listener::processVote, () -> false);
+        when(plugin.getVotifierVoteOverflowQueue()).thenReturn(overflow); workerTurn(overflow);
+        UUID id = UUID.randomUUID(); var completions = new AtomicInteger(); var admitted = new AtomicBoolean();
+        try {
+            overflow.enqueueAfterInitialization("Extra", SITE, 123L, id, accepted -> {
+                admitted.set(accepted); completions.incrementAndGet();
+            });
+            workerTurn(overflow); assertEquals(1, pendingIngress()); assertEquals(0, completions.get());
+            overflow.close(); assertFalse(worker(overflow).isShutdown());
+            predecessor.close(); assertTrue(worker(overflow).awaitTermination(5, TimeUnit.SECONDS));
+            assertEquals(1, completions.get()); assertTrue(admitted.get());
+            var rows = disk(); assertEquals(1, rows.size());
+            assertEquals(id.toString(), rows.get(0).get("LocalOccurrenceId"));
+            assertEquals(123L, ((Number) rows.get(0).get("Time")).longValue());
+        } finally { predecessor.close(); overflow.close(); }
+    }
+
+    @Test void malformedIngressCannotOccupyProvisionalCapacity() throws Exception {
+        var predecessor = overflow;
+        overflow = VotifierVoteOverflowQueue.initializeAsync(plugin, listener::processVote, () -> false);
+        when(plugin.getVotifierVoteOverflowQueue()).thenReturn(overflow); workerTurn(overflow);
+        var completions = new AtomicInteger(); var accepted = new AtomicBoolean();
+        java.util.function.Consumer<Boolean> completion = result -> {
+            if (result) accepted.set(true); completions.incrementAndGet();
+        };
+        try {
+            overflow.enqueueAfterInitialization(null, SITE, 123L, UUID.randomUUID(), completion);
+            overflow.enqueueAfterInitialization("Extra", null, 123L, UUID.randomUUID(), completion);
+            overflow.enqueueAfterInitialization("Extra", SITE, 0L, UUID.randomUUID(), completion);
+            overflow.enqueueAfterInitialization("Extra", SITE, 123L, null, completion);
+            workerTurn(overflow);
+            assertEquals(4, completions.get()); assertFalse(accepted.get()); assertEquals(0, pendingIngress());
+        } finally { predecessor.close(); overflow.close(); }
+    }
+
+    @Test void initializedFullOverflowStillRejectsWithoutIndefiniteIngressRetry() throws Exception {
+        when(plugin.getLogger()).thenReturn(mock(Logger.class));
+        ready.set(false); recoverFullQueue();
+        var completions = new AtomicInteger(); var accepted = new AtomicBoolean(true);
+        overflow.enqueueAfterInitialization("Extra", SITE, 123L, UUID.randomUUID(), result -> {
+            accepted.set(result); completions.incrementAndGet();
+        });
+        workerTurn(overflow);
+        assertEquals(1, completions.get()); assertFalse(accepted.get());
+        assertEquals(0, pendingIngress()); assertEquals(256, overflow.size());
+    }
+
     @Test void saturatedCapturesUseAllIndependentOverflowSlotsWithoutChangingReceiptIdentity() throws Exception {
         when(plugin.getLogger()).thenReturn(mock(Logger.class));
         timer.shutdownNow(); timer = new BoundedScheduledExecutor(1, 256);

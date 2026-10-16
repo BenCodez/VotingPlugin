@@ -208,17 +208,40 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
     /** A STARTED original callback retains execution ownership until its outcome is known. */
     public void enqueueAfterInitialization(String username, String serviceSite, long occurredAt, UUID localOccurrenceId,
             java.util.function.BooleanSupplier executionReleased, Consumer<Boolean> completion) {
+        if (username == null || serviceSite == null || occurredAt <= 0 || localOccurrenceId == null) {
+            completion.accept(false);
+            return;
+        }
+        var finished = new java.util.concurrent.atomic.AtomicBoolean();
+        class Transfer implements Runnable {
+            void finish(boolean accepted) {
+                if (!finished.compareAndSet(false, true)) return;
+                synchronized (lock) { pendingIngress--; }
+                completion.accept(accepted);
+            }
+            @Override public void run() {
+                try {
+                    synchronized (lock) {
+                        if (!closed && !loaded) {
+                            // Admission owns this receipt, including the saturated
+                            // path which has no entry in the listener's capture map.
+                            scheduleInitializationRetryLocked();
+                            worker.schedule(this, RETRY_DELAY_MILLIS, TimeUnit.MILLISECONDS);
+                            return;
+                        }
+                    }
+                } catch (RejectedExecutionException rejected) { finish(false); return; }
+                boolean accepted = false;
+                try { accepted = enqueueStored(username, serviceSite, occurredAt, localOccurrenceId, true, executionReleased); }
+                finally { finish(accepted); }
+            }
+        }
         boolean submitted = false;
         synchronized (lock) {
             if (!closed && !closing && pendingIngress < MAX_ENTRIES) {
                 pendingIngress++;
                 try {
-                    worker.execute(() -> {
-                        boolean accepted;
-                        try { accepted = enqueueStored(username, serviceSite, occurredAt, localOccurrenceId, true, executionReleased); }
-                        finally { synchronized (lock) { pendingIngress--; } }
-                        completion.accept(accepted);
-                    });
+                    worker.execute(new Transfer());
                     submitted = true;
                 } catch (RejectedExecutionException rejected) { pendingIngress--; }
             }
@@ -242,7 +265,8 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
                 if (same) captureReservations.remove(localOccurrenceId);
                 return same;
             }
-            if (entries.size() >= MAX_ENTRIES || !captureReservations.contains(localOccurrenceId)
+            int entryLimit = closing && admittedTransfer ? MAX_RETAINED_ENTRIES : MAX_ENTRIES;
+            if (entries.size() >= entryLimit || !captureReservations.contains(localOccurrenceId)
                     && entries.size() + captureReservations.size() >= MAX_RETAINED_ENTRIES) return false;
             entries.addLast(new PendingVote(username, serviceSite, occurredAt, localOccurrenceId, executionReleased));
             captureReservations.remove(localOccurrenceId);
@@ -641,7 +665,7 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 			synchronized (lock) { if (closed || loaded && !loadFailed) return; }
 			if (!acquireOwner()) {
                 synchronized (lock) {
-                    if (asynchronousInitialization && !closing || pendingRetirementCaptures > 0) {
+                    if (asynchronousInitialization && !closing || pendingRetirementCaptures > 0 || pendingIngress > 0) {
                         scheduleInitializationRetryLocked();
                         return;
                     }
@@ -841,7 +865,7 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
         List<PendingVote> snapshot = null;
         boolean initializedWorker;
 		synchronized (lock) {
-            initializedWorker = asynchronousInitialization || retirementRequested;
+            initializedWorker = asynchronousInitialization || retirementRequested || pendingIngress > 0;
             if (!initializedWorker) {
                 if (closed) return;
                 closed = true;
@@ -891,7 +915,7 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
         long version;
         synchronized (lock) {
             if (closed) return;
-            if (pendingRetirementCaptures > 0) {
+            if (pendingRetirementCaptures > 0 || pendingIngress > 0) {
                 if (!loaded || loadFailed) scheduleInitializationRetryLocked();
                 worker.schedule(this::finishClosePublication, RETRY_DELAY_MILLIS, TimeUnit.MILLISECONDS);
                 return;
