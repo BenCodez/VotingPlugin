@@ -12,7 +12,6 @@ import org.bukkit.block.Skull;
 import org.bukkit.block.data.Directional;
 import org.bukkit.inventory.meta.SkullMeta;
 
-import com.bencodez.advancedcore.api.misc.MiscUtils;
 import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.topvoter.TopVoter;
@@ -25,14 +24,14 @@ public class SignHandler {
 
 	@Getter
 	@Setter
-	private String data;
+	private volatile String data;
 
 	/** The lines. */
 	private ArrayList<String> lines;
 
 	@Getter
 	@Setter
-	private Location location;
+	private volatile Location location;
 
 	private String playerName;
 
@@ -48,13 +47,60 @@ public class SignHandler {
 
 	@Getter
 	@Setter
-	private Location skullLocation;
+	private volatile Location skullLocation;
 
 	@Getter
 	@Setter
 	private boolean valid;
 
 	private int votes;
+
+	private record Render(ArrayList<String> lines, String name, UUID identity, int votes) { }
+	private record DisplayUpdate(long generation, Location location, String data) { }
+	private DisplayUpdate preparing;
+	private long skullSequence;
+	private record SkullFrame(long sequence, long generation, Location origin, Location selected, String data,
+			String name, UUID identity) { }
+
+	private synchronized SkullFrame skullFrame(String name, UUID identity) {
+		return new SkullFrame(++skullSequence, plugin.getTopVoterDisplayGeneration(), location.clone(),
+				skullLocation == null ? null : skullLocation.clone(), data, name, identity);
+	}
+
+	private boolean current(SkullFrame frame) {
+		if (!plugin.isEnabled() || plugin.getTopVoterDisplayGeneration() != frame.generation()) return false;
+		synchronized (this) {
+			return skullSequence == frame.sequence() && java.util.Objects.equals(location, frame.origin())
+					&& java.util.Objects.equals(skullLocation, frame.selected())
+					&& java.util.Objects.equals(data, frame.data());
+		}
+	}
+
+	/** Only coordinates cross regions; every block access occurs inside its own location task. */
+	private void onOwner(SkullFrame frame, Location target, Runnable action) {
+		try {
+			plugin.getBukkitScheduler().runTask(plugin, () -> {
+				if (current(frame)) action.run();
+			}, target);
+		} catch (RuntimeException rejected) { plugin.debug("Unable to schedule skull display"); }
+	}
+
+	private void updateSkull(SkullFrame frame, Location target, Runnable absent) {
+		onOwner(frame, target, () -> {
+			String name = frame.name(); UUID identity = frame.identity();
+			// Queued region work may outlive the evidence used by the sign render.
+			TopVoter period = displayPeriod();
+			if (period != null && position > 0 && plugin.getConfigFile().isHideTopVoterIfNotPlayedBefore()) {
+				var rows = new ArrayList<>(plugin.getTopVoterDisplay(period).keySet());
+				if (rows.size() >= position) {
+					name = rows.get(position - 1).getPlayerName(); identity = rows.get(position - 1).getUuid();
+				} else { name = "No Player"; identity = null; }
+			}
+			if (!current(frame)) return;
+			if (!checkSkull(target.getBlock(), name, identity, frame) && absent != null) absent.run();
+		});
+	}
+
 
 	/**
 	 * Constructs a new SignHandler.
@@ -81,18 +127,27 @@ public class SignHandler {
 	}
 
 	@SuppressWarnings("deprecation")
-	private boolean checkSkull(Block block) {
-		if (block.getState() instanceof Skull) {
-			if (!playerName.equals("No Player")) {
-				Skull skull = (Skull) block.getState();
+	private boolean checkSkull(Block block, String name, UUID identity, SkullFrame frame) {
+		if (block.getState() instanceof Skull skull) {
+			if (name.isEmpty() || name.equalsIgnoreCase("No Player")) {
+				if (plugin.getConfigFile().isHideTopVoterIfNotPlayedBefore()) {
+					if (!current(frame)) return true;
+					skull.setOwnerProfile(null);
+					skull.update(true, false);
+				}
+				return true;
+			}
+			if (!name.equals("No Player")) {
 				try {
-					SkullMeta meta = (SkullMeta) plugin.getSkullCacheHandler().getSkull(uuid, playerName).getItemMeta();
+					SkullMeta meta = (SkullMeta) plugin.getSkullCacheHandler().getSkull(identity, name).getItemMeta();
+					if (!current(frame)) return true;
 					skull.setOwnerProfile(meta.getOwnerProfile());
 					skull.update(true, false);
 				} catch (Exception e) {
-					plugin.debug("Failed to set skull for " + playerName);
+					plugin.debug("Failed to set skull for " + name);
 					plugin.debug(e);
-					skull.setOwner(playerName);
+					if (!current(frame)) return true;
+					skull.setOwner(name);
 					skull.update(true, false);
 				}
 
@@ -106,18 +161,24 @@ public class SignHandler {
 	 * Check skulls.
 	 */
 	public void checkSkulls() {
-		if (noNameAvailable()) {
-			return;
-		}
-		if (skullLocation != null) {
-			checkSkull(skullLocation.getBlock());
-			return;
-		}
+		Render rendered = currentRender();
+		checkSkulls(rendered.name(), rendered.identity());
+	}
 
-		Location loc = location;
+	private void checkSkulls(String name, UUID identity) {
+		if ((name.equalsIgnoreCase("No Player") || name.isEmpty())
+				&& !plugin.getConfigFile().isHideTopVoterIfNotPlayedBefore()) {
+			return;
+		}
+		SkullFrame frame = skullFrame(name, identity);
+		if (frame.selected() != null) {
+			updateSkull(frame, frame.selected(), null);
+			return;
+		}
+		Location loc = frame.origin();
 		Location loc1 = new Location(loc.getWorld(), loc.getBlockX() - 1, loc.getBlockY() - 1, loc.getBlockZ() - 1);
 		Location loc2 = new Location(loc.getWorld(), loc.getBlockX() + 1, loc.getBlockY() + 1, loc.getBlockZ() + 1);
-		updateSkulls(loc1, loc2);
+		updateSkulls(loc1, loc2, frame);
 	}
 
 	/**
@@ -198,95 +259,131 @@ public class SignHandler {
 	 * Update lines.
 	 */
 	public void updateLines() {
-		lines = new ArrayList<>();
-		checkValidSign();
-		if (position != 0) {
-			String line1 = plugin.getConfigFile().getFormatSignTopVoterSignLine1();
-			String line2 = plugin.getConfigFile().getFormatSignTopVoterSignLine2();
-			String line3 = plugin.getConfigFile().getFormatSignTopVoterSignLine3();
-			String line4 = plugin.getConfigFile().getFormatSignTopVoterSignLine4();
-			lines.add(line1);
-			lines.add(line2);
-			lines.add(line3);
-			lines.add(line4);
-
-			ArrayList<TopVoterPlayer> users = null;
-			if (data.equalsIgnoreCase("all")) {
-				users = new ArrayList<>(plugin.getTopVoter(TopVoter.AllTime).keySet());
-			} else if (data.equalsIgnoreCase("monthly")) {
-				users = new ArrayList<>(plugin.getTopVoter(TopVoter.Monthly).keySet());
-			} else if (data.equalsIgnoreCase("weekly")) {
-				users = new ArrayList<>(plugin.getTopVoter(TopVoter.Weekly).keySet());
-			} else if (data.equalsIgnoreCase("daily")) {
-				users = new ArrayList<>(plugin.getTopVoter(TopVoter.Daily).keySet());
-			}
-
-			if (users != null && users.size() >= position) {
-				TopVoterPlayer user = users.get(position - 1);
-				playerName = user.getPlayerName();
-				uuid = user.getUuid();
-
-				votes = 0;
-				if (data.equalsIgnoreCase("all")) {
-					votes = plugin.getTopVoter(TopVoter.AllTime).get(user);
-				} else if (data.equalsIgnoreCase("monthly")) {
-					votes = plugin.getTopVoter(TopVoter.Monthly).get(user);
-				} else if (data.equalsIgnoreCase("weekly")) {
-					votes = plugin.getTopVoter(TopVoter.Weekly).get(user);
-				} else if (data.equalsIgnoreCase("daily")) {
-					votes = plugin.getTopVoter(TopVoter.Daily).get(user);
-				}
-
-				for (int j = 0; j < lines.size(); j++) {
-					lines.set(j, lines.get(j).replace("%votes%", "" + votes).replace("%player%", playerName));
-				}
-			} else {
-				playerName = "No Player";
-				votes = 0;
-				for (int j = 0; j < lines.size(); j++) {
-					lines.set(j, lines.get(j).replace("%votes%", "" + votes).replace("%player%", playerName));
-				}
-			}
-
-			for (int j = 0; j < lines.size(); j++) {
-				lines.set(j, lines.get(j).replace("%SiteName%", data).replace("%position%", "" + position));
-			}
-
-			lines = ArrayUtils.colorize(lines);
-
-		}
-
+		Render rendered = renderLines();
+		synchronized (this) { applyRender(rendered); }
 	}
 
-	/**
-	 * Update sign.
-	 *
-	 * @param delay the delay
-	 */
+	private TopVoter displayPeriod() {
+		if ("all".equalsIgnoreCase(data)) return TopVoter.AllTime;
+		if ("monthly".equalsIgnoreCase(data)) return TopVoter.Monthly;
+		if ("weekly".equalsIgnoreCase(data)) return TopVoter.Weekly;
+		if ("daily".equalsIgnoreCase(data)) return TopVoter.Daily;
+		return null;
+	}
+
+	private Render renderLines() {
+		var rendered = new ArrayList<String>();
+		checkValidSign();
+		if (position == 0) {
+			synchronized (this) { return new Render(rendered, playerName, uuid, votes); }
+		}
+		rendered.add(plugin.getConfigFile().getFormatSignTopVoterSignLine1());
+		rendered.add(plugin.getConfigFile().getFormatSignTopVoterSignLine2());
+		rendered.add(plugin.getConfigFile().getFormatSignTopVoterSignLine3());
+		rendered.add(plugin.getConfigFile().getFormatSignTopVoterSignLine4());
+		TopVoter period = displayPeriod();
+		java.util.Map<TopVoterPlayer, Integer> board = period == null ? java.util.Map.of()
+				: plugin.getTopVoterDisplay(period);
+		var users = new ArrayList<>(board.keySet());
+		String name = "No Player";
+		UUID identity = null;
+		int amount = 0;
+		if (users.size() >= position) {
+			TopVoterPlayer row = users.get(position - 1);
+			name = row.getPlayerName(); identity = row.getUuid(); amount = board.get(row);
+		}
+		for (int index = 0; index < rendered.size(); index++) {
+			rendered.set(index, rendered.get(index).replace("%votes%", Integer.toString(amount))
+					.replace("%player%", name).replace("%SiteName%", data)
+					.replace("%position%", Integer.toString(position)));
+		}
+		return new Render(ArrayUtils.colorize(rendered), name, identity, amount);
+	}
+
+	/** Called under this monitor; never call storage/provider APIs from this scope. */
+	private void applyRender(Render rendered) {
+		lines = rendered.lines(); playerName = rendered.name(); uuid = rendered.identity(); votes = rendered.votes();
+	}
+
+	private Render currentRender() {
+		synchronized (this) { return new Render(new ArrayList<>(lines), playerName, uuid, votes); }
+	}
+
+	/** Update the sign on its owning scheduler, waiting once for admitted presence evidence when enabled. */
 	public void updateSign(int delay) {
-		plugin.getBukkitScheduler().runTaskLater(plugin, new Runnable() {
+		TopVoter period = displayPeriod();
+		if (position != 0 && period != null && plugin.getConfigFile() != null
+				&& plugin.getConfigFile().isHideTopVoterIfNotPlayedBefore()) {
+			prepareDisplay(period, delay);
+			return;
+		}
+		plugin.getBukkitScheduler().runTaskLater(plugin, () -> writeSign(currentRender(), getLocation()),
+				delay, getLocation());
+	}
 
-			@SuppressWarnings("deprecation")
-			@Override
-			public void run() {
+	private void prepareDisplay(TopVoter period, int delay) {
+		long generation = plugin.getTopVoterDisplayGeneration();
+		Location target = getLocation().clone();
+		DisplayUpdate update;
+		synchronized (this) {
+			if (preparing != null && preparing.generation() == generation
+					&& preparing.location().equals(target) && java.util.Objects.equals(preparing.data(), data)) return;
+			update = new DisplayUpdate(generation, target, data);
+			preparing = update;
+		}
+		try {
+			var ready = plugin.getTopVoterDisplayAsync(period);
+			if (ready == null) schedulePreparedDisplay(update, delay);
+			else ready.whenComplete((ignored, failure) -> schedulePreparedDisplay(update, delay));
+		} catch (RuntimeException unavailable) {
+			schedulePreparedDisplay(update, delay);
+		}
+	}
+
+	private boolean current(DisplayUpdate update) {
+		return plugin.isEnabled() && plugin.getTopVoterDisplayGeneration() == update.generation()
+				&& java.util.Objects.equals(update.location(), getLocation())
+				&& java.util.Objects.equals(update.data(), data);
+	}
+
+	private void schedulePreparedDisplay(DisplayUpdate update, int delay) {
+		synchronized (this) { if (preparing != update) return; }
+		try {
+			plugin.getBukkitScheduler().runTaskLater(plugin, () -> {
 				try {
-					BlockState state = getLocation().getBlock().getState();
-					if (state instanceof Sign) {
-						Sign s = (Sign) state;
-
-						for (int j = 0; j < lines.size() && j < 4; j++) {
-							s.setLine(j, lines.get(j));
-						}
-						s.update();
-						checkSkulls();
+					synchronized (SignHandler.this) { if (preparing != update) return; }
+					if (!current(update)) return;
+					// Resolve current evidence outside the sign monitor. Completion may reenter from the SDK worker.
+					Render rendered = renderLines();
+					if (!current(update)) return;
+					synchronized (SignHandler.this) {
+						if (preparing != update) return;
+						applyRender(rendered);
 					}
-
-				} catch (Exception ex) {
-					plugin.debug("Failed to update sign at " + getLocation().toString());
-					VotingPluginMain.plugin.debug(ex);
+					writeSign(rendered, update.location());
+				} finally {
+					synchronized (SignHandler.this) { if (preparing == update) preparing = null; }
 				}
+			}, delay, update.location());
+		} catch (RuntimeException rejected) {
+			synchronized (this) { if (preparing == update) preparing = null; }
+		}
+	}
+
+	@SuppressWarnings("deprecation")
+	private void writeSign(Render rendered, Location target) {
+		try {
+			BlockState state = target.getBlock().getState();
+			if (state instanceof Sign signState) {
+				for (int index = 0; index < rendered.lines().size() && index < 4; index++)
+					signState.setLine(index, rendered.lines().get(index));
+				signState.update();
+				checkSkulls(rendered.name(), rendered.identity());
 			}
-		}, delay, getLocation());
+		} catch (Exception failure) {
+			plugin.debug("Failed to update sign display");
+			plugin.debug(failure);
+		}
 	}
 
 	/**
@@ -296,19 +393,33 @@ public class SignHandler {
 	 * @param loc2 the second location
 	 */
 	public void updateSkulls(Location loc1, Location loc2) {
-		BlockState state = getLocation().getBlock().getState();
-		if (state instanceof Sign && state.getBlockData() instanceof Directional) {
-			Directional s = (Directional) state.getBlockData();
-			Block b = location.getBlock().getRelative(s.getFacing());
-			Block above = b.getRelative(BlockFace.UP);
-			if (checkSkull(above)) {
-				return;
-			}
+		Render rendered = currentRender();
+		updateSkulls(loc1, loc2, rendered.name(), rendered.identity());
+	}
 
-		}
+	private void updateSkulls(Location loc1, Location loc2, String name, UUID identity) {
+		updateSkulls(loc1, loc2, skullFrame(name, identity));
+	}
 
-		for (Block block : MiscUtils.getInstance().getRegionBlocks(location.getWorld(), loc1, loc2)) {
-			checkSkull(block);
-		}
+	private void updateSkulls(Location loc1, Location loc2, SkullFrame frame) {
+		Runnable nearby = () -> {
+			for (int x = Math.min(loc1.getBlockX(), loc2.getBlockX()); x <= Math.max(loc1.getBlockX(), loc2.getBlockX()); x++)
+				for (int y = Math.min(loc1.getBlockY(), loc2.getBlockY()); y <= Math.max(loc1.getBlockY(), loc2.getBlockY()); y++)
+					for (int z = Math.min(loc1.getBlockZ(), loc2.getBlockZ()); z <= Math.max(loc1.getBlockZ(), loc2.getBlockZ()); z++) {
+						if (!current(frame)) return;
+						updateSkull(frame, new Location(frame.origin().getWorld(), x, y, z), null);
+					}
+		};
+		onOwner(frame, frame.origin(), () -> {
+			BlockState state = frame.origin().getBlock().getState();
+			if (state instanceof Sign && state.getBlockData() instanceof Directional direction) {
+				BlockFace facing = direction.getFacing();
+				Location preferred = new Location(frame.origin().getWorld(),
+						frame.origin().getBlockX() + facing.getModX(),
+						frame.origin().getBlockY() + facing.getModY() + 1,
+						frame.origin().getBlockZ() + facing.getModZ());
+				updateSkull(frame, preferred, nearby);
+			} else nearby.run();
+		});
 	}
 }

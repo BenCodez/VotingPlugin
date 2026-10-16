@@ -443,6 +443,11 @@ VoteLogging:
 # Tracks and displays top voters by time period
 ###########################################
 
+# Hide only confirmed never-joined identities from top voter displays.
+# Missing, unreadable or ambiguous history stays visible. Awards are unchanged.
+# Presence checks are asynchronous; pending snapshots stay visible until refreshed.
+HideTopVoterIfNotPlayedBefore: false
+
 # Top voter blacklist
 # Hide these names from top voter lists
 BlackList:
