@@ -26,6 +26,8 @@ mvn -B -f VotingPlugin/pom.xml -Dtest=BackendControlConnectorProtocolTest,Contro
 CI runs `mvn -B -f VotingPlugin/pom.xml package`; see `.github/workflows/maven.yml`. Do not use the `dev` Maven profile in
 automation because it copies a JAR into a developer-specific server directory.
 
+All project tests and test-only helpers belong under `VotingPlugin/src/test/java/com/bencodez/votingplugin/tests/`, with package `com.bencodez.votingplugin.tests` or a meaningful subpackage. Keep paths and package declarations aligned, and update cross-test imports, resources, and build selectors when moving tests. Preserve package-phase artifact checks and test discovery. Do not widen production APIs to make tests accessible; use narrowly scoped test-only reflection for non-public seams. Platform API fixtures that must retain an external runtime class identity (such as `net.minecraft.network.chat.Component`) stay in that platform package and must not contain test cases.
+
 Assign one owner to Maven validation in each worktree. Never run concurrent Maven commands in the same worktree, including focused tests alongside a clean/package build: compilation and cleanup share `target/` and can invalidate each other. Reviewers must inspect source only while that owner builds, or run validation in a separate worktree.
 
 Keep the downloadable VotingPlugin JAR as small as practical. The 10 MiB size target is advisory:

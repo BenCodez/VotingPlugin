@@ -1,5 +1,7 @@
 package com.bencodez.votingplugin.tests;
 
+import com.bencodez.votingplugin.tests.support.ReflectiveAccess;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -63,7 +65,7 @@ class ProxyCacheCheckedReaderJdbcTest {
 		}
 		Field mysqlField = AbstractSqlTable.class.getDeclaredField("mysql");
         mysqlField.setAccessible(true);
-        mysqlField.set(table, mysql);
+        ReflectiveAccess.set(mysqlField, table, mysql);
         return new Fixture(checked, legacy, connection, statement, result);
 	}
 
