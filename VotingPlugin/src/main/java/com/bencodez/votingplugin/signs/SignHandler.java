@@ -59,12 +59,41 @@ public class SignHandler {
 	private record DisplayUpdate(long generation, Location location, String data) { }
 	private DisplayUpdate preparing;
 	private long skullSequence;
+	private static final int MAX_DISCOVERED_SKULLS = 28;
+	private final java.util.Set<Location> displayedSkulls = new java.util.LinkedHashSet<>();
+	private SkullFrame lastSkullFrame;
 	private record SkullFrame(long sequence, long generation, Location origin, Location selected, String data,
 			String name, UUID identity) { }
 
 	private synchronized SkullFrame skullFrame(String name, UUID identity) {
-		return new SkullFrame(++skullSequence, plugin.getTopVoterDisplayGeneration(), location.clone(),
+		var frame = new SkullFrame(++skullSequence, plugin.getTopVoterDisplayGeneration(), location.clone(),
 				skullLocation == null ? null : skullLocation.clone(), data, name, identity);
+		if (lastSkullFrame == null || lastSkullFrame.generation() != frame.generation()
+				|| !java.util.Objects.equals(lastSkullFrame.origin(), frame.origin())
+				|| !java.util.Objects.equals(lastSkullFrame.selected(), frame.selected())
+				|| !java.util.Objects.equals(lastSkullFrame.data(), frame.data())) displayedSkulls.clear();
+		lastSkullFrame = frame;
+		return frame;
+	}
+
+	/** Remember successful automatic publications, never arbitrary neighboring skulls. */
+	private synchronized void rememberSkull(SkullFrame frame, Location target) {
+		if (lastSkullFrame == frame && frame.selected() == null && displayedSkulls.size() < MAX_DISCOVERED_SKULLS)
+			displayedSkulls.add(target.clone());
+	}
+
+	private synchronized void forgetSkull(SkullFrame frame, Location target) {
+		if (lastSkullFrame == frame) displayedSkulls.remove(target);
+	}
+
+	private synchronized boolean assignedSkull(SkullFrame frame, Location target) {
+		return lastSkullFrame == frame && (java.util.Objects.equals(frame.selected(), target)
+				|| displayedSkulls.contains(target));
+	}
+
+	private synchronized ArrayList<Location> assignedSkulls(SkullFrame frame) {
+		if (lastSkullFrame != frame) return new ArrayList<>();
+		return new ArrayList<>(frame.selected() == null ? displayedSkulls : java.util.List.of(frame.selected()));
 	}
 
 	private boolean current(SkullFrame frame) {
@@ -89,6 +118,7 @@ public class SignHandler {
 		onOwner(frame, target, () -> {
 			Block block = target.getBlock();
 			if (!(block.getState() instanceof Skull)) {
+				forgetSkull(frame, target);
 				if (absent != null) absent.run();
 				return;
 			}
@@ -102,7 +132,7 @@ public class SignHandler {
 				} else { name = "No Player"; identity = null; }
 			}
 			if (!current(frame)) return;
-			if (!checkSkull(block, name, identity, frame) && absent != null) absent.run();
+			if (!checkSkull(block, target, name, identity, frame) && absent != null) absent.run();
 		});
 	}
 
@@ -132,28 +162,28 @@ public class SignHandler {
 	}
 
 	@SuppressWarnings("deprecation")
-	private boolean checkSkull(Block block, String name, UUID identity, SkullFrame frame) {
+	private boolean checkSkull(Block block, Location target, String name, UUID identity, SkullFrame frame) {
 		if (block.getState() instanceof Skull skull) {
 			if (name.isEmpty() || name.equalsIgnoreCase("No Player")) {
 				if (plugin.getConfigFile().isHideTopVoterIfNotPlayedBefore()) {
-					if (!current(frame)) return true;
+					if (!current(frame) || !assignedSkull(frame, target)) return true;
 					skull.setOwnerProfile(null);
-					skull.update(true, false);
+					if (current(frame) && skull.update(true, false)) forgetSkull(frame, target);
 				}
 				return true;
 			}
 			if (!name.equals("No Player")) {
 				try {
 					SkullMeta meta = (SkullMeta) plugin.getSkullCacheHandler().getSkull(identity, name).getItemMeta();
+					var profile = java.util.Objects.requireNonNull(meta.getOwnerProfile(), "Skull profile unavailable");
 					if (!current(frame)) return true;
-					skull.setOwnerProfile(meta.getOwnerProfile());
-					skull.update(true, false);
+					skull.setOwnerProfile(profile);
+					if (current(frame) && skull.update(true, false)) rememberSkull(frame, target);
 				} catch (Exception e) {
 					plugin.debug("Failed to set skull for " + name);
 					plugin.debug(e);
 					if (!current(frame)) return true;
-					skull.setOwner(name);
-					skull.update(true, false);
+					if (skull.setOwner(name) && current(frame) && skull.update(true, false)) rememberSkull(frame, target);
 				}
 
 			}
@@ -407,6 +437,11 @@ public class SignHandler {
 	}
 
 	private void updateSkulls(Location loc1, Location loc2, SkullFrame frame) {
+		if (frame.name().isEmpty() || frame.name().equalsIgnoreCase("No Player")) {
+			if (plugin.getConfigFile().isHideTopVoterIfNotPlayedBefore())
+				for (Location target : assignedSkulls(frame)) updateSkull(frame, target, null);
+			return;
+		}
 		Runnable nearby = () -> {
 			for (int x = Math.min(loc1.getBlockX(), loc2.getBlockX()); x <= Math.max(loc1.getBlockX(), loc2.getBlockX()); x++)
 				for (int y = Math.min(loc1.getBlockY(), loc2.getBlockY()); y <= Math.max(loc1.getBlockY(), loc2.getBlockY()); y++)
