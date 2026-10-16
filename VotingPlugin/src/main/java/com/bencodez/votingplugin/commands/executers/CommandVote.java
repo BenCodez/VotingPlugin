@@ -35,7 +35,7 @@ public class CommandVote implements CommandExecutor {
 		}
 
 		// invalid command
-		sender.sendMessage(MessageAPI.colorize(plugin.getConfigFile().getFormatInvalidCommandVote()));
+		sender.sendMessage(MessageAPI.colorize(plugin.formatVoteCommandMessage(plugin.getConfigFile().getFormatInvalidCommandVote())));
 		return true;
 	}
 

@@ -74,7 +74,7 @@ public class CommandAliases implements CommandExecutor {
 		if (adminCommand) {
 			sender.sendMessage(MessageAPI.colorize(plugin.getConfigFile().getFormatInvalidCommandAdminVote()));
 		} else {
-			sender.sendMessage(MessageAPI.colorize(plugin.getConfigFile().getFormatInvalidCommandVote()));
+			sender.sendMessage(MessageAPI.colorize(plugin.formatVoteCommandMessage(plugin.getConfigFile().getFormatInvalidCommandVote())));
 		}
 		return true;
 	}

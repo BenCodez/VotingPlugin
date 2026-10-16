@@ -71,11 +71,9 @@ import com.bencodez.votingplugin.broadcast.BroadcastSettings;
 import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.bencodez.votingplugin.commands.CommandLoader;
 import com.bencodez.votingplugin.commands.executers.CommandAdminVote;
-import com.bencodez.votingplugin.commands.executers.CommandVote;
 import com.bencodez.votingplugin.commands.gui.AdminGUI;
 import com.bencodez.votingplugin.commands.tabcompleter.AdminVoteTabCompleter;
 import com.bencodez.votingplugin.commands.tabcompleter.AliasCommandFilterListener;
-import com.bencodez.votingplugin.commands.tabcompleter.VoteTabCompleter;
 import com.bencodez.votingplugin.config.BungeeSettings;
 import com.bencodez.votingplugin.config.Config;
 import com.bencodez.votingplugin.config.ConfigVoteSites;
@@ -178,6 +176,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private BroadcastHandler broadcastHandler;
 
 	@Getter
+	private com.bencodez.votingplugin.streaks.VoteStreaksMenu voteStreaksMenu;
+
+	@Getter
 	private BackendProxyHandler backendProxyHandler;
 	private ProcessedVoteCache backendProcessedVoteCache;
 	private BackendOrderedVoteOverflowQueue backendOrderedVoteOverflowQueue;
@@ -215,6 +216,21 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Getter
 	private CommandLoader commandLoader;
+
+	/** Runtime command identity is captured at startup; configuration reload does not rename it. */
+	public String getVoteCommandPrefix() {
+		return "/" + (commandLoader == null ? "vote" : commandLoader.getVoteCommandName());
+	}
+
+	public boolean isVoteCommandEnabled() {
+		return commandLoader == null || commandLoader.isVoteCommandEnabled();
+	}
+
+	/** Retarget the built-in invalid-command help hint, including existing Config.yml text. */
+	public String formatVoteCommandMessage(String message) {
+		return message.replace("%votecommand%", getVoteCommandPrefix())
+				.replaceAll("(?i)/vote(?=\\s|$|[!.,])", getVoteCommandPrefix());
+	}
 
 	@Getter
 	private NameMCLikeCheckerTask nameMCLikeCheckerTask;
@@ -2075,6 +2091,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	@Override
 	public void onUnLoad() {
 		retireTopVoterDisplayFilter();
+		if (voteStreaksMenu != null) voteStreaksMenu.close();
 		stopAutoCreateVoteSitesSetupReminder();
 		placeholderPlayerPresence.clear();
 		stopBackendHostedControlLifecycle();
@@ -2128,12 +2145,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		commandLoader.loadCommands();
 		commandLoader.loadAliases();
 
-		// /vote, /v
-		getCommand("vote").setExecutor(new CommandVote(this));
-		getCommand("vote").setTabCompleter(new VoteTabCompleter());
-		// getCommand("v").setExecutor(new CommandVote(this));
-		// getCommand("v").setTabCompleter(new VoteTabCompleter());
-
 		// /adminvote, /av
 		getCommand("adminvote").setExecutor(new CommandAdminVote(this));
 		getCommand("adminvote").setTabCompleter(new AdminVoteTabCompleter());
@@ -2160,6 +2171,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	 * Register events.
 	 */
 	private void registerEvents() {
+		voteStreaksMenu = new com.bencodez.votingplugin.streaks.VoteStreaksMenu(this);
+		getServer().getPluginManager().registerEvents(voteStreaksMenu, this);
 		PluginManager pm = getServer().getPluginManager();
 
 		pm.registerEvents(new PlayerJoinEvent(this), this);
@@ -2241,6 +2254,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		if (offlineVoteOwnerHandoffs != null) offlineVoteOwnerHandoffs.pause();
 		retireTopVoterDisplayFilter();
 		try {
+		if (voteStreaksMenu != null) voteStreaksMenu.suspend();
 		configFile.reloadData();
 		configFile.loadValues();
 		AutoCreateVoteSitesReminderService setupReminder = autoCreateVoteSitesSetupReminder;
@@ -2295,6 +2309,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		setUpdate(true);
 		} finally {
+			if (voteStreaksMenu != null) voteStreaksMenu.resume();
 			if (offlineVoteOwnerHandoffs != null) offlineVoteOwnerHandoffs.resume();
 		}
 	}

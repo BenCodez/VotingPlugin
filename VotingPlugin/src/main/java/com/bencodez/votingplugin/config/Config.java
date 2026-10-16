@@ -522,6 +522,15 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean limitMonthlyVotes = false;
 
+	/** Restart-only player command registration. Missing keys preserve /vote. */
+	@ConfigDataBoolean(path = "VoteCommandEnabled", defaultValue = true)
+	@Getter
+	private boolean voteCommandEnabled = true;
+
+	@ConfigDataString(path = "VoteCommandName", defaultValue = "vote")
+	@Getter
+	private String voteCommandName = "vote";
+
 	@ConfigDataBoolean(path = "LoadCommandAliases")
 	@Getter
 	private boolean loadCommandAliases = true;

@@ -294,6 +294,10 @@ CHEST:
         Lore: '&c&lBest: &c%Best%'
         Amount: 1
 
+  # Separate read-only /vote streaks progression menu.
+  VoteStreaks:
+    Name: '&6Vote streaks'
+
   VoteStreak:
     Name: 'VoteStreak: %player%'
     BackButton: false

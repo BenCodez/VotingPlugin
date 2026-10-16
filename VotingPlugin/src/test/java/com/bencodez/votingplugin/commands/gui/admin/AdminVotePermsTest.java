@@ -215,6 +215,7 @@ class AdminVotePermsTest {
 		when(plugin.getVoteCommand()).thenReturn(new ArrayList<>(vote));
 		when(plugin.getAdminVoteCommand()).thenReturn(new ArrayList<>(admin));
 		when(plugin.getConfigFile()).thenReturn(config);
+		when(plugin.getVoteCommandPrefix()).thenReturn("/vote");
 		when(plugin.getOptions()).thenReturn(options);
 		when(options.isMultiplePermissionChecks()).thenReturn(multiplePermissions);
 		when(config.getFormatPageSize()).thenReturn(pageSize);
