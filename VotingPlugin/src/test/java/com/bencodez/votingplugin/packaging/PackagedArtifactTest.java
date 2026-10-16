@@ -112,9 +112,10 @@ public class PackagedArtifactTest {
         URL platformSlf4j = org.slf4j.Logger.class.getProtectionDomain().getCodeSource().getLocation();
         try (URLClassLoader loader = new URLClassLoader(new URL[] { jar, platformSlf4j },
                 ClassLoader.getPlatformClassLoader())) {
-            Class<?> unifiedJedis = Class.forName("redis.clients.jedis.UnifiedJedis", true, loader);
-            Object client = unifiedJedis.getConstructor().newInstance();
-            unifiedJedis.getMethod("close").invoke(client);
+            Class<?> redisClient = Class.forName("redis.clients.jedis.RedisClient", true, loader);
+            try (AutoCloseable client = (AutoCloseable) redisClient.getMethod("create").invoke(null)) {
+                assertTrue(Class.forName("redis.clients.jedis.UnifiedJedis", true, loader).isInstance(client));
+            }
         }
     }
 
