@@ -262,7 +262,18 @@ public class UserManager {
 	 * Gets a VotingPluginUser by UUID.
 	 * @param uuid the player UUID
 	 * @return the VotingPluginUser
+	 * @deprecated UUID-only lookups can be ambiguous in offline mode because Minecraft
+	 *             preserves name capitalization, while VotingPlugin derives its
+	 *             offline UUID from the player name lowercased with Locale.ROOT.
+	 *             Prefer {@link #getVotingPluginUser(UUID, String)} when both UUID
+	 *             and player name are available; supplying the name allows the
+	 *             existing offline UUID normalization. Use
+	 *             {@link #getVotingPluginUser(Player)} for an online player,
+	 *             {@link #getVotingPluginUser(OfflinePlayer)} when an offline
+	 *             player object with a known name is available, or
+	 *             {@link #getVotingPluginUser(String)} when only the name is known.
 	 */
+	@Deprecated
 	@SuppressWarnings("deprecation")
 	public VotingPluginUser getVotingPluginUser(UUID uuid) {
 		LiveIdentity identity = offlineLiveIdentity(uuid);
@@ -280,7 +291,21 @@ public class UserManager {
 	 * @param uuid the player UUID
 	 * @param loadName whether to load the player name
 	 * @return the VotingPluginUser
+	 * @deprecated UUID-only lookups can be ambiguous in offline mode because Minecraft
+	 *             preserves name capitalization, while VotingPlugin derives its
+	 *             offline UUID from the player name lowercased with Locale.ROOT.
+	 *             Prefer {@link #getVotingPluginUser(UUID, String)} when both UUID
+	 *             and player name are available; supplying the name allows the
+	 *             existing offline UUID normalization. Use
+	 *             {@link #getVotingPluginUser(Player)} for an online player,
+	 *             {@link #getVotingPluginUser(OfflinePlayer)} when an offline
+	 *             player object with a known name is available, or
+	 *             {@link #getVotingPluginUser(String)} when only the name is known.
+	 *             Retain this overload when the exact stored UUID and explicit
+	 *             name-loading behavior are required; name-aware alternatives
+	 *             may normalize the supplied identity in offline mode.
 	 */
+	@Deprecated
 	@SuppressWarnings("deprecation")
 	public VotingPluginUser getVotingPluginUser(UUID uuid, boolean loadName) {
 		return new VotingPluginUser(plugin, uuid, loadName);

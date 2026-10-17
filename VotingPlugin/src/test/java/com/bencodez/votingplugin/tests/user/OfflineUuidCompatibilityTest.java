@@ -32,6 +32,36 @@ class OfflineUuidCompatibilityTest {
     private static final UUID SERVER = UUID.fromString("0ed7aeff-acc9-337e-8bcb-9ed9388b16d2");
     private static final UUID STORAGE = UUID.fromString("5fb82a90-e348-3e0a-b7d8-d3f2f8a1cf1b");
 
+    @Test void onlyUuidOnlyOverloadsAreDeprecated() throws Exception {
+        assertTrue(UserManager.class.getMethod("getVotingPluginUser", UUID.class)
+                .isAnnotationPresent(Deprecated.class));
+        assertTrue(UserManager.class.getMethod("getVotingPluginUser", UUID.class, boolean.class)
+                .isAnnotationPresent(Deprecated.class));
+        assertFalse(UserManager.class.getMethod("getVotingPluginUser", UUID.class, String.class)
+                .isAnnotationPresent(Deprecated.class));
+        assertFalse(UserManager.class.getMethod("getVotingPluginUser", Player.class)
+                .isAnnotationPresent(Deprecated.class));
+        assertFalse(UserManager.class.getMethod("getVotingPluginUser", org.bukkit.OfflinePlayer.class)
+                .isAnnotationPresent(Deprecated.class));
+        assertFalse(UserManager.class.getMethod("getVotingPluginUser", String.class)
+                .isAnnotationPresent(Deprecated.class));
+    }
+
+    @Test void uuidAndNameLookupRetainsOfflineNormalization() throws Exception {
+        Fixture f = new Fixture();
+        var constructor = UuidLookup.class.getDeclaredConstructor(com.bencodez.advancedcore.AdvancedCorePlugin.class);
+        constructor.setAccessible(true);
+        UuidLookup lookup = constructor.newInstance(f.plugin);
+        try (var staticLookup = mockStatic(UuidLookup.class); var bukkit = mockStatic(Bukkit.class)) {
+            staticLookup.when(UuidLookup::getInstance).thenReturn(lookup);
+            var user = f.users.getVotingPluginUser(SERVER, NAME);
+            assertEquals(STORAGE, user.getJavaUUID());
+            assertEquals(NAME, user.getPlayerName());
+            bukkit.verifyNoInteractions();
+        }
+        verifyNoInteractions(f.logger);
+    }
+
     @Test void issue1721ResolvesToExistingPointsWithoutCreatingServerUuidData() {
         Fixture f = new Fixture();
         f.join();
