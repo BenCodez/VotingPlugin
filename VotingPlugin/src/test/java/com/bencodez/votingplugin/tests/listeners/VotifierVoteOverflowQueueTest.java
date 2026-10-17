@@ -29,6 +29,28 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.listeners.VotifierVoteOverflowQueue;
 
 class VotifierVoteOverflowQueueTest {
+    @Test void overflowRetainsProcessLocalOrderButRestartNeverRestoresIt(@TempDir Path dataFolder) throws Exception {
+        var plugin=mock(VotingPluginMain.class,RETURNS_DEEP_STUBS);
+        var timer=mock(ScheduledExecutorService.class);
+        when(plugin.getDataFolder()).thenReturn(dataFolder.toFile()); when(plugin.getVoteTimer()).thenReturn(timer);
+        var callbacks=new java.util.concurrent.LinkedBlockingQueue<Runnable>();
+        doAnswer(call->{callbacks.add(call.getArgument(0));return null;}).when(timer).submit(any(Runnable.class));
+        var observed=new java.util.ArrayList<Long>();
+        var queue=VotifierVoteOverflowQueue.withObservations(plugin,(site,user,order)->observed.add(order));
+        try {
+            assertTrue(queue.enqueue("Steve","example.org",123L)); queue.start();
+            java.util.Objects.requireNonNull(callbacks.poll(5,TimeUnit.SECONDS)).run();
+            assertEquals(java.util.List.of(123L),observed);
+            assertTrue(queue.enqueue("Alex","other.example.org",456L));
+            java.util.Objects.requireNonNull(callbacks.poll(5,TimeUnit.SECONDS)); // Deliberately unacknowledged.
+        } finally {queue.close();}
+        var restarted=VotifierVoteOverflowQueue.withObservations(plugin,(site,user,order)->observed.add(order));
+        try {
+            assertEquals(1,restarted.size()); restarted.start();
+            java.util.Objects.requireNonNull(callbacks.poll(5,TimeUnit.SECONDS)).run();
+            assertEquals(java.util.List.of(123L,0L),observed);
+        } finally {restarted.close();}
+    }
 	@Test
 	void enqueueCannotChangeVersionDuringDurableAdmission(@TempDir Path dataFolder) throws Exception {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);

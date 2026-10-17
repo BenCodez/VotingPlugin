@@ -52,3 +52,7 @@ or disabling it; inspections gate disabled state immediately and report a newly 
 ```
 
 `LATEST` resolves to the latest stable release.
+
+## Guided voting session
+
+Optional `/vote session` chat navigation tracks real accepted votes without changing existing menus or rewards. See [configuration, controls and timing limits](docs/guided-voting-session.md).

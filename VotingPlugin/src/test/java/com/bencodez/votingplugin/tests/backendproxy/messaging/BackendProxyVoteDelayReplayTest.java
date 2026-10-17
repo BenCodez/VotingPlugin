@@ -266,7 +266,7 @@ class BackendProxyVoteDelayReplayTest {
             pluginField.set(user, plugin);
             doCallRealMethod().when(user).bungeeVotePluginMessagingEvent(any(), anyLong(), any(VoteTotalsSnapshot.class),
                     anyBoolean(), anyBoolean(), anyBoolean(), anyInt(), anyBoolean(), anyBoolean(),
-                    anyBoolean(), any(), anyBoolean());
+                    anyBoolean(), any(), anyBoolean(), anyBoolean(), anyBoolean());
             PlayerVoteListener listener = new PlayerVoteListener(plugin);
             var eventManager = plugin.getServer().getPluginManager();
             doAnswer(call -> {

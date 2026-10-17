@@ -1003,16 +1003,45 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			boolean wasOnline, boolean broadcast, int num, boolean queuedProxyVote,
 			boolean proxyDelayValidationKnown, boolean proxyQueueClassificationKnown, UUID proxyVoteId,
 			boolean targetedProxyVote) {
-		bungeeVotePluginMessagingEvent(service, time, text, setTotals, wasOnline, broadcast, num, queuedProxyVote,
-				proxyDelayValidationKnown, proxyQueueClassificationKnown, proxyVoteId, targetedProxyVote);
+		bungeeVotePluginMessaging(service, time, text, setTotals, wasOnline, broadcast, num, queuedProxyVote,
+				proxyDelayValidationKnown, proxyQueueClassificationKnown, proxyVoteId, targetedProxyVote, false);
 	}
 
-	/** Dispatches the proxy vote and returns its final cancellation state; null when proxy mode is disabled. */
-	public PlayerVoteEvent bungeeVotePluginMessagingEvent(String service, long time, VoteTotalsSnapshot text, boolean setTotals,
+	/** Supplies guide-only provenance independently of the established reward/delay flags. */
+	public void bungeeVotePluginMessaging(String service, long time, VoteTotalsSnapshot text, boolean setTotals,
 			boolean wasOnline, boolean broadcast, int num, boolean queuedProxyVote,
 			boolean proxyDelayValidationKnown, boolean proxyQueueClassificationKnown, UUID proxyVoteId,
-			boolean targetedProxyVote) {
-			if (plugin.getBungeeSettings().isUseBungeecoord()) {
+            boolean targetedProxyVote, boolean unconfirmedProxySessionDelivery) {
+        bungeeVotePluginMessaging(service, time, text, setTotals, wasOnline, broadcast, num, queuedProxyVote,
+                proxyDelayValidationKnown, proxyQueueClassificationKnown, proxyVoteId, targetedProxyVote,
+                unconfirmedProxySessionDelivery, true);
+    }
+
+    /** Guide-only real/test classification; preserve the established normal vote pipeline semantics. */
+    public void bungeeVotePluginMessaging(String service, long time, VoteTotalsSnapshot text, boolean setTotals,
+            boolean wasOnline, boolean broadcast, int num, boolean queuedProxyVote,
+            boolean proxyDelayValidationKnown, boolean proxyQueueClassificationKnown, UUID proxyVoteId,
+            boolean targetedProxyVote, boolean unconfirmedProxySessionDelivery, boolean sessionRealVote) {
+        bungeeVotePluginMessagingEvent(service, time, text, setTotals, wasOnline, broadcast, num, queuedProxyVote,
+                proxyDelayValidationKnown, proxyQueueClassificationKnown, proxyVoteId, targetedProxyVote,
+                unconfirmedProxySessionDelivery, sessionRealVote);
+    }
+
+    /** Dispatches a proxy vote with legacy provenance defaults and returns its cancellation state. */
+    public PlayerVoteEvent bungeeVotePluginMessagingEvent(String service, long time, VoteTotalsSnapshot text, boolean setTotals,
+            boolean wasOnline, boolean broadcast, int num, boolean queuedProxyVote,
+            boolean proxyDelayValidationKnown, boolean proxyQueueClassificationKnown, UUID proxyVoteId,
+            boolean targetedProxyVote) {
+        return bungeeVotePluginMessagingEvent(service, time, text, setTotals, wasOnline, broadcast, num, queuedProxyVote,
+                proxyDelayValidationKnown, proxyQueueClassificationKnown, proxyVoteId, targetedProxyVote, false, true);
+    }
+
+    /** Preserves guide-only occurrence provenance while exposing the final cancellation state. */
+    public PlayerVoteEvent bungeeVotePluginMessagingEvent(String service, long time, VoteTotalsSnapshot text, boolean setTotals,
+            boolean wasOnline, boolean broadcast, int num, boolean queuedProxyVote,
+            boolean proxyDelayValidationKnown, boolean proxyQueueClassificationKnown, UUID proxyVoteId,
+            boolean targetedProxyVote, boolean unconfirmedProxySessionDelivery, boolean sessionRealVote) {
+        if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			plugin.debug("Pluginmessaging vote for " + getPlayerName() + " on " + service);
 
 			PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSiteManager().getVoteSite(service, true),
@@ -1031,6 +1060,8 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 				voteEvent.setProxyQueueClassificationKnown(proxyQueueClassificationKnown);
 				voteEvent.setProxyDelayValidationKnown(proxyDelayValidationKnown);
 				voteEvent.setTargetedProxyVote(targetedProxyVote);
+				voteEvent.setUnconfirmedProxySessionDelivery(unconfirmedProxySessionDelivery);
+                voteEvent.setProxySessionRealVote(sessionRealVote);
 				plugin.getServer().getPluginManager().callEvent(voteEvent);
 			return voteEvent;
 		}
@@ -1078,7 +1109,11 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @return true, if the user can vote on the site
 	 */
 	public boolean canVoteSite(VoteSite voteSite) {
-		long time = getTime(voteSite);
+		return canVoteSite(voteSite, getTime(voteSite));
+	}
+
+	/** Same cooldown decision using an already loaded last-vote snapshot; performs no storage read. */
+	public boolean canVoteSite(VoteSite voteSite, long time) {
 		if (time == 0) {
 			return true;
 		}

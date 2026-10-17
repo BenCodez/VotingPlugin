@@ -357,3 +357,7 @@ Control behavior in production.
 - After a MEX write, say exactly what changed and its sharing boundary: a local draft is checkout-only and nothing is shared; a canonical artifact is written to the working tree and requires commit/push to share.
 - Skill activation is not approval for canonical actions.
 <!-- mex-agent:skills:end -->
+
+## Guided proxy session confirmation
+
+Guided sessions never award votes or rewards. Proxy confirmation requires a bounded versioned session-fence reply matching the player, backend and random session nonce; keep the first fence for each source. New original proxy ingress assigns an opaque UUIDv8 before asynchronous handoff, with random source incarnation and monotonically increasing sequence. Preserve that canonical ID through every journal, retry, cache and multi-proxy hop; forwarding or replay must never mint new occurrence order. Do not compare proxy clocks with backend clocks or infer freshness from delivery/queue flags. New post-fence delayed/queued votes can confirm only through the existing credited pipeline; older, legacy, fake/test and unsupported-source occurrences remain unconfirmed without changing normal accounting. Unknown peers must preserve ordinary voting. No cache schema migration or new reward path.
