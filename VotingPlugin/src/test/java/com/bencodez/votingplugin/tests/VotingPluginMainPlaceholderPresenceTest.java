@@ -147,14 +147,14 @@ class VotingPluginMainPlaceholderPresenceTest {
 		verify(plugin, times(2)).captureOnlineTopVoterIgnore(any(), any());
 	}
 	@Test
-	void cachedStorageIdentityWinsDuringColdPresenceRefresh() {
+	void offlineStorageIdentityWinsDuringColdPresenceRefresh() {
 		Player player = mock(Player.class);
 		UuidLookup lookup = mock(UuidLookup.class);
 		UUID bukkitUuid = UUID.randomUUID();
 		UUID storageUuid = UUID.randomUUID();
 		when(player.getName()).thenReturn("Player");
 		when(player.getUniqueId()).thenReturn(bukkitUuid);
-		when(lookup.getCachedUUID("Player")).thenReturn(storageUuid.toString());
+		when(lookup.getUUIDWithoutStorage("Player")).thenReturn(storageUuid.toString());
 
 		try (var uuidLookup = mockStatic(UuidLookup.class)) {
 			uuidLookup.when(UuidLookup::getInstance).thenReturn(lookup);
@@ -169,7 +169,7 @@ class VotingPluginMainPlaceholderPresenceTest {
 		UUID bukkitUuid = UUID.randomUUID();
 		when(player.getName()).thenReturn("Player");
 		when(player.getUniqueId()).thenReturn(bukkitUuid);
-		when(lookup.getCachedUUID("Player")).thenReturn("");
+		when(lookup.getUUIDWithoutStorage("Player")).thenReturn("");
 
 		try (var uuidLookup = mockStatic(UuidLookup.class)) {
 			uuidLookup.when(UuidLookup::getInstance).thenReturn(lookup);

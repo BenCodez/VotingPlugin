@@ -354,7 +354,7 @@ public class CommandLoader {
 				java.util.List<VotingPluginUser> users = new java.util.ArrayList<>();
 				try {
 					for (String uuidString : plugin.getUserManager().getAllUUIDs()) {
-						users.add(plugin.getVotingPluginUserManager().getVotingPluginUser(UUID.fromString(uuidString)));
+						users.add(plugin.getVotingPluginUserManager().getVotingPluginUser(UUID.fromString(uuidString), true));
 					}
 				} catch (Throwable failure) {
 					plugin.debug(failure);
