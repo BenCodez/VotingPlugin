@@ -2148,15 +2148,19 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	/** Captures Bukkit presence while the lifecycle caller owns platform access. */
 	public void refreshPlaceholderPlayerPresence() {
 		boolean onlineMode = getOptions().isOnlineMode();
-		placeholderPlayerPresence.replace(Bukkit::getOnlinePlayers,
-				player -> placeholderStorageUuid(player, onlineMode));
+		placeholderPlayerPresence.refresh(Bukkit::getOnlinePlayers, (player, capture) ->
+				com.bencodez.votingplugin.util.BukkitCompletionScheduler.run(this, player, () -> {
+					if (!player.isOnline()) return;
+					UUID storageUuid = placeholderPlayerPresence.storageUuid(player);
+					capture.accept(storageUuid == null ? placeholderStorageUuid(player, onlineMode) : storageUuid);
+				}, () -> { }, () -> { }));
 	}
 
 	static UUID placeholderStorageUuid(Player player, boolean onlineMode) {
 		if (onlineMode) return player.getUniqueId();
-		String cachedUuid = UuidLookup.getInstance().getCachedUUID(player.getName());
+		String resolvedUuid = UuidLookup.getInstance().getUUIDWithoutStorage(player.getName());
 		try {
-			return UUID.fromString(cachedUuid);
+			return UUID.fromString(resolvedUuid);
 		} catch (IllegalArgumentException | NullPointerException ignored) {
 			return player.getUniqueId();
 		}

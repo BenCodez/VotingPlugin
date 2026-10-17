@@ -161,7 +161,7 @@ class CommandLoaderSchedulingTest {
 		when(user.getPlayer()).thenReturn(player);
 		when(plugin.getUserManager().getAllUUIDs())
 				.thenReturn(new java.util.ArrayList<>(java.util.List.of(uuid.toString())));
-		when(plugin.getVotingPluginUserManager().getVotingPluginUser(uuid)).thenReturn(user);
+		when(plugin.getVotingPluginUserManager().getVotingPluginUser(uuid, true)).thenReturn(user);
 		AtomicReference<Runnable> platform = new AtomicReference<>();
 		org.mockito.Mockito.doAnswer(call -> { platform.set(call.getArgument(1)); return null; })
 				.when(scheduler).runTask(eq(plugin), any(Runnable.class));
@@ -193,7 +193,7 @@ class CommandLoaderSchedulingTest {
 		java.util.List<String> uuids = new java.util.ArrayList<>();
 		for (int index = 0; index < 65; index++) uuids.add(UUID.randomUUID().toString());
 		when(plugin.getUserManager().getAllUUIDs()).thenReturn(new java.util.ArrayList<>(uuids));
-		when(plugin.getVotingPluginUserManager().getVotingPluginUser(any(UUID.class))).thenReturn(user);
+		when(plugin.getVotingPluginUserManager().getVotingPluginUser(any(UUID.class), eq(true))).thenReturn(user);
 		java.util.List<Runnable> platformTasks = new java.util.ArrayList<>();
 		org.mockito.Mockito.doAnswer(call -> { platformTasks.add(call.getArgument(1)); return null; })
 				.when(scheduler).runTask(eq(plugin), any(Runnable.class));

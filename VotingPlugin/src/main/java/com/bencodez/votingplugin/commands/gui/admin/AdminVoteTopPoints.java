@@ -80,7 +80,7 @@ public class AdminVoteTopPoints extends GUIHandler {
 					LinkedHashMap<TopVoterPlayer, Integer> raw = new LinkedHashMap<>();
 					for (String uuidString : plugin.getVotingPluginUserManager().getAllUUIDs()) {
 						UUID uuid = UUID.fromString(uuidString);
-						VotingPluginUser vpUser = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
+						VotingPluginUser vpUser = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid, true);
 						vpUser.userDataFetechMode(UserDataFetchMode.NO_CACHE);
 						int points = vpUser.getPoints();
 						if (points <= 0) continue;
