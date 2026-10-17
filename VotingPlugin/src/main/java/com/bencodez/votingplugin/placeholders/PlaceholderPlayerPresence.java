@@ -42,6 +42,8 @@ public final class PlaceholderPlayerPresence {
 		if (uuid == null || player == null) return false;
 		synchronized (lifecycleLock) {
 			if (storageUuid(player) == null) return false;
+			Player currentOwner = onlinePlayers.get().get(uuid);
+			if (currentOwner != null && currentOwner != player) return false;
 			LiveIdentity identity = identities.get(player);
 			playerOnline(uuid, player);
 			if (identity != null) identities.put(player,
@@ -69,7 +71,8 @@ public final class PlaceholderPlayerPresence {
 	/**
 	 * Refresh membership without reading another region's players. Each scheduled
 	 * capture is fenced by its reservation; quit, join, another refresh and clear
-	 * invalidate it before it can publish stale identity data.
+	 * invalidate it before it can publish stale identity data. The capture consumer
+	 * must run on that player's owning thread.
 	 */
 	public void refresh(Supplier<? extends Collection<? extends Player>> playersSupplier,
 			BiConsumer<Player, Consumer<UUID>> scheduleCapture) {
@@ -83,7 +86,7 @@ public final class PlaceholderPlayerPresence {
 			Map<UUID, Player> retained = new HashMap<>(onlinePlayers.get());
 			retained.entrySet().removeIf(entry -> !members.containsKey(entry.getValue()));
 			onlinePlayers.set(Map.copyOf(retained));
-			identities.keySet().removeIf(player -> !retained.containsValue(player));
+			retainCurrentIdentities();
 			refreshReservations.clear();
 			members.keySet().forEach(player -> {
 				Object reservation = new Object();
@@ -94,6 +97,10 @@ public final class PlaceholderPlayerPresence {
 		reservations.forEach((player, reservation) -> scheduleCapture.accept(player, storageUuid -> {
 			synchronized (lifecycleLock) {
 				if (refreshReservations.get(player) != reservation) return;
+				refreshReservations.remove(player);
+				if (storageUuid == null || !player.isOnline()) return;
+				Player currentOwner = onlinePlayers.get().get(storageUuid);
+				if (currentOwner != null && currentOwner != player) return;
 				UUID serverUuid = player.getUniqueId();
 				if (identities.entrySet().stream().anyMatch(entry -> entry.getKey() != player
 						&& serverUuid.equals(entry.getValue().serverUuid()))) return;
@@ -133,6 +140,8 @@ public final class PlaceholderPlayerPresence {
 		if (uuid == null || player == null) return;
 		synchronized (lifecycleLock) {
 			refreshReservations.remove(player);
+			Player displacedOwner = onlinePlayers.get().get(uuid);
+			if (displacedOwner != null && displacedOwner != player) refreshReservations.remove(displacedOwner);
 			update(current -> {
 				Map<UUID, Player> next = new HashMap<>(current);
 				next.entrySet().removeIf(entry -> entry.getValue() == player && !entry.getKey().equals(uuid));

@@ -258,10 +258,90 @@ class OfflineUuidCompatibilityTest {
         }
     }
 
+    @Test void staleCaseChangedRefreshCannotReplaceTheCurrentStorageOwner() {
+        Fixture f = new Fixture();
+        f.join();
+        Map<Player, Consumer<UUID>> captures = new java.util.IdentityHashMap<>();
+        f.presence.refresh(() -> List.of(f.player), captures::put);
+        Player replacement = player(UUID.randomUUID(), NAME.toUpperCase(java.util.Locale.ROOT));
+        f.presence.captureOnline(STORAGE, replacement);
+        captures.get(f.player).accept(STORAGE);
+        assertSame(replacement, f.presence.schedulerOwner(STORAGE));
+        assertNull(f.presence.liveIdentity(SERVER));
+    }
+
+    @Test void displacedRefreshCannotResurrectAfterTheSuccessorQuits() {
+        Fixture f = new Fixture();
+        f.join();
+        Map<Player, Consumer<UUID>> captures = new java.util.IdentityHashMap<>();
+        f.presence.refresh(() -> List.of(f.player), captures::put);
+        Player replacement = player(UUID.randomUUID(), NAME.toUpperCase(java.util.Locale.ROOT));
+        f.presence.captureOnline(STORAGE, replacement);
+        assertTrue(f.presence.playerOffline(STORAGE, replacement));
+        captures.get(f.player).accept(STORAGE);
+        assertNull(f.presence.liveIdentity(SERVER));
+        assertNull(f.presence.schedulerOwner(STORAGE));
+    }
+
+    @Test void retiredUnknownRefreshCannotResurrectAfterAReplacementQuits() {
+        Fixture f = new Fixture();
+        Map<Player, Consumer<UUID>> captures = new java.util.IdentityHashMap<>();
+        f.presence.refresh(() -> List.of(f.player), captures::put);
+        Player replacement = player(UUID.randomUUID(), NAME.toUpperCase(java.util.Locale.ROOT));
+        f.presence.captureOnline(STORAGE, replacement);
+        assertTrue(f.presence.playerOffline(STORAGE, replacement));
+        when(f.player.isOnline()).thenReturn(false);
+        captures.get(f.player).accept(STORAGE);
+        assertNull(f.presence.liveIdentity(SERVER));
+        assertNull(f.presence.schedulerOwner(STORAGE));
+    }
+
+    @Test void delayedLoginCannotTakeAnotherSessionsStorageUuid() {
+        Fixture f = new Fixture();
+        f.presence.captureOnline(SERVER, f.player);
+        Player replacement = player(UUID.randomUUID(), NAME.toUpperCase(java.util.Locale.ROOT));
+        f.presence.captureOnline(STORAGE, replacement);
+        clearInvocations(f.player, replacement);
+        assertFalse(f.presence.updateStorageUuid(STORAGE, f.player));
+        assertSame(replacement, f.presence.schedulerOwner(STORAGE));
+        verifyNoInteractions(f.player, replacement);
+    }
+
+    @Test void refreshRetiresExactOwnersEvenWhenPlayerEqualityMatchesUuid() {
+        PlaceholderPlayerPresence presence = new PlaceholderPlayerPresence();
+        Player old = equivalentPlayer(SERVER, NAME);
+        Player current = equivalentPlayer(SERVER, NAME);
+        UUID oldStorage = UUID.randomUUID();
+        presence.captureOnline(oldStorage, old);
+        presence.captureOnline(STORAGE, current);
+        assertNull(presence.liveIdentity(SERVER));
+        Map<Player, Consumer<UUID>> captures = new java.util.IdentityHashMap<>();
+        presence.refresh(() -> List.of(current), captures::put);
+        captures.get(current).accept(STORAGE);
+        var identity = presence.liveIdentity(SERVER);
+        assertNotNull(identity);
+        assertEquals(STORAGE, identity.storageUuid());
+        assertNull(presence.schedulerOwner(oldStorage));
+    }
+
+    private static Player equivalentPlayer(UUID uuid, String name) {
+        return (Player) java.lang.reflect.Proxy.newProxyInstance(Player.class.getClassLoader(),
+                new Class<?>[] { Player.class }, (proxy, method, args) -> switch (method.getName()) {
+                    case "getUniqueId" -> uuid;
+                    case "getName" -> name;
+                    case "isOnline" -> true;
+                    case "equals" -> args[0] instanceof Player other && uuid.equals(other.getUniqueId());
+                    case "hashCode" -> uuid.hashCode();
+                    case "toString" -> name;
+                    default -> throw new AssertionError("Unexpected player access: " + method.getName());
+                });
+    }
+
     private static Player player(UUID uuid, String name) {
         Player player = mock(Player.class);
         when(player.getUniqueId()).thenReturn(uuid);
         when(player.getName()).thenReturn(name);
+        when(player.isOnline()).thenReturn(true);
         return player;
     }
 
