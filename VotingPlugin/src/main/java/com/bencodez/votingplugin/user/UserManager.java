@@ -3,6 +3,10 @@ package com.bencodez.votingplugin.user;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.UUID;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+
+import com.bencodez.votingplugin.placeholders.PlaceholderPlayerPresence.LiveIdentity;
 
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
@@ -23,6 +27,7 @@ import com.bencodez.votingplugin.topvoter.TopVoter;
  */
 public class UserManager {
 	private VotingPluginMain plugin;
+	private final Set<UUID> warnedOfflineUuidPlayers = ConcurrentHashMap.newKeySet();
 	private boolean sharedPointTransferRecoveryScheduled;
 
 	/**
@@ -260,11 +265,18 @@ public class UserManager {
 	 */
 	@SuppressWarnings("deprecation")
 	public VotingPluginUser getVotingPluginUser(UUID uuid) {
-		return new VotingPluginUser(plugin, uuid);
+		LiveIdentity identity = offlineLiveIdentity(uuid);
+		if (identity == null) return new VotingPluginUser(plugin, uuid);
+		VotingPluginUser user = new VotingPluginUser(plugin, identity.storageUuid(), false);
+		user.setPlayerName(identity.playerName());
+		warnOfflineUuidCorrection(uuid, identity);
+		return user;
 	}
 
 	/**
-	 * Gets a VotingPluginUser by UUID with optional name loading.
+	 * Gets a VotingPluginUser by exact storage UUID with optional name loading.
+	 * This overload preserves the supplied key for storage iteration, recovery
+	 * and administrative operations, even when loadName is true.
 	 * @param uuid the player UUID
 	 * @param loadName whether to load the player name
 	 * @return the VotingPluginUser
@@ -283,6 +295,24 @@ public class UserManager {
 	@SuppressWarnings("deprecation")
 	public VotingPluginUser getVotingPluginUser(UUID uuid, String playerName) {
 		return new VotingPluginUser(plugin, uuid, playerName);
+	}
+
+	/** Resolve only immutable live identity captured by the presence lifecycle. */
+	private LiveIdentity offlineLiveIdentity(UUID uuid) {
+		if (plugin.getOptions().isOnlineMode()) return null;
+		var presence = plugin.getPlaceholderPlayerPresence();
+		LiveIdentity identity = presence == null ? null : presence.liveIdentity(uuid);
+		if (identity == null || identity.serverUuid() == null || identity.storageUuid() == null
+				|| identity.playerName() == null || identity.playerName().isBlank()) return null;
+		return identity;
+	}
+
+	private void warnOfflineUuidCorrection(UUID uuid, LiveIdentity identity) {
+		if (!uuid.equals(identity.storageUuid()) && warnedOfflineUuidPlayers.add(identity.storageUuid())) {
+			plugin.getLogger().warning("Offline UUID compatibility workaround used for " + identity.playerName()
+					+ ". Server UUID: " + identity.serverUuid() + " -> VotingPlugin UUID: " + identity.storageUuid()
+					+ ". Applied for third-party compatibility: a plugin may be using the server UUID instead of VotingPlugin's UUID.");
+		}
 	}
 
 	/**

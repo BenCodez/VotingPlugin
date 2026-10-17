@@ -36,6 +36,7 @@ import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy.VoteRetryException;
 import com.bencodez.votingplugin.util.MinecraftUsernameValidator;
+import com.bencodez.votingplugin.util.ServiceSiteValidator;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 
 import lombok.Getter;
@@ -676,7 +677,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			}
 			if (result == IncomingVoteRuntimeResult.PROCESSED) {
 				getLogger().info("Vote received " + MinecraftUsernameValidator.sanitizeForLog(pending.getPlayer())
-						+ " from service site " + MinecraftUsernameValidator.sanitizeForLog(pending.getService()));
+						+ " from service site " + ServiceSiteValidator.sanitizeForLog(pending.getService()));
 				return;
 			}
 			if (result == IncomingVoteRuntimeResult.RETRY_AFTER_RELOAD) {

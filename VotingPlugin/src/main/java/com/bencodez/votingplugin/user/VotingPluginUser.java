@@ -1022,7 +1022,26 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
             boolean wasOnline, boolean broadcast, int num, boolean queuedProxyVote,
             boolean proxyDelayValidationKnown, boolean proxyQueueClassificationKnown, UUID proxyVoteId,
             boolean targetedProxyVote, boolean unconfirmedProxySessionDelivery, boolean sessionRealVote) {
-            if (plugin.getBungeeSettings().isUseBungeecoord()) {
+        bungeeVotePluginMessagingEvent(service, time, text, setTotals, wasOnline, broadcast, num, queuedProxyVote,
+                proxyDelayValidationKnown, proxyQueueClassificationKnown, proxyVoteId, targetedProxyVote,
+                unconfirmedProxySessionDelivery, sessionRealVote);
+    }
+
+    /** Dispatches a proxy vote with legacy provenance defaults and returns its cancellation state. */
+    public PlayerVoteEvent bungeeVotePluginMessagingEvent(String service, long time, VoteTotalsSnapshot text, boolean setTotals,
+            boolean wasOnline, boolean broadcast, int num, boolean queuedProxyVote,
+            boolean proxyDelayValidationKnown, boolean proxyQueueClassificationKnown, UUID proxyVoteId,
+            boolean targetedProxyVote) {
+        return bungeeVotePluginMessagingEvent(service, time, text, setTotals, wasOnline, broadcast, num, queuedProxyVote,
+                proxyDelayValidationKnown, proxyQueueClassificationKnown, proxyVoteId, targetedProxyVote, false, true);
+    }
+
+    /** Preserves guide-only occurrence provenance while exposing the final cancellation state. */
+    public PlayerVoteEvent bungeeVotePluginMessagingEvent(String service, long time, VoteTotalsSnapshot text, boolean setTotals,
+            boolean wasOnline, boolean broadcast, int num, boolean queuedProxyVote,
+            boolean proxyDelayValidationKnown, boolean proxyQueueClassificationKnown, UUID proxyVoteId,
+            boolean targetedProxyVote, boolean unconfirmedProxySessionDelivery, boolean sessionRealVote) {
+        if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			plugin.debug("Pluginmessaging vote for " + getPlayerName() + " on " + service);
 
 			PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSiteManager().getVoteSite(service, true),
@@ -1044,7 +1063,9 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 				voteEvent.setUnconfirmedProxySessionDelivery(unconfirmedProxySessionDelivery);
                 voteEvent.setProxySessionRealVote(sessionRealVote);
 				plugin.getServer().getPluginManager().callEvent(voteEvent);
+			return voteEvent;
 		}
+		return null;
 	}
 
 	/**
@@ -3001,7 +3022,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 		HashMap<String, String> placeholders = new HashMap<>();
 		placeholders.put("time", timeString);
-		placeholders.put("SiteName", voteSite.getDisplayNameForFormatting());
+		placeholders.put("SiteName", voteSite.getDisplayName());
 		placeholders.put("timesince", timeSince);
 
 		return PlaceholderUtils.replacePlaceHolder(plugin.getGui().getChestVoteLastLine(), placeholders);
@@ -3019,7 +3040,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 		HashMap<String, String> placeholders = new HashMap<>();
 		placeholders.put("time", timeString);
-		placeholders.put("SiteName", voteSite.getDisplayNameForFormatting());
+		placeholders.put("SiteName", voteSite.getDisplayName());
 		placeholders.put("timesince", timeSince);
 
 		return PlaceholderUtils.replacePlaceHolder(plugin.getConfigFile().getFormatCommandsVoteLastLine(),

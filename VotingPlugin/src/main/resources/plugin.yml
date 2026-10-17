@@ -198,3 +198,9 @@ permissions:
   VotingPlugin.Commands.Vote.Session:
     description: Start or navigate a guided voting session
     default: false
+
+  VotingPlugin.Commands.Vote.Streaks:
+    description: View your read-only vote streak progression
+    default: op
+    children:
+      VotingPlugin.Commands.Vote: true

@@ -1,0 +1,1101 @@
+package com.bencodez.votingplugin.tests.backendproxy.transport;
+
+import com.bencodez.votingplugin.tests.support.ReflectiveAccess;
+
+import com.bencodez.votingplugin.backendproxy.transport.BackendProxyTransport;
+import com.bencodez.votingplugin.backendproxy.transport.BackendProxyTransportManager;
+import com.bencodez.votingplugin.backendproxy.transport.HttpBackendProxyTransport;
+
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+
+import com.bencodez.simpleapi.servercomm.http.HttpBackendTransportConnector;
+import com.bencodez.simpleapi.servercomm.http.HttpClientCredentialStore;
+import com.bencodez.simpleapi.servercomm.http.HttpConnectionCode;
+import com.bencodez.simpleapi.servercomm.http.HttpTlsIdentity;
+import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.config.BungeeSettings;
+import com.bencodez.simpleapi.servercomm.global.GlobalMessageHandler;
+import com.bencodez.simpleapi.servercomm.global.GlobalMessageListener;
+import com.bencodez.simpleapi.scheduler.BukkitScheduler;
+import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
+import java.net.URI;
+import java.nio.file.Path;
+import java.time.Instant;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.mockito.MockedStatic;
+
+class HttpBackendProxyTransportTest {
+	@TempDir Path directory;
+
+	@Test
+	void dispatchesIncomingMessagesOnTheServerSchedulerAndWaitsForCompletion() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		AtomicReference<String> callbackThread = new AtomicReference<>();
+		CountDownLatch callbackFinished = new CountDownLatch(1);
+		GlobalMessageHandler handler = new GlobalMessageHandler() {
+			@Override public void sendMessage(JsonEnvelope envelope) { }
+		};
+		handler.addListener(new GlobalMessageListener("test") {
+			@Override public void onReceive(JsonEnvelope envelope) {
+				callbackThread.set(Thread.currentThread().getName());
+				callbackFinished.countDown();
+			}
+		});
+		doAnswer(invocation -> {
+			Runnable task = invocation.getArgument(1);
+			Thread serverThread = new Thread(task, "test-server-thread");
+			serverThread.start();
+			return null;
+		}).when(scheduler).runTask(org.mockito.ArgumentMatchers.eq(plugin), org.mockito.ArgumentMatchers.any(Runnable.class));
+		JsonEnvelope envelope = JsonEnvelope.builder("test").put("message", "payload").build();
+
+		HttpBackendProxyTransportAccess.dispatchIncoming(new HttpBackendProxyTransport(plugin), handler, envelope,
+				System.nanoTime() + TimeUnit.SECONDS.toNanos(1));
+
+		assertTrue(callbackFinished.await(1, TimeUnit.SECONDS));
+		assertEquals("test-server-thread", callbackThread.get());
+	}
+
+	@Test
+	void publicationActivatesTheSimpleApiInboundBarrier() throws Exception {
+		HttpBackendProxyTransport transport = HttpBackendProxyTransportAccess.create(mock(VotingPluginMain.class));
+		HttpBackendTransportConnector connector = mock(HttpBackendTransportConnector.class);
+		setField(transport, "connector", connector);
+
+		transport.activateAfterPublication();
+
+		assertTrue((boolean) field(transport, "inboundActive"));
+	}
+
+	@Test
+	void closedPublicationGateRejectsDeliveryForReplay() {
+		HttpBackendProxyTransport transport = HttpBackendProxyTransportAccess.create(mock(VotingPluginMain.class));
+		transport.close();
+
+		assertThrows(IllegalStateException.class, () -> HttpBackendProxyTransportAccess.dispatchAfterPublication(transport,
+				mock(GlobalMessageHandler.class), JsonEnvelope.builder("test").build()));
+	}
+
+	@Test
+	void orderlyShutdownFlushesHandoffAfterMakingConnectorCapacity() {
+		HttpBackendTransportConnector connector = mock(HttpBackendTransportConnector.class);
+		JsonEnvelope pending = JsonEnvelope.builder("backend-stopped").build();
+		when(connector.send(pending)).thenReturn(false, true);
+		when(connector.flushOutgoing(org.mockito.ArgumentMatchers.anyLong())).thenReturn(true);
+
+		assertTrue(HttpBackendProxyTransportAccess.flushHandoffForShutdown(connector, List.of(pending),
+				System.nanoTime() + TimeUnit.SECONDS.toNanos(1)));
+
+		org.mockito.InOrder order = org.mockito.Mockito.inOrder(connector);
+		order.verify(connector, org.mockito.Mockito.times(2)).send(pending);
+		order.verify(connector).flushOutgoing(org.mockito.ArgumentMatchers.anyLong());
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	void unpublishedHandoffMessagesAreDiscardedOnRollback() throws Exception {
+		HttpBackendProxyTransport transport = HttpBackendProxyTransportAccess.create(mock(VotingPluginMain.class));
+		HttpBackendTransportConnector connector = mock(HttpBackendTransportConnector.class);
+		setField(transport, "connector", connector);
+		((java.util.ArrayDeque<JsonEnvelope>) field(transport, "handoffQueue"))
+				.add(JsonEnvelope.builder("unpublished").build());
+
+		transport.close();
+
+		verify(connector, org.mockito.Mockito.timeout(1000)).close();
+		verify(connector, org.mockito.Mockito.never()).send(org.mockito.ArgumentMatchers.any(JsonEnvelope.class));
+	}
+
+	@Test
+	void failedStartupTransferRetainsTheUnacceptedEnvelope() {
+		java.util.ArrayDeque<JsonEnvelope> queue = new java.util.ArrayDeque<>();
+		JsonEnvelope pending = JsonEnvelope.builder("pending").build();
+		queue.add(pending);
+		HttpBackendTransportConnector connector = mock(HttpBackendTransportConnector.class);
+		when(connector.send(pending)).thenReturn(false);
+
+		assertThrows(IllegalStateException.class,
+				() -> HttpBackendProxyTransportAccess.transferStartupQueue(queue, connector));
+		assertEquals(java.util.List.of(pending), new java.util.ArrayList<>(queue));
+	}
+
+	@Test
+	void failedUninstalledConnectorCloseStillReleasesOwnerAndCompletesStartup() {
+		HttpBackendTransportConnector connector = mock(HttpBackendTransportConnector.class);
+		org.mockito.Mockito.doThrow(new IllegalStateException("close failed")).when(connector).close();
+		java.util.concurrent.Semaphore owner = new java.util.concurrent.Semaphore(0);
+		CountDownLatch completion = new CountDownLatch(1);
+
+		assertThrows(IllegalStateException.class,
+				() -> HttpBackendProxyTransportAccess.finishInitialization(false, connector, true, owner, completion));
+
+		verify(connector).close();
+		assertEquals(1, owner.availablePermits());
+		assertEquals(0L, completion.getCount());
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	void orderlyShutdownFlushesRecoveryQueueBeforeHandoffQueue() throws Exception {
+		HttpBackendProxyTransport transport = HttpBackendProxyTransportAccess.create(mock(VotingPluginMain.class));
+		HttpBackendTransportConnector connector = mock(HttpBackendTransportConnector.class);
+		JsonEnvelope recovery = JsonEnvelope.builder("recovery").build();
+		JsonEnvelope handoff = JsonEnvelope.builder("handoff").build();
+		setField(transport, "connector", connector);
+		setField(transport, "published", true);
+		((java.util.ArrayDeque<JsonEnvelope>) field(transport, "startupQueue")).add(recovery);
+		((java.util.ArrayDeque<JsonEnvelope>) field(transport, "handoffQueue")).add(handoff);
+		when(connector.send(org.mockito.ArgumentMatchers.any(JsonEnvelope.class))).thenReturn(true);
+		when(connector.flushOutgoing(org.mockito.ArgumentMatchers.anyLong())).thenReturn(true);
+
+		transport.close();
+
+		verify(connector, org.mockito.Mockito.timeout(1000)).flushOutgoing(org.mockito.ArgumentMatchers.anyLong());
+		org.mockito.InOrder order = org.mockito.Mockito.inOrder(connector);
+		order.verify(connector).send(recovery);
+		order.verify(connector).send(handoff);
+		order.verify(connector).flushOutgoing(org.mockito.ArgumentMatchers.anyLong());
+	}
+
+	@Test
+	void failedPreparationAfterCloseRestoresCapturedHttpTransport() throws Exception {
+		BackendProxyTransportManager manager = new BackendProxyTransportManager(mock(VotingPluginMain.class));
+		HttpBackendProxyTransport failed = mock(HttpBackendProxyTransport.class);
+		HttpBackendProxyTransport restored = mock(HttpBackendProxyTransport.class);
+		JsonEnvelope queued = JsonEnvelope.builder("queued-after-failure").build();
+		setField(manager, "transport", failed);
+		org.mockito.Mockito.doThrow(new IllegalStateException("worker still stopping"))
+				.when(failed).prepareForReplacement();
+		when(HttpBackendProxyTransportAccess.isClosedForReplacement(failed)).thenReturn(true);
+		when(HttpBackendProxyTransportAccess.recreatePrepared(failed)).thenReturn(restored);
+
+		assertThrows(IllegalStateException.class, manager::prepareForReplacement);
+		manager.send(queued);
+
+		verify(restored).send(queued);
+	}
+
+	@Test
+	void failedFlushKeepsTheRestartedHttpTransport() throws Exception {
+		BackendProxyTransportManager manager = new BackendProxyTransportManager(mock(VotingPluginMain.class));
+		HttpBackendProxyTransport active = mock(HttpBackendProxyTransport.class);
+		JsonEnvelope queued = JsonEnvelope.builder("queued-after-flush-timeout").build();
+		setField(manager, "transport", active);
+		org.mockito.Mockito.doThrow(new IllegalStateException("flush timed out"))
+				.when(active).prepareForReplacement();
+
+		assertThrows(IllegalStateException.class, manager::prepareForReplacement);
+		manager.send(queued);
+
+		verify(active).send(queued);
+		HttpBackendProxyTransportAccess.recreatePrepared(verify(active, org.mockito.Mockito.never()));
+	}
+
+	@Test
+	void sendsRemainNonBlockingWhileReplacementFlushes() throws Exception {
+		BackendProxyTransportManager manager = new BackendProxyTransportManager(mock(VotingPluginMain.class));
+		BackendProxyTransport active = mock(BackendProxyTransport.class);
+		BackendProxyTransportManager replacement = new BackendProxyTransportManager(mock(VotingPluginMain.class));
+		BackendProxyTransport replacementTransport = mock(BackendProxyTransport.class);
+		when(replacementTransport.send(org.mockito.ArgumentMatchers.any(JsonEnvelope.class))).thenReturn(true);
+		JsonEnvelope queued = JsonEnvelope.builder("queued-during-flush").build();
+		setField(manager, "transport", active);
+		setField(replacement, "transport", replacementTransport);
+		replacement.beginPreparedTransportHandoff();
+		java.util.concurrent.CountDownLatch flushStarted = new java.util.concurrent.CountDownLatch(1);
+		java.util.concurrent.CountDownLatch releaseFlush = new java.util.concurrent.CountDownLatch(1);
+		doAnswer(invocation -> {
+			flushStarted.countDown();
+			assertTrue(releaseFlush.await(2, java.util.concurrent.TimeUnit.SECONDS));
+			return null;
+		}).when(active).prepareForReplacement();
+
+		java.util.concurrent.atomic.AtomicReference<Throwable> preparationFailure = new java.util.concurrent.atomic.AtomicReference<>();
+		Thread preparation = new Thread(() -> {
+			try {
+				manager.prepareForReplacement();
+			} catch (Throwable failure) {
+				preparationFailure.set(failure);
+			}
+		});
+		preparation.start();
+		assertTrue(flushStarted.await(1, java.util.concurrent.TimeUnit.SECONDS));
+
+		java.util.concurrent.CompletableFuture<Void> sent = java.util.concurrent.CompletableFuture.runAsync(
+				() -> manager.send(queued));
+		assertDoesNotThrow(() -> sent.get(1, java.util.concurrent.TimeUnit.SECONDS));
+		releaseFlush.countDown();
+		preparation.join(2000L);
+		assertFalse(preparation.isAlive());
+		assertNull(preparationFailure.get());
+
+		manager.completePreparedTransportHandoff(replacement);
+		verify(replacementTransport, org.mockito.Mockito.timeout(1000)).send(queued);
+	}
+
+	@Test
+	void timedOutScheduledMessageCannotExecuteLater() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		AtomicReference<Runnable> scheduled = new AtomicReference<>();
+		doAnswer(invocation -> {
+			scheduled.set(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).runTask(org.mockito.ArgumentMatchers.eq(plugin), org.mockito.ArgumentMatchers.any(Runnable.class));
+		java.util.concurrent.atomic.AtomicInteger deliveries = new java.util.concurrent.atomic.AtomicInteger();
+		GlobalMessageHandler handler = new GlobalMessageHandler() {
+			@Override public void sendMessage(JsonEnvelope envelope) { }
+		};
+		handler.addListener(new GlobalMessageListener("test") {
+			@Override public void onReceive(JsonEnvelope envelope) { deliveries.incrementAndGet(); }
+		});
+
+		assertThrows(IllegalStateException.class,
+				() -> HttpBackendProxyTransportAccess.dispatchIncoming(new HttpBackendProxyTransport(plugin), handler,
+						JsonEnvelope.builder("test").build(), System.nanoTime()));
+		assertTrue(scheduled.get() != null);
+		scheduled.get().run();
+		assertEquals(0, deliveries.get(), "a delivery rejected at its deadline must stay fenced");
+	}
+
+	@Test
+	void interruptedScheduledMessageCannotExecuteLater() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		AtomicReference<Runnable> scheduled = new AtomicReference<>();
+		doAnswer(invocation -> {
+			scheduled.set(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).runTask(org.mockito.ArgumentMatchers.eq(plugin), org.mockito.ArgumentMatchers.any(Runnable.class));
+		java.util.concurrent.atomic.AtomicInteger deliveries = new java.util.concurrent.atomic.AtomicInteger();
+		GlobalMessageHandler handler = new GlobalMessageHandler() {
+			@Override public void sendMessage(JsonEnvelope envelope) { }
+		};
+		handler.addListener(new GlobalMessageListener("test") {
+			@Override public void onReceive(JsonEnvelope envelope) { deliveries.incrementAndGet(); }
+		});
+		AtomicReference<Throwable> dispatchFailure = new AtomicReference<>();
+		Thread dispatch = new Thread(() -> {
+			try {
+				HttpBackendProxyTransportAccess.dispatchIncoming(new HttpBackendProxyTransport(plugin), handler,
+						JsonEnvelope.builder("test").build(), System.nanoTime() + TimeUnit.SECONDS.toNanos(5));
+			} catch (Throwable thrown) {
+				dispatchFailure.set(thrown);
+			}
+		});
+		dispatch.start();
+		while (scheduled.get() == null) Thread.onSpinWait();
+		dispatch.interrupt();
+		dispatch.join(TimeUnit.SECONDS.toMillis(1));
+
+		assertTrue(dispatchFailure.get() instanceof IllegalStateException);
+		scheduled.get().run();
+		assertEquals(0, deliveries.get(), "an interrupted delivery must stay fenced");
+	}
+
+	@Test
+	void validatesInitialConnectionCodeSynchronously() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		BungeeSettings settings = mock(BungeeSettings.class);
+		when(plugin.getDataFolder()).thenReturn(directory.toFile());
+		when(plugin.getBungeeSettings()).thenReturn(settings);
+		when(settings.getServer()).thenReturn("lobby-1");
+		HttpBackendProxyTransport transport = HttpBackendProxyTransportAccess.create(plugin);
+
+		when(settings.getHttpConnectionCode()).thenReturn("malformed");
+		assertThrows(IllegalStateException.class, () -> HttpBackendProxyTransportAccess.validate(transport));
+
+		when(settings.getHttpConnectionCode()).thenReturn(code("lobby-1", Instant.now().minusSeconds(1)).encode());
+		assertThrows(IllegalStateException.class, () -> HttpBackendProxyTransportAccess.validate(transport));
+
+		when(settings.getHttpConnectionCode()).thenReturn(code("survival", Instant.now().plusSeconds(60)).encode());
+		assertThrows(IllegalStateException.class, () -> HttpBackendProxyTransportAccess.validate(transport));
+		assertThrows(IllegalStateException.class, () -> transport.start(mock(GlobalMessageHandler.class)),
+				"invalid configuration must fail before the enrollment worker starts");
+
+		when(settings.getHttpConnectionCode()).thenReturn(code("lobby-1", Instant.now().plusSeconds(60)).encode());
+		assertDoesNotThrow(() -> HttpBackendProxyTransportAccess.validate(transport));
+	}
+
+	@Test
+	void ordinaryStartupRetriesTransientInitialEnrollmentWithBoundedBackoff() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getAnonymousLogger());
+		HttpBackendProxyTransport transport = HttpBackendProxyTransportAccess.create(plugin);
+		HttpConnectionCode enrollment = code("lobby-1", Instant.now().plusSeconds(60));
+		List<Long> delays = new ArrayList<>();
+		java.util.concurrent.atomic.AtomicInteger attempts = new java.util.concurrent.atomic.AtomicInteger();
+
+		try (MockedStatic<HttpBackendTransportConnector> connector = org.mockito.Mockito.mockStatic(HttpBackendTransportConnector.class)) {
+			connector.when(() -> HttpBackendTransportConnector.enroll(enrollment, "lobby-1", directory))
+					.thenAnswer(ignored -> {
+						if (attempts.getAndIncrement() == 0) throw new IOException("proxy unavailable");
+						return null;
+					});
+			assertTrue(HttpBackendProxyTransportAccess.enrollForStartup(transport, enrollment, "lobby-1", directory, true,
+					delay -> { delays.add(delay); return true; }));
+		}
+
+		assertEquals(2, attempts.get());
+		assertEquals(List.of(1_000L), delays);
+	}
+
+	@Test
+	void replacementCancelsRetryingInitialEnrollmentWithoutCredential() throws Exception {
+		HttpBackendProxyTransport transport = HttpBackendProxyTransportAccess.create(mock(VotingPluginMain.class));
+		Path credentials = directory.resolve("http");
+		java.lang.reflect.Field directoryField = HttpBackendProxyTransport.class.getDeclaredField("configuredDirectory");
+		directoryField.setAccessible(true);
+		ReflectiveAccess.set(directoryField, transport, credentials);
+		java.lang.reflect.Field ownersField = HttpBackendProxyTransport.class.getDeclaredField("DIRECTORY_OWNERS");
+		ownersField.setAccessible(true);
+		@SuppressWarnings("unchecked")
+		var owners = (java.util.concurrent.ConcurrentHashMap<Path, java.util.concurrent.Semaphore>) ownersField.get(null);
+		Path ownerKey = credentials.toAbsolutePath().normalize();
+		java.util.concurrent.Semaphore owner = new java.util.concurrent.Semaphore(0);
+		owners.put(ownerKey, owner);
+		CountDownLatch workerStarted = new CountDownLatch(1);
+		Thread retryingEnrollment = new Thread(() -> {
+			workerStarted.countDown();
+			try { Thread.sleep(Long.MAX_VALUE); }
+			catch (InterruptedException expected) { Thread.currentThread().interrupt(); }
+			finally { owner.release(); }
+		});
+		java.lang.reflect.Field workerField = HttpBackendProxyTransport.class.getDeclaredField("worker");
+		workerField.setAccessible(true);
+		ReflectiveAccess.set(workerField, transport, retryingEnrollment);
+		retryingEnrollment.start();
+		assertTrue(workerStarted.await(1, TimeUnit.SECONDS));
+		JsonEnvelope queued = JsonEnvelope.builder("queued-before-replacement").build();
+		transport.send(queued);
+
+		assertDoesNotThrow(transport::prepareForReplacement,
+				"a staged Control replacement must cancel a first-time retry loop without an active credential");
+		java.lang.reflect.Field restoreAbsent =
+				HttpBackendProxyTransport.class.getDeclaredField("restoreUnenrolledState");
+		restoreAbsent.setAccessible(true);
+		assertTrue(restoreAbsent.getBoolean(transport), "rollback must remember that no credential existed");
+		assertEquals(List.of(queued), HttpBackendProxyTransportAccess.drainPreparedMessages(transport),
+				"messages accepted before replacement must remain available for handoff");
+
+		long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+		while (owner.availablePermits() == 0 && System.nanoTime() < deadline) Thread.onSpinWait();
+		assertEquals(1, owner.availablePermits(),
+				"cancelled enrollment must release the credential-directory ownership");
+		owners.remove(ownerKey, owner);
+	}
+
+	@Test
+	void replacementSnapshotsInitialEnrollmentPublishedWhileCancellationCompletes() throws Exception {
+		HttpBackendProxyTransport transport = HttpBackendProxyTransportAccess.create(mock(VotingPluginMain.class));
+		Path credentials = directory.resolve("http");
+		HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory.resolve("original-proxy"),
+				"proxy.example.test");
+		HttpConnectionCode original = new HttpConnectionCode("lobby-1", URI.create("https://proxy.example.test:8443/"),
+				identity.serverCertificatePin(), identity.caCertificatePin(), Instant.now().plusSeconds(60), "G".repeat(43));
+		setField(transport, "configuredDirectory", credentials);
+		setField(transport, "configuredServerId", "lobby-1");
+		setField(transport, "configuredConnectionCode", original.encode());
+		CountDownLatch workerStarted = new CountDownLatch(1);
+		java.util.concurrent.atomic.AtomicReference<Throwable> failure = new java.util.concurrent.atomic.AtomicReference<>();
+		Thread finishingEnrollment = new Thread(() -> {
+			workerStarted.countDown();
+			try {
+				Thread.sleep(Long.MAX_VALUE);
+			} catch (InterruptedException expected) {
+				try {
+					HttpClientCredentialStore.saveEnrolled(credentials, original,
+							identity.issueClientCertificate("lobby-1"));
+				} catch (Throwable thrown) { failure.set(thrown); }
+			}
+		});
+		setField(transport, "worker", finishingEnrollment);
+		finishingEnrollment.start();
+		assertTrue(workerStarted.await(1, TimeUnit.SECONDS));
+
+		transport.prepareForReplacement();
+
+		assertNull(failure.get());
+		assertNotNull(field(transport, "configuredCredentialGeneration"),
+				"a credential published while cancellation finishes must be retained for rollback");
+		assertFalse((boolean) field(transport, "restoreUnenrolledState"));
+	}
+
+	@Test
+	void rollbackRestoresAnExplicitlyUnenrolledCredentialState() throws Exception {
+		Path credentials = directory.resolve("http");
+		HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory.resolve("replacement-proxy"),
+				"proxy.example.test");
+		HttpConnectionCode stagedCode = new HttpConnectionCode("lobby-1",
+				URI.create("https://proxy.example.test:1297/"), identity.serverCertificatePin(),
+				identity.caCertificatePin(), Instant.now().plusSeconds(60), "E".repeat(43));
+		HttpClientCredentialStore.saveEnrolled(credentials, stagedCode,
+				identity.issueClientCertificate("lobby-1"));
+		assertTrue(HttpClientCredentialStore.hasEnrolledProfile(credentials));
+
+		HttpConnectionCode original = code("lobby-1", Instant.now().plusSeconds(60));
+		HttpBackendProxyTransportAccess.restoreUnenrolledCredentialState(credentials, "lobby-1", original.encode());
+
+		assertFalse(HttpClientCredentialStore.hasEnrolledProfile(credentials),
+				"a failed staged first enrollment must not remain active during rollback");
+	}
+
+	@Test
+	void rollbackRetainsEnrollmentIssuedForTheOriginalOneTimeCode() throws Exception {
+		Path credentials = directory.resolve("http");
+		HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory.resolve("same-code-proxy"),
+				"proxy.example.test");
+		HttpConnectionCode original = new HttpConnectionCode("lobby-1", URI.create("https://proxy.example.test:1297/"),
+				identity.serverCertificatePin(), identity.caCertificatePin(), Instant.now().plusSeconds(60), "F".repeat(43));
+		HttpClientCredentialStore.saveEnrolled(credentials, original, identity.issueClientCertificate("lobby-1"));
+
+		HttpBackendProxyTransportAccess.restoreUnenrolledCredentialState(credentials, "lobby-1", original.encode());
+
+		assertTrue(HttpClientCredentialStore.hasEnrolledProfile(credentials),
+				"a credential issued for the consumed original code must remain recoverable");
+	}
+
+	@Test
+	void stagedEnrollmentRemainsFailFast() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getAnonymousLogger());
+		HttpBackendProxyTransport transport = HttpBackendProxyTransportAccess.create(plugin);
+		HttpConnectionCode enrollment = code("lobby-1", Instant.now().plusSeconds(60));
+		try (MockedStatic<HttpBackendTransportConnector> connector = org.mockito.Mockito.mockStatic(HttpBackendTransportConnector.class)) {
+			connector.when(() -> HttpBackendTransportConnector.enroll(enrollment, "lobby-1", directory))
+					.thenThrow(new IOException("proxy unavailable"));
+			assertThrows(IOException.class,
+					() -> HttpBackendProxyTransportAccess.enrollForStartup(transport, enrollment, "lobby-1", directory, false,
+							delay -> { throw new AssertionError("staged enrollment must not retry"); }));
+		}
+	}
+
+	@Test
+	void freshConnectionCodeOverridesAnExistingEnrollment() throws Exception {
+		Path credentials = directory.resolve("http");
+		HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory.resolve("proxy"), "proxy.example.test");
+		HttpConnectionCode original = new HttpConnectionCode("lobby-1", URI.create("https://proxy.example.test:1297/"),
+				identity.serverCertificatePin(), identity.caCertificatePin(), Instant.now().minusSeconds(1), "A".repeat(43));
+		HttpClientCredentialStore.saveEnrolled(credentials, original, identity.issueClientCertificate("lobby-1"));
+		assertNull(HttpBackendProxyTransportAccess.enrollmentCode(credentials, "lobby-1", ""));
+		assertNull(HttpBackendProxyTransportAccess.enrollmentCode(credentials, "lobby-1", original.encode()),
+				"the already-consumed code must not be retried, even after it expires");
+
+		HttpConnectionCode replacement = new HttpConnectionCode("lobby-1", original.endpoint(), original.serverCertificatePin(),
+				original.caCertificatePin(), Instant.now().plusSeconds(60), "B".repeat(43));
+		assertEquals(replacement.encode(), HttpBackendProxyTransportAccess.enrollmentCode(credentials, "lobby-1", replacement.encode()).encode());
+		assertThrows(IllegalStateException.class,
+				() -> HttpBackendProxyTransportAccess.enrollmentCode(credentials, "lobby-1", "malformed"));
+	}
+
+	@Test
+	void failedReplacementFlushResumesTheExistingConnector() {
+		HttpBackendTransportConnector connector = mock(HttpBackendTransportConnector.class);
+		when(connector.flushOutgoing(org.mockito.ArgumentMatchers.anyLong())).thenReturn(false);
+		HttpBackendProxyTransport transport = HttpBackendProxyTransportAccess.create(mock(VotingPluginMain.class));
+
+		assertThrows(IllegalStateException.class,
+				() -> HttpBackendProxyTransportAccess.flushForReplacement(transport, connector, System.nanoTime()));
+
+		verify(connector).start();
+	}
+
+	@Test
+	void closeNeverWaitsForSetupOnTheCallingThread() throws Exception {
+		HttpBackendProxyTransport transport = HttpBackendProxyTransportAccess.create(mock(VotingPluginMain.class));
+		CountDownLatch started = new CountDownLatch(1), release = new CountDownLatch(1);
+		Thread blocked = new Thread(() -> {
+			started.countDown();
+			while (release.getCount() != 0) try { release.await(); }
+			catch (InterruptedException ignored) { /* Simulate setup I/O that has not unwound yet. */ }
+		});
+		blocked.start();
+		assertTrue(started.await(1, TimeUnit.SECONDS));
+		java.lang.reflect.Field worker = HttpBackendProxyTransport.class.getDeclaredField("worker");
+		worker.setAccessible(true);
+		ReflectiveAccess.set(worker, transport, blocked);
+
+		long startedAt = System.nanoTime();
+		transport.close();
+		long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt);
+		try { assertTrue(elapsedMillis < 500, "close blocked the calling thread for " + elapsedMillis + " ms"); }
+		finally { release.countDown(); blocked.join(TimeUnit.SECONDS.toMillis(1)); }
+	}
+
+	@Test
+	void prepareForReplacementSnapshotsThePersistedCredentialGeneration() throws Exception {
+		HttpBackendProxyTransport transport = HttpBackendProxyTransportAccess.create(mock(VotingPluginMain.class));
+		Path credentials = directory.resolve("http");
+		HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory.resolve("replacement-proxy"), "proxy.example.test");
+		HttpConnectionCode code = new HttpConnectionCode("lobby-1", URI.create("https://proxy.example.test:1297/"),
+				identity.serverCertificatePin(), identity.caCertificatePin(), Instant.now().plusSeconds(60), "D".repeat(43));
+		HttpClientCredentialStore.saveEnrolled(credentials, code, identity.issueClientCertificate("lobby-1"));
+		HttpClientCredentialStore.ActiveCredentialGeneration generation =
+				HttpClientCredentialStore.snapshotActiveGeneration(credentials);
+		java.lang.reflect.Field directoryField = HttpBackendProxyTransport.class.getDeclaredField("configuredDirectory");
+		directoryField.setAccessible(true);
+		ReflectiveAccess.set(directoryField, transport, credentials);
+		java.lang.reflect.Field connectorField = HttpBackendProxyTransport.class.getDeclaredField("connector");
+		connectorField.setAccessible(true);
+		HttpBackendTransportConnector connector = mock(HttpBackendTransportConnector.class);
+		when(connector.flushOutgoing(org.mockito.ArgumentMatchers.anyLong())).thenReturn(true);
+		ReflectiveAccess.set(connectorField, transport, connector);
+
+		assertDoesNotThrow(transport::prepareForReplacement);
+		java.lang.reflect.Field generationField =
+				HttpBackendProxyTransport.class.getDeclaredField("configuredCredentialGeneration");
+		generationField.setAccessible(true);
+		assertEquals(generation, generationField.get(transport));
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	void validationWaitsForThePreviousDirectoryOwnerBeforeReadinessFailure() throws Exception {
+		Path credentials = directory.resolve("http");
+		HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory.resolve("proxy-owner"), "proxy.example.test");
+		HttpConnectionCode code = new HttpConnectionCode("lobby-1", URI.create("https://proxy.example.test:1297/"),
+				identity.serverCertificatePin(), identity.caCertificatePin(), Instant.now().plusSeconds(60), "C".repeat(43));
+		HttpClientCredentialStore.saveEnrolled(credentials, code, identity.issueClientCertificate("lobby-1"));
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		BungeeSettings settings = mock(BungeeSettings.class);
+		when(plugin.getDataFolder()).thenReturn(directory.toFile());
+		when(plugin.getBungeeSettings()).thenReturn(settings);
+		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getAnonymousLogger());
+		when(settings.getServer()).thenReturn("lobby-1");
+		when(settings.getHttpConnectionCode()).thenReturn("");
+		java.lang.reflect.Field ownersField = HttpBackendProxyTransport.class.getDeclaredField("DIRECTORY_OWNERS");
+		ownersField.setAccessible(true);
+		var owners = (java.util.concurrent.ConcurrentHashMap<Path, java.util.concurrent.Semaphore>) ownersField.get(null);
+		java.util.concurrent.Semaphore predecessor = new java.util.concurrent.Semaphore(0);
+		owners.put(credentials.toAbsolutePath().normalize(), predecessor);
+		HttpBackendProxyTransport transport = HttpBackendProxyTransportAccess.create(plugin);
+		transport.start(mock(GlobalMessageHandler.class));
+		java.util.concurrent.atomic.AtomicReference<Throwable> failure = new java.util.concurrent.atomic.AtomicReference<>();
+		CountDownLatch finished = new CountDownLatch(1);
+		Thread validation = new Thread(() -> {
+			try { HttpBackendProxyTransportAccess.validate(transport, System.nanoTime() + TimeUnit.SECONDS.toNanos(1)); }
+			catch (Throwable thrown) { failure.set(thrown); }
+			finally { finished.countDown(); }
+		});
+		validation.start();
+		assertFalse(finished.await(150, TimeUnit.MILLISECONDS), "validation published before journal handoff");
+		predecessor.release();
+		assertTrue(finished.await(3, TimeUnit.SECONDS));
+		validation.join(TimeUnit.SECONDS.toMillis(1));
+		assertTrue(failure.get() instanceof IllegalStateException);
+		java.lang.reflect.Field connectorField = HttpBackendProxyTransport.class.getDeclaredField("connector");
+		connectorField.setAccessible(true);
+		assertTrue(connectorField.get(transport) instanceof HttpBackendTransportConnector,
+				"a readiness timeout must not tear down the connector's background retry loop");
+		transport.close();
+	}
+
+	@Test
+	void preparedHandoffMessagesStayAheadOfNewlyPublishedSendsWhenConnectorIsFull() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getAnonymousLogger());
+		HttpBackendProxyTransport transport = HttpBackendProxyTransportAccess.create(plugin);
+		HttpBackendTransportConnector connector = mock(HttpBackendTransportConnector.class);
+		when(connector.send(org.mockito.ArgumentMatchers.any(JsonEnvelope.class))).thenReturn(false);
+		setField(transport, "connector", connector);
+		JsonEnvelope acceptedBeforePublication = JsonEnvelope.builder("old").build();
+		JsonEnvelope sentAfterPublication = JsonEnvelope.builder("new").build();
+
+		HttpBackendProxyTransportAccess.beginPreparedHandoff(transport);
+		transport.send(sentAfterPublication);
+		HttpBackendProxyTransportAccess.acceptHandoffMessages(transport, List.of(acceptedBeforePublication));
+
+		assertEquals(List.of(acceptedBeforePublication, sentAfterPublication), HttpBackendProxyTransportAccess.handoffMessagesSnapshot(transport));
+		transport.close();
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	void shutdownManagerRemainderStaysBehindAlreadyTransferredPrefix() throws Exception {
+		HttpBackendProxyTransport transport = HttpBackendProxyTransportAccess.create(mock(VotingPluginMain.class));
+		JsonEnvelope olderPrefix = JsonEnvelope.builder("older-prefix").build();
+		JsonEnvelope newerRemainder = JsonEnvelope.builder("newer-remainder").build();
+		((java.util.ArrayDeque<JsonEnvelope>) field(transport, "handoffQueue")).addLast(olderPrefix);
+
+		HttpBackendProxyTransportAccess.appendShutdownHandoffMessages(transport, List.of(newerRemainder));
+
+		assertEquals(List.of(olderPrefix, newerRemainder), HttpBackendProxyTransportAccess.handoffMessagesSnapshot(transport));
+		transport.close();
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	void reservationKeepsPreparedHandoffWithinTheReplacementCapacity() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getAnonymousLogger());
+		BackendProxyTransportManager previous = new BackendProxyTransportManager(plugin);
+		BackendProxyTransportManager replacement = new BackendProxyTransportManager(plugin);
+		HttpBackendProxyTransport oldTransport = HttpBackendProxyTransportAccess.create(plugin);
+		HttpBackendProxyTransport newTransport = HttpBackendProxyTransportAccess.create(plugin);
+		setField(previous, "preparedTransport", oldTransport);
+		setField(replacement, "transport", newTransport);
+		java.util.ArrayDeque<JsonEnvelope> oldQueue =
+				(java.util.ArrayDeque<JsonEnvelope>) field(oldTransport, "handoffQueue");
+		List<JsonEnvelope> oldMessages = new ArrayList<>();
+		List<JsonEnvelope> preparedMessages = new ArrayList<>();
+		List<JsonEnvelope> replacementMessages = new ArrayList<>();
+		for (int index = 0; index < 2048; index++) {
+			JsonEnvelope envelope = JsonEnvelope.builder("old-" + index).build();
+			oldQueue.addLast(envelope);
+			oldMessages.add(envelope);
+		}
+		for (int index = 0; index < 1024; index++) {
+			JsonEnvelope envelope = JsonEnvelope.builder("prepared-" + index).build();
+			previous.send(envelope);
+			preparedMessages.add(envelope);
+		}
+
+		replacement.beginPreparedHttpHandoff();
+		previous.reservePreparedTransportHandoff(replacement);
+		for (int index = 0; index < 2048; index++) {
+			JsonEnvelope envelope = JsonEnvelope.builder("new-" + index).build();
+			replacement.send(envelope);
+			replacementMessages.add(envelope);
+		}
+
+		assertDoesNotThrow(() -> previous.completePreparedTransportHandoff(replacement));
+		replacement.awaitAsyncHandoff(System.nanoTime() + TimeUnit.SECONDS.toNanos(2));
+		List<JsonEnvelope> queued = HttpBackendProxyTransportAccess.handoffMessagesSnapshot(newTransport);
+		assertEquals(4096, queued.size());
+		assertEquals(oldMessages, queued.subList(0, 2048));
+		assertEquals(preparedMessages, queued.subList(2048, 3072));
+		assertEquals(replacementMessages.subList(0, 1024), queued.subList(3072, 4096));
+		assertEquals(0, HttpBackendProxyTransportAccess.preparedMessageCount(oldTransport));
+		assertTrue(((java.util.ArrayDeque<JsonEnvelope>) field(previous, "preparedSends")).isEmpty());
+		newTransport.close();
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	void oversizedManagerHandoffFailsBeforeReplacementPublication() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		BackendProxyTransportManager previous = new BackendProxyTransportManager(plugin);
+		BackendProxyTransportManager replacement = new BackendProxyTransportManager(plugin);
+		HttpBackendProxyTransport oldTransport = HttpBackendProxyTransportAccess.create(plugin);
+		HttpBackendProxyTransport newTransport = HttpBackendProxyTransportAccess.create(plugin);
+		setField(previous, "preparedTransport", oldTransport);
+		setField(replacement, "transport", newTransport);
+		java.util.ArrayDeque<JsonEnvelope> oldQueue =
+				(java.util.ArrayDeque<JsonEnvelope>) field(oldTransport, "handoffQueue");
+		for (int index = 0; index < 4096; index++) {
+			oldQueue.addLast(JsonEnvelope.builder("old-" + index).build());
+		}
+
+		replacement.beginPreparedHttpHandoff();
+
+		assertThrows(IllegalStateException.class,
+				() -> previous.reservePreparedTransportHandoff(replacement));
+		assertEquals(4096, oldQueue.size());
+		assertTrue(((java.util.ArrayDeque<JsonEnvelope>) field(replacement, "preparedSends")).isEmpty());
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	void replacementPreparedSendsAreIncludedInFinalHttpCapacityCheck() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getAnonymousLogger());
+		BackendProxyTransportManager previous = new BackendProxyTransportManager(plugin);
+		BackendProxyTransportManager replacement = new BackendProxyTransportManager(plugin);
+		HttpBackendProxyTransport oldTransport = HttpBackendProxyTransportAccess.create(plugin);
+		HttpBackendProxyTransport newTransport = HttpBackendProxyTransportAccess.create(plugin);
+		setField(previous, "preparedTransport", oldTransport);
+		setField(replacement, "transport", newTransport);
+		java.util.ArrayDeque<JsonEnvelope> oldQueue =
+				(java.util.ArrayDeque<JsonEnvelope>) field(oldTransport, "handoffQueue");
+		for (int index = 0; index < 3072; index++)
+			oldQueue.addLast(JsonEnvelope.builder("old-" + index).build());
+		for (int index = 0; index < 1024; index++)
+			previous.send(JsonEnvelope.builder("previous-" + index).build());
+
+		replacement.beginPreparedHttpHandoff();
+		previous.reservePreparedTransportHandoff(replacement);
+		replacement.send(JsonEnvelope.builder("presence-started").build());
+		replacement.send(JsonEnvelope.builder("presence-heartbeat").build());
+
+		assertThrows(IllegalStateException.class,
+				() -> previous.completePreparedTransportHandoff(replacement));
+		assertEquals(3072, oldQueue.size());
+		assertEquals(1024, ((java.util.ArrayDeque<?>) field(previous, "preparedSends")).size());
+		assertEquals(2, ((java.util.ArrayDeque<?>) field(replacement, "preparedSends")).size());
+		assertTrue(HttpBackendProxyTransportAccess.handoffMessagesSnapshot(newTransport).isEmpty());
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	void postPublicationSendsCannotOverbookAnActiveHttpManagerHandoff() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getAnonymousLogger());
+		BackendProxyTransportManager manager = new BackendProxyTransportManager(plugin);
+		HttpBackendProxyTransport transport = HttpBackendProxyTransportAccess.create(plugin);
+		setField(manager, "transport", transport);
+		setField(transport, "managerHandoffActive", true);
+		java.util.ArrayDeque<JsonEnvelope> httpQueue =
+				(java.util.ArrayDeque<JsonEnvelope>) field(transport, "handoffQueue");
+		for (int index = 0; index < 4095; index++)
+			httpQueue.addLast(JsonEnvelope.builder("http-" + index).build());
+		// Keep the manager worker parked so the combined admission can be inspected.
+		setField(manager, "asyncHandoffWorker", new Thread());
+
+		manager.send(JsonEnvelope.builder("last-admitted").build());
+		manager.send(JsonEnvelope.builder("rejected-over-capacity").build());
+
+		assertEquals(1, ((java.util.ArrayDeque<?>) field(manager, "asyncHandoffSends")).size());
+		assertEquals(4095, httpQueue.size());
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	void shutdownDoesNotReplayAHeadAlreadyAcceptedByHttp() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getAnonymousLogger());
+		BackendProxyTransportManager previous = new BackendProxyTransportManager(plugin);
+		BackendProxyTransportManager replacement = new BackendProxyTransportManager(plugin);
+		HttpBackendProxyTransport oldTransport = HttpBackendProxyTransportAccess.create(plugin);
+		HttpBackendProxyTransport newTransport = mock(HttpBackendProxyTransport.class);
+		JsonEnvelope envelope = JsonEnvelope.builder("accepted-once").build();
+		CountDownLatch sending = new CountDownLatch(1);
+		CountDownLatch release = new CountDownLatch(1);
+		setField(previous, "preparedTransport", oldTransport);
+		setField(replacement, "transport", newTransport);
+		((java.util.ArrayDeque<JsonEnvelope>) field(oldTransport, "handoffQueue")).add(envelope);
+		when(newTransport.send(envelope)).thenAnswer(invocation -> {
+			sending.countDown();
+			release.await();
+			return true;
+		});
+
+		replacement.beginPreparedTransportHandoff();
+		previous.completePreparedTransportHandoff(replacement);
+		assertTrue(sending.await(1, TimeUnit.SECONDS));
+		Thread closing = new Thread(replacement::close);
+		closing.start();
+		long waitingDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(1);
+		while (closing.getState() != Thread.State.WAITING && System.nanoTime() < waitingDeadline)
+			Thread.onSpinWait();
+		assertEquals(Thread.State.WAITING, closing.getState(),
+				"close must wait until acceptance and queue removal are atomic");
+
+		release.countDown();
+		closing.join(TimeUnit.SECONDS.toMillis(2));
+		assertFalse(closing.isAlive());
+		verify(newTransport).send(envelope);
+		HttpBackendProxyTransportAccess.acceptHandoffMessages(verify(newTransport, org.mockito.Mockito.never()), org.mockito.ArgumentMatchers.anyList());
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	void shutdownMovesUnadaptedManagerHandoffIntoHttpFinalFlush() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getAnonymousLogger());
+		BackendProxyTransportManager previous = new BackendProxyTransportManager(plugin);
+		BackendProxyTransportManager replacement = new BackendProxyTransportManager(plugin);
+		HttpBackendProxyTransport oldTransport = HttpBackendProxyTransportAccess.create(plugin);
+		HttpBackendProxyTransport newTransport = HttpBackendProxyTransportAccess.create(plugin);
+		HttpBackendTransportConnector connector = mock(HttpBackendTransportConnector.class);
+		JsonEnvelope source = JsonEnvelope.builder("source").build();
+		JsonEnvelope adapted = JsonEnvelope.builder("adapted").build();
+		CountDownLatch adapting = new CountDownLatch(1);
+		CountDownLatch release = new CountDownLatch(1);
+		setField(previous, "preparedTransport", oldTransport);
+		setField(replacement, "transport", newTransport);
+		setField(newTransport, "connector", connector);
+		setField(newTransport, "published", true);
+		((java.util.ArrayDeque<JsonEnvelope>) field(oldTransport, "startupQueue")).add(source);
+		when(connector.send(adapted)).thenReturn(true);
+		when(connector.flushOutgoing(org.mockito.ArgumentMatchers.anyLong())).thenReturn(true);
+		replacement.beginPreparedTransportHandoff();
+
+		previous.completePreparedTransportHandoff(replacement, ignored -> {
+			adapting.countDown();
+			boolean interrupted = false;
+			while (release.getCount() != 0L) {
+				try {
+					release.await();
+				} catch (InterruptedException ignoredInterrupt) {
+					interrupted = true;
+				}
+			}
+			if (interrupted) Thread.currentThread().interrupt();
+			return adapted;
+		});
+		assertTrue(adapting.await(1, TimeUnit.SECONDS));
+
+		Thread close = new Thread(replacement::close);
+		synchronized (replacement) {
+			close.start();
+			long blockedDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(1);
+			while (close.getState() != Thread.State.BLOCKED && System.nanoTime() < blockedDeadline)
+				Thread.onSpinWait();
+			assertEquals(Thread.State.BLOCKED, close.getState());
+		}
+		long ownershipDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(1);
+		while (close.getState() != Thread.State.WAITING
+				&& close.getState() != Thread.State.TIMED_WAITING
+				&& System.nanoTime() < ownershipDeadline) Thread.onSpinWait();
+		assertTrue(close.getState() == Thread.State.WAITING
+				|| close.getState() == Thread.State.TIMED_WAITING,
+				"close must retain the unresolved final handoff");
+		verifyNoInteractions(connector);
+		release.countDown();
+		close.join(2000L);
+		assertFalse(close.isAlive());
+
+		verify(connector, org.mockito.Mockito.timeout(1_000)).send(adapted);
+		verify(connector, org.mockito.Mockito.timeout(1_000))
+				.flushOutgoing(org.mockito.ArgumentMatchers.anyLong());
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	void ordinaryHttpCloseDoesNotWaitForFinalFlushOnLifecycleThread() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getAnonymousLogger());
+		BackendProxyTransportManager manager = new BackendProxyTransportManager(plugin);
+		HttpBackendProxyTransport transport = HttpBackendProxyTransportAccess.create(plugin);
+		HttpBackendTransportConnector connector = mock(HttpBackendTransportConnector.class);
+		JsonEnvelope envelope = JsonEnvelope.builder("shutdown").build();
+		CountDownLatch sending = new CountDownLatch(1);
+		CountDownLatch release = new CountDownLatch(1);
+		setField(manager, "transport", transport);
+		setField(transport, "connector", connector);
+		setField(transport, "published", true);
+		((java.util.ArrayDeque<JsonEnvelope>) field(transport, "handoffQueue")).add(envelope);
+		when(connector.send(envelope)).thenAnswer(invocation -> {
+			sending.countDown();
+			release.await();
+			return true;
+		});
+		when(connector.flushOutgoing(org.mockito.ArgumentMatchers.anyLong())).thenReturn(true);
+
+		Thread lifecycle = new Thread(manager::close);
+		try {
+			lifecycle.start();
+			assertTrue(sending.await(1, TimeUnit.SECONDS));
+			lifecycle.join(TimeUnit.SECONDS.toMillis(1));
+			assertFalse(lifecycle.isAlive(), "Bukkit lifecycle must not wait for the HTTP final flush");
+			assertTrue(Thread.getAllStackTraces().keySet().stream()
+					.anyMatch(thread -> "VotingPlugin-Backend-HTTP-Handoff-Owner".equals(thread.getName())
+							&& !thread.isDaemon()),
+					"a bounded non-daemon owner must retain cleanup through JVM shutdown");
+		} finally {
+			release.countDown();
+			lifecycle.join(TimeUnit.SECONDS.toMillis(1));
+		}
+
+		verify(connector, org.mockito.Mockito.timeout(1_000)).send(envelope);
+		verify(connector, org.mockito.Mockito.timeout(1_000))
+				.flushOutgoing(org.mockito.ArgumentMatchers.anyLong());
+	}
+
+	@Test
+	void nonHttpShutdownCloseDoesNotWaitForPendingHandoffOnLifecycleThread() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getAnonymousLogger());
+		BackendProxyTransportManager manager = new BackendProxyTransportManager(plugin);
+		BackendProxyTransport transport = mock(BackendProxyTransport.class);
+		setField(manager, "transport", transport);
+		setField(manager, "asyncHandoffWorker", new Thread(() -> { }));
+
+		Thread lifecycle = new Thread(manager::closeForShutdown);
+		lifecycle.start();
+		lifecycle.join(TimeUnit.SECONDS.toMillis(1));
+
+		assertFalse(lifecycle.isAlive(), "Bukkit lifecycle must not wait for a non-HTTP handoff");
+		assertTrue(Thread.getAllStackTraces().keySet().stream()
+				.anyMatch(thread -> "VotingPlugin-Backend-Handoff-Owner".equals(thread.getName())
+						&& !thread.isDaemon()),
+				"a bounded non-daemon owner must retain non-HTTP cleanup through JVM shutdown");
+		synchronized (manager) {
+			setField(manager, "asyncHandoffWorker", null);
+			manager.notifyAll();
+		}
+		verify(transport, org.mockito.Mockito.timeout(1_000)).close();
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	void failedHandoffAdmissionLeavesTheOldPreparedQueuesIntact() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		BackendProxyTransportManager previous = new BackendProxyTransportManager(plugin);
+		BackendProxyTransportManager replacement = new BackendProxyTransportManager(plugin);
+		HttpBackendProxyTransport oldTransport = HttpBackendProxyTransportAccess.create(plugin);
+		HttpBackendProxyTransport newTransport = HttpBackendProxyTransportAccess.create(plugin);
+		JsonEnvelope old = JsonEnvelope.builder("old").build();
+		JsonEnvelope prepared = JsonEnvelope.builder("prepared").build();
+		setField(previous, "preparedTransport", oldTransport);
+		setField(replacement, "transport", newTransport);
+		((java.util.ArrayDeque<JsonEnvelope>) field(oldTransport, "startupQueue")).addLast(old);
+		previous.send(prepared);
+		java.util.ArrayDeque<JsonEnvelope> replacementQueue =
+				(java.util.ArrayDeque<JsonEnvelope>) field(newTransport, "handoffQueue");
+		for (int index = 0; index < 4096; index++)
+			replacementQueue.addLast(JsonEnvelope.builder("replacement-" + index).build());
+
+		assertThrows(IllegalStateException.class, () -> previous.completePreparedTransportHandoff(replacement));
+
+		assertEquals(List.of(old), HttpBackendProxyTransportAccess.preparedMessagesSnapshot(oldTransport));
+		java.util.ArrayDeque<?> retained = (java.util.ArrayDeque<?>) field(previous, "preparedSends");
+		assertEquals(1, retained.size());
+		assertSame(prepared, field(retained.peekFirst(), "source"));
+		assertNull(field(previous, "forwardingManager"));
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	void preparedDrainPreservesStartupAndExistingHandoffMessagesInFifoOrder() throws Exception {
+		HttpBackendProxyTransport transport = HttpBackendProxyTransportAccess.create(mock(VotingPluginMain.class));
+		JsonEnvelope startup = JsonEnvelope.builder("startup").build();
+		JsonEnvelope handoff = JsonEnvelope.builder("handoff").build();
+		((java.util.ArrayDeque<JsonEnvelope>) field(transport, "startupQueue")).add(startup);
+		((java.util.ArrayDeque<JsonEnvelope>) field(transport, "handoffQueue")).add(handoff);
+
+		assertEquals(List.of(startup, handoff), HttpBackendProxyTransportAccess.drainPreparedMessages(transport));
+		assertTrue(((java.util.ArrayDeque<JsonEnvelope>) field(transport, "startupQueue")).isEmpty());
+		assertTrue(((java.util.ArrayDeque<JsonEnvelope>) field(transport, "handoffQueue")).isEmpty());
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	void rollbackRecreateKeepsAnOversizedCombinedQueueInTheDrainedHandoffLane() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getAnonymousLogger());
+		HttpBackendProxyTransport transport = HttpBackendProxyTransportAccess.create(plugin);
+		Path credentials = directory.resolve("http");
+		setField(transport, "configuredDirectory", credentials);
+		setField(transport, "configuredServerId", "lobby-1");
+		setField(transport, "configuredConnectionCode", "");
+		setField(transport, "configuredMessageHandler", mock(GlobalMessageHandler.class));
+		setField(transport, "restoreUnenrolledState", true);
+		setField(transport, "wireCodec", com.bencodez.simpleapi.servercomm.http.HttpEnvelopeWireCodec.identity());
+		List<JsonEnvelope> queued = new ArrayList<>();
+		JsonEnvelope startup = JsonEnvelope.builder("startup").build();
+		queued.add(startup);
+		((java.util.ArrayDeque<JsonEnvelope>) field(transport, "startupQueue")).add(startup);
+		for (int index = 0; index < 1024; index++) {
+			JsonEnvelope handoff = JsonEnvelope.builder("handoff-" + index).build();
+			queued.add(handoff);
+			((java.util.ArrayDeque<JsonEnvelope>) field(transport, "handoffQueue")).add(handoff);
+		}
+
+		java.lang.reflect.Field ownersField = HttpBackendProxyTransport.class.getDeclaredField("DIRECTORY_OWNERS");
+		ownersField.setAccessible(true);
+		var owners = (java.util.concurrent.ConcurrentHashMap<Path, java.util.concurrent.Semaphore>) ownersField.get(null);
+		Path ownerKey = credentials.toAbsolutePath().normalize();
+		java.util.concurrent.Semaphore owner = new java.util.concurrent.Semaphore(0);
+		owners.put(ownerKey, owner);
+		HttpBackendProxyTransport restored = null;
+		Thread setup = null;
+		try {
+			restored = HttpBackendProxyTransportAccess.recreatePrepared(transport);
+			assertTrue(((java.util.ArrayDeque<JsonEnvelope>) field(restored, "startupQueue")).isEmpty(),
+					"rollback must not synchronously overfill the connector's 1024-entry queue");
+			assertEquals(queued,
+					new java.util.ArrayList<>((java.util.ArrayDeque<JsonEnvelope>) field(restored, "handoffQueue")));
+			assertTrue(((java.util.ArrayDeque<JsonEnvelope>) field(transport, "startupQueue")).isEmpty());
+			assertTrue(((java.util.ArrayDeque<JsonEnvelope>) field(transport, "handoffQueue")).isEmpty());
+			setup = (Thread) field(restored, "worker");
+		} finally {
+			if (restored != null) restored.close();
+			if (setup != null) setup.join(TimeUnit.SECONDS.toMillis(1));
+			owners.remove(ownerKey, owner);
+		}
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	void rollbackRetainsFullHttpQueueAndFencedSendsWithinRecoveryCapacity() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getAnonymousLogger());
+		BackendProxyTransportManager manager = new BackendProxyTransportManager(plugin);
+		HttpBackendProxyTransport previous = mock(HttpBackendProxyTransport.class);
+		HttpBackendProxyTransport restored = HttpBackendProxyTransportAccess.create(plugin);
+		java.util.ArrayDeque<JsonEnvelope> restoredQueue =
+				(java.util.ArrayDeque<JsonEnvelope>) field(restored, "handoffQueue");
+		for (int index = 0; index < 4096; index++)
+			restoredQueue.addLast(JsonEnvelope.builder("old-" + index).build());
+		JsonEnvelope first = JsonEnvelope.builder("fenced-1").build();
+		JsonEnvelope second = JsonEnvelope.builder("fenced-2").build();
+		setField(manager, "preparedTransport", previous);
+		when(HttpBackendProxyTransportAccess.recreatePrepared(previous)).thenReturn(restored);
+		manager.send(first);
+		manager.send(second);
+
+		manager.restorePreparedTransport();
+
+		long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+		while (HttpBackendProxyTransportAccess.handoffMessagesSnapshot(restored).size() != 4098 && System.nanoTime() < deadline)
+			Thread.onSpinWait();
+		assertEquals(4098, HttpBackendProxyTransportAccess.handoffMessagesSnapshot(restored).size());
+		assertSame(first, HttpBackendProxyTransportAccess.handoffMessagesSnapshot(restored).get(4096));
+		assertSame(second, HttpBackendProxyTransportAccess.handoffMessagesSnapshot(restored).get(4097));
+		assertTrue(((java.util.ArrayDeque<?>) field(manager, "asyncHandoffSends")).isEmpty());
+
+		manager.send(JsonEnvelope.builder("newer-rejected").build());
+		assertEquals(4098, HttpBackendProxyTransportAccess.handoffMessagesSnapshot(restored).size(),
+				"normal sends must not expand the one-time rollback recovery allowance");
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	void shutdownCanAppendTheReservedRollbackRemainder() throws Exception {
+		HttpBackendProxyTransport transport = HttpBackendProxyTransportAccess.create(mock(VotingPluginMain.class));
+		java.util.ArrayDeque<JsonEnvelope> handoff =
+				(java.util.ArrayDeque<JsonEnvelope>) field(transport, "handoffQueue");
+		for (int index = 0; index < 4096; index++)
+			handoff.addLast(JsonEnvelope.builder("old-" + index).build());
+		JsonEnvelope first = JsonEnvelope.builder("fenced-1").build();
+		JsonEnvelope second = JsonEnvelope.builder("fenced-2").build();
+
+		HttpBackendProxyTransportAccess.activateRestoredHandoffDrain(transport, 2);
+		HttpBackendProxyTransportAccess.appendShutdownHandoffMessages(transport, List.of(first, second));
+
+		assertEquals(4098, HttpBackendProxyTransportAccess.handoffMessagesSnapshot(transport).size());
+		assertSame(first, HttpBackendProxyTransportAccess.handoffMessagesSnapshot(transport).get(4096));
+		assertSame(second, HttpBackendProxyTransportAccess.handoffMessagesSnapshot(transport).get(4097));
+	}
+
+	private static HttpConnectionCode code(String serverId, Instant expiry) {
+		return new HttpConnectionCode(serverId, URI.create("https://proxy.example.test:1297/"), "a".repeat(64),
+				"b".repeat(64), expiry, "A".repeat(43));
+	}
+
+	private static void setField(Object target, String name, Object value) throws Exception {
+		java.lang.reflect.Field field = target.getClass().getDeclaredField(name);
+		field.setAccessible(true);
+		ReflectiveAccess.set(field, target, value);
+	}
+
+	private static Object field(Object target, String name) throws Exception {
+		java.lang.reflect.Field field = target.getClass().getDeclaredField(name);
+		field.setAccessible(true);
+		return field.get(target);
+	}
+}

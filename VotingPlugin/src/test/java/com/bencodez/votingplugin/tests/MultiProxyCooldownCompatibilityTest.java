@@ -166,7 +166,7 @@ class MultiProxyCooldownCompatibilityTest {
         userPlugin.setAccessible(true);
         userPlugin.set(user, plugin);
         when(user.getPlayerName()).thenReturn("Player");
-        doCallRealMethod().when(user).bungeeVotePluginMessaging(anyString(), anyLong(),
+        doCallRealMethod().when(user).bungeeVotePluginMessagingEvent(anyString(), anyLong(),
                 any(VoteTotalsSnapshot.class), anyBoolean(), anyBoolean(), anyBoolean(), anyInt(),
                 anyBoolean(), anyBoolean(), anyBoolean(), any(UUID.class), anyBoolean(), anyBoolean(), anyBoolean());
         BungeeSettings settings = mock(BungeeSettings.class);

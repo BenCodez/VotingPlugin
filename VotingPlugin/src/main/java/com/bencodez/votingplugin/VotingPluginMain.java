@@ -71,11 +71,9 @@ import com.bencodez.votingplugin.broadcast.BroadcastSettings;
 import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.bencodez.votingplugin.commands.CommandLoader;
 import com.bencodez.votingplugin.commands.executers.CommandAdminVote;
-import com.bencodez.votingplugin.commands.executers.CommandVote;
 import com.bencodez.votingplugin.commands.gui.AdminGUI;
 import com.bencodez.votingplugin.commands.tabcompleter.AdminVoteTabCompleter;
 import com.bencodez.votingplugin.commands.tabcompleter.AliasCommandFilterListener;
-import com.bencodez.votingplugin.commands.tabcompleter.VoteTabCompleter;
 import com.bencodez.votingplugin.config.BungeeSettings;
 import com.bencodez.votingplugin.config.Config;
 import com.bencodez.votingplugin.config.ConfigVoteSites;
@@ -87,6 +85,9 @@ import com.bencodez.votingplugin.cooldown.CoolDownCheck;
 import com.bencodez.votingplugin.control.BackendControlAutoEnrollment;
 import com.bencodez.votingplugin.control.BackendControlConnector;
 import com.bencodez.votingplugin.data.ServerData;
+import com.bencodez.votingplugin.maintenance.AutoCreateVoteSitesReminderService;
+import com.bencodez.votingplugin.maintenance.AutoCreateVoteSitesReminderService.Settings;
+import com.bencodez.votingplugin.core.maintenance.AutoCreateVoteSitesReminderState;
 import com.bencodez.votingplugin.discord.DiscordHandler;
 import com.bencodez.votingplugin.listeners.BlockBreak;
 import com.bencodez.votingplugin.integration.votifier.VotifierIntegration;
@@ -182,6 +183,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private BroadcastHandler broadcastHandler;
 
 	@Getter
+	private com.bencodez.votingplugin.streaks.VoteStreaksMenu voteStreaksMenu;
+
+	@Getter
 	private BackendProxyHandler backendProxyHandler;
 	private ProcessedVoteCache backendProcessedVoteCache;
 	private BackendOrderedVoteOverflowQueue backendOrderedVoteOverflowQueue;
@@ -219,6 +223,21 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Getter
 	private CommandLoader commandLoader;
+
+	/** Runtime command identity is captured at startup; configuration reload does not rename it. */
+	public String getVoteCommandPrefix() {
+		return "/" + (commandLoader == null ? "vote" : commandLoader.getVoteCommandName());
+	}
+
+	public boolean isVoteCommandEnabled() {
+		return commandLoader == null || commandLoader.isVoteCommandEnabled();
+	}
+
+	/** Retarget the built-in invalid-command help hint, including existing Config.yml text. */
+	public String formatVoteCommandMessage(String message) {
+		return message.replace("%votecommand%", getVoteCommandPrefix())
+				.replaceAll("(?i)/vote(?=\\s|$|[!.,])", getVoteCommandPrefix());
+	}
 
 	@Getter
 	private NameMCLikeCheckerTask nameMCLikeCheckerTask;
@@ -303,6 +322,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Getter
 	private ScheduledExecutorService voteTimer;
+	private volatile AutoCreateVoteSitesReminderService autoCreateVoteSitesSetupReminder;
+	private ScheduledExecutorService autoCreateVoteSitesReminderWorker;
 
 	@Getter
 	private UserManager votingPluginUserManager;
@@ -729,6 +750,16 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		voteTester = new VoteTester(plugin);
 
 		loadVoteTimer();
+		BoundedScheduledExecutor setupReminderWorker = new BoundedScheduledExecutor(1, 4);
+		setupReminderWorker.setThreadFactory(runnable -> {
+			Thread worker = new Thread(runnable, "VotingPlugin-SiteSetupReminder");
+			worker.setDaemon(true);
+			return worker;
+		});
+		autoCreateVoteSitesReminderWorker = setupReminderWorker;
+		autoCreateVoteSitesSetupReminder = new AutoCreateVoteSitesReminderService(getDataFolder().toPath(),
+				setupReminderWorker, getLogger(), autoCreateVoteSitesReminderSettings());
+		autoCreateVoteSitesSetupReminder.start();
 		getVotingPluginUserManager().startSharedPointTransferRecovery();
 
 		if (bungeeSettings.isUseBungeecoord()) {
@@ -1951,12 +1982,31 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Override
 	public void onDisable() {
+		stopAutoCreateVoteSitesSetupReminder();
 		if (offlineVoteOwnerHandoffs != null) offlineVoteOwnerHandoffs.close();
 		try {
 			guidedVotingSessions.clear();
 			shutdownVoteReminders();
 		} finally {
 			super.onDisable();
+		}
+	}
+
+	private Settings autoCreateVoteSitesReminderSettings() {
+		return new Settings(true, configFile.isAutoCreateVoteSites(),
+				AutoCreateVoteSitesReminderState.DEFAULT_THRESHOLD_MILLIS,
+				AutoCreateVoteSitesReminderState.DEFAULT_REPEAT_MILLIS);
+	}
+
+	private void stopAutoCreateVoteSitesSetupReminder() {
+		AutoCreateVoteSitesReminderService current = autoCreateVoteSitesSetupReminder;
+		autoCreateVoteSitesSetupReminder = null;
+		ScheduledExecutorService worker = autoCreateVoteSitesReminderWorker;
+		autoCreateVoteSitesReminderWorker = null;
+		try {
+			if (current != null) current.closeAsync();
+		} finally {
+			if (worker != null) worker.shutdown();
 		}
 	}
 
@@ -1969,6 +2019,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Override
 	public void onUnLoad() {
+		if (voteStreaksMenu != null) voteStreaksMenu.close();
+		stopAutoCreateVoteSitesSetupReminder();
 		placeholderPlayerPresence.clear();
 		stopBackendHostedControlLifecycle();
 		stopBackendControlConnectorLifecycle();
@@ -2021,12 +2073,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		commandLoader.loadCommands();
 		commandLoader.loadAliases();
 
-		// /vote, /v
-		getCommand("vote").setExecutor(new CommandVote(this));
-		getCommand("vote").setTabCompleter(new VoteTabCompleter());
-		// getCommand("v").setExecutor(new CommandVote(this));
-		// getCommand("v").setTabCompleter(new VoteTabCompleter());
-
 		// /adminvote, /av
 		getCommand("adminvote").setExecutor(new CommandAdminVote(this));
 		getCommand("adminvote").setTabCompleter(new AdminVoteTabCompleter());
@@ -2053,6 +2099,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	 * Register events.
 	 */
 	private void registerEvents() {
+		voteStreaksMenu = new com.bencodez.votingplugin.streaks.VoteStreaksMenu(this);
+		getServer().getPluginManager().registerEvents(voteStreaksMenu, this);
 		PluginManager pm = getServer().getPluginManager();
 
 		pm.registerEvents(new PlayerJoinEvent(this), this);
@@ -2109,16 +2157,20 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	/** Captures Bukkit presence while the lifecycle caller owns platform access. */
 	public void refreshPlaceholderPlayerPresence() {
 		boolean onlineMode = getOptions().isOnlineMode();
-		placeholderPlayerPresence.replace(Bukkit::getOnlinePlayers,
-				player -> placeholderStorageUuid(player, onlineMode));
+		placeholderPlayerPresence.refresh(Bukkit::getOnlinePlayers, (player, capture) ->
+				com.bencodez.votingplugin.util.BukkitCompletionScheduler.run(this, player, () -> {
+					if (!player.isOnline()) return;
+					UUID storageUuid = placeholderPlayerPresence.storageUuid(player);
+					capture.accept(storageUuid == null ? placeholderStorageUuid(player, onlineMode) : storageUuid);
+				}, () -> { }, () -> { }));
 	}
 
 	/** Snapshot-only UUID resolution; call while owning the player, before storage work. */
 	public static UUID placeholderStorageUuid(Player player, boolean onlineMode) {
 		if (onlineMode) return player.getUniqueId();
-		String cachedUuid = UuidLookup.getInstance().getCachedUUID(player.getName());
+		String resolvedUuid = UuidLookup.getInstance().getUUIDWithoutStorage(player.getName());
 		try {
-			return UUID.fromString(cachedUuid);
+			return UUID.fromString(resolvedUuid);
 		} catch (IllegalArgumentException | NullPointerException ignored) {
 			return player.getUniqueId();
 		}
@@ -2136,9 +2188,12 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		if (offlineVoteOwnerHandoffs != null) offlineVoteOwnerHandoffs.pause();
 		try {
 		guidedVotingSessions.clear();
+		if (voteStreaksMenu != null) voteStreaksMenu.suspend();
 		configFile.reloadData();
 		configFile.loadValues();
 		if (commandLoader != null) commandLoader.refreshGuidedSessionCommands();
+		AutoCreateVoteSitesReminderService setupReminder = autoCreateVoteSitesSetupReminder;
+		if (setupReminder != null) setupReminder.reload(autoCreateVoteSitesReminderSettings());
 
 		configVoteSites.reloadData();
 
@@ -2188,6 +2243,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		setUpdate(true);
 		} finally {
+			if (voteStreaksMenu != null) voteStreaksMenu.resume();
 			if (offlineVoteOwnerHandoffs != null) offlineVoteOwnerHandoffs.resume();
 		}
 	}

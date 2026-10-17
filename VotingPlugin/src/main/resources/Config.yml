@@ -188,6 +188,7 @@ DebugLevel: NONE
 GiveDefaultPermission: true
 
 # If true, plugin will automatically generate votesites upon getting a vote
+# Disable after setup; a small periodic console reminder warns while enabled.
 AutoCreateVoteSites: true
 
 # Geyser/Bedrock player support
@@ -210,6 +211,14 @@ UseVoteGUIMainCommand: false
 # Whether or not to create daily backups. (Only the most recent ones get kept)
 # Does not backup MySQL data
 CreateBackups: true
+
+# Player root command and standalone player aliases; admin commands remain available.
+# These settings require a server restart; /av reload does not change registration.
+VoteCommandEnabled: true
+# Root label without a slash or namespace; 1-64 letters, digits, underscores or hyphens.
+# Reserved/invalid names use vote. A foreign bare-name conflict uses votingplugin:<name>.
+# Standalone aliases such as /votegui and /vgui keep their existing names.
+VoteCommandName: vote
 
 # Load command aliases, such as /avgui
 # Requires restart to take effect

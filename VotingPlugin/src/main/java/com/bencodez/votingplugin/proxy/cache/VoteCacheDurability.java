@@ -41,8 +41,198 @@ public final class VoteCacheDurability {
 			JsonElement document = readValue(reader, 0);
 			if (!document.isJsonObject() || reader.peek() != JsonToken.END_DOCUMENT)
 				throw new IOException("Vote cache must contain one JSON object");
-			return document.getAsJsonObject();
+			JsonObject journal = document.getAsJsonObject();
+			validateTimedRows(journal);
+			return journal;
 		}
+	}
+
+	/** Rejects timed recovery evidence that queue reconstruction cannot safely retain. */
+	private static void validateTimedRows(JsonObject journal) throws IOException {
+		if (!journal.has("TimedVoteCache")) return;
+		JsonElement timed = journal.get("TimedVoteCache");
+		if (!timed.isJsonObject()) throw new IOException("Invalid timed vote cache structure");
+		for (var entry : timed.getAsJsonObject().entrySet()) {
+			// Queue rewrites address rows by integer index. Aliases or out-of-range
+			// keys cannot retain distinct durable owners through that representation.
+			if (!entry.getKey().matches("0|[1-9][0-9]*"))
+				throw new IOException("Timed vote cache key requires recovery");
+			try { Integer.parseInt(entry.getKey()); }
+			catch (NumberFormatException invalid) { throw new IOException("Timed vote cache key requires recovery"); }
+			JsonElement row = entry.getValue();
+			if (!row.isJsonObject()) throw new IOException("Timed vote cache entry requires recovery");
+			JsonObject fields = row.getAsJsonObject();
+			boolean readable = false;
+			for (String name : new String[] {"Name", "UUID", "Service", "Time", "VoteId"})
+				if (fields.has(name) && fields.get(name).isJsonPrimitive()) readable = true;
+			if (!readable) throw new IOException("Timed vote cache entry requires recovery");
+			try {
+				// Check the fields consumed by timed reconstruction, including optional
+				// progress. Unknown values and inactive conditional fields remain legacy data.
+				for (String name : new String[] {"Name", "UUID", "Service", "Time", "VoteId",
+						"ProxyBroadcastHandled", "BroadcastForwardedServers", "BroadcastTargets", "Totals",
+						"Processed", "VotePartyApplied", "TotalsApplied", "MultiProxyForwardingHandled",
+						"HttpBroadcastDeliveryIds", "MultiProxyForwardingRequired", "MultiProxyCapabilityDiscoveryPending",
+						"RealVote", "WasOnlineKnown", "DelayValidationKnown", "MultiProxyOrigin",
+						"MultiProxyCompletionPending", "MultiProxyRecipients", "MultiProxyAcknowledgedServers",
+						"MultiProxyLegacyPendingRecipients"})
+					if (fields.has(name) && !fields.get(name).isJsonPrimitive())
+						throw new IOException("Timed vote cache entry requires recovery");
+				if (fields.has("Time")) fields.get("Time").getAsLong();
+				if (fields.has("VoteId") && !fields.get("VoteId").getAsString().isEmpty())
+					java.util.UUID.fromString(fields.get("VoteId").getAsString());
+				if (fields.has("WasOnlineKnown") && fields.get("WasOnlineKnown").getAsBoolean()
+						&& (!fields.has("WasOnline") || !fields.get("WasOnline").isJsonPrimitive()))
+					throw new IOException("Timed vote cache entry requires recovery");
+				if (fields.has("DelayValidationKnown") && fields.get("DelayValidationKnown").getAsBoolean()
+						&& fields.has("DelayValidated") && !fields.get("DelayValidated").isJsonPrimitive())
+					throw new IOException("Timed vote cache entry requires recovery");
+			} catch (RuntimeException invalid) {
+				throw new IOException("Timed vote cache entry requires recovery");
+			}
+		}
+	}
+
+	/** Retains opaque recovery records while an unrelated healthy vote is updated or removed. */
+	public static boolean preserveUnresolvedCacheRows(JsonObject previous, JsonObject candidate) {
+		boolean changed = false;
+		// JSON adapters may omit null/empty children. Successful updates of healthy votes
+		// must not erase another record's unresolved recovery evidence.
+		for (String lane : new String[] {"VoteCache", "OnlineCache"}) {
+			if (!previous.has(lane)) continue;
+			JsonElement owners = previous.get(lane);
+			if (!owners.isJsonObject()) { changed |= preserveValue(candidate, lane, owners); continue; }
+			for (var owner : owners.getAsJsonObject().entrySet()) {
+				if (!owner.getValue().isJsonObject()) {
+					changed |= preserveValue(objectChild(candidate, lane), owner.getKey(), owner.getValue());
+					continue;
+				}
+				for (var row : owner.getValue().getAsJsonObject().entrySet())
+					if (unresolvedRow(row.getValue()))
+						changed |= preserveValue(objectChild(objectChild(candidate, lane), owner.getKey()),
+								row.getKey(), row.getValue());
+			}
+		}
+		return changed;
+	}
+
+	private static JsonObject objectChild(JsonObject parent, String key) {
+		if (!parent.has(key) || !parent.get(key).isJsonObject()) parent.add(key, new JsonObject());
+		return parent.getAsJsonObject(key);
+	}
+
+	private static boolean unresolvedRow(JsonElement row) {
+		if (!row.isJsonObject()) return true;
+		JsonObject data = row.getAsJsonObject();
+		if (isOpaqueRecoveryRow(new GsonDataNode(data)) || hasUndecodableVoteFields(data)) return true;
+		if (!data.has("CachedBatchNumber") && !data.has("CachedBatchSize")
+				&& !data.has("CachedBatchSourceRowId")) return false;
+		try {
+			for (String field : new String[] {"Name", "UUID", "Service", "Text"})
+				if (!data.has(field) || !data.get(field).isJsonPrimitive()
+						|| !data.getAsJsonPrimitive(field).isString()) return true;
+			if (!data.has("Real") || !data.get("Real").isJsonPrimitive()
+					|| !data.getAsJsonPrimitive("Real").isBoolean()
+					|| !data.has("Time") || !data.get("Time").isJsonPrimitive()
+					|| !data.getAsJsonPrimitive("Time").isNumber()) return true;
+			new java.math.BigDecimal(data.get("Time").getAsString()).longValueExact();
+			int[] values = new int[3];
+			String[] fields = {"CachedBatchNumber", "CachedBatchSize", "CachedBatchSourceRowId"};
+			for (int i = 0; i < fields.length; i++) {
+				if (!data.has(fields[i]) || !data.get(fields[i]).isJsonPrimitive()
+						|| !data.getAsJsonPrimitive(fields[i]).isNumber()) return true;
+				values[i] = new java.math.BigDecimal(data.get(fields[i]).getAsString()).intValueExact();
+			}
+			return values[2] < 0 || !(values[0] == 0 && values[1] == 0
+					|| values[0] > 0 && values[0] <= values[1]);
+		} catch (RuntimeException invalid) { return true; }
+	}
+
+	/** Shares opaque-row ownership classification between reconstruction and persistence. */
+	static boolean isOpaqueRecoveryRow(DataNode data) {
+		for (String field : new String[] {"Name", "UUID", "Service", "Time", "Real", "Text", "VoteId", "VoteID"}) {
+			if (data.has(field)) {
+				DataNode value = data.get(field);
+				if (value != null && value.isPrimitive()) return false;
+			}
+		}
+		return true;
+	}
+
+	private static boolean hasUndecodableVoteFields(JsonObject data) {
+		// Match fields which recovery actually reads, including optional delivery state.
+		// Do not classify unused/unknown null fields as broken legacy ownership.
+		for (String field : new String[] {"Name", "UUID", "Service", "Time", "Real", "Text",
+				"BroadcastForwarded", "ProxyBroadcastHandled", "BroadcastTargets", "BroadcastForwardedServers",
+				"HttpDeliveryIds", "HttpBroadcastDeliveryIds", "RewardDelivered", "WasOnlineKnown",
+				"DelayValidationKnown"})
+			if (data.has(field) && !data.get(field).isJsonPrimitive()) return true;
+		String idField = data.has("VoteId") ? "VoteId" : "VoteID";
+		if (data.has(idField)) {
+			if (!data.get(idField).isJsonPrimitive()) return true;
+			String id = data.get(idField).getAsString();
+			try { if (!id.isEmpty()) java.util.UUID.fromString(id); }
+			catch (IllegalArgumentException invalid) { return true; }
+		}
+		if (data.has("WasOnlineKnown") && data.get("WasOnlineKnown").getAsBoolean()
+				&& data.has("WasOnline") && !data.get("WasOnline").isJsonPrimitive()) return true;
+		return data.has("DelayValidationKnown") && data.get("DelayValidationKnown").getAsBoolean()
+				&& data.has("DelayValidated") && !data.get("DelayValidated").isJsonPrimitive();
+	}
+
+	private static boolean preserveValue(JsonObject parent, String key, JsonElement value) {
+		JsonElement current = parent.get(key);
+		JsonElement retained = value.deepCopy();
+		if (sameRecoveryOwner(value, current)) {
+			// Keep corrupt identity/position evidence, but persist actual completion
+			// progress of the same owner instead of silently reverting that update.
+			JsonObject original = retained.getAsJsonObject(), updated = current.getAsJsonObject();
+			for (String field : new String[] {"BroadcastForwarded", "ProxyBroadcastHandled", "BroadcastTargets",
+					"BroadcastForwardedServers", "HttpDeliveryIds", "HttpBroadcastDeliveryIds", "RewardDelivered",
+					"WasOnlineKnown", "WasOnline", "DelayValidationKnown", "DelayValidated"})
+				if (updated.has(field)) original.add(field, updated.get(field).deepCopy());
+		}
+		if (retained.equals(current)) return false;
+		parent.add(key, retained);
+		return true;
+	}
+
+	private static boolean sameRecoveryOwner(JsonElement previous, JsonElement candidate) {
+		if (candidate == null || !previous.isJsonObject() || !candidate.isJsonObject()) return false;
+		JsonObject left = previous.getAsJsonObject(), right = candidate.getAsJsonObject();
+		try {
+			java.util.UUID leftId = recoveryVoteId(left), rightId = recoveryVoteId(right);
+			if (leftId != null || rightId != null) return leftId != null && leftId.equals(rightId);
+			if (!left.has("CachedBatchSourceRowId") || !right.has("CachedBatchSourceRowId")
+					|| !left.get("CachedBatchSourceRowId").isJsonPrimitive()
+					|| !right.get("CachedBatchSourceRowId").isJsonPrimitive()
+					|| !left.getAsJsonPrimitive("CachedBatchSourceRowId").isNumber()
+					|| !right.getAsJsonPrimitive("CachedBatchSourceRowId").isNumber()) return false;
+			int source = new java.math.BigDecimal(left.get("CachedBatchSourceRowId").getAsString()).intValueExact();
+			if (source <= 0 || source != new java.math.BigDecimal(right.get("CachedBatchSourceRowId")
+					.getAsString()).intValueExact()) return false;
+			for (String field : new String[] {"Name", "UUID", "Service", "Text"})
+				if (!left.has(field) || !right.has(field) || !left.get(field).isJsonPrimitive()
+						|| !right.get(field).isJsonPrimitive() || !left.getAsJsonPrimitive(field).isString()
+						|| !right.getAsJsonPrimitive(field).isString() || !left.get(field).equals(right.get(field))) return false;
+			return left.has("Real") && right.has("Real") && left.get("Real").isJsonPrimitive()
+					&& right.get("Real").isJsonPrimitive() && left.getAsJsonPrimitive("Real").isBoolean()
+					&& right.getAsJsonPrimitive("Real").isBoolean() && left.get("Real").equals(right.get("Real"))
+					&& left.has("Time") && right.has("Time") && left.get("Time").isJsonPrimitive()
+					&& right.get("Time").isJsonPrimitive() && left.getAsJsonPrimitive("Time").isNumber()
+					&& right.getAsJsonPrimitive("Time").isNumber()
+					&& new java.math.BigDecimal(left.get("Time").getAsString()).longValueExact()
+					== new java.math.BigDecimal(right.get("Time").getAsString()).longValueExact();
+		} catch (RuntimeException invalid) { return false; }
+	}
+
+	private static java.util.UUID recoveryVoteId(JsonObject data) {
+		String field = data.has("VoteId") ? "VoteId" : "VoteID";
+		if (!data.has(field)) return null;
+		if (!data.get(field).isJsonPrimitive() || !data.getAsJsonPrimitive(field).isString())
+			throw new IllegalArgumentException("Invalid persisted vote identity");
+		String value = data.get(field).getAsString();
+		return value.isEmpty() ? null : java.util.UUID.fromString(value);
 	}
 
 	/** Enforces JSON lexical rules which older Gson non-lenient readers leave permissive. */

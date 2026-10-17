@@ -7,7 +7,6 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerQuitEvent;
 
-import com.bencodez.advancedcore.api.rewards.RewardDisplayPlaceholders;
 import com.bencodez.advancedcore.listeners.AdvancedCoreLoginEvent;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerPostVoteEvent;
@@ -38,8 +37,7 @@ public class VoteRemindersListener implements Listener {
 	 */
 	@EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
 	public void onPostVote(PlayerPostVoteEvent event) {
-		plugin.getVoteRemindersManager().onVoteCast(event.getUser(), event.getVoteSite().getDisplayName(),
-				event.getVoteSite().getDisplayNameForFormatting());
+		plugin.getVoteRemindersManager().onVoteCast(event.getUser(), event.getVoteSite().getDisplayName());
 	}
 
 	/**
@@ -84,7 +82,6 @@ public class VoteRemindersListener implements Listener {
 	public void onCoolDownEnd(PlayerVoteSiteCoolDownEndEvent event) {
 		HashMap<String, String> placeholders = new HashMap<>();
 		placeholders.put("votesite", event.getSite().getDisplayName());
-		RewardDisplayPlaceholders.put(placeholders, "votesite", event.getSite().getDisplayNameForFormatting());
 		placeholders.put("votesite_id", event.getSite().getKey());
 		plugin.getVoteRemindersManager().onCooldownTrigger(event.getPlayer(), VoteReminderType.COOLDOWN_END_ANY_SITE,
 				placeholders);

@@ -107,6 +107,38 @@ public final class GuidedVoteSession {
         occurrences.put(occurrence, site);
         if (initialized) sites.putIfAbsent(site, candidates.get(site));
     }
+    /**
+     * Select the next eligible site for automatic guidance after the current site
+     * can no longer be the active target. Explicit navigation remains owned by
+     * {@link #view(String)}; this method only advances from a received,
+     * unavailable, or skipped current entry.
+     *
+     * @return whether the active index changed
+     */
+    public synchronized boolean selectNextAwaiting() {
+        if (finished || sites.isEmpty()) return false;
+        int start = Math.floorMod(index, sites.size());
+        String current = new ArrayList<>(sites.keySet()).get(start);
+        Status currentStatus = status(sites.get(current));
+        if (currentStatus == Status.AWAITING) return false;
+        List<Site> ordered = new ArrayList<>(sites.values());
+        for (int offset = 1; offset <= ordered.size(); offset++) {
+            int candidateIndex = (start + offset) % ordered.size();
+            Site candidate = ordered.get(candidateIndex);
+            if (status(candidate) == Status.AWAITING && candidate.eligible() && !skipped.contains(candidate.key())) {
+                if (candidateIndex == index) return false;
+                index = candidateIndex;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private Status status(Site site) {
+        if (received.containsKey(site.key())) return Status.RECEIVED;
+        if (!site.eligible()) return Status.UNAVAILABLE;
+        return skipped.contains(site.key()) ? Status.SKIPPED : Status.AWAITING;
+    }
     public synchronized View view(String action) {
         if (!sites.isEmpty()) {
             String current = new ArrayList<>(sites.keySet()).get(index);
@@ -117,10 +149,7 @@ public final class GuidedVoteSession {
         if (action.equals("finish")) finished = true;
         List<Entry> entries = new ArrayList<>();
         for (Site site : sites.values()) {
-            Status status = received.containsKey(site.key()) ? Status.RECEIVED : Status.AWAITING;
-            if (status != Status.RECEIVED && !site.eligible()) status = Status.UNAVAILABLE;
-            if (status == Status.AWAITING && skipped.contains(site.key())) status = Status.SKIPPED;
-            entries.add(new Entry(site, status));
+            entries.add(new Entry(site, status(site)));
         }
         return new View(List.copyOf(entries), index, finished);
     }

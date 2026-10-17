@@ -600,7 +600,7 @@ public class BackendProxyMessageRouter {
 		boolean online = fields.containsKey(VotingPluginWire.K_WAS_ONLINE)
 				? Boolean.parseBoolean(fields.get(VotingPluginWire.K_WAS_ONLINE)) : user.isOnline();
 		plugin.getBroadcastHandler().broadcastVote(user.getJavaUUID(), user.getPlayerName(),
-				voteSite.getDisplayNameForFormatting(), online, totals);
+				voteSite.getDisplayName(), online, totals);
 	}
 
 	private WireVoteResult handleWireVoteDelayRejected(JsonEnvelope msg) {
@@ -723,12 +723,12 @@ public class BackendProxyMessageRouter {
 		// Even an immediate proxy send can arrive after a guide opened on this backend.
 		// Transport freshness flags cannot establish original occurrence order. The guide
 		// separately validates the canonical ingress ID against its negotiated source fence.
-		user.bungeeVotePluginMessaging(vote.service, vote.time, totals, !vote.manageTotals,
+		var event = user.bungeeVotePluginMessagingEvent(vote.service, vote.time, totals, !vote.manageTotals,
 				wasOnline, vote.broadcast, vote.num, queuedDelivery, vote.delayValidationKnown,
 				vote.queuedDeliveryKnown, voteId,
 				VotingPluginWire.SUB_VOTE_ONLINE.equals(msg.getSubChannel()),
                 true, vote.realVote);
-        if (plugin.getBungeeSettings().isPerServerPoints()) {
+        if ((event == null || !event.isCancelled()) && plugin.getBungeeSettings().isPerServerPoints()) {
 			user.addPoints(plugin.getConfigFile().getPointsOnVote());
 		}
 		if (vote.service != null && !vote.service.isEmpty()) {

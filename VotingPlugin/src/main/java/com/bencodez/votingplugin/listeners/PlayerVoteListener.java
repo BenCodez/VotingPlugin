@@ -32,6 +32,9 @@ public class PlayerVoteListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onplayerVote(PlayerVoteEvent event) {
+        // Keep the production boundary defensive for direct/custom dispatchers
+        // as well as Bukkit's Cancellable-aware event dispatcher.
+        if (event.isCancelled()) return;
         SharedVoteProcessor.process(new BukkitOperations(plugin, event));
     }
 
@@ -95,7 +98,7 @@ public class PlayerVoteListener implements Listener {
         }
         @Override public boolean siteEnabled(VoteSite site) { return site.isEnabled(); }
         @Override public String siteKey(VoteSite site) { return site.getKey(); }
-        @Override public String siteDisplayName(VoteSite site) { return site.getDisplayNameForFormatting(); }
+        @Override public String siteDisplayName(VoteSite site) { return site.getDisplayName(); }
         @Override public VotingPluginUser resolveUser(String name) {
             if (event.getVotingPluginUser() != null) return event.getVotingPluginUser();
             Player player = Bukkit.getPlayerExact(name);

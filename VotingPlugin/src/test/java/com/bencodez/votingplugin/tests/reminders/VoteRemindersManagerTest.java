@@ -1,6 +1,8 @@
 package com.bencodez.votingplugin.tests.reminders;
 
-import com.bencodez.votingplugin.util.EntityTaskResultTestCompat;
+import com.bencodez.votingplugin.tests.support.ReflectiveAccess;
+
+import com.bencodez.votingplugin.tests.util.EntityTaskResultTestCompat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -62,7 +64,7 @@ public class VoteRemindersManagerTest {
 		VoteRemindersManager manager = new VoteRemindersManager(plugin, store);
 		Method track = VoteRemindersManager.class.getDeclaredMethod("trackClaimRollback", Runnable.class);
 		track.setAccessible(true);
-		Runnable rollback = (Runnable) track.invoke(manager, (Runnable) rollbacks::incrementAndGet);
+		Runnable rollback = (Runnable) ReflectiveAccess.invoke(track, manager, new Object[]{(Runnable) rollbacks::incrementAndGet});
 
 		manager.shutdown();
 		rollback.run();
@@ -82,9 +84,9 @@ public class VoteRemindersManagerTest {
 		VoteRemindersManager manager = new VoteRemindersManager(plugin, store);
 		Method track = VoteRemindersManager.class.getDeclaredMethod("trackClaimRollback", Runnable.class);
 		track.setAccessible(true);
-		Runnable rollback = (Runnable) track.invoke(manager, (Runnable) () -> {
+		Runnable rollback = (Runnable) ReflectiveAccess.invoke(track, manager, new Object[]{(Runnable) () -> {
 			if (attempts.incrementAndGet() == 1) throw new IllegalStateException("storage unavailable");
-		});
+		}});
 
 		rollback.run();
 		rollback.run();
@@ -117,14 +119,14 @@ public class VoteRemindersManagerTest {
 		VoteRemindersManager manager = new VoteRemindersManager(plugin, store);
 		Method track = VoteRemindersManager.class.getDeclaredMethod("trackClaimRollback", Runnable.class);
 		track.setAccessible(true);
-		track.invoke(manager, (Runnable) attempts::incrementAndGet);
+		ReflectiveAccess.invoke(track, manager, new Object[]{(Runnable) attempts::incrementAndGet});
 		Field schedulerField = VoteRemindersManager.class.getDeclaredField("scheduler");
 		schedulerField.setAccessible(true);
 		ScheduledExecutorService original = (ScheduledExecutorService) schedulerField.get(manager);
 		ScheduledExecutorService blocked = mock(ScheduledExecutorService.class);
 		when(blocked.awaitTermination(5L, TimeUnit.SECONDS)).thenReturn(false);
 		original.shutdownNow();
-		schedulerField.set(manager, blocked);
+		ReflectiveAccess.set(schedulerField, manager, blocked);
 
 		manager.shutdown();
 
@@ -146,7 +148,7 @@ public class VoteRemindersManagerTest {
 		Method schedule = VoteRemindersManager.class.getDeclaredMethod("scheduleDelayedEvaluation",
 				UUID.class, String.class, Map.class, long.class);
 		schedule.setAccessible(true);
-		schedule.invoke(manager, UUID.randomUUID(), "login", Collections.emptyMap(), 60_000L);
+		ReflectiveAccess.invoke(schedule, manager, new Object[]{UUID.randomUUID(), "login", Collections.emptyMap(), 60_000L});
 
 		manager.shutdown();
 
@@ -181,20 +183,20 @@ public class VoteRemindersManagerTest {
 		try {
 			Field options = VoteRemindersManager.class.getDeclaredField("options");
 			options.setAccessible(true);
-			options.set(manager, new VoteReminderOptions(true, true, ParsedDuration.parse(""), 0,
+			ReflectiveAccess.set(options, manager, new VoteReminderOptions(true, true, ParsedDuration.parse(""), 0,
 					ParsedDuration.parse(""), ParsedDuration.parse(""), new VoteReminderConditions(), ""));
 			Method schedule = VoteRemindersManager.class.getDeclaredMethod("scheduleIfStillOnline",
 					UUID.class, Runnable.class);
 			schedule.setAccessible(true);
 
-			assertTrue((boolean) schedule.invoke(manager, uuid, (Runnable) deliveries::incrementAndGet));
+			assertTrue((boolean) ReflectiveAccess.invoke(schedule, manager, new Object[]{uuid, (Runnable) deliveries::incrementAndGet}));
 			presence.playerOffline(uuid, player);
 			scheduled.get().run();
 			org.junit.jupiter.api.Assertions.assertEquals(0, deliveries.get());
 
 			presence.playerOnline(uuid, player);
 			when(player.isOnline()).thenReturn(false);
-			assertTrue((boolean) schedule.invoke(manager, uuid, (Runnable) deliveries::incrementAndGet));
+			assertTrue((boolean) ReflectiveAccess.invoke(schedule, manager, new Object[]{uuid, (Runnable) deliveries::incrementAndGet}));
 			scheduled.get().run();
 			org.junit.jupiter.api.Assertions.assertEquals(0, deliveries.get());
 		} finally {
@@ -230,16 +232,16 @@ public class VoteRemindersManagerTest {
 		try {
 			Field options = VoteRemindersManager.class.getDeclaredField("options");
 			options.setAccessible(true);
-			options.set(manager, new VoteReminderOptions(true, true, ParsedDuration.parse(""), 0,
+			ReflectiveAccess.set(options, manager, new VoteReminderOptions(true, true, ParsedDuration.parse(""), 0,
 					ParsedDuration.parse(""), ParsedDuration.parse(""), new VoteReminderConditions(), ""));
 			Method schedule = VoteRemindersManager.class.getDeclaredMethod("scheduleIfStillOnline",
 					UUID.class, Runnable.class);
 			schedule.setAccessible(true);
 
-			assertTrue((boolean) schedule.invoke(manager, uuid, (Runnable) () -> {
+			assertTrue((boolean) ReflectiveAccess.invoke(schedule, manager, new Object[]{uuid, (Runnable) () -> {
 				deliveryThread.set(Thread.currentThread().getName());
 				delivered.countDown();
-			}));
+			}}));
 			scheduled.get().run();
 
 			assertTrue(delivered.await(1, TimeUnit.SECONDS));
@@ -284,8 +286,7 @@ public class VoteRemindersManagerTest {
 					UUID.class, Runnable.class, Runnable.class);
 			schedule.setAccessible(true);
 
-			assertTrue((boolean) schedule.invoke(manager, uuid, (Runnable) deliveries::incrementAndGet,
-					(Runnable) unavailable::incrementAndGet));
+			assertTrue((boolean) ReflectiveAccess.invoke(schedule, manager, new Object[]{uuid, (Runnable) deliveries::incrementAndGet, (Runnable) unavailable::incrementAndGet}));
 
 			org.junit.jupiter.api.Assertions.assertEquals(0, deliveries.get());
 			org.junit.jupiter.api.Assertions.assertEquals(1, unavailable.get());
@@ -299,7 +300,7 @@ public class VoteRemindersManagerTest {
 		Method method = VoteRemindersManager.class.getDeclaredMethod("onlineRewardBuilder",
 				org.bukkit.configuration.ConfigurationSection.class, String.class);
 		method.setAccessible(true);
-		RewardBuilder builder = (RewardBuilder) method.invoke(null, null, "VoteReminders.Login.Rewards");
+		RewardBuilder builder = (RewardBuilder) ReflectiveAccess.invoke(method, null, new Object[]{null, "VoteReminders.Login.Rewards"});
 
 		assertTrue(builder.getRewardOptions().isOnlineSet());
 		assertTrue(builder.getRewardOptions().isOnline());
@@ -318,7 +319,7 @@ public class VoteRemindersManagerTest {
 				VotingPluginMain.class, UUID.class, String.class);
 		method.setAccessible(true);
 
-		assertTrue(method.invoke(null, plugin, uuid, "MchtTester") == user);
+		assertTrue(ReflectiveAccess.invoke(method, null, new Object[]{plugin, uuid, "MchtTester"}) == user);
 		verify(manager).getVotingPluginUser(uuid, "MchtTester");
 		verify(manager, never()).getVotingPluginUser(uuid, false);
 	}
@@ -430,7 +431,7 @@ public class VoteRemindersManagerTest {
 					VotingPluginUser.class, Player.class, VoteReminderDefinition.class, Map.class);
 			attemptFireNow.setAccessible(true);
 
-			assertFalse((boolean) attemptFireNow.invoke(manager, user, null, definition, null));
+			assertFalse((boolean) ReflectiveAccess.invoke(attemptFireNow, manager, new Object[]{user, null, definition, null}));
 			verify(user, never()).shouldBeReminded();
 		} finally {
 			manager.shutdown();
@@ -449,9 +450,9 @@ public class VoteRemindersManagerTest {
 		try {
 			Method method = VoteRemindersManager.class.getDeclaredMethod("hasPlatformPermission", Player.class, String.class);
 			method.setAccessible(true);
-			assertTrue((boolean) method.invoke(manager, player, "!example.hidden"));
+			assertTrue((boolean) ReflectiveAccess.invoke(method, manager, new Object[]{player, "!example.hidden"}));
 			when(player.hasPermission("example.hidden")).thenReturn(true);
-			assertFalse((boolean) method.invoke(manager, player, "!example.hidden"));
+			assertFalse((boolean) ReflectiveAccess.invoke(method, manager, new Object[]{player, "!example.hidden"}));
 		} finally {
 			manager.shutdown();
 		}
