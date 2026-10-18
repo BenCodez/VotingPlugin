@@ -209,6 +209,8 @@
                                 <filter>
                                     <artifact>com.bencodez:advancedcore</artifact>
                                     <excludes>
+                                        <!-- Use SimpleAPI's corrected entity-delay facade, not an SDK-embedded copy. -->
+                                        <exclude>com/bencodez/simpleapi/scheduler/BukkitScheduler.class</exclude>
                                         <exclude>org/bouncycastle/**</exclude>
                                         <exclude>com/bencodez/simpleapi/servercomm/http/**</exclude>
                                         <exclude>redis/clients/**</exclude>

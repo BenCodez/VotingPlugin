@@ -1,10 +1,14 @@
 package com.bencodez.votingplugin.tests.packaging;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
@@ -14,9 +18,21 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.jar.JarFile;
+import java.util.ArrayDeque;
+import java.util.Queue;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
+import org.bukkit.Server;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.Player;
+import org.bukkit.event.player.PlayerGameModeChangeEvent;
+import org.bukkit.plugin.Plugin;
+import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitTask;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.Answers;
 
 /** Package-phase checks for the actual downloadable plugin artifact. */
 public class PackagedArtifactTest {
@@ -90,6 +106,66 @@ public class PackagedArtifactTest {
         if (artifactBytes > ARTIFACT_SIZE_TARGET_BYTES) {
             output.printf("[WARNING] VotingPlugin downloadable artifact exceeds the 10 MiB size target: %,d bytes. "
                     + "Review dependency growth; this warning does not fail the build.%n", artifactBytes);
+        }
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void packagedGameModeListenerUsesTheCorrectedEntityDelayFacade() throws Exception {
+        URL jar = packagedJar().toUri().toURL();
+        try (URLClassLoader loader = new URLClassLoader(new URL[] { jar }, getClass().getClassLoader())) {
+            String prefix = "com.bencodez.votingplugin.simpleapi.";
+            Class<?> libraryType = Class.forName(prefix + "folialib.FoliaLib", true, loader);
+            Class<?> backendType = Class.forName(prefix + "folialib.impl.SpigotImplementation", true, loader);
+            Class<?> facadeType = Class.forName(prefix + "scheduler.BukkitScheduler", true, loader);
+            assertSame(loader, facadeType.getClassLoader(), "Use the shaded downloadable class, not Maven's SDK copy");
+            JavaPlugin plugin = mock(JavaPlugin.class);
+            Server server = mock(Server.class);
+            org.bukkit.scheduler.BukkitScheduler scheduler = mock(org.bukkit.scheduler.BukkitScheduler.class);
+            when(plugin.getServer()).thenReturn(server);
+            when(server.getScheduler()).thenReturn(scheduler);
+            AtomicReference<Object> backend = new AtomicReference<>();
+            Object library = mock(libraryType, invocation -> switch (invocation.getMethod().getName()) {
+                case "getPlugin" -> plugin;
+                case "getImpl" -> backend.get();
+                default -> Answers.RETURNS_DEFAULTS.answer(invocation);
+            });
+            backend.set(backendType.getConstructor(libraryType).newInstance(library));
+            Object facade = mock(facadeType, invocation -> invocation.getMethod().getName().equals("getFoliaLib")
+                    ? library : invocation.callRealMethod());
+            Queue<Consumer<BukkitTask>> queued = new ArrayDeque<>();
+            doAnswer(invocation -> {
+                queued.add((Consumer<BukkitTask>) invocation.getArgument(1));
+                return null;
+            }).when(scheduler).runTaskLater(eq(plugin), any(Consumer.class), anyLong());
+            Player player = mock(Player.class);
+            when(player.isValid()).thenReturn(true);
+            Runnable action = mock(Runnable.class);
+            facadeType.getMethod("runTaskLater", Plugin.class, Runnable.class, long.class, Entity.class)
+                    .invoke(facade, plugin, action, 2L, player);
+            verify(scheduler).runTaskLater(eq(plugin), any(Consumer.class), eq(40L));
+            verifyNoInteractions(action);
+            assertEquals(1, queued.size());
+            queued.remove().accept(mock(BukkitTask.class));
+            verify(action, times(1)).run();
+
+            // Exercise the real packaged event listener as well as the facade itself.
+            clearInvocations(scheduler);
+            Class<?> advancedType = Class.forName(
+                    "com.bencodez.votingplugin.advancedcore.AdvancedCorePlugin", true, loader);
+            Object advancedPlugin = mock(advancedType, invocation -> switch (invocation.getMethod().getName()) {
+                case "getBukkitScheduler" -> facade;
+                case "isEnabled" -> true;
+                default -> Answers.RETURNS_DEEP_STUBS.answer(invocation);
+            });
+            Class<?> listenerType = Class.forName(
+                    "com.bencodez.votingplugin.advancedcore.listeners.RewardEligibilityListener", true, loader);
+            Object listener = listenerType.getConstructor(advancedType).newInstance(advancedPlugin);
+            PlayerGameModeChangeEvent event = mock(PlayerGameModeChangeEvent.class);
+            when(event.getPlayer()).thenReturn(player);
+            listenerType.getMethod("onGameModeChange", PlayerGameModeChangeEvent.class).invoke(listener, event);
+            verify(scheduler, times(1)).runTaskLater(eq(plugin), any(Consumer.class), eq(20L));
+            assertEquals(1, queued.size());
         }
     }
 
