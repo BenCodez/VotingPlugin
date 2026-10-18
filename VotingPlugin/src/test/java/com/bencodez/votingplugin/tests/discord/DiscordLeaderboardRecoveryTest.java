@@ -21,6 +21,226 @@ import github.scarsz.discordsrv.dependencies.jda.api.requests.ErrorResponse;
 import github.scarsz.discordsrv.dependencies.jda.api.exceptions.ErrorResponseException;
 
 class DiscordLeaderboardRecoveryTest {
+    @Test void ordinaryEditsCoalesceUntilSuccessAndPublishTheLatestFrameOnce() {
+        try (var f = new Fixture()) {
+            f.publish();
+            var firstSuccess = f.editSuccess;
+            f.board.clear(); f.board.put(f.first, 100);
+            f.publish(); f.publish();
+            verify(f.channel, times(1)).editMessageEmbedsById(eq(9L), any(MessageEmbed.class));
+            firstSuccess.accept(mock(Message.class)); f.drain();
+            var frames = org.mockito.ArgumentCaptor.forClass(MessageEmbed.class);
+            verify(f.channel, times(2)).editMessageEmbedsById(eq(9L), frames.capture());
+            assertTrue(frames.getAllValues().get(0).getDescription().contains("SyntheticSecond"));
+            assertTrue(frames.getAllValues().get(1).getDescription().contains("SyntheticFirst"));
+            f.editSuccess.accept(mock(Message.class)); f.drain();
+            verify(f.channel, times(2)).editMessageEmbedsById(eq(9L), any(MessageEmbed.class));
+            verify(f.channel, never()).sendMessageEmbeds(any(MessageEmbed.class));
+        }
+    }
+
+    @Test void ordinaryEditFailurePublishesOnlyAnExplicitCoalescedRefresh() {
+        try (var f = new Fixture()) {
+            f.publish(); var firstFailure = f.editFailure;
+            f.board.clear(); f.board.put(f.first, 100); f.publish();
+            verify(f.channel, times(1)).editMessageEmbedsById(eq(9L), any(MessageEmbed.class));
+            firstFailure.accept(new IllegalStateException("synthetic edit failure")); f.drain();
+            verify(f.channel, times(2)).editMessageEmbedsById(eq(9L), any(MessageEmbed.class));
+            f.editFailure.accept(new IllegalStateException("synthetic repeated failure")); f.drain();
+            verify(f.channel, times(2)).editMessageEmbedsById(eq(9L), any(MessageEmbed.class));
+            verify(f.channel, never()).sendMessageEmbeds(any(MessageEmbed.class));
+        }
+    }
+
+    @Test void newerGenerationsWaitForAnOlderEditThenPrepareTheirOwnEvidence() {
+        for (int retirement : List.of(0, 1, 2)) for (boolean failure : List.of(false, true))
+            try (var f = new Fixture()) {
+                f.publish(); var olderSuccess = f.editSuccess; var olderFailure = f.editFailure;
+                f.generation.incrementAndGet();
+                if (retirement == 1) f.handler.retireLeaderboardPublications();
+                f.board.clear(); f.board.put(f.first, 100);
+                var prepared = new CompletableFuture<LinkedHashMap<TopVoterPlayer, Integer>>();
+                when(f.plugin.getTopVoterDisplayAsync(TopVoter.Monthly)).thenReturn(prepared);
+                f.publish();
+                if (retirement == 2) f.handler.retireLeaderboardPublications();
+                verify(f.channel, times(1)).editMessageEmbedsById(eq(9L), any(MessageEmbed.class));
+                if (failure) olderFailure.accept(new IllegalStateException("synthetic retired edit"));
+                else olderSuccess.accept(mock(Message.class));
+                f.drain();
+                verify(f.plugin, times(1)).getTopVoterDisplayAsync(TopVoter.Monthly);
+                verify(f.channel, times(1)).editMessageEmbedsById(eq(9L), any(MessageEmbed.class));
+                prepared.complete(new LinkedHashMap<>(f.board)); f.drain();
+                var frames = org.mockito.ArgumentCaptor.forClass(MessageEmbed.class);
+                verify(f.channel, times(2)).editMessageEmbedsById(eq(9L), frames.capture());
+                assertTrue(frames.getAllValues().get(1).getDescription().contains("SyntheticFirst"));
+                f.editSuccess.accept(mock(Message.class)); f.drain();
+                verify(f.channel, times(2)).editMessageEmbedsById(eq(9L), any(MessageEmbed.class));
+                verify(f.channel, never()).sendMessageEmbeds(any(MessageEmbed.class));
+                verify(f.data, never()).setTopVoterMessageId(any(), anyLong());
+            }
+    }
+
+    @Test void retirementPreservesRequestsInTheStillCurrentGeneration() {
+        try (var f = new Fixture()) {
+            f.publish(); var success = f.editSuccess; f.publish();
+            f.handler.retireLeaderboardPublications();
+            success.accept(mock(Message.class)); f.drain();
+            verify(f.channel, times(2)).editMessageEmbedsById(eq(9L), any(MessageEmbed.class));
+            verify(f.plugin, never()).getTopVoterDisplayAsync(any());
+            verify(f.data, never()).setTopVoterMessageId(any(), anyLong());
+        }
+    }
+
+    @Test void retirementDiscardsAQueuedGenerationThatHasAlreadyBeenSuperseded() {
+        try (var f = new Fixture()) {
+            f.publish(); var success = f.editSuccess;
+            f.generation.incrementAndGet(); f.publish();
+            f.generation.incrementAndGet(); f.handler.retireLeaderboardPublications();
+            success.accept(mock(Message.class)); f.drain();
+            verify(f.channel, times(1)).editMessageEmbedsById(eq(9L), any(MessageEmbed.class));
+            verify(f.plugin, never()).getTopVoterDisplayAsync(any());
+            verify(f.data, never()).setTopVoterMessageId(any(), anyLong());
+        }
+    }
+
+    @Test void retirementBetweenCallbackAdmissionAndFinishPreservesTheReplacementRequest() {
+        for (boolean failure : List.of(false, true)) try (var f = new Fixture()) {
+            f.publish(); var success = f.editSuccess; var error = f.editFailure;
+            f.generation.incrementAndGet(); f.publish();
+            var prepared = new CompletableFuture<LinkedHashMap<TopVoterPlayer, Integer>>();
+            when(f.plugin.getTopVoterDisplayAsync(TopVoter.Monthly)).thenReturn(prepared);
+            var retireOnCallback = new AtomicBoolean(true);
+            doAnswer(call -> {
+                if (retireOnCallback.getAndSet(false)) f.handler.retireLeaderboardPublications();
+                return true;
+            }).when(f.plugin).isEnabled();
+            if (failure) error.accept(new IllegalStateException("synthetic callback failure"));
+            else success.accept(mock(Message.class));
+            f.drain();
+            assertFalse(retireOnCallback.get());
+            verify(f.plugin, times(1)).getTopVoterDisplayAsync(TopVoter.Monthly);
+            verify(f.channel, times(1)).editMessageEmbedsById(eq(9L), any(MessageEmbed.class));
+            prepared.complete(new LinkedHashMap<>(f.board)); f.drain();
+            verify(f.channel, times(2)).editMessageEmbedsById(eq(9L), any(MessageEmbed.class));
+        }
+    }
+
+    @Test void retirementAfterCallbackFinishPreservesPendingReplacementPreparation() {
+        for (boolean completed : List.of(false, true)) try (var f = new Fixture()) {
+            f.publish(); var success = f.editSuccess;
+            f.generation.incrementAndGet(); f.publish();
+            var prepared = new CompletableFuture<LinkedHashMap<TopVoterPlayer, Integer>>();
+            when(f.plugin.getTopVoterDisplayAsync(TopVoter.Monthly)).thenReturn(prepared);
+            success.accept(mock(Message.class));
+            verify(f.plugin, times(1)).getTopVoterDisplayAsync(TopVoter.Monthly);
+            if (completed) prepared.complete(new LinkedHashMap<>(f.board));
+            f.handler.retireLeaderboardPublications();
+            if (!completed) prepared.complete(new LinkedHashMap<>(f.board));
+            f.drain();
+            verify(f.channel, times(2)).editMessageEmbedsById(eq(9L), any(MessageEmbed.class));
+        }
+    }
+
+    @Test void retirementPreservesAReplacementEditAndItsCoalescedCurrentRefresh() {
+        try (var f = new Fixture()) {
+            f.publish(); var success = f.editSuccess;
+            f.generation.incrementAndGet(); f.publish();
+            when(f.plugin.getTopVoterDisplayAsync(TopVoter.Monthly))
+                    .thenAnswer(call -> CompletableFuture.completedFuture(new LinkedHashMap<>(f.board)));
+            success.accept(mock(Message.class)); f.drain();
+            verify(f.channel, times(2)).editMessageEmbedsById(eq(9L), any(MessageEmbed.class));
+            var replacement = f.editSuccess;
+            f.board.clear(); f.board.put(f.first, 100); f.publish();
+            f.handler.retireLeaderboardPublications();
+            replacement.accept(mock(Message.class)); f.drain();
+            verify(f.channel, times(3)).editMessageEmbedsById(eq(9L), any(MessageEmbed.class));
+            verify(f.plugin, times(1)).getTopVoterDisplayAsync(TopVoter.Monthly);
+            verify(f.data, never()).setTopVoterMessageId(any(), anyLong());
+        }
+    }
+
+    @Test void retirementPreservesCurrentSuccessfulSendsAwaitingTheirWorker() {
+        for (boolean append : List.of(false, true)) try (var f = new Fixture()) {
+            f.generation.incrementAndGet();
+            f.handler.getTopVoterMessageIds().put(TopVoter.Monthly, 0L);
+            when(f.config.isDiscordSRVTopVoterNewMessageOnUpdate(any())).thenReturn(append);
+            DiscordHandlerAccess.publish(f.handler, TopVoter.Monthly, f.board);
+            var created = new CreatedMessage(13L); f.sendSuccess.accept(created.message);
+            f.handler.retireLeaderboardPublications();
+            verify(created.message, never()).delete();
+            f.drain();
+            assertEquals(13L, f.handler.getTopVoterMessageIds().get(TopVoter.Monthly));
+            if (append) verify(f.data, never()).setTopVoterMessageId(any(), anyLong());
+            else assertEquals(13L, f.storedId.get());
+            verify(created.message, never()).delete();
+        }
+    }
+
+    @Test void retirementPreservesCurrentPreparationWithoutAnOlderPublicationSlot() {
+        try (var f = new Fixture()) {
+            f.generation.incrementAndGet();
+            var prepared = new CompletableFuture<LinkedHashMap<TopVoterPlayer, Integer>>();
+            when(f.plugin.getTopVoterDisplayAsync(TopVoter.Monthly)).thenReturn(prepared);
+            f.handler.updateTopVoterMessageId(TopVoter.Monthly);
+            f.handler.retireLeaderboardPublications();
+            prepared.complete(new LinkedHashMap<>(f.board)); f.drain();
+            verify(f.channel, times(1)).editMessageEmbedsById(eq(9L), any(MessageEmbed.class));
+        }
+    }
+
+    @Test void retirementRestartsQueuedReplacementBeforeCancellingTheOlderPreparationWorker() {
+        for (boolean alreadyQueued : List.of(false, true)) try (var f = new Fixture()) {
+            var older = new CompletableFuture<LinkedHashMap<TopVoterPlayer, Integer>>();
+            var newer = new CompletableFuture<LinkedHashMap<TopVoterPlayer, Integer>>();
+            when(f.plugin.getTopVoterDisplayAsync(TopVoter.Monthly)).thenReturn(older, newer);
+            f.handler.updateTopVoterMessageId(TopVoter.Monthly);
+            if (alreadyQueued) older.complete(new LinkedHashMap<>(f.board));
+            f.generation.incrementAndGet(); f.handler.updateTopVoterMessageId(TopVoter.Monthly);
+            f.handler.retireLeaderboardPublications();
+            verify(f.plugin, times(2)).getTopVoterDisplayAsync(TopVoter.Monthly);
+            if (!alreadyQueued) older.completeExceptionally(new IllegalStateException("synthetic retired preparation"));
+            f.worker.clear(); // Retirement can cancel an accepted older completion.
+            newer.complete(new LinkedHashMap<>(f.board)); f.drain();
+            verify(f.channel, times(1)).editMessageEmbedsById(eq(9L), any(MessageEmbed.class));
+            verify(f.plugin, times(2)).getTopVoterDisplayAsync(TopVoter.Monthly);
+        }
+    }
+
+    @Test void rejectedRetiredPreparationCannotDuplicateItsAlreadyRestartedReplacement() {
+        try (var f = new Fixture()) {
+            var older = new CompletableFuture<LinkedHashMap<TopVoterPlayer, Integer>>();
+            var newer = new CompletableFuture<LinkedHashMap<TopVoterPlayer, Integer>>();
+            when(f.plugin.getTopVoterDisplayAsync(TopVoter.Monthly)).thenReturn(older, newer);
+            f.handler.updateTopVoterMessageId(TopVoter.Monthly);
+            f.generation.incrementAndGet(); f.handler.updateTopVoterMessageId(TopVoter.Monthly);
+            f.handler.retireLeaderboardPublications();
+            verify(f.plugin, times(2)).getTopVoterDisplayAsync(TopVoter.Monthly);
+            var timer = f.plugin.getTimer();
+            doThrow(new RejectedExecutionException("synthetic retired worker")).when(timer).execute(any(Runnable.class));
+            older.complete(new LinkedHashMap<>(f.board));
+            doAnswer(call -> { f.worker.add(call.getArgument(0)); return null; }).when(timer).execute(any(Runnable.class));
+            newer.complete(new LinkedHashMap<>(f.board)); f.drain();
+            verify(f.channel, times(1)).editMessageEmbedsById(eq(9L), any(MessageEmbed.class));
+            verify(f.plugin, times(2)).getTopVoterDisplayAsync(TopVoter.Monthly);
+        }
+    }
+
+    @Test void clearingAnIdAllowsANewPostWithoutReusingTheOlderEditTarget() {
+        try (var f = new Fixture()) {
+            f.publish(); var olderSuccess = f.editSuccess; var olderFailure = f.editFailure;
+            assertTrue(f.handler.clearTopVoterMessageId(TopVoter.Monthly));
+            DiscordHandlerAccess.publish(f.handler, TopVoter.Monthly, f.board);
+            var created = new CreatedMessage(13L); f.sendSuccess.accept(created.message); f.drain();
+            olderSuccess.accept(mock(Message.class));
+            olderFailure.accept(new IllegalStateException("synthetic obsolete callback")); f.drain();
+            assertEquals(13L, f.storedId.get());
+            assertEquals(13L, f.handler.getTopVoterMessageIds().get(TopVoter.Monthly));
+            verify(f.channel, times(1)).editMessageEmbedsById(eq(9L), any(MessageEmbed.class));
+            verify(f.channel, times(1)).sendMessageEmbeds(any(MessageEmbed.class));
+            verify(created.message, never()).delete();
+        }
+    }
+
     static final class Fixture implements AutoCloseable {
         final VotingPluginMain plugin=mock(VotingPluginMain.class);
         final Logger logger=mock(Logger.class);
@@ -582,6 +802,53 @@ class DiscordLeaderboardRecoveryTest {
             f.unknown();f.drain();assertNotNull(f.sent);
         }
     }
+
+    @Test void rejectedRecoveryAdmissionDrainsTheAlreadyQueuedRefreshWithoutAnotherUpdate() {
+        try (var f = new Fixture()) {
+            f.publish();
+            f.board.clear(); f.board.put(f.first, 100); f.publish();
+            var admissions = new AtomicInteger();
+            var timer = f.plugin.getTimer();
+            doAnswer(call -> {
+                if (admissions.getAndIncrement() == 0)
+                    throw new RejectedExecutionException("synthetic first rejection");
+                f.worker.add(call.getArgument(0)); return null;
+            }).when(timer).execute(any(Runnable.class));
+            f.unknown(); f.drain();
+            var frames = org.mockito.ArgumentCaptor.forClass(MessageEmbed.class);
+            verify(f.channel, times(2)).editMessageEmbedsById(eq(9L), frames.capture());
+            assertTrue(frames.getAllValues().get(1).getDescription().contains("SyntheticFirst"));
+            assertEquals(9L, f.storedId.get());
+            verify(f.data, never()).setTopVoterMessageId(any(), anyLong());
+            verify(f.channel, never()).sendMessageEmbeds(any(MessageEmbed.class));
+            f.unknown(); f.drain(); // The retried network edit confirms the message is absent.
+            var created = new CreatedMessage(13L); f.sendSuccess.accept(created.message); f.drain();
+            assertEquals(13L, f.storedId.get());
+            verify(f.channel, times(1)).sendMessageEmbeds(any(MessageEmbed.class));
+            verify(f.channel, times(2)).editMessageEmbedsById(eq(9L), any(MessageEmbed.class));
+        }
+    }
+
+    @Test void persistentRecoveryRejectionBoundsTransferAndAllowsALaterExplicitRetry() {
+        try (var f = new Fixture()) {
+            f.publish(); f.publish();
+            var timer = f.plugin.getTimer();
+            doThrow(new RejectedExecutionException("synthetic persistent rejection"))
+                    .when(timer).execute(any(Runnable.class));
+            f.unknown(); f.drain();
+            verify(timer, times(2)).execute(any(Runnable.class));
+            verify(f.channel, times(1)).editMessageEmbedsById(eq(9L), any(MessageEmbed.class));
+            assertEquals(9L, f.storedId.get());
+            verify(f.data, never()).setTopVoterMessageId(any(), anyLong());
+            verify(f.channel, never()).sendMessageEmbeds(any(MessageEmbed.class));
+            verify(f.logger, atLeastOnce()).warning(contains("worker admission"));
+            doAnswer(call -> { f.worker.add(call.getArgument(0)); return null; })
+                    .when(timer).execute(any(Runnable.class));
+            f.publish(); f.unknown(); f.drain();
+            verify(f.channel, times(2)).editMessageEmbedsById(eq(9L), any(MessageEmbed.class));
+            verify(f.channel, times(1)).sendMessageEmbeds(any(MessageEmbed.class));
+        }
+    }
     @Test void disabledRecoveryAndOtherErrorsPreserveExistingMessageId() {
         for(boolean disabled:List.of(true,false))try(var f=new Fixture()) {
             f.publish();
@@ -631,7 +898,10 @@ class DiscordLeaderboardRecoveryTest {
 
     @Test void lateEditFailureCannotRecoverOverSuccessorEdit() {
         try(var f=new Fixture()) {
-            f.publish();var old=f.editFailure;f.publish();
+            f.publish();var old=f.editFailure;var success=f.editSuccess;f.publish();
+            verify(f.channel,times(1)).editMessageEmbedsById(eq(9L),any(MessageEmbed.class));
+            success.accept(mock(Message.class));f.drain();
+            verify(f.channel,times(2)).editMessageEmbedsById(eq(9L),any(MessageEmbed.class));
             var error=mock(ErrorResponseException.class);when(error.getErrorResponse()).thenReturn(ErrorResponse.UNKNOWN_MESSAGE);
             old.accept(error);f.drain();assertNull(f.sent);
             f.unknown();f.drain();assertNotNull(f.sent);

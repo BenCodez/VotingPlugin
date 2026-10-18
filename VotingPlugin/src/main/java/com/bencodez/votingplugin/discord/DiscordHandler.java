@@ -43,10 +43,12 @@ public class DiscordHandler {
 	private static final class Publication {
 		final long generation;
 		final boolean persistent;
-		boolean sending, recovering, again, completing;
+		boolean sending, editing, recovering, again, completing, retired;
+		long requestedGeneration;
 		final AtomicBoolean sendCompleted = new AtomicBoolean(false);
 		Publication(long generation, boolean persistent, boolean sending) {
-			this.generation = generation; this.persistent = persistent; this.sending = sending;
+			this.generation = generation; this.requestedGeneration = generation;
+			this.persistent = persistent; this.sending = sending; this.editing = !sending;
 		}
 	}
 	private static final int PENDING = 0, WRITING = 1, RETAINED = 2, DISCARDED = 3, DETACHED = 4;
@@ -56,11 +58,12 @@ public class DiscordHandler {
 		final TopVoter top;
 		final Message message;
 		final long id;
+		final long generation;
 		final AtomicBoolean cleanupRequested = new AtomicBoolean(false);
 		int state = PENDING;
 		boolean confirmed;
-		SentReceipt(TopVoter top, Message message) {
-			this.top = top; this.message = message; this.id = message.getIdLong();
+		SentReceipt(TopVoter top, Message message, long generation) {
+			this.top = top; this.message = message; this.id = message.getIdLong(); this.generation = generation;
 		}
 	}
 	private final java.util.EnumMap<TopVoter, Publication> publications = new java.util.EnumMap<>(TopVoter.class);
@@ -255,8 +258,10 @@ public class DiscordHandler {
 		synchronized (publications) {
 			if (!currentGeneration(generation)) return;
 			Publication pending = publications.get(top);
-			if (pending != null && pending.generation == generation && (pending.sending || pending.completing)) {
+			if (pending != null && (pending.editing || (!pending.retired && pending.generation == generation
+					&& (pending.sending || pending.completing)))) {
 				pending.again = true;
+				pending.requestedGeneration = generation;
 				return;
 			}
 			existingId = topVoterMessageIds.getOrDefault(top, 0L);
@@ -275,7 +280,7 @@ public class DiscordHandler {
 
 	private boolean current(TopVoter top, Publication publication) {
 		if (!currentGeneration(publication.generation)) return false;
-		synchronized (publications) { return publications.get(top) == publication; }
+		synchronized (publications) { return publications.get(top) == publication && !publication.retired; }
 	}
 
 	/** Never hold the publication lock while waiting for the ServerData save monitor. */
@@ -289,15 +294,21 @@ public class DiscordHandler {
 	}
 
 	private void finish(TopVoter top, Publication publication) {
-		boolean again;
+		boolean again, prepareAgain;
+		long generation;
 		synchronized (publications) {
 			if (publications.get(top) != publication) return;
 			publications.remove(top);
 			again = publication.again;
+			generation = publication.requestedGeneration;
+			prepareAgain = publication.retired || generation != publication.generation;
 		}
 		// A queued request is independent of whether the previous network operation succeeded.
-		if (again) dispatchLeaderboard(publication.generation,
-				() -> publishTopVoterMessage(top, plugin.getTopVoterDisplay(top), publication.generation), () -> { });
+		if (again) {
+			if (prepareAgain) prepareTopVoterMessage(top, generation);
+			else dispatchLeaderboard(generation,
+					() -> publishTopVoterMessage(top, plugin.getTopVoterDisplay(top), generation), () -> { });
+		}
 	}
 
 	private void warnLeaderboardFailure(String stage) {
@@ -316,7 +327,7 @@ public class DiscordHandler {
 		if (!current(top, publication)) { finish(top, publication); return; }
 		channel.sendMessageEmbeds(embed).queue(message -> {
 			if (!publication.sendCompleted.compareAndSet(false, true)) return;
-			SentReceipt receipt = new SentReceipt(top, message);
+			SentReceipt receipt = new SentReceipt(top, message, publication.generation);
 			boolean admitted;
 			synchronized (publications) {
 				admitted = !closed.get() && (!publication.persistent || ownedReceipts.size() < MAX_OWNED_RECEIPTS);
@@ -342,6 +353,8 @@ public class DiscordHandler {
 
 	/** Retry an uncertain ID save after a successful edit, without creating another external post. */
 	private void finishEdit(TopVoter top, Publication publication, long id) {
+		synchronized (publications) { publication.editing = false; publication.completing = true; }
+		if (!current(top, publication)) { finish(top, publication); return; }
 		SentReceipt retry;
 		synchronized (publications) {
 			retry = ownedReceipts.stream().filter(receipt -> receipt.top == top && receipt.id == id
@@ -417,7 +430,9 @@ public class DiscordHandler {
 		var data = plugin.getServerData();
 		synchronized (data) {
 			synchronized (publications) {
-				publications.remove(top); preparing.remove(top); topVoterMessageIds.put(top, 0L);
+				publications.remove(top);
+				synchronized (preparing) { preparing.remove(top); }
+				topVoterMessageIds.put(top, 0L);
 				ownedReceipts.removeIf(receipt -> {
 					if (receipt.top != top || (receipt.state != PENDING && receipt.state != RETAINED
 							&& receipt.state != WRITING)) return false;
@@ -430,20 +445,46 @@ public class DiscordHandler {
 		warnMessageStorage(); return false;
 	}
 
-	/** Runs before reload/worker cancellation; never waits for storage or a network completion. */
+	/** Retire invalidated generations before worker cancellation; close invalidates every generation. */
 	public void retireLeaderboardPublications() {
 		var abandoned = new java.util.ArrayList<SentReceipt>();
+		var restart = new java.util.EnumMap<TopVoter, Long>(TopVoter.class);
 		synchronized (publications) {
-			publications.clear(); preparing.clear();
+			// An admitted edit can still write on Discord after retirement. Keep its
+			// bounded slot until its network callback rather than submitting overlapping edits.
+			publications.entrySet().removeIf(entry -> {
+				Publication publication = entry.getValue();
+				if (currentGeneration(publication.generation) && !publication.retired) return false;
+				boolean again = publication.again && currentGeneration(publication.requestedGeneration);
+				if (!publication.editing) {
+					if (again) restart.put(entry.getKey(), publication.requestedGeneration);
+					return true;
+				}
+				publication.retired = true;
+				publication.again = again;
+				return false;
+			});
+			synchronized (preparing) {
+				preparing.entrySet().removeIf(entry -> {
+					DisplayUpdate update = entry.getValue();
+					if (currentGeneration(update.generation)) return false;
+					if (update.again && currentGeneration(update.requestedGeneration))
+						restart.put(entry.getKey(), update.requestedGeneration);
+					return true;
+				});
+			}
 			var iterator = ownedReceipts.iterator();
 			while (iterator.hasNext()) {
 				SentReceipt receipt = iterator.next();
-				if (receipt.state == PENDING) {
+				if (receipt.state == PENDING && !currentGeneration(receipt.generation)) {
 					receipt.state = DISCARDED; iterator.remove(); abandoned.add(receipt);
 				}
 			}
 		}
 		abandoned.forEach(this::removeCreatedMessage);
+		// Old worker completions can be cancelled; transfer explicit requests now,
+		// outside both ownership monitors and without waiting for those callbacks.
+		restart.forEach(this::prepareTopVoterMessage);
 	}
 
 	public void close() {
@@ -548,6 +589,7 @@ public class DiscordHandler {
 
 	private void handleMessageUpdateFailure(TopVoter top, TextChannel channel, Publication publication,
 			Throwable error) {
+		synchronized (publications) { publication.editing = false; }
 		if (!current(top, publication)) { finish(top, publication); return; }
 		if (!plugin.getConfigFile().isDiscordSRVTopVoterAutoRecoverMessageOnFailure()
 				|| !(error instanceof ErrorResponseException response)
@@ -574,11 +616,14 @@ public class DiscordHandler {
 			} catch (RuntimeException failure) { failPublication(top, publication, "recovering a deleted message"); }
 		}, () -> {
 			// Rejected admission has no effects; the same failed edit may be retried.
+			boolean again = false;
 			synchronized (publications) {
 				if (publications.get(top) == publication) {
 					publication.recovering = false; publication.sending = false;
+					again = publication.again;
 				}
 			}
+			if (again) finish(top, publication);
 		});
 	}
 
