@@ -454,6 +454,9 @@ VoteLogging:
 # Hide only confirmed never-joined identities from top voter displays.
 # Missing, unreadable or ambiguous history stays visible. Awards are unchanged.
 # Presence checks are asynchronous; pending snapshots stay visible until refreshed.
+# Evidence expires after 30 seconds. GUI, chat and placeholder views can show
+# previously hidden rows while fresh checks are pending; stale negatives are not reused.
+# At most 128 checks run at once, so a large expired board may need several refreshes.
 HideTopVoterIfNotPlayedBefore: false
 
 # Top voter blacklist

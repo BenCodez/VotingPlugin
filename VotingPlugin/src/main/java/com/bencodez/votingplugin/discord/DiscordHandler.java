@@ -25,6 +25,7 @@ import github.scarsz.discordsrv.api.events.DiscordReadyEvent;
 import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
 import github.scarsz.discordsrv.dependencies.jda.api.JDA;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.TextChannel;
+import github.scarsz.discordsrv.dependencies.jda.api.entities.Message;
 import github.scarsz.discordsrv.dependencies.jda.api.requests.ErrorResponse;
 import github.scarsz.discordsrv.dependencies.jda.api.exceptions.ErrorResponseException;
 import github.scarsz.discordsrv.util.DiscordUtil;
@@ -43,16 +44,35 @@ public class DiscordHandler {
 		final long generation;
 		final boolean persistent;
 		boolean sending, recovering, again, completing;
+		final AtomicBoolean sendCompleted = new AtomicBoolean(false);
 		Publication(long generation, boolean persistent, boolean sending) {
 			this.generation = generation; this.persistent = persistent; this.sending = sending;
 		}
 	}
+	private static final int PENDING = 0, WRITING = 1, RETAINED = 2, DISCARDED = 3, DETACHED = 4;
+	private static final int MAX_OWNED_RECEIPTS = 128;
+	/** External success is owned here before any cancellable worker handoff. */
+	private static final class SentReceipt {
+		final TopVoter top;
+		final Message message;
+		final long id;
+		final AtomicBoolean cleanupRequested = new AtomicBoolean(false);
+		int state = PENDING;
+		boolean confirmed;
+		SentReceipt(TopVoter top, Message message) {
+			this.top = top; this.message = message; this.id = message.getIdLong();
+		}
+	}
 	private final java.util.EnumMap<TopVoter, Publication> publications = new java.util.EnumMap<>(TopVoter.class);
+	/** Guarded by publications; includes uncertain saves until confirmed replacement or explicit detachment. */
+	private final java.util.Set<SentReceipt> ownedReceipts = new java.util.HashSet<>();
+	private final AtomicBoolean closed = new AtomicBoolean(false);
 	private final AtomicBoolean discordReady = new AtomicBoolean(false);
 	private static final class DisplayUpdate {
-		private long generation;
+		private final long generation;
+		private long requestedGeneration;
 		private boolean again;
-		private DisplayUpdate(long generation) { this.generation = generation; }
+		private DisplayUpdate(long generation) { this.generation = generation; this.requestedGeneration = generation; }
 	}
 	private final java.util.EnumMap<TopVoter, DisplayUpdate> preparing = new java.util.EnumMap<>(TopVoter.class);
 
@@ -162,48 +182,68 @@ public class DiscordHandler {
 	 * @param top the top voter
 	 */
 	public void updateTopVoterMessageId(TopVoter top) {
+		prepareTopVoterMessage(top, plugin.getTopVoterDisplayGeneration());
+	}
+
+	private void prepareTopVoterMessage(TopVoter top, long generation) {
 		DisplayUpdate update;
 		synchronized (preparing) {
+			if (!currentGeneration(generation)) return;
 			DisplayUpdate pending = preparing.get(top);
 			if (pending != null) {
 				pending.again = true;
-				pending.generation = plugin.getTopVoterDisplayGeneration();
+				pending.requestedGeneration = generation;
 				return;
 			}
-			update = new DisplayUpdate(plugin.getTopVoterDisplayGeneration());
+			update = new DisplayUpdate(generation);
 			preparing.put(top, update);
 		}
 		try {
 			plugin.getTopVoterDisplayAsync(top).whenComplete((snapshot, failure) -> {
 				try {
 					plugin.getTimer().execute(() -> {
-						boolean again;
-						synchronized (preparing) {
-							if (preparing.get(top) != update) return;
-							preparing.remove(top);
-							again = update.again;
-							if (!plugin.isEnabled() || update.generation != plugin.getTopVoterDisplayGeneration()) return;
+						if (!releasePreparation(top, update)) return;
+						if (!currentGeneration(update.generation)) {
+							retryRequestedPreparation(top, update);
+							return;
 						}
 						// Joins and TTL/scope changes can revoke omissions while publication is queued.
 						// Recheck current evidence without opening another asynchronous deadline.
-						if (again || (failure == null && snapshot != null)) {
-							try { publishTopVoterMessage(top, plugin.getTopVoterDisplay(top)); }
+						if (update.again || (failure == null && snapshot != null)) {
+							try { publishTopVoterMessage(top, plugin.getTopVoterDisplay(top), update.generation); }
 							catch (RuntimeException unavailable) { warnLeaderboardFailure("preparing a current display for " + top); }
 						} else plugin.getLogger().warning("Unable to prepare Discord Top Voters: " + top);
 					});
 				} catch (RuntimeException rejected) {
-					synchronized (preparing) { preparing.remove(top, update); }
-					if (currentGeneration(update.generation)) warnLeaderboardFailure("preparation worker admission for " + top);
+					if (releasePreparation(top, update)) {
+						try { if (currentGeneration(update.generation)) warnLeaderboardFailure("preparation worker admission for " + top); }
+						finally { retryRequestedPreparation(top, update); }
+					}
 				}
 			});
 		} catch (RuntimeException unavailable) {
-			synchronized (preparing) { preparing.remove(top, update); }
-			if (currentGeneration(update.generation)) warnLeaderboardFailure("preparing evidence for " + top);
+			if (releasePreparation(top, update)) {
+				try { if (currentGeneration(update.generation)) warnLeaderboardFailure("preparing evidence for " + top); }
+				finally { retryRequestedPreparation(top, update); }
+			}
 		}
 	}
 
+	private boolean releasePreparation(TopVoter top, DisplayUpdate update) {
+		synchronized (preparing) { return preparing.remove(top, update); }
+	}
+
+	private void retryRequestedPreparation(TopVoter top, DisplayUpdate update) {
+		// The retired request's evidence never changes ownership to a replacement filter.
+		if (update.again && update.requestedGeneration != update.generation)
+			prepareTopVoterMessage(top, update.requestedGeneration);
+	}
+
 	void publishTopVoterMessage(TopVoter top, LinkedHashMap<TopVoterPlayer, Integer> prepared) {
-		long generation = plugin.getTopVoterDisplayGeneration();
+		publishTopVoterMessage(top, prepared, plugin.getTopVoterDisplayGeneration());
+	}
+
+	void publishTopVoterMessage(TopVoter top, LinkedHashMap<TopVoterPlayer, Integer> prepared, long generation) {
 		if (!currentGeneration(generation)) return;
 		boolean newMessage = plugin.getConfigFile().isDiscordSRVTopVoterNewMessageOnUpdate(top);
 		TextChannel channel;
@@ -213,6 +253,7 @@ public class DiscordHandler {
 		Publication publication;
 		long existingId;
 		synchronized (publications) {
+			if (!currentGeneration(generation)) return;
 			Publication pending = publications.get(top);
 			if (pending != null && pending.generation == generation && (pending.sending || pending.completing)) {
 				pending.again = true;
@@ -227,7 +268,7 @@ public class DiscordHandler {
 			if (!current(top, publication)) { finish(top, publication); return; }
 			if (publication.sending) send(top, channel, publication, embed);
 			else channel.editMessageEmbedsById(existingId, embed).queue(
-					message -> finish(top, publication),
+					message -> finishEdit(top, publication, existingId),
 					error -> handleMessageUpdateFailure(top, channel, publication, error));
 		} catch (RuntimeException unavailable) { failPublication(top, publication, "preparing or submitting a message"); }
 	}
@@ -256,7 +297,7 @@ public class DiscordHandler {
 		}
 		// A queued request is independent of whether the previous network operation succeeded.
 		if (again) dispatchLeaderboard(publication.generation,
-				() -> publishTopVoterMessage(top, plugin.getTopVoterDisplay(top)), () -> { });
+				() -> publishTopVoterMessage(top, plugin.getTopVoterDisplay(top), publication.generation), () -> { });
 	}
 
 	private void warnLeaderboardFailure(String stage) {
@@ -274,23 +315,168 @@ public class DiscordHandler {
 			github.scarsz.discordsrv.dependencies.jda.api.entities.MessageEmbed embed) {
 		if (!current(top, publication)) { finish(top, publication); return; }
 		channel.sendMessageEmbeds(embed).queue(message -> {
+			if (!publication.sendCompleted.compareAndSet(false, true)) return;
+			SentReceipt receipt = new SentReceipt(top, message);
+			boolean admitted;
 			synchronized (publications) {
-				if (publications.get(top) != publication || publication.completing) return;
+				admitted = !closed.get() && (!publication.persistent || ownedReceipts.size() < MAX_OWNED_RECEIPTS);
+				if (admitted && publication.persistent) ownedReceipts.add(receipt);
 				publication.completing = true;
+			}
+			if (!admitted) {
+				discardCreatedMessage(publication, receipt); finish(top, publication); return;
 			}
 			dispatchLeaderboard(publication.generation, () -> {
 				try {
 					if (!current(top, publication)) return;
-					long id = message.getIdLong();
-					if (publication.persistent && !persist(top, publication, id)) return;
+					if (publication.persistent) { retainCreatedMessage(top, publication, receipt); return; }
 					if (!current(top, publication)) return;
 					synchronized (publications) {
-						if (publications.get(top) == publication) topVoterMessageIds.put(top, id);
+						if (publications.get(top) == publication) topVoterMessageIds.put(top, receipt.id);
 					}
 				} catch (RuntimeException failure) { warnLeaderboardFailure("storing a message ID for " + top); }
-				finally { finish(top, publication); }
-			}, () -> finish(top, publication));
+				finally { discardCreatedMessage(publication, receipt); finish(top, publication); }
+			}, () -> { discardCreatedMessage(publication, receipt); finish(top, publication); });
 		}, failure -> failPublication(top, publication, "sending a message"));
+	}
+
+	/** Retry an uncertain ID save after a successful edit, without creating another external post. */
+	private void finishEdit(TopVoter top, Publication publication, long id) {
+		SentReceipt retry;
+		synchronized (publications) {
+			retry = ownedReceipts.stream().filter(receipt -> receipt.top == top && receipt.id == id
+					&& receipt.state == RETAINED && !receipt.confirmed).findFirst().orElse(null);
+		}
+		if (retry == null) { finish(top, publication); return; }
+		dispatchLeaderboard(publication.generation, () -> {
+			try { retainCreatedMessage(top, publication, retry); }
+			finally { discardCreatedMessage(publication, retry); finish(top, publication); }
+		}, () -> finish(top, publication));
+	}
+
+	/** Never hold publication ownership while waiting for the existing save monitor or file I/O. */
+	private void retainCreatedMessage(TopVoter top, Publication publication, SentReceipt receipt) {
+		var obsolete = new java.util.ArrayList<SentReceipt>();
+		var data = plugin.getServerData();
+		boolean uncertain = false;
+		synchronized (data) {
+			if (!current(top, publication)) return;
+			synchronized (publications) {
+				if (!current(top, publication) || (receipt.state != PENDING && receipt.state != RETAINED)) return;
+				receipt.state = WRITING;
+			}
+			try {
+				boolean confirmed = data.setTopVoterMessageIdConfirmed(top, receipt.id);
+				long actual = data.getTopVoterMessageId(top);
+				synchronized (publications) {
+					if (receipt.state == DETACHED) return;
+					// A reentrant newer confirmed write already owns the file. Reconcile only this older post.
+					if (actual != receipt.id && ownedReceipts.stream().anyMatch(other -> other != receipt
+							&& other.top == top && other.id == actual && other.state == RETAINED && other.confirmed)) return;
+					receipt.state = RETAINED;
+					receipt.confirmed = confirmed && actual == receipt.id;
+					uncertain = !receipt.confirmed;
+					if (actual == receipt.id && (publications.get(top) == publication
+							|| topVoterMessageIds.getOrDefault(top, 0L) <= 0)) topVoterMessageIds.put(top, receipt.id);
+					if (receipt.confirmed) {
+						var iterator = ownedReceipts.iterator();
+						while (iterator.hasNext()) {
+							SentReceipt previous = iterator.next();
+							if (previous != receipt && previous.top == top && previous.state == RETAINED) {
+								previous.state = DISCARDED; iterator.remove(); obsolete.add(previous);
+							}
+						}
+					}
+				}
+			} catch (RuntimeException failure) {
+				// The legacy writer may have mutated or saved before throwing; do not delete a possibly recorded post.
+				synchronized (publications) {
+					if (receipt.state == DETACHED) return;
+					receipt.state = RETAINED; receipt.confirmed = false;
+					if (publications.get(top) == publication && topVoterMessageIds.getOrDefault(top, 0L) <= 0)
+						topVoterMessageIds.put(top, receipt.id);
+				}
+				uncertain = true;
+			}
+		}
+		obsolete.forEach(this::removeCreatedMessage);
+		if (uncertain) warnMessageStorage();
+	}
+
+	private void discardCreatedMessage(Publication publication, SentReceipt receipt) {
+		if (!publication.persistent) return; // Append mode deliberately keeps its posts.
+		synchronized (publications) {
+			if (receipt.state != PENDING && receipt.state != WRITING) return;
+			receipt.state = DISCARDED; ownedReceipts.remove(receipt);
+		}
+		removeCreatedMessage(receipt);
+	}
+
+	/** Detach the administrator's old posts; clearing an ID never authorizes deleting those posts. */
+	public boolean clearTopVoterMessageId(TopVoter top) {
+		var data = plugin.getServerData();
+		synchronized (data) {
+			synchronized (publications) {
+				publications.remove(top); preparing.remove(top); topVoterMessageIds.put(top, 0L);
+				ownedReceipts.removeIf(receipt -> {
+					if (receipt.top != top || (receipt.state != PENDING && receipt.state != RETAINED
+							&& receipt.state != WRITING)) return false;
+					receipt.state = DETACHED; return true;
+				});
+			}
+			try { if (data.setTopVoterMessageIdConfirmed(top, 0L)) return true; }
+			catch (RuntimeException failure) { /* The outgoing diagnostic remains redacted. */ }
+		}
+		warnMessageStorage(); return false;
+	}
+
+	/** Runs before reload/worker cancellation; never waits for storage or a network completion. */
+	public void retireLeaderboardPublications() {
+		var abandoned = new java.util.ArrayList<SentReceipt>();
+		synchronized (publications) {
+			publications.clear(); preparing.clear();
+			var iterator = ownedReceipts.iterator();
+			while (iterator.hasNext()) {
+				SentReceipt receipt = iterator.next();
+				if (receipt.state == PENDING) {
+					receipt.state = DISCARDED; iterator.remove(); abandoned.add(receipt);
+				}
+			}
+		}
+		abandoned.forEach(this::removeCreatedMessage);
+	}
+
+	public void close() {
+		synchronized (publications) {
+			if (!closed.compareAndSet(false, true)) return;
+		}
+		retireLeaderboardPublications();
+		boolean uncertain;
+		synchronized (publications) {
+			uncertain = ownedReceipts.stream().anyMatch(receipt -> receipt.state == WRITING || !receipt.confirmed);
+		}
+		if (uncertain) warnMessageStorage();
+	}
+
+	private void warnMessageStorage() {
+		plugin.getLogger().warning("Unable to confirm Discord Top Voters message ID storage. "
+				+ "The post remains tracked in memory; check storage before restarting and reconcile posts manually.");
+	}
+
+	/** JDA owns asynchronous deletion; cleanup does not depend on the retiring plugin worker. */
+	private void removeCreatedMessage(SentReceipt receipt) {
+		if (!receipt.cleanupRequested.compareAndSet(false, true)) return;
+		try {
+			receipt.message.delete().queue(ignored -> { }, failure -> {
+				if (!(failure instanceof ErrorResponseException response)
+						|| response.getErrorResponse() != ErrorResponse.UNKNOWN_MESSAGE) warnMessageCleanup();
+			});
+		} catch (RuntimeException failure) { warnMessageCleanup(); }
+	}
+
+	private void warnMessageCleanup() {
+		plugin.getLogger().warning("Unable to remove an untracked Discord Top Voters message. "
+				+ "Check Discord permissions and remove the unwanted post manually.");
 	}
 
 	TextChannel leaderboardChannel(long channelId) {
@@ -340,7 +526,7 @@ public class DiscordHandler {
 	 * leaderboard updates.
 	 */
 	private boolean currentGeneration(long generation) {
-		return plugin.isEnabled() && plugin.getTopVoterDisplayGeneration() == generation;
+		return !closed.get() && plugin.isEnabled() && plugin.getTopVoterDisplayGeneration() == generation;
 	}
 
 	private void dispatchLeaderboard(long generation, Runnable action, Runnable discarded) {

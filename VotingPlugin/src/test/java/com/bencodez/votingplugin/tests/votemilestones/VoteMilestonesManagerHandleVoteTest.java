@@ -1,5 +1,7 @@
 package com.bencodez.votingplugin.tests.votemilestones;
 
+import com.bencodez.votingplugin.tests.support.ReflectiveAccess;
+
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -327,12 +329,12 @@ public class VoteMilestonesManagerHandleVoteTest {
 		for (VoteMilestone m : milestones) {
 			map.put(m.getId(), m);
 		}
-		return ctor.newInstance(map);
+		return ReflectiveAccess.newInstance(ctor, new Object[]{map});
 	}
 
 	private static void setField(Object target, String fieldName, Object value) throws Exception {
 		Field f = target.getClass().getDeclaredField(fieldName);
 		f.setAccessible(true);
-		f.set(target, value);
+		ReflectiveAccess.set(f, target, value);
 	}
 }

@@ -1,5 +1,7 @@
 package com.bencodez.votingplugin.tests;
 
+import com.bencodez.votingplugin.tests.support.ReflectiveAccess;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -60,9 +62,9 @@ class AutoCreateVoteSitesReminderConfigTest {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
 		Field field = VotingPluginMain.class.getDeclaredField("configFile");
 		field.setAccessible(true);
-		field.set(plugin, config);
+		ReflectiveAccess.set(field, plugin, config);
 		Method method = VotingPluginMain.class.getDeclaredMethod("autoCreateVoteSitesReminderSettings");
 		method.setAccessible(true);
-		return (Settings) method.invoke(plugin);
+		return (Settings) ReflectiveAccess.invoke(method, plugin, new Object[]{});
 	}
 }

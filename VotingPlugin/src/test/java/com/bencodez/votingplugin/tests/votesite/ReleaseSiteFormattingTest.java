@@ -1,5 +1,7 @@
 package com.bencodez.votingplugin.tests.votesite;
 
+import com.bencodez.votingplugin.tests.support.ReflectiveAccess;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -110,7 +112,7 @@ class ReleaseSiteFormattingTest {
 		VotingPluginUser user = mock(VotingPluginUser.class, CALLS_REAL_METHODS);
 		java.lang.reflect.Field pluginField = VotingPluginUser.class.getDeclaredField("plugin");
 		pluginField.setAccessible(true);
-		pluginField.set(user, plugin);
+		ReflectiveAccess.set(pluginField, user, plugin);
 		doReturn("yesterday").when(user).voteCommandLastDate(site);
 		doReturn("one day").when(user).voteCommandLastDuration(site);
 		return user;

@@ -596,6 +596,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	private void retireTopVoterDisplayFilter() {
 		topVoterDisplayGeneration.incrementAndGet();
+		if (discordHandler != null) discordHandler.retireLeaderboardPublications();
 		var filter = topVoterDisplayFilter;
 		topVoterDisplayFilter = null;
 		if (filter != null) {
@@ -2054,6 +2055,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Override
 	public void onDisable() {
+		if (discordHandler != null) discordHandler.close();
 		stopAutoCreateVoteSitesSetupReminder();
 		if (offlineVoteOwnerHandoffs != null) offlineVoteOwnerHandoffs.close();
 		try {
@@ -2090,6 +2092,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Override
 	public void onUnLoad() {
+		if (discordHandler != null) discordHandler.close();
 		retireTopVoterDisplayFilter();
 		if (voteStreaksMenu != null) voteStreaksMenu.close();
 		stopAutoCreateVoteSitesSetupReminder();
