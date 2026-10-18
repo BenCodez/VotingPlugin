@@ -77,16 +77,16 @@ public class AdminVotePerms extends GUIHandler {
 		for (CommandHandler handle : plugin.getVoteCommand()) {
 			if (sender instanceof Player) {
 				if (handle.hasPerm(sender)) {
-					msg.add("&6" + handle.getHelpLineCommand("/vote") + " : "
+					msg.add("&6" + handle.getHelpLineCommand(plugin.getVoteCommandPrefix()) + " : "
 							+ handle.getPerm().split(Pattern.quote("|"))[0] + " : &atrue");
 				} else {
-					msg.add("&6" + handle.getHelpLineCommand("/vote") + " : "
+					msg.add("&6" + handle.getHelpLineCommand(plugin.getVoteCommandPrefix()) + " : "
 							+ handle.getPerm().split(Pattern.quote("|"))[0] + " : &cfalse");
 				}
 			} else {
-				msg.add(handle.getHelpLineCommand("/vote") + " : " + handle.getPerm().split(Pattern.quote("|"))[0]);
+				msg.add(handle.getHelpLineCommand(plugin.getVoteCommandPrefix()) + " : " + handle.getPerm().split(Pattern.quote("|"))[0]);
 			}
-			addAdditionalPermissions(msg, sender, handle, "/vote");
+			addAdditionalPermissions(msg, sender, handle, plugin.getVoteCommandPrefix());
 
 		}
 
@@ -164,13 +164,13 @@ public class AdminVotePerms extends GUIHandler {
 
 			for (CommandHandler handle : plugin.getVoteCommand()) {
 				if (handle.hasPerm(p)) {
-					msg.add("&6" + handle.getHelpLineCommand("/vote") + " : "
+					msg.add("&6" + handle.getHelpLineCommand(plugin.getVoteCommandPrefix()) + " : "
 							+ handle.getPerm().split(Pattern.quote("|"))[0] + " : &atrue");
 				} else {
-					msg.add("&6" + handle.getHelpLineCommand("/vote") + " : "
+					msg.add("&6" + handle.getHelpLineCommand(plugin.getVoteCommandPrefix()) + " : "
 							+ handle.getPerm().split(Pattern.quote("|"))[0] + " : &cfalse");
 				}
-				addAdditionalPermissions(msg, p, handle, "/vote");
+				addAdditionalPermissions(msg, p, handle, plugin.getVoteCommandPrefix());
 
 			}
 
@@ -237,7 +237,7 @@ public class AdminVotePerms extends GUIHandler {
 		msg.add("  ");
 
 		for (CommandHandler handle : plugin.getVoteCommand()) {
-			msg.add(handle.getHelpLineCommand("/vote"));
+			msg.add(handle.getHelpLineCommand(plugin.getVoteCommandPrefix()));
 			msg.add("  " + handle.getPerm());
 			msg.add("  " + handle.getHelpMessage());
 			for (String permission : additionalPermissions(handle)) {

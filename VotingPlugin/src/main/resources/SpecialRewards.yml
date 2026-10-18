@@ -408,6 +408,8 @@ DailyAwards:
 DateVoteMilestones:
   example_event:
     Enabled: false
+    # Count admin/test votes for this event? Existing normal vote policies are unchanged.
+    CountFakeVotes: true
     DisplayName: 'Example voting event'
     # Local ISO date-times interpreted in the explicit IANA timezone below.
     Start: '2026-10-01T00:00:00' # Inclusive: occurrences at this instant count.

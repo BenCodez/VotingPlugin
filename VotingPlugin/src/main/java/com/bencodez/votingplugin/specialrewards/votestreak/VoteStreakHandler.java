@@ -40,6 +40,7 @@ public class VoteStreakHandler {
 	private final Map<String, VoteStreakDefinition> byId = new LinkedHashMap<>();
 	private final Map<String, VoteStreakDefinition> byProgressGroup = new LinkedHashMap<>();
 	private final List<VoteStreakDefinition> ordered = new ArrayList<>();
+	private volatile List<VoteStreakDefinition> displayDefinitions = List.of();
 
 	public VoteStreakHandler(VotingPluginMain plugin) {
 		this.plugin = plugin;
@@ -56,6 +57,26 @@ public class VoteStreakHandler {
 		// VoteStreak definitions live in specialrewards.yml now (Option B)
 		ConfigurationSection root = plugin.getSpecialRewardsConfig().getData();
 		new VoteStreakConfigLoader().load(root);
+		displayDefinitions = ordered.stream().filter(VoteStreakDefinition::isEnabled).toList();
+	}
+
+	/** Worker-only, observational view. Does not advance periods, save state or execute rewards. */
+	public com.bencodez.votingplugin.streaks.VoteStreaksSnapshot snapshotForDisplay(VotingPluginUser user) {
+		var definitions = displayDefinitions;
+		var periods = List.of(
+				new com.bencodez.votingplugin.streaks.VoteStreaksSnapshot.Period(VoteStreakType.DAILY, user.getDayVoteStreak(), user.getBestDayVoteStreak()),
+				new com.bencodez.votingplugin.streaks.VoteStreaksSnapshot.Period(VoteStreakType.WEEKLY, user.getWeekVoteStreak(), user.getBestWeekVoteStreak()),
+				new com.bencodez.votingplugin.streaks.VoteStreaksSnapshot.Period(VoteStreakType.MONTHLY, user.getMonthVoteStreak(), user.getBestMonthVoteStreak()));
+		var states = new LinkedHashMap<String, StreakState>();
+		var rows = new ArrayList<com.bencodez.votingplugin.streaks.VoteStreaksSnapshot.Milestone>();
+		for (var definition : definitions) {
+			if (rows.size() >= com.bencodez.votingplugin.streaks.VoteStreaksSnapshot.MAX_MILESTONES) break;
+			var state = states.computeIfAbsent(getColumnName(definition), ignored -> readState(user, definition));
+			String label = definition.getId().codePoints().limit(80).collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append).toString();
+			rows.add(new com.bencodez.votingplugin.streaks.VoteStreaksSnapshot.Milestone(label, definition.getType(), state.streakCount,
+					state.bestStreakCount, definition.getRequiredAmount(), definition.getVotesRequired(), definition.isRecurring()));
+		}
+		return new com.bencodez.votingplugin.streaks.VoteStreaksSnapshot(periods, rows, definitions.size() > rows.size());
 	}
 
 	public List<VoteStreakDefinition> getDefinitions() {

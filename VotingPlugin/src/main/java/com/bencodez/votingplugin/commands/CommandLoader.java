@@ -56,6 +56,7 @@ import com.bencodez.simpleapi.valuerequest.ValueRequest;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.core.maintenance.MaintenanceConfirmation;
 import com.bencodez.votingplugin.commands.executers.CommandAliases;
+import com.bencodez.votingplugin.commands.executers.CommandVote;
 import com.bencodez.votingplugin.commands.gui.AdminGUI;
 import com.bencodez.votingplugin.commands.gui.admin.AdminVoteHelp;
 import com.bencodez.votingplugin.commands.gui.admin.AdminVotePerms;
@@ -82,6 +83,7 @@ import com.bencodez.votingplugin.commands.gui.player.VoteTotal;
 import com.bencodez.votingplugin.commands.gui.player.VoteURL;
 import com.bencodez.votingplugin.commands.gui.player.VoteURLVoteSite;
 import com.bencodez.votingplugin.commands.tabcompleter.AliasesTabCompleter;
+import com.bencodez.votingplugin.commands.tabcompleter.VoteTabCompleter;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.events.PlayerVoteSiteCoolDownEndEvent;
 import com.bencodez.votingplugin.presets.VoteSitePresetSetupHandler;
@@ -115,6 +117,13 @@ public class CommandLoader {
 	private String playerPerm = "VotingPlugin.Player";
 
 	private VotingPluginMain plugin;
+	private final boolean startupVoteCommandEnabled;
+	private final String startupVoteCommandName;
+	private final boolean startupLoadCommandAliases;
+	private boolean playerCommandConfigured;
+	private PluginCommand playerRootCommand;
+	private boolean voteCommandEnabled;
+	private String voteCommandName = "vote";
 
 	/**
 	 * Constructs a new CommandLoader.
@@ -123,6 +132,131 @@ public class CommandLoader {
 	 */
 	public CommandLoader(VotingPluginMain plugin) {
 		this.plugin = plugin;
+		var config = plugin.getConfigFile();
+		startupVoteCommandEnabled = config == null || config.isVoteCommandEnabled();
+		startupVoteCommandName = config == null ? "vote" : config.getVoteCommandName();
+		startupLoadCommandAliases = config == null || config.isLoadCommandAliases();
+		voteCommandEnabled = startupVoteCommandEnabled;
+	}
+
+	/** The label actually registered at startup, including its namespace on conflict. */
+	public String getVoteCommandName() {
+		return voteCommandName;
+	}
+
+	public boolean isVoteCommandEnabled() {
+		return voteCommandEnabled;
+	}
+
+	/** Runs a generated player navigation action only while its command is available. */
+	public void performVoteCommand(Player player, String arguments) {
+		if (voteCommandEnabled) {
+			player.performCommand(voteCommandName + (arguments.isEmpty() ? "" : " " + arguments));
+		}
+	}
+
+	/** Configure only once: reloading configuration must not change command ownership. */
+	private void configurePlayerCommand() {
+		if (playerCommandConfigured) return;
+		playerCommandConfigured = true;
+		try {
+			CommandMap commandMap = getCommandMap();
+			PluginCommand root = ownedCommand("vote");
+			playerRootCommand = root;
+			if (!startupVoteCommandEnabled) {
+				for (String name : plugin.getDescription().getCommands().keySet()) {
+					if (name.equalsIgnoreCase("vote") || name.toLowerCase(Locale.ROOT).startsWith("vote")) {
+						PluginCommand command = ownedCommand(name);
+						if (command != null) unregisterCommand(commandMap, command);
+					}
+				}
+				voteCommandEnabled = false;
+				return;
+			}
+			if (root == null) {
+				voteCommandEnabled = false;
+				plugin.getLogger().warning("Unable to locate VotingPlugin's player command; player commands were not enabled.");
+				return;
+			}
+			String name = startupVoteCommandName == null ? "" : startupVoteCommandName.trim().toLowerCase(Locale.ROOT);
+			if (!name.matches("[a-z0-9][a-z0-9_-]{0,63}") || isReservedCommandName(name)) {
+				plugin.getLogger().warning("Invalid or reserved VoteCommandName; using vote. Command settings require a restart.");
+				name = "vote";
+			}
+			String namespace = plugin.getDescription().getName().toLowerCase(Locale.ROOT);
+			String fallback = namespace + ":" + name;
+			org.bukkit.command.Command existingFallback = commandMap.getCommand(fallback);
+			org.bukkit.command.Command existingLabel = commandMap.getCommand(name);
+			boolean ownedLabelCollision = existingLabel instanceof PluginCommand owned
+					&& owned.getPlugin() == plugin && owned != root;
+			if (!name.equals("vote") && ((existingFallback != null && existingFallback != root) || ownedLabelCollision)) {
+				plugin.getLogger().warning("VoteCommandName namespace is already owned; keeping vote. Command settings require a restart.");
+				name = "vote";
+				fallback = namespace + ":vote";
+			}
+			if (!name.equals("vote")) {
+				// Bukkit's register writes the fallback even when the bare label collides.
+				// Check it before unregistering or publishing the renamed command.
+				unregisterCommand(commandMap, root);
+				root.setName(name);
+				root.setLabel(name);
+				root.setAliases(List.of());
+				if (existingLabel != null && existingLabel != root) {
+					// SimpleCommandMap may overwrite another command's bare alias. Register
+					// only our free fallback in that case, preserving the alias owner too.
+					root.setLabel(fallback);
+					if (!root.register(commandMap)) throw new IllegalStateException("Player command registration was rejected");
+					Map<String, org.bukkit.command.Command> registrations = getKnownCommands(commandMap);
+					// Paper forwards put/get to Brigadier; HashMap.putIfAbsent can bypass it.
+					if (registrations.get(fallback) != null) throw new IllegalStateException("Player command namespace became occupied");
+					registrations.put(fallback, root);
+				} else {
+					commandMap.register(namespace, root);
+				}
+			}
+			voteCommandName = commandMap.getCommand(name) == root ? name : fallback;
+			voteCommandEnabled = commandMap.getCommand(voteCommandName) == root;
+			if (voteCommandEnabled) {
+				root.setExecutor(new CommandVote(plugin));
+				root.setTabCompleter(new VoteTabCompleter());
+				if (!voteCommandName.equals(name)) {
+					plugin.getLogger().warning("Player command label is already owned; use /" + voteCommandName + " instead.");
+				}
+			} else {
+				plugin.getLogger().warning("Unable to register VotingPlugin's player command without replacing another owner.");
+			}
+		} catch (ReflectiveOperationException | RuntimeException failure) {
+			throw new IllegalStateException("Unable to configure VotingPlugin's player command safely", failure);
+		}
+	}
+
+	private boolean isReservedCommandName(String name) {
+		for (var entry : plugin.getDescription().getCommands().entrySet()) {
+			if (entry.getKey().equalsIgnoreCase("vote")) continue;
+			if (entry.getKey().equalsIgnoreCase(name)) return true;
+			Object aliases = entry.getValue().get("aliases");
+			if (aliases instanceof String alias && alias.equalsIgnoreCase(name)) return true;
+			if (aliases instanceof Iterable<?> values) {
+				for (Object alias : values) if (name.equalsIgnoreCase(String.valueOf(alias))) return true;
+			}
+		}
+		return false;
+	}
+
+	private PluginCommand ownedCommand(String name) {
+		PluginCommand command = plugin.getCommand(name);
+		if (command != null && command.getPlugin() == plugin) return command;
+		try {
+			// A plugin may have displaced the primary and fallback labels while a short
+			// alias still points at our command. Disable must remove that object too.
+			for (org.bukkit.command.Command candidate : getKnownCommands(getCommandMap()).values()) {
+				if (candidate instanceof PluginCommand owned && owned.getPlugin() == plugin
+						&& owned.getName().equalsIgnoreCase(name)) return owned;
+			}
+		} catch (ReflectiveOperationException failure) {
+			throw new IllegalStateException("Unable to inspect owned command registrations", failure);
+		}
+		return null;
 	}
 
 	void runForCommandSender(CommandSender sender, Runnable task) {
@@ -403,26 +537,28 @@ public class CommandLoader {
 	 * @return true if player has permission
 	 */
 	public boolean hasPermission(Player player, String cmd) {
+		cmd = cmd.toLowerCase(Locale.ROOT);
 		if (cmd.startsWith("votingplugin:")) {
 			cmd = cmd.substring("votingplugin:".length());
 		}
 
-		if (commands.containsKey(cmd)) {
-			return commands.get(cmd).hasPerm(player);
+		for (var entry : commands.entrySet()) {
+			if (entry.getKey().equalsIgnoreCase(cmd)) return entry.getValue().hasPerm(player);
 		}
 
 		boolean adminCommand = false;
+		String rootLabel = voteCommandName.substring(voteCommandName.indexOf(':') + 1);
 
-		if (cmd.startsWith("vote")) {
-			cmd = cmd.substring("vote".length());
-		} else if (cmd.startsWith("v")) {
-			cmd = cmd.substring(1);
-		} else if (cmd.startsWith("av")) {
+		if (cmd.equals("adminvote") || cmd.startsWith("adminvote ")) {
 			adminCommand = true;
-			cmd = cmd.substring("av".length());
-		} else if (cmd.startsWith("adminvote")) {
+			cmd = cmd.substring("adminvote".length()).trim();
+		} else if (cmd.equals("av") || cmd.startsWith("av ")) {
 			adminCommand = true;
-			cmd = cmd.substring("adminvote".length());
+			cmd = cmd.substring("av".length()).trim();
+		} else if (voteCommandEnabled && (cmd.equals(rootLabel) || cmd.startsWith(rootLabel + " "))) {
+			cmd = cmd.substring(rootLabel.length()).trim();
+		} else {
+			return false;
 		}
 		// plugin.debug(cmd);
 		if (!adminCommand) {
@@ -459,13 +595,11 @@ public class CommandLoader {
 	 * @return true if it's a VotingPlugin command
 	 */
 	public boolean isVotingPluginCommand(Player player, String cmd) {
-		if (plugin.getCommand(cmd) != null || cmd.startsWith("votingplugin")) {
-			return true;
-		}
-		for (String str : commands.keySet()) {
-			if (str.equalsIgnoreCase(cmd)) {
-				return true;
-			}
+		try {
+			org.bukkit.command.Command command = getCommandMap().getCommand(cmd);
+			return command instanceof PluginCommand owned && owned.getPlugin() == plugin;
+		} catch (ReflectiveOperationException failure) {
+			plugin.debug(failure);
 		}
 		return false;
 	}
@@ -475,6 +609,7 @@ public class CommandLoader {
 	 */
 	private void loadAdminVoteCommand() {
 		plugin.setAdminVoteCommand(new ArrayList<>());
+        DateVoteMilestoneCommands.register(plugin, adminPerm);
 
 		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "CurrentPluginTime" },
 				"VotingPlugin.Commands.AdminVote.CurrentPluginTime|" + adminPerm, "Current plugin time") {
@@ -2969,9 +3104,10 @@ public class CommandLoader {
 	public void loadAliases() {
 		commands = new HashMap<>();
 		aliasCommandNames.clear();
+		configurePlayerCommand();
 
 		// Bukkit registers plugin.yml commands before this loader runs.
-		if (!plugin.getConfigFile().isLoadCommandAliases()) {
+		if (!startupLoadCommandAliases) {
 			unregisterOptionalPluginYMLCommands();
 		} else {
 			unregisterDisabledPluginYMLCommands();
@@ -2979,7 +3115,7 @@ public class CommandLoader {
 
 		// If false: still wire permissions, but don't wire alias executors/tab
 		// completers.
-		final boolean enableAliases = plugin.getConfigFile().isLoadCommandAliases();
+		final boolean enableAliases = startupLoadCommandAliases;
 
 		// ---------------------------
 		// /vote aliases
@@ -3011,16 +3147,18 @@ public class CommandLoader {
 			}
 			registerAdditionalPermissions(Bukkit.getPluginManager(), cmdHandle);
 
-			if (argLength > 0) {
+			if (argLength > 0 && voteCommandEnabled) {
 				String[] args = cmdHandle.getArgs()[0].split("&");
 
 				for (String arg : args) {
 					String commandName = "vote" + arg;
+					// A renamed root may equal a synthetic alias absent from plugin.yml.
+					if (ownedCommand(commandName) == playerRootCommand && playerRootCommand != null) continue;
 					commands.put(commandName, cmdHandle);
 					aliasCommandNames.add(commandName.toLowerCase(Locale.ROOT));
 
 					try {
-						PluginCommand command = plugin.getCommand(commandName);
+						PluginCommand command = ownedCommand(commandName);
 						if (command == null) {
 							plugin.devDebug("Command " + commandName + " not found in plugin.yml");
 							continue;
@@ -3094,11 +3232,13 @@ public class CommandLoader {
 
 				for (String arg : args) {
 					String commandName = "adminvote" + arg;
+					// A renamed root may equal a synthetic alias absent from plugin.yml.
+					if (ownedCommand(commandName) == playerRootCommand && playerRootCommand != null) continue;
 					commands.put(commandName, cmdHandle);
 					aliasCommandNames.add(commandName.toLowerCase(Locale.ROOT));
 
 					try {
-						PluginCommand command = plugin.getCommand(commandName);
+						PluginCommand command = ownedCommand(commandName);
 						if (command == null) {
 							plugin.devDebug("Command " + commandName + " not found in plugin.yml");
 							continue;
@@ -3164,8 +3304,8 @@ public class CommandLoader {
 						|| commandName.equalsIgnoreCase("av")) {
 					continue;
 				}
-				PluginCommand command = plugin.getCommand(commandName);
-				if (command != null) {
+				PluginCommand command = ownedCommand(commandName);
+				if (command != null && command != playerRootCommand) {
 					unregisterCommand(commandMap, command);
 				}
 			}
@@ -3179,8 +3319,8 @@ public class CommandLoader {
 		try {
 			CommandMap commandMap = getCommandMap();
 			for (String commandName : disabledAliasCommandNames) {
-				PluginCommand command = plugin.getCommand(commandName);
-				if (command != null) {
+				PluginCommand command = ownedCommand(commandName);
+				if (command != null && command != playerRootCommand) {
 					unregisterCommand(commandMap, command);
 				}
 			}
@@ -3192,22 +3332,7 @@ public class CommandLoader {
 	/** Removes the command and all labels that still point to it from Bukkit's map. */
 	private void unregisterCommand(CommandMap commandMap, PluginCommand command) throws ReflectiveOperationException {
 		command.unregister(commandMap);
-		java.lang.reflect.Field field = null;
-		Class<?> commandMapClass = commandMap.getClass();
-		while (commandMapClass != null && field == null) {
-			try {
-				field = commandMapClass.getDeclaredField("knownCommands");
-			} catch (NoSuchFieldException ignored) {
-				commandMapClass = commandMapClass.getSuperclass();
-			}
-		}
-		if (field == null) {
-			throw new NoSuchFieldException("knownCommands");
-		}
-		field.setAccessible(true);
-		@SuppressWarnings("unchecked")
-		Map<String, org.bukkit.command.Command> knownCommands =
-				(Map<String, org.bukkit.command.Command>) field.get(commandMap);
+		Map<String, org.bukkit.command.Command> knownCommands = getKnownCommands(commandMap);
 		Set<String> removedLabels = new HashSet<>();
 		for (Map.Entry<String, org.bukkit.command.Command> entry : knownCommands.entrySet()) {
 			if (entry.getValue() == command) {
@@ -3234,6 +3359,27 @@ public class CommandLoader {
 				knownCommands.put(label, fallbackCommand);
 			}
 		}
+	}
+
+	/** Reads the same Bukkit-owned map used by exact-object unregister. */
+	private Map<String, org.bukkit.command.Command> getKnownCommands(CommandMap commandMap) throws ReflectiveOperationException {
+		java.lang.reflect.Field field = null;
+		Class<?> commandMapClass = commandMap.getClass();
+		while (commandMapClass != null && field == null) {
+			try {
+				field = commandMapClass.getDeclaredField("knownCommands");
+			} catch (NoSuchFieldException ignored) {
+				commandMapClass = commandMapClass.getSuperclass();
+			}
+		}
+		if (field == null) {
+			throw new NoSuchFieldException("knownCommands");
+		}
+		field.setAccessible(true);
+		@SuppressWarnings("unchecked")
+		Map<String, org.bukkit.command.Command> knownCommands =
+				(Map<String, org.bukkit.command.Command>) field.get(commandMap);
+		return knownCommands;
 	}
 
 	/** Gets Bukkit's command map without depending on a CraftBukkit package name. */
@@ -4077,6 +4223,9 @@ public class CommandLoader {
 			}
 		}
 
+		// Preserve administrator-defined matches ahead of this new fallback.
+		com.bencodez.votingplugin.streaks.VoteStreaksCommand.register(plugin);
+
 		ArrayList<CommandHandler> avCommands = com.bencodez.advancedcore.command.CommandLoader.getInstance()
 				.getBasicCommands("VotingPlugin");
 		for (CommandHandler cmd : avCommands) {
@@ -4143,7 +4292,7 @@ public class CommandLoader {
 		} else if (MessageAPI.startsWithIgnoreCase(slot, "today")) {
 			new VoteToday(plugin, player, user, 1).open();
 		} else if (MessageAPI.startsWithIgnoreCase(slot, "help")) {
-			player.performCommand("vote help");
+			performVoteCommand(player, "help");
 		} else if (MessageAPI.startsWithIgnoreCase(slot, "shop")) {
 			new VoteShop(plugin, player, user).open();
 		} else if (MessageAPI.startsWithIgnoreCase(slot, "lastmonth")) {
@@ -4152,6 +4301,8 @@ public class CommandLoader {
 			new VoteBest(plugin, player, user).open();
 		} else if (MessageAPI.startsWithIgnoreCase(slot, "streak")) {
 			new VoteStreak(plugin, player, user).open();
+		} else if (MessageAPI.startsWithIgnoreCase(slot, "streaks")) {
+			 plugin.getVoteStreaksMenu().open(player);
 		}
 	}
 

@@ -9,6 +9,7 @@ import java.util.concurrent.RejectedExecutionException;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
+import org.bukkit.command.CommandSender;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.core.datemilestones.DateVoteEvent;
@@ -20,11 +21,19 @@ import com.bencodez.votingplugin.util.BukkitCompletionScheduler;
 /** Owner-defined windows, independently accounted on one backend using original occurrence IDs. */
 public final class DateVoteMilestones {
     private record Definition(DateVoteEvent event, YamlConfiguration rewards, java.util.Set<Integer> enabledThresholds,
-            java.util.Map<Integer, DateVoteMilestoneConfig.Reward> milestones) { }
+            java.util.Map<Integer, DateVoteMilestoneConfig.Reward> milestones, boolean countFakeVotes) { }
     private final VotingPluginMain plugin;
     private volatile List<Definition> definitions = List.of();
     private final java.util.Set<UUID> pendingProgress = new java.util.HashSet<>();
     private final java.util.concurrent.atomic.AtomicInteger deferredAccounting = new java.util.concurrent.atomic.AtomicInteger();
+    private final java.util.concurrent.atomic.AtomicInteger pendingAdministration = new java.util.concurrent.atomic.AtomicInteger();
+    private final java.util.Map<UUID, CachedProgress> placeholderCache = new java.util.LinkedHashMap<>(256, 0.75f, true);
+    private static final class ProgressRequest {
+        boolean invalidated;
+    }
+    private final java.util.Map<UUID, ProgressRequest> placeholderRequests = new java.util.HashMap<>();
+    private record CachedProgress(Object generation, long expires, java.util.Map<String, DateVoteLedger.Progress> events) { }
+    private volatile Object generation = new Object();
     private DateVoteLedger ledger;
     public DateVoteMilestones(VotingPluginMain plugin) { this.plugin = plugin; }
     private synchronized DateVoteLedger ledger() {
@@ -33,13 +42,20 @@ public final class DateVoteMilestones {
     }
     /** Configuration is already loaded; this method performs no disk access. */
     public void reload() {
+        generation = null;
+        synchronized (placeholderCache) {
+            placeholderCache.clear();
+            // Queued/running refreshes still own their admission until their existing finally/rejection path releases it.
+            placeholderRequests.values().forEach(request -> request.invalidated = true);
+        }
         List<Definition> loaded = new ArrayList<>();
         YamlConfiguration rewards = new YamlConfiguration();
         var root = plugin.getSpecialRewardsConfig().getData().getConfigurationSection("DateVoteMilestones");
         if (root != null && !root.getKeys(false).isEmpty()) {
             try { rewards.loadFromString(plugin.getSpecialRewardsConfig().getData().saveToString()); }
             catch (org.bukkit.configuration.InvalidConfigurationException invalid) {
-                definitions = List.of(); plugin.getLogger().warning("DateVoteMilestones configuration snapshot invalid"); return;
+                definitions = List.of(); generation = new Object();
+                plugin.getLogger().warning("DateVoteMilestones configuration snapshot invalid"); return;
             }
         }
         int considered = 0;
@@ -55,12 +71,14 @@ public final class DateVoteMilestones {
                 var configured = DateVoteMilestoneConfig.read(section);
                 var enabledThresholds = configured.entrySet().stream().filter(entry -> entry.getValue().enabled())
                         .map(java.util.Map.Entry::getKey).collect(java.util.stream.Collectors.toUnmodifiableSet());
-                loaded.add(new Definition(event, rewards, enabledThresholds, java.util.Map.copyOf(configured)));
+                loaded.add(new Definition(event, rewards, enabledThresholds, java.util.Map.copyOf(configured),
+                        section.getBoolean("CountFakeVotes", true)));
             } catch (Exception invalid) {
                 plugin.getLogger().warning("DateVoteMilestones " + id + " disabled: " + invalid.getMessage());
             }
         }
         definitions = List.copyOf(loaded);
+        generation = new Object();
     }
     /** Queued rewards must resolve even when an accounting-only setting is invalid. */
     private void registerRewardHandles(String id, ConfigurationSection section, YamlConfiguration rewards) {
@@ -127,6 +145,8 @@ public final class DateVoteMilestones {
         return found;
     }
     public static DateVoteEvent parse(String id, ConfigurationSection section) {
+        if (section.contains("CountFakeVotes") && !section.isBoolean("CountFakeVotes"))
+            throw new IllegalArgumentException("CountFakeVotes must be a boolean");
         String zone = section.getString("Timezone");
         String start = section.getString("Start"), end = section.getString("End");
         var milestones = section.getConfigurationSection("Milestones");
@@ -148,9 +168,10 @@ public final class DateVoteMilestones {
     public boolean deferAccepted(VotingPluginUser user, String site, UUID occurrence, long occurredAt,
             boolean real, boolean proxy, boolean canonicalProxy, boolean targeted, boolean forceProxyRouting) {
         if (plugin.getBungeeSettings().isUseBungeecoord() && !proxy) return true;
-        if (!real || occurrence == null || occurredAt <= 0 || proxy && (!canonicalProxy || targeted)) return true;
+        if (occurrence == null || occurredAt <= 0 || proxy && (!canonicalProxy || targeted)) return true;
         List<Definition> snapshot = definitions;
-        if (snapshot.stream().noneMatch(definition -> definition.event().matches(occurredAt, site, real, proxy,
+        if (snapshot.stream().noneMatch(definition -> definition.event().matches(occurredAt, site,
+                real || definition.countFakeVotes(), proxy,
                 plugin.getBungeeSettings().getServer()))) return true;
         int pending;
         do {
@@ -173,18 +194,20 @@ public final class DateVoteMilestones {
         }
         return false;
     }
-    /** Called only from the real asynchronous accepted-vote pipeline; never from navigation. */
+    /** Called only from the asynchronous accepted-vote pipeline; never from navigation. */
     public boolean accepted(VotingPluginUser user, String site, UUID occurrence, long occurredAt,
             boolean real, boolean proxy, boolean canonicalProxy, boolean targeted, boolean forceProxyRouting) {
         if (plugin.getBungeeSettings().isUseBungeecoord() && !proxy) return true;
-        if (!real || occurrence == null || occurredAt <= 0 || proxy && (!canonicalProxy || targeted)) return true;
+        if (occurrence == null || occurredAt <= 0 || proxy && (!canonicalProxy || targeted)) return true;
         boolean recorded = true;
         for (Definition definition : definitions) {
             DateVoteEvent event = definition.event();
-            if (!event.matches(occurredAt, site, real, proxy, plugin.getBungeeSettings().getServer())) continue;
+            if (!event.matches(occurredAt, site, real || definition.countFakeVotes(), proxy,
+                    plugin.getBungeeSettings().getServer())) continue;
             List<Integer> reached;
             try {
                 reached = ledger().record(event, user.getJavaUUID(), occurrence, plugin.getOptions().isProcessRewards());
+                invalidateProgress(user.getJavaUUID());
             } catch (IOException | RuntimeException failure) {
                 recorded = false;
                 plugin.getLogger().warning("DateVoteMilestones " + event.id() + " occurrence was not confirmed; proxy delivery must remain quarantined for accounting reconciliation: " + failure.getMessage());
@@ -209,6 +232,210 @@ public final class DateVoteMilestones {
             }
         }
         return recorded;
+    }
+    public enum AdminAction { Status, Preview, SetVotes, Force, ForceNoLimits }
+
+    /** Admission is not success: all identity/storage/reward work runs on the ordered worker. */
+    public void administer(CommandSender sender, AdminAction action, String player, String eventId, String argument) {
+        Object epoch = generation;
+        dispatchAdmin(sender, action, () -> {
+            if (!current(epoch) || !adminAllowed(sender, action)) return;
+            if (!validPlayer(player) || eventId == null || !eventId.matches("[A-Za-z0-9_-]{1,64}")) {
+                sender.sendMessage("Invalid exact player or event ID."); return;
+            }
+            int count;
+            do { count = pendingAdministration.get();
+                if (count >= 64) { sender.sendMessage("Date milestone administration is busy. Try again shortly."); return; }
+            } while (!pendingAdministration.compareAndSet(count, count + 1));
+            try {
+                plugin.getUserManager().getDataManager().getTimer().execute(() -> {
+                    try {
+                        if (!current(epoch)) return;
+                        List<String> result = administerOnWorker(action, player, eventId, argument, epoch);
+                        dispatchAdmin(sender, action, () -> {
+                            if (current(epoch) && adminAllowed(sender, action)) result.forEach(sender::sendMessage);
+                        });
+                    } catch (IOException | RuntimeException failure) {
+                        dispatchAdmin(sender, action, () -> {
+                            if (current(epoch) && adminAllowed(sender, action))
+                                sender.sendMessage("Date milestone operation failed; inspect retained progress before retrying rewards.");
+                        });
+                    } finally { pendingAdministration.decrementAndGet(); }
+                });
+            } catch (RejectedExecutionException unavailable) {
+                pendingAdministration.decrementAndGet();
+                sender.sendMessage("Date milestone storage is unavailable; nothing was submitted.");
+            }
+        });
+    }
+    private boolean current(Object epoch) {
+        return epoch != null && epoch == generation && plugin.isEnabled() && plugin.getDateVoteMilestones() == this;
+    }
+    private static boolean validPlayer(String player) {
+        return player != null && (player.matches("[A-Za-z0-9_]{1,16}")
+                || player.matches("[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}"));
+    }
+    private boolean adminAllowed(CommandSender sender, AdminAction action) {
+        return (!(sender instanceof Player p) || p.isOnline()) && (sender.hasPermission("VotingPlugin.Admin")
+                || sender.hasPermission("VotingPlugin.Commands.AdminVote.DateVoteMilestone." + action.name()));
+    }
+    private void dispatchAdmin(CommandSender sender, AdminAction action, Runnable effect) {
+        Player player = sender instanceof Player p ? p : null;
+        Runnable checked = () -> { if (plugin.isEnabled() && adminAllowed(sender, action)) effect.run(); };
+        BukkitCompletionScheduler.run(plugin, player, checked, player == null ? checked : () -> { }, () -> { });
+    }
+    private List<String> administerOnWorker(AdminAction action, String player, String eventId, String argument,
+            Object epoch) throws IOException {
+        Definition definition = definitions.stream().filter(d -> d.event().id().equals(eventId)).findFirst().orElse(null);
+        if (definition == null) return List.of("Unknown or invalid date event ID.");
+        DateVoteEvent event = definition.event();
+        boolean network = plugin.getBungeeSettings().isUseBungeecoord();
+        if (network && !event.accountingServer().equals(plugin.getBungeeSettings().getServer()))
+            return List.of("Progress is remote; run this command on the configured AccountingServer.");
+        Integer value = null;
+        List<Integer> selected = List.of();
+        if (action == AdminAction.SetVotes) {
+            if (argument == null || !argument.matches("0|[1-9][0-9]{0,3}") || Integer.parseInt(argument) > 4096)
+                return List.of("Votes must be an integer from 0 to 4096.");
+            value = Integer.parseInt(argument);
+        } else if (action == AdminAction.Force || action == AdminAction.ForceNoLimits) {
+            if (!event.enabled() || !plugin.getOptions().isProcessRewards())
+                return List.of("Event or reward processing is disabled; no reward was submitted.");
+            if (argument == null || !argument.matches("[A-Za-z0-9_-]{1,64}")) return List.of("Invalid milestone ID or threshold.");
+            String selector = argument;
+            // A named At/Every entry can expand into several independently fenced thresholds.
+            selected = event.thresholds().stream().filter(n -> definition.milestones().get(n).key().equals(selector)).toList();
+            if (selected.isEmpty()) selected = event.thresholds().stream().filter(n -> Integer.toString(n).equals(selector)).toList();
+            if (selected.isEmpty()) return List.of("Unknown milestone ID or threshold.");
+        }
+        VotingPluginUser user = player.length() == 36
+                ? plugin.getVotingPluginUserManager().getVotingPluginUser(UUID.fromString(player), false)
+                : plugin.getVotingPluginUserManager().getVotingPluginUser(player);
+        UUID storageId = user.getJavaUUID();
+        if (!current(epoch)) return List.of();
+        if (action == AdminAction.SetVotes) {
+            var result = ledger().setVotes(event, storageId, value);
+            invalidateProgress(storageId);
+            return List.of("Date event " + eventId + " votes set to " + result.votes()
+                    + "; receipt IDs and reward fences retained. No rewards were submitted.");
+        }
+        if (action == AdminAction.Force || action == AdminAction.ForceNoLimits) {
+            int submitted = 0;
+            for (int threshold : selected) {
+                if (!current(epoch) || !plugin.getOptions().isProcessRewards()) break;
+                if (!definition.enabledThresholds().contains(threshold)) continue;
+                if (!ledger().reserveForced(event, storageId, threshold, action == AdminAction.ForceNoLimits)) continue;
+                invalidateProgress(storageId);
+                var placeholders = new HashMap<String, String>();
+                placeholders.put("DateVoteEvent", event.displayName());
+                placeholders.put("DateVoteThreshold", Integer.toString(threshold));
+                plugin.getRewardHandler().giveReward(user, definition.rewards(), path(event, threshold),
+                        new RewardOptions().setPrefix("DateVoteMilestones-" + event.id() + "-" + threshold)
+                                .setServer(network).setPlaceholders(placeholders));
+                ledger().submitted(event, storageId, threshold);
+                submitted++;
+            }
+            return List.of("Date event " + eventId + ": submitted " + submitted + " of " + selected.size()
+                    + " selected thresholds; disabled or fenced thresholds skipped. Vote count unchanged.");
+        }
+        var progress = ledger().progress(event, storageId);
+        List<String> lines = new ArrayList<>();
+        lines.add("Date event " + eventId + ": votes=" + progress.votes() + ", CountFakeVotes=" + definition.countFakeVotes()
+                + ", status=" + (!event.enabled() ? "disabled" : System.currentTimeMillis() < event.start() ? "upcoming"
+                        : System.currentTimeMillis() >= event.end() ? "ended" : "active")
+                + ". Stored in date-vote-milestones/<event-file-id>-<player-uuid>.properties.");
+        for (int threshold : event.thresholds()) lines.add("Milestone " + definition.milestones().get(threshold).key()
+                + " at " + threshold + ": " + (progress.reservedAwards().contains(threshold) ? "pending review"
+                        : progress.submittedAwards().contains(threshold) ? "submitted"
+                        : progress.deferredAwards().contains(threshold) ? "deferred" : "not reached")
+                + (definition.enabledThresholds().contains(threshold) ? "" : " (disabled)"));
+        return List.copyOf(lines);
+    }
+    private void invalidateProgress(UUID player) {
+        synchronized (placeholderCache) {
+            placeholderCache.remove(player);
+            var request = placeholderRequests.get(player);
+            if (request != null) request.invalidated = true;
+        }
+    }
+
+    /** Nonblocking projection. UUID is the user's snapshot-only storage identity, never a name lookup. */
+    public String placeholder(UUID player, String request) {
+        if (player == null || request == null || request.length() > 100 || !plugin.isEnabled()) return "unavailable";
+        int split = request.indexOf('_');
+        if (split < 1) return "invalid";
+        String metric = request.substring(0, split).toLowerCase(java.util.Locale.ROOT);
+        String id = request.substring(split + 1);
+        int threshold = -1;
+        if (metric.equals("award")) {
+            split = id.indexOf('_');
+            if (split < 1 || !id.substring(0, split).matches("[1-9][0-9]{0,3}")) return "invalid";
+            threshold = Integer.parseInt(id.substring(0, split)); id = id.substring(split + 1);
+        } else if (!List.of("votes", "next", "status").contains(metric)) return "invalid";
+        String eventId = id;
+        Definition definition = definitions.stream().filter(d -> d.event().id().equals(eventId)).findFirst().orElse(null);
+        if (definition == null) return "invalid";
+        DateVoteEvent event = definition.event();
+        if (metric.equals("status")) return !event.enabled() ? "disabled" : System.currentTimeMillis() < event.start()
+                ? "upcoming" : System.currentTimeMillis() >= event.end() ? "ended" : "active";
+        if (metric.equals("award") && !event.thresholds().contains(threshold)) return "invalid";
+        if (plugin.getBungeeSettings().isUseBungeecoord() && !event.accountingServer().equals(plugin.getBungeeSettings().getServer()))
+            return "remote";
+        Object epoch = generation;
+        if (epoch == null) return "unavailable";
+        CachedProgress cached;
+        ProgressRequest launch = null;
+        synchronized (placeholderCache) {
+            cached = placeholderCache.get(player);
+            if (cached == null || cached.generation() != epoch || System.nanoTime() >= cached.expires()) {
+                cached = null;
+                if (!placeholderRequests.containsKey(player)) {
+                    if (placeholderRequests.size() >= 64) return "unavailable";
+                    launch = new ProgressRequest(); placeholderRequests.put(player, launch);
+                }
+            }
+        }
+        if (launch != null && !refreshPlaceholder(player, epoch, definitions, launch)) return "unavailable";
+        if (cached == null) return "loading";
+        var progress = cached.events().get(eventId);
+        if (progress == null) return "unavailable";
+        if (metric.equals("votes")) return Integer.toString(progress.votes());
+        if (metric.equals("next")) return event.thresholds().stream().filter(n -> n > progress.votes()
+                && definition.enabledThresholds().contains(n)).findFirst().map(Object::toString).orElse("0");
+        return progress.reservedAwards().contains(threshold) ? "pending_review" : progress.submittedAwards().contains(threshold)
+                ? "submitted" : progress.deferredAwards().contains(threshold) ? "deferred" : "not_reached";
+    }
+    private boolean refreshPlaceholder(UUID player, Object epoch, List<Definition> snapshot, ProgressRequest request) {
+        try {
+            plugin.getUserManager().getDataManager().getTimer().execute(() -> {
+                try {
+                    if (!current(epoch)) return;
+                    java.util.Map<String, DateVoteLedger.Progress> results = new HashMap<>();
+                    for (Definition definition : snapshot) {
+                        var event = definition.event();
+                        if (plugin.getBungeeSettings().isUseBungeecoord()
+                                && !event.accountingServer().equals(plugin.getBungeeSettings().getServer())) continue;
+                        try { results.put(event.id(), ledger().progress(event, player)); }
+                        catch (IOException | RuntimeException unavailable) { /* Missing entry means unavailable, never zero. */ }
+                    }
+                    synchronized (placeholderCache) {
+                        if (!current(epoch) || request.invalidated || placeholderRequests.get(player) != request) return;
+                        if (placeholderCache.size() >= 256) placeholderCache.remove(placeholderCache.keySet().iterator().next());
+                        placeholderCache.put(player, new CachedProgress(epoch, System.nanoTime() + 5_000_000_000L, java.util.Map.copyOf(results)));
+                    }
+                } finally { synchronized (placeholderCache) { placeholderRequests.remove(player, request); } }
+            });
+            return true;
+        } catch (RuntimeException unavailable) {
+            synchronized (placeholderCache) {
+                if (current(epoch) && placeholderRequests.get(player) == request) {
+                    if (placeholderCache.size() >= 256) placeholderCache.remove(placeholderCache.keySet().iterator().next());
+                    placeholderCache.put(player, new CachedProgress(epoch, System.nanoTime() + 1_000_000_000L, java.util.Map.of()));
+                }
+                placeholderRequests.remove(player, request);
+            }
+            return false;
+        }
     }
     public void progress(Player player) {
         progress(player, (view, current) -> com.bencodez.votingplugin.commands.gui.player.DateVoteEventsMenu.open(plugin, player, view, current));

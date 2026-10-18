@@ -26,6 +26,10 @@ import lombok.Getter;
  */
 public class GUI extends YMLFile {
 
+	@ConfigDataString(path = "CHEST.VoteStreaks.Name")
+	@Getter
+	private String chestVoteStreaksName = "&6Vote streaks";
+
 	@ConfigDataString(path = "BOOK.VoteURLBookGUI.AlreadyVotedColor")
 	@Getter
 	private String bookVoteURLBookGUIAlreadyVotedColor = "RED";

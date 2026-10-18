@@ -130,6 +130,8 @@ public class PlaceHolders {
 	public String getPlaceHolder(OfflinePlayer p, String identifier1, boolean javascript) {
 		boolean forceProcess = false;
 		boolean useCache = true;
+        if (identifier1.regionMatches(true, 0, "DateVoteMilestones_", 0, "DateVoteMilestones_".length()))
+            return getPlaceholderValue(p, identifier1, false, true, false);
 		String identifier = identifier1.toLowerCase();
 		boolean custom = false;
 		if (identifier.endsWith("_process")
@@ -169,6 +171,8 @@ public class PlaceHolders {
 	 * @return the placeholder value
 	 */
 	public String getPlaceHolder(Player p, String identifier) {
+        if (identifier.regionMatches(true, 0, "DateVoteMilestones_", 0, "DateVoteMilestones_".length()))
+            return getPlaceholderValue(p, identifier, false, true, false);
 		if (plugin.getConfigFile().isUseJavascriptPlaceholders()) {
 			identifier = PlaceholderUtils.replaceJavascript(p, identifier);
 		}
@@ -186,6 +190,16 @@ public class PlaceHolders {
 	 */
 	public String getPlaceholderValue(OfflinePlayer p, String identifier, boolean javascript, boolean forceProcess,
 			boolean useCache) {
+        // This family owns a bounded snapshot cache and preserves case-sensitive event IDs.
+        // Bypass legacy cache enrollment/name resolution, which can perform storage work.
+        String datePrefix = "DateVoteMilestones_";
+        if (identifier.regionMatches(true, 0, datePrefix, 0, datePrefix.length())) {
+            if (p == null) return "no player";
+            var manager = plugin.getDateVoteMilestones();
+            UUID storageId = p instanceof Player online ? plugin.getPlaceholderPlayerPresence().storageUuid(online) : p.getUniqueId();
+            return manager == null || storageId == null ? "unavailable"
+                    : manager.placeholder(storageId, identifier.substring(datePrefix.length()));
+        }
 		if (plugin.getConfigFile().isUseJavascriptPlaceholders() && javascript && p != null) {
 			identifier = PlaceholderUtils.replaceJavascript(p, identifier);
 		}
@@ -419,6 +433,14 @@ public class PlaceHolders {
 				return Integer.toString(user.getHighestMonthlyTotal());
 			}
 		}.withDescription("Best monthly total").updateDataKey("HighestMonthlyTotal"));
+
+        placeholders.add(new PlaceHolder<VotingPluginUser>("DateVoteMilestones_") {
+            @Override public String placeholderRequest(VotingPluginUser user, String identifier) {
+                var manager = plugin.getDateVoteMilestones();
+                return manager == null || user == null ? "unavailable"
+                        : manager.placeholder(user.getJavaUUID(), identifier.substring("DateVoteMilestones_".length()));
+            }
+        }.withDescription("Date event votes/next/status/award snapshots; loading and unavailable are distinct").useStartsWith());
 
 		placeholders.add(new PlaceHolder<VotingPluginUser>("DailyVoteStreak") {
 

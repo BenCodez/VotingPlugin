@@ -8,6 +8,7 @@ Complete opt-in example:
 DateVoteMilestones:
   october_2026:
     Enabled: true
+    CountFakeVotes: true # Defaults to true when absent; false excludes test votes.
     DisplayName: 'October voting event'
     Start: '2026-10-01T00:00:00'
     End: '2026-11-01T00:00:00'
@@ -34,7 +35,65 @@ DateVoteMilestones:
             - 'give %player% diamond 1'
 ```
 
-Reload after configuration. `/vote dateevents` opens the event list. Select an event for milestone details; use the page arrows and back button to navigate. The menu shows the player's event counts, next enabled threshold, active/upcoming/ended/disabled status, date window and timezone. Milestone details show submitted, deferred or pending-review state and configured reward types without running or displaying raw reward commands. Permission: `VotingPlugin.Commands.Vote.DateEvents` or existing `VotingPlugin.Player`. Progress inspection runs on a storage worker and opens the menu on the player's owner scheduler. It is a snapshot: run the command again after another vote for updated counts. Reload invalidates earlier menu navigation; reopen the command after changing event configuration. Disabled valid events remain visible, remote-owner events identify their accounting backend, and unavailable progress is shown as unavailable rather than zero. It never submits rewards. No new PlaceholderAPI placeholder is added; the progress command is the supported display.
+Reload after configuration. `/vote dateevents` opens the event list. Select an event for milestone details; use the page arrows and back button to navigate. The menu shows the player's event counts, next enabled threshold, active/upcoming/ended/disabled status, date window and timezone. Milestone details show submitted, deferred or pending-review state and configured reward types without running or displaying raw reward commands. Permission: `VotingPlugin.Commands.Vote.DateEvents` or existing `VotingPlugin.Player`. Progress inspection runs on a storage worker and opens the menu on the player's owner scheduler. It is a snapshot: run the command again after another vote for updated counts. Reload invalidates earlier menu navigation; reopen the command after changing event configuration. Disabled valid events remain visible, remote-owner events identify their accounting backend, and unavailable progress is shown as unavailable rather than zero. It never submits rewards. Administrative inspection and PlaceholderAPI snapshots are also available below.
+
+## Administration and placeholders
+
+The independent event ledger is stored in the plugin data folder under
+`date-vote-milestones/`: `definitions.properties` seals accounting contracts and
+`<event-file-id>-<player-uuid>.properties` stores occurrence UUIDs, count adjustments
+and reward fences. The file ID is the SHA-256 of the case-sensitive event ID. Ordinary player totals
+and SQL schemas are unchanged. Preserve these files together across backups/restarts;
+do not delete or edit them to reset reward limits.
+
+Use these commands on the event's accounting backend (exact event IDs are case sensitive):
+
+```text
+/av DateVoteMilestone Status <player-or-uuid> <event>
+/av DateVoteMilestone Preview <player-or-uuid> <event>
+/av DateVoteMilestone SetVotes <player-or-uuid> <event> <0-4096>
+/av DateVoteMilestone Force <player-or-uuid> <event> <milestone-id-or-threshold>
+/av DateVoteMilestone ForceNoLimits <player-or-uuid> <event> <milestone-id-or-threshold>
+```
+
+`DVM` aliases `DateVoteMilestone`. Permissions are `VotingPlugin.Admin` or the
+individual `VotingPlugin.Commands.AdminVote.DateVoteMilestone.<action>` permission,
+using the action names above. Status and Preview show the same read-only count and
+per-threshold fence report. Storage and identity resolution run on the ordered worker;
+messages follow confirmed completion on the sender's scheduler. Reload or shutdown can
+cancel queued work. At most 64 admin requests may be outstanding.
+
+SetVotes retains occurrence UUIDs and all prior reserved/submitted/deferred awards.
+It changes only the event count, never normal totals, and does not submit rewards.
+A later qualifying receipt can release a deferred threshold once its count is reached.
+A named milestone selects every threshold expanded from its At/Every definition.
+Force skips the count/window requirement, but requires an enabled event/reward and
+local accounting ownership. ForceNoLimits explicitly permits repeating a submitted
+award. Neither command clears an uncertain RESERVED fence. Submissions are fenced
+one threshold at a time, so an error can leave earlier thresholds submitted and the
+current one pending review; inspect Status before retrying. Counts remain unchanged.
+
+PlaceholderAPI forms (replace `event` with the exact configured ID):
+
+```text
+%votingplugin_DateVoteMilestones_votes_event%
+%votingplugin_DateVoteMilestones_next_event%
+%votingplugin_DateVoteMilestones_status_event%
+%votingplugin_DateVoteMilestones_award_10_event%
+```
+
+Underscores and case in event IDs are preserved. `votes` is the event count; `next`
+is the next enabled threshold or `0` when none remains. `status` is active, upcoming,
+ended or disabled. `award` reports submitted, deferred, pending_review or not_reached.
+These calls never perform ledger I/O on the calling server thread. First/stale reads
+return `loading` and queue a refresh; `remote`, `unavailable` and `invalid` are explicit
+non-numeric states. Do not interpret them as a zero count. The cache retains at most
+256 player snapshots for five seconds, with at most 64 pending refreshes. Confirmed
+local votes/admin changes and reload invalidate snapshots; failed scheduling briefly
+returns unavailable. There is no proxy query or background polling service. Placeholders
+are informational snapshots, not a basis for granting rewards. Online requests use the
+already published login storage UUID; absent identity snapshots report unavailable.
+Offline requests use the supplied OfflinePlayer UUID without resolving a player name.
 
 ## Milestone format and compatibility
 
@@ -48,7 +107,7 @@ A milestone's `Enabled: false` prevents new reward submissions while keeping its
 
 Start is inclusive; end is exclusive. Values are local ISO date-times interpreted with the explicit IANA timezone, such as `UTC` or `America/New_York`. Nonexistent or ambiguous daylight-saving boundaries are rejected; choose an unambiguous boundary. Invalid events are disabled with an explanation without disabling valid sibling events. Stable event IDs permit 1–64 letters, digits, `_` and `-`. Up to 64 configured definitions and 64 positive thresholds per event are supported; thresholds are bounded to 4096.
 
-Membership uses the accepted pipeline's authoritative epoch-millisecond occurrence time and occurrence UUID. Standalone ingress captures its timestamp and a fresh local occurrence UUID once at receipt, before executor admission; an external site's untrusted timestamp is not used. Overflow retries and local time-change cache recovery retain that UUID, so a crash after ledger publication but before queue acknowledgement cannot recount the receipt or unlock another date milestone. Distinct receipts receive distinct UUIDs even when their player, service and timestamp match. Current identified proxy deliveries carry a separate `canonicalOccurrenceTime` and original UUID, including delayed offline delivery. BungeeCord and Velocity capture that original occurrence time when admitting the receipt, before scheduler handoff or identity resolution; durable snapshots preserve it even when normal processing has not started. This timestamp remains separate from the receiving proxy's normal processing and cooldown time. Ordinary event processing time, LastVotes, cooldowns, streaks, and post-vote `voteTime` retain their existing receiving-proxy clock semantics. The native vote and post-vote events expose the separate occurrence timestamp. `PlayerVoteEvent.localOccurrenceId` carries only local receipt identity; it does not populate `proxyVoteId` or imply proxy provenance. The existing post-vote `voteUUID` carries the effective occurrence UUID. A vote accepted during a window can count even when delivered after its end. Votes before start or at/after end do not count. Fake/test votes are always excluded. A matching occurrence counts once per player/event; overlapping events each count it once. Enabled-site validation remains part of the normal accepted-vote pipeline. An optional filter selects configured site keys.
+Membership uses the accepted pipeline's authoritative epoch-millisecond occurrence time and occurrence UUID. Standalone ingress captures its timestamp and a fresh local occurrence UUID once at receipt, before executor admission; an external site's untrusted timestamp is not used. Overflow retries and local time-change cache recovery retain that UUID, so a crash after ledger publication but before queue acknowledgement cannot recount the receipt or unlock another date milestone. Distinct receipts receive distinct UUIDs even when their player, service and timestamp match. Current identified proxy deliveries carry a separate `canonicalOccurrenceTime` and original UUID, including delayed offline delivery. BungeeCord and Velocity capture that original occurrence time when admitting the receipt, before scheduler handoff or identity resolution; durable snapshots preserve it even when normal processing has not started. This timestamp remains separate from the receiving proxy's normal processing and cooldown time. Ordinary event processing time, LastVotes, cooldowns, streaks, and post-vote `voteTime` retain their existing receiving-proxy clock semantics. The native vote and post-vote events expose the separate occurrence timestamp. `PlayerVoteEvent.localOccurrenceId` carries only local receipt identity; it does not populate `proxyVoteId` or imply proxy provenance. The existing post-vote `voteUUID` carries the effective occurrence UUID. A vote accepted during a window can count even when delivered after its end. Votes before start or at/after end do not count. Fake/test votes count by default for date milestones. Set that event's `CountFakeVotes: false` to exclude them. This option does not change ordinary vote totals, VoteParty or other reward policies. It still requires the event window, site filter, accounting owner and original occurrence identity; it never makes targeted or unidentified proxy delivery eligible. Changing this option preserves the existing event seal, counts and deduplication history. A matching occurrence counts once per player/event; overlapping events each count it once. Enabled-site validation remains part of the normal accepted-vote pipeline. An optional filter selects configured site keys.
 
 For a proxy network, **one backend owns each event ledger**. Set `AccountingServer` to that backend's exact configured server name. Use identified **all-server** delivery so that accounting backend receives every occurrence. Other backends do not increment the event, and their progress command directs players to the owner. Targeted delivery, legacy proxy deliveries missing original IDs/times, and local backend ingress on a proxy-configured server are intentionally excluded. They cannot reliably provide both complete event progress and network deduplication. This does not change their existing normal vote processing. A proxy event without an accounting owner is disabled. Moving the owner requires preserving the owner-local ledger and a new event ID; this feature does not migrate or replicate ledgers automatically.
 

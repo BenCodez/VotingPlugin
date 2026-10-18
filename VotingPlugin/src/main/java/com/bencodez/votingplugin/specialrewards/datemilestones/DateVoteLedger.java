@@ -48,22 +48,60 @@ public final class DateVoteLedger {
         validateFingerprint(event, state);
         Set<UUID> seen = occurrences(state);
         boolean changed = !seen.contains(occurrence);
-        if (changed && seen.size() >= 4096) throw new IOException("Event occurrence capacity reached (4096); progress retained");
+        if (changed && (seen.size() >= 4096 || votes(state) >= 4096))
+            throw new IOException("Event occurrence capacity reached (4096); progress retained");
         seen.add(occurrence);
         state.setProperty("fingerprint", event.fingerprint());
         state.setProperty("seen", String.join(",", seen.stream().map(UUID::toString).sorted().toList()));
+        int votes = votes(state);
         List<Integer> awards = new ArrayList<>();
         for (int threshold : event.thresholds()) {
             String key = "award." + threshold;
-            if (seen.size() >= threshold && !state.containsKey(key)) {
+            if (votes >= threshold && !state.containsKey(key)) {
                 state.setProperty(key, "DEFERRED");
                 changed = true;
             }
-            if (processRewards && "DEFERRED".equals(state.getProperty(key))) awards.add(threshold);
+            if (processRewards && votes >= threshold && "DEFERRED".equals(state.getProperty(key))) awards.add(threshold);
         }
         // Persist counts and known unattempted awards; each submission claims only its own threshold.
         if (changed) write(file, state);
         return List.copyOf(awards);
+    }
+    /** Explicit administrative adjustment; retains receipt IDs and all prior reward fences. */
+    public synchronized Progress setVotes(DateVoteEvent event, UUID player, int value) throws IOException {
+        if (value < 0 || value > 4096) throw new IllegalArgumentException("Votes must be between 0 and 4096");
+        return withLedgerLock(() -> {
+            seal(event);
+            Path file = playerFile(event, player);
+            Properties state = read(file);
+            validateFingerprint(event, state);
+            state.setProperty("fingerprint", event.fingerprint());
+            state.putIfAbsent("seen", "");
+            state.setProperty("adjustment", Integer.toString(value - occurrences(state).size()));
+            for (int threshold : event.thresholds()) if (value >= threshold)
+                state.putIfAbsent("award." + threshold, "DEFERRED");
+            write(file, state);
+            return progressLocked(event, player);
+        });
+    }
+    /** Force skips the count requirement; even an explicit repeat cannot erase an uncertain reservation. */
+    public synchronized boolean reserveForced(DateVoteEvent event, UUID player, int threshold,
+            boolean ignoreLimits) throws IOException {
+        if (!event.thresholds().contains(threshold)) throw new IllegalArgumentException("Unknown milestone threshold");
+        return withLedgerLock(() -> {
+            seal(event);
+            Path file = playerFile(event, player);
+            Properties state = read(file);
+            validateFingerprint(event, state);
+            String previous = state.getProperty("award." + threshold);
+            if ("RESERVED".equals(previous) || !ignoreLimits && "SUBMITTED".equals(previous)) return false;
+            state.setProperty("fingerprint", event.fingerprint());
+            state.putIfAbsent("seen", "");
+            state.putIfAbsent("adjustment", "0");
+            state.setProperty("award." + threshold, "RESERVED");
+            write(file, state);
+            return true;
+        });
     }
     /** Atomically admit one known unattempted threshold immediately before its external submission. */
     public synchronized boolean reserve(DateVoteEvent event, UUID player, int threshold) throws IOException {
@@ -73,7 +111,8 @@ public final class DateVoteLedger {
         Path file = playerFile(event, player);
         Properties state = read(file);
         validateFingerprint(event, state);
-        if (!event.thresholds().contains(threshold) || !"DEFERRED".equals(state.getProperty("award." + threshold))) return false;
+        if (!event.thresholds().contains(threshold) || votes(state) < threshold
+                || !"DEFERRED".equals(state.getProperty("award." + threshold))) return false;
         state.setProperty("award." + threshold, "RESERVED");
         write(file, state);
         return true;
@@ -115,7 +154,7 @@ public final class DateVoteLedger {
                 else throw new IOException("Unknown award state");
             }
         }
-        return new Progress(occurrences(state).size(), Set.copyOf(reserved), Set.copyOf(submitted), Set.copyOf(deferred));
+        return new Progress(votes(state), Set.copyOf(reserved), Set.copyOf(submitted), Set.copyOf(deferred));
     }
     @FunctionalInterface
     private interface LedgerAction<T> { T run() throws IOException; }
@@ -146,7 +185,7 @@ public final class DateVoteLedger {
         if (state.isEmpty()) return;
         if (!event.fingerprint().equals(state.getProperty("fingerprint")))
             throw new IOException("Event accounting changed or state invalid; use a new ID");
-        int votes = occurrences(state).size();
+        int votes = votes(state);
         for (int threshold : event.thresholds()) if (votes >= threshold && !state.containsKey("award." + threshold))
             throw new IOException("Missing reached milestone award state; progress retained for review");
         for (String key : state.stringPropertyNames()) if (key.startsWith("award.")
@@ -189,6 +228,15 @@ public final class DateVoteLedger {
         }
         return ids;
     }
+    private int votes(Properties state) throws IOException {
+        String adjustment = state.getProperty("adjustment", "0");
+        if (!adjustment.matches("-?(0|[1-9][0-9]{0,3})")) throw new IOException("Invalid progress adjustment");
+        int offset = Integer.parseInt(adjustment);
+        int result = occurrences(state).size() + offset;
+        if (offset < -4096 || offset > 4096 || result < 0 || result > 4096)
+            throw new IOException("Invalid adjusted progress");
+        return result;
+    }
     private Properties read(Path file) throws IOException {
         Properties state = new Properties() {
             @Override public synchronized Object put(Object key, Object value) {
@@ -208,12 +256,14 @@ public final class DateVoteLedger {
                     || !state.getProperty(key).matches("[a-f0-9]{64}")) throw new IOException("Invalid definition state");
         } else {
             if (!state.containsKey("fingerprint") || !state.getProperty("fingerprint").matches("[a-f0-9]{64}")
-                    || !state.containsKey("seen") || state.size() > 66) throw new IOException("Incomplete milestone state");
+                    || !state.containsKey("seen") || state.size() > 67) throw new IOException("Incomplete milestone state");
             Set<UUID> seen = occurrences(state);
-            for (String key : state.stringPropertyNames()) if (!key.equals("fingerprint") && !key.equals("seen")) {
+            votes(state);
+            for (String key : state.stringPropertyNames()) if (!key.equals("fingerprint") && !key.equals("seen")
+                    && !key.equals("adjustment")) {
                 if (!key.matches("award\\.[1-9][0-9]{0,3}")) throw new IOException("Unknown milestone state field");
                 int threshold = Integer.parseInt(key.substring(6));
-                if (threshold > 4096 || threshold > seen.size()
+                if (threshold > 4096 || threshold > seen.size() && !state.containsKey("adjustment")
                         || !(state.getProperty(key).equals("RESERVED") || state.getProperty(key).equals("SUBMITTED") || state.getProperty(key).equals("DEFERRED")))
                     throw new IOException("Invalid award state");
             }

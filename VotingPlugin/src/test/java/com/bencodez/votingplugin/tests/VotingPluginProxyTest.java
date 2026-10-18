@@ -1,6 +1,8 @@
 
 package com.bencodez.votingplugin.tests;
 
+import com.bencodez.votingplugin.tests.support.ReflectiveAccess;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -245,7 +247,7 @@ public class VotingPluginProxyTest {
 				com.bencodez.votingplugin.proxy.security.TransportEnvelopeEncryption.Domain.PROXY_BACKEND, true);
 		var field = VotingPluginProxy.class.getDeclaredField("communicationEncryption");
 		field.setAccessible(true);
-		field.set(votingPluginProxy, encryption);
+		ReflectiveAccess.set(field, votingPluginProxy, encryption);
 		return encryption;
 	}
 
@@ -384,7 +386,7 @@ public class VotingPluginProxyTest {
 				Mockito.mock(com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler.class));
 		java.lang.reflect.Field decider = VotingPluginProxy.class.getDeclaredField("proxyBroadcastDecider");
 		decider.setAccessible(true);
-		decider.set(votingPluginProxy, new ProxyBroadcastDecider(votingPluginProxy::getConfig,
+		ReflectiveAccess.set(decider, votingPluginProxy, new ProxyBroadcastDecider(votingPluginProxy::getConfig,
 				votingPluginProxy::getAllAvailableServers, server -> true, server -> false));
 		java.util.UUID voteId = java.util.UUID.randomUUID();
 
@@ -711,7 +713,7 @@ public class VotingPluginProxyTest {
 		Class<?> retryType = Class.forName("com.bencodez.votingplugin.proxy.VotingPluginProxy$LiveVoteRetryState");
 		java.lang.reflect.Constructor<?> constructor = retryType.getDeclaredConstructor();
 		constructor.setAccessible(true);
-		Object retry = constructor.newInstance();
+		Object retry = ReflectiveAccess.newInstance(constructor, new Object[]{});
 		for (java.util.Map.Entry<String, Object> field : java.util.Map.<String, Object>of(
 				"player", "Player", "service", "Service", "uuid",
 				"00000000-0000-0000-0000-000000000001", "time", 100L, "realVote", true,
@@ -733,11 +735,9 @@ public class VotingPluginProxyTest {
 				retryType, VoteTimeQueue.class, String.class, String.class, String.class, long.class,
 				boolean.class, com.bencodez.votingplugin.proxy.VoteTotalsSnapshot.class);
 		begin.setAccessible(true);
-		assertFalse((Boolean) begin.invoke(spyProxy, retry, null, "Player",
-				"00000000-0000-0000-0000-000000000001", "Service", 100L, true, null));
+		assertFalse((Boolean) ReflectiveAccess.invoke(begin, spyProxy, new Object[]{retry, null, "Player", "00000000-0000-0000-0000-000000000001", "Service", 100L, true, null}));
 		verify(multiProxyHandler, never()).sendMultiProxyEnvelopeAccepted(Mockito.any(), Mockito.any());
-		assertFalse((Boolean) begin.invoke(spyProxy, retry, null, "Player",
-				"00000000-0000-0000-0000-000000000001", "Service", 100L, true, null));
+		assertFalse((Boolean) ReflectiveAccess.invoke(begin, spyProxy, new Object[]{retry, null, "Player", "00000000-0000-0000-0000-000000000001", "Service", 100L, true, null}));
 		@SuppressWarnings({ "rawtypes", "unchecked" })
 		org.mockito.ArgumentCaptor<java.util.Collection<String>> recipients =
 				(org.mockito.ArgumentCaptor) org.mockito.ArgumentCaptor.forClass(java.util.Collection.class);
@@ -751,7 +751,7 @@ public class VotingPluginProxyTest {
 		java.lang.reflect.Method settle = VotingPluginProxy.class
 				.getDeclaredMethod("settleLiveVoteRetriesForFinalShutdown");
 		settle.setAccessible(true);
-		assertFalse((Boolean) settle.invoke(spyProxy));
+		assertFalse((Boolean) ReflectiveAccess.invoke(settle, spyProxy, new Object[]{}));
 
 		org.mockito.ArgumentCaptor<VoteTimeQueue> outboxes = org.mockito.ArgumentCaptor.forClass(VoteTimeQueue.class);
 		verify(voteCache, Mockito.atLeast(2)).addTimeVoteToCache(outboxes.capture());
@@ -776,7 +776,7 @@ public class VotingPluginProxyTest {
 		Class<?> retryType = Class.forName("com.bencodez.votingplugin.proxy.VotingPluginProxy$LiveVoteRetryState");
 		java.lang.reflect.Constructor<?> constructor = retryType.getDeclaredConstructor();
 		constructor.setAccessible(true);
-		Object retry = constructor.newInstance();
+		Object retry = ReflectiveAccess.newInstance(constructor, new Object[]{});
 		java.util.UUID voteId = java.util.UUID.randomUUID();
 		java.lang.reflect.Field retriesField = VotingPluginProxy.class.getDeclaredField("liveVoteRetries");
 		retriesField.setAccessible(true);
@@ -789,8 +789,7 @@ public class VotingPluginProxyTest {
 				boolean.class, com.bencodez.votingplugin.proxy.VoteTotalsSnapshot.class);
 		begin.setAccessible(true);
 
-		assertFalse((Boolean) begin.invoke(votingPluginProxy, retry, null, "Player",
-				"00000000-0000-0000-0000-000000000001", "Service", 100L, true, null));
+		assertFalse((Boolean) ReflectiveAccess.invoke(begin, votingPluginProxy, new Object[]{retry, null, "Player", "00000000-0000-0000-0000-000000000001", "Service", 100L, true, null}));
 		org.mockito.ArgumentCaptor<JsonEnvelope> envelope = org.mockito.ArgumentCaptor.forClass(JsonEnvelope.class);
 		verify(multiProxyHandler).sendMultiProxyEnvelopeAccepted(envelope.capture(),
 				Mockito.eq(java.util.Set.of("ProxyLegacy")));
@@ -831,7 +830,7 @@ public class VotingPluginProxyTest {
 		Class<?> retryType = Class.forName("com.bencodez.votingplugin.proxy.VotingPluginProxy$LiveVoteRetryState");
 		java.lang.reflect.Constructor<?> constructor = retryType.getDeclaredConstructor();
 		constructor.setAccessible(true);
-		Object retry = constructor.newInstance();
+		Object retry = ReflectiveAccess.newInstance(constructor, new Object[]{});
 		java.util.UUID voteId = java.util.UUID.randomUUID();
 		java.lang.reflect.Field retriesField = VotingPluginProxy.class.getDeclaredField("liveVoteRetries");
 		retriesField.setAccessible(true);
@@ -844,8 +843,7 @@ public class VotingPluginProxyTest {
 				boolean.class, com.bencodez.votingplugin.proxy.VoteTotalsSnapshot.class);
 		begin.setAccessible(true);
 
-		assertFalse((Boolean) begin.invoke(proxy, retry, null, "Player",
-				"00000000-0000-0000-0000-000000000001", "Service", 100L, true, null));
+		assertFalse((Boolean) ReflectiveAccess.invoke(begin, proxy, new Object[]{retry, null, "Player", "00000000-0000-0000-0000-000000000001", "Service", 100L, true, null}));
 		verify(multiProxyHandler, never()).sendMultiProxyEnvelopeAccepted(Mockito.any(), Mockito.any());
 		assertEquals(1, queue.size());
 		assertTrue(queue.element().isMultiProxyCapabilityDiscoveryPending());
@@ -855,15 +853,13 @@ public class VotingPluginProxyTest {
 		verify(scheduler).schedule(Mockito.any(Runnable.class), Mockito.eq(5L),
 				Mockito.eq(java.util.concurrent.TimeUnit.SECONDS));
 
-		assertTrue((Boolean) begin.invoke(proxy, retry, queue.element(), "Player",
-				"00000000-0000-0000-0000-000000000001", "Service", 100L, true, null));
+		assertTrue((Boolean) ReflectiveAccess.invoke(begin, proxy, new Object[]{retry, queue.element(), "Player", "00000000-0000-0000-0000-000000000001", "Service", 100L, true, null}));
 		verify(multiProxyHandler).sendMultiProxyEnvelopeAccepted(Mockito.any(), Mockito.eq(java.util.Set.of("Candidate")));
 		assertFalse(queue.element().isMultiProxyCapabilityDiscoveryPending());
 		assertTrue(queue.element().isMultiProxyForwardingHandled(),
 				"the durable discovery fence must be retired before reporting the legacy fallback complete");
 		assertTrue(queue.element().getMultiProxyLegacyPendingRecipients().isEmpty());
-		assertTrue((Boolean) begin.invoke(proxy, retry, queue.element(), "Player",
-				"00000000-0000-0000-0000-000000000001", "Service", 100L, true, null));
+		assertTrue((Boolean) ReflectiveAccess.invoke(begin, proxy, new Object[]{retry, queue.element(), "Player", "00000000-0000-0000-0000-000000000001", "Service", 100L, true, null}));
 		verify(multiProxyHandler, Mockito.times(1)).sendMultiProxyEnvelopeAccepted(Mockito.any(),
 				Mockito.eq(java.util.Set.of("Candidate")));
 		verify(multiProxyHandler).renewMultiProxyVoteCapabilityDiscoveryIfDue();
@@ -883,14 +879,13 @@ public class VotingPluginProxyTest {
 		Class<?> retryType = Class.forName("com.bencodez.votingplugin.proxy.VotingPluginProxy$LiveVoteRetryState");
 		java.lang.reflect.Constructor<?> constructor = retryType.getDeclaredConstructor();
 		constructor.setAccessible(true);
-		Object retry = constructor.newInstance();
+		Object retry = ReflectiveAccess.newInstance(constructor, new Object[]{});
 		java.lang.reflect.Method begin = VotingPluginProxy.class.getDeclaredMethod("beginMultiProxyForwarding",
 				retryType, VoteTimeQueue.class, String.class, String.class, String.class, long.class,
 				boolean.class, com.bencodez.votingplugin.proxy.VoteTotalsSnapshot.class);
 		begin.setAccessible(true);
 
-		assertFalse((Boolean) begin.invoke(votingPluginProxy, retry, null, "Player",
-				"00000000-0000-0000-0000-000000000001", "Service", 100L, true, null));
+		assertFalse((Boolean) ReflectiveAccess.invoke(begin, votingPluginProxy, new Object[]{retry, null, "Player", "00000000-0000-0000-0000-000000000001", "Service", 100L, true, null}));
 		verify(multiProxyHandler, never()).sendMultiProxyEnvelopeAccepted(Mockito.any(), Mockito.any());
 	}
 
@@ -904,14 +899,13 @@ public class VotingPluginProxyTest {
 		Class<?> retryType = Class.forName("com.bencodez.votingplugin.proxy.VotingPluginProxy$LiveVoteRetryState");
 		java.lang.reflect.Constructor<?> constructor = retryType.getDeclaredConstructor();
 		constructor.setAccessible(true);
-		Object retry = constructor.newInstance();
+		Object retry = ReflectiveAccess.newInstance(constructor, new Object[]{});
 		java.lang.reflect.Method begin = VotingPluginProxy.class.getDeclaredMethod("beginMultiProxyForwarding",
 				retryType, VoteTimeQueue.class, String.class, String.class, String.class, long.class,
 				boolean.class, com.bencodez.votingplugin.proxy.VoteTotalsSnapshot.class);
 		begin.setAccessible(true);
 
-		assertFalse((Boolean) begin.invoke(spyProxy, retry, null, "Player",
-				"00000000-0000-0000-0000-000000000001", "Service", 100L, true, null));
+		assertFalse((Boolean) ReflectiveAccess.invoke(begin, spyProxy, new Object[]{retry, null, "Player", "00000000-0000-0000-0000-000000000001", "Service", 100L, true, null}));
 		verify(multiProxyHandler, never()).announceMultiProxyVoteCapability();
 		verify(multiProxyHandler, never()).sendMultiProxyEnvelopeAccepted(Mockito.any(), Mockito.any());
 		verify(voteCache, never()).addTimeVoteToCache(Mockito.any());
@@ -939,7 +933,7 @@ public class VotingPluginProxyTest {
 		Class<?> retryType = Class.forName("com.bencodez.votingplugin.proxy.VotingPluginProxy$LiveVoteRetryState");
 		java.lang.reflect.Constructor<?> constructor = retryType.getDeclaredConstructor();
 		constructor.setAccessible(true);
-		Object retry = constructor.newInstance();
+		Object retry = ReflectiveAccess.newInstance(constructor, new Object[]{});
 		java.util.UUID voteId = java.util.UUID.randomUUID();
 		java.lang.reflect.Field retriesField = VotingPluginProxy.class.getDeclaredField("liveVoteRetries");
 		retriesField.setAccessible(true);
@@ -952,8 +946,7 @@ public class VotingPluginProxyTest {
 				boolean.class, com.bencodez.votingplugin.proxy.VoteTotalsSnapshot.class);
 		begin.setAccessible(true);
 
-		assertFalse((Boolean) begin.invoke(spyProxy, retry, null, "Player",
-				"00000000-0000-0000-0000-000000000001", "Service", 100L, true, null));
+		assertFalse((Boolean) ReflectiveAccess.invoke(begin, spyProxy, new Object[]{retry, null, "Player", "00000000-0000-0000-0000-000000000001", "Service", 100L, true, null}));
 		assertEquals(1, queue.size());
 		assertEquals(java.util.Set.of("capable"), queue.element().getMultiProxyRecipients());
 		assertTrue(queue.element().getMultiProxyLegacyPendingRecipients().isEmpty());
@@ -986,7 +979,7 @@ public class VotingPluginProxyTest {
 		Class<?> retryType = Class.forName("com.bencodez.votingplugin.proxy.VotingPluginProxy$LiveVoteRetryState");
 		java.lang.reflect.Constructor<?> constructor = retryType.getDeclaredConstructor();
 		constructor.setAccessible(true);
-		Object retry = constructor.newInstance();
+		Object retry = ReflectiveAccess.newInstance(constructor, new Object[]{});
 		java.util.UUID voteId = java.util.UUID.randomUUID();
 		java.lang.reflect.Field retriesField = VotingPluginProxy.class.getDeclaredField("liveVoteRetries");
 		retriesField.setAccessible(true);
@@ -999,8 +992,7 @@ public class VotingPluginProxyTest {
 				boolean.class, com.bencodez.votingplugin.proxy.VoteTotalsSnapshot.class);
 		begin.setAccessible(true);
 
-		assertFalse((Boolean) begin.invoke(proxy, retry, null, "Player",
-				"00000000-0000-0000-0000-000000000001", "Service", 100L, true, null));
+		assertFalse((Boolean) ReflectiveAccess.invoke(begin, proxy, new Object[]{retry, null, "Player", "00000000-0000-0000-0000-000000000001", "Service", 100L, true, null}));
 		assertEquals(1, queue.size());
 		verify(scheduler).schedule(Mockito.any(Runnable.class), Mockito.eq(5L),
 				Mockito.eq(java.util.concurrent.TimeUnit.SECONDS));
@@ -1107,7 +1099,7 @@ public class VotingPluginProxyTest {
 		Class<?> retryType = Class.forName("com.bencodez.votingplugin.proxy.VotingPluginProxy$LiveVoteRetryState");
 		java.lang.reflect.Constructor<?> constructor = retryType.getDeclaredConstructor();
 		constructor.setAccessible(true);
-		Object retry = constructor.newInstance();
+		Object retry = ReflectiveAccess.newInstance(constructor, new Object[]{});
 		java.lang.reflect.Field retriesField = VotingPluginProxy.class.getDeclaredField("liveVoteRetries");
 		retriesField.setAccessible(true);
 		@SuppressWarnings("unchecked")
@@ -1187,17 +1179,17 @@ public class VotingPluginProxyTest {
 		Class<?> retryType = Class.forName("com.bencodez.votingplugin.proxy.VotingPluginProxy$LiveVoteRetryState");
 		java.lang.reflect.Constructor<?> retryConstructor = retryType.getDeclaredConstructor();
 		retryConstructor.setAccessible(true);
-		Object retry = retryConstructor.newInstance();
+		Object retry = ReflectiveAccess.newInstance(retryConstructor, new Object[]{});
 		java.lang.reflect.Method finish = VotingPluginProxy.class.getDeclaredMethod("finishMultiProxyRetirement",
 				retryType, VoteTimeQueue.class);
 		finish.setAccessible(true);
 
-		assertFalse((Boolean) finish.invoke(spyProxy, retry, outbox));
+		assertFalse((Boolean) ReflectiveAccess.invoke(finish, spyProxy, new Object[]{retry, outbox}));
 		assertFalse(outbox.isMultiProxyForwardingHandled());
 		verify(multiProxyHandler).requestMultiProxyVoteRetirement(voteId, "Proxy1", "proxy2");
 
 		assertTrue(outbox.acknowledgeMultiProxyRetirement("Proxy2"));
-		assertTrue((Boolean) finish.invoke(spyProxy, retry, outbox));
+		assertTrue((Boolean) ReflectiveAccess.invoke(finish, spyProxy, new Object[]{retry, outbox}));
 		assertTrue(outbox.isMultiProxyForwardingHandled());
 		verify(voteCache).updateTimeVote(outbox);
 	}
@@ -1245,11 +1237,11 @@ public class VotingPluginProxyTest {
 				"handleMultiProxyVoteRetirementRequest", java.util.UUID.class, String.class);
 		retire.setAccessible(true);
 
-		retire.invoke(spyProxy, voteId, "Primary");
+		ReflectiveAccess.invoke(retire, spyProxy, new Object[]{voteId, "Primary"});
 		verify(voteCache, never()).removeMultiProxyVoteCompletion(voteId);
 		verify(multiProxyHandler, never()).acknowledgeMultiProxyVoteRetirement(voteId, "Primary");
 
-		retire.invoke(spyProxy, voteId, "Primary");
+		ReflectiveAccess.invoke(retire, spyProxy, new Object[]{voteId, "Primary"});
 		verify(voteCache).removeMultiProxyVoteCompletion(voteId);
 		verify(multiProxyHandler).acknowledgeMultiProxyVoteRetirement(voteId, "Primary");
 	}
@@ -1282,7 +1274,7 @@ public class VotingPluginProxyTest {
 		Mockito.doNothing().when(spyProxy).addVoteParty();
 		java.lang.reflect.Field decider = VotingPluginProxy.class.getDeclaredField("proxyBroadcastDecider");
 		decider.setAccessible(true);
-		decider.set(spyProxy, new ProxyBroadcastDecider(spyProxy::getConfig, spyProxy::getAllAvailableServers,
+		ReflectiveAccess.set(decider, spyProxy, new ProxyBroadcastDecider(spyProxy::getConfig, spyProxy::getAllAvailableServers,
 				server -> true, server -> false));
 
 		spyProxy.processQueue();
@@ -1331,7 +1323,7 @@ public class VotingPluginProxyTest {
 				.thenReturn(new java.util.ArrayList<>());
 		java.lang.reflect.Field decider = VotingPluginProxy.class.getDeclaredField("proxyBroadcastDecider");
 		decider.setAccessible(true);
-		decider.set(spyProxy, new ProxyBroadcastDecider(spyProxy::getConfig, spyProxy::getAllAvailableServers,
+		ReflectiveAccess.set(decider, spyProxy, new ProxyBroadcastDecider(spyProxy::getConfig, spyProxy::getAllAvailableServers,
 				server -> true, server -> false));
 
 		spyProxy.processQueue();
@@ -1379,7 +1371,7 @@ public class VotingPluginProxyTest {
 		Mockito.when(proxyMySQL.getExactQuery(Mockito.any())).thenReturn(new java.util.ArrayList<>());
 		java.lang.reflect.Field decider = VotingPluginProxy.class.getDeclaredField("proxyBroadcastDecider");
 		decider.setAccessible(true);
-		decider.set(spyProxy, new ProxyBroadcastDecider(spyProxy::getConfig, spyProxy::getAllAvailableServers,
+		ReflectiveAccess.set(decider, spyProxy, new ProxyBroadcastDecider(spyProxy::getConfig, spyProxy::getAllAvailableServers,
 				server -> true, server -> false));
 
 		spyProxy.processQueue();
@@ -1456,7 +1448,7 @@ public class VotingPluginProxyTest {
 		Mockito.doNothing().when(spyProxy).addVoteParty();
 		java.lang.reflect.Field decider = VotingPluginProxy.class.getDeclaredField("proxyBroadcastDecider");
 		decider.setAccessible(true);
-		decider.set(spyProxy, new ProxyBroadcastDecider(spyProxy::getConfig, spyProxy::getAllAvailableServers,
+		ReflectiveAccess.set(decider, spyProxy, new ProxyBroadcastDecider(spyProxy::getConfig, spyProxy::getAllAvailableServers,
 				server -> true, server -> false));
 
 		spyProxy.processQueue();
@@ -1476,7 +1468,7 @@ public class VotingPluginProxyTest {
 				OfflineBungeeVote.class, boolean.class, boolean.class, int.class, int.class);
 		envelopeMethod.setAccessible(true);
 
-		JsonEnvelope envelope = (JsonEnvelope) envelopeMethod.invoke(votingPluginProxy, cached, true, false, 1, 1);
+		JsonEnvelope envelope = (JsonEnvelope) ReflectiveAccess.invoke(envelopeMethod, votingPluginProxy, new Object[]{cached, true, false, 1, 1});
 		VotingPluginWire.Vote vote = VotingPluginWire.readVote(envelope);
 
 		assertTrue(vote.queuedDeliveryKnown);
@@ -1494,8 +1486,7 @@ public class VotingPluginProxyTest {
 				OfflineBungeeVote.class, boolean.class, boolean.class, int.class, int.class);
 		envelopeMethod.setAccessible(true);
 
-		VotingPluginWire.Vote vote = VotingPluginWire.readVote((JsonEnvelope) envelopeMethod.invoke(
-				votingPluginProxy, cached, true, false, 1, 1));
+		VotingPluginWire.Vote vote = VotingPluginWire.readVote((JsonEnvelope) ReflectiveAccess.invoke(envelopeMethod, votingPluginProxy, new Object[]{cached, true, false, 1, 1}));
 
 		assertFalse(vote.queuedDeliveryKnown);
 		assertFalse(vote.delayValidationKnown);
@@ -1525,8 +1516,7 @@ public class VotingPluginProxyTest {
 				String.class, boolean.class, boolean.class);
 		receive.setAccessible(true);
 
-		receive.invoke(spyProxy, "Player", "Service", true, false, 100L, null,
-				"00000000-0000-0000-0000-000000000001", java.util.UUID.randomUUID(), "Primary", true, true);
+		ReflectiveAccess.invoke(receive, spyProxy, new Object[]{"Player", "Service", true, false, 100L, null, "00000000-0000-0000-0000-000000000001", java.util.UUID.randomUUID(), "Primary", true, true});
 
 		VotingPluginWire.Vote forwarded = VotingPluginWire.readVote(spyProxy.getLastVoteEnvelope());
 		assertTrue(forwarded.delayValidationKnown);
@@ -1557,8 +1547,7 @@ public class VotingPluginProxyTest {
 				String.class, boolean.class, boolean.class);
 		receive.setAccessible(true);
 
-		receive.invoke(spyProxy, "Player", "Service", true, false, 100L, null,
-				"00000000-0000-0000-0000-000000000001", java.util.UUID.randomUUID(), "Legacy", false, false);
+		ReflectiveAccess.invoke(receive, spyProxy, new Object[]{"Player", "Service", true, false, 100L, null, "00000000-0000-0000-0000-000000000001", java.util.UUID.randomUUID(), "Legacy", false, false});
 
 		VotingPluginWire.Vote forwarded = VotingPluginWire.readVote(spyProxy.getLastVoteEnvelope());
 		assertFalse(forwarded.delayValidationKnown);
@@ -1591,8 +1580,7 @@ public class VotingPluginProxyTest {
 				String.class, boolean.class, boolean.class);
 		receive.setAccessible(true);
 
-		receive.invoke(spyProxy, "Player", "Service", true, false, 100L, null,
-				"00000000-0000-0000-0000-000000000001", java.util.UUID.randomUUID(), "Legacy", false, false);
+		ReflectiveAccess.invoke(receive, spyProxy, new Object[]{"Player", "Service", true, false, 100L, null, "00000000-0000-0000-0000-000000000001", java.util.UUID.randomUUID(), "Legacy", false, false});
 
 		org.mockito.ArgumentCaptor<OfflineBungeeVote> cached =
 				org.mockito.ArgumentCaptor.forClass(OfflineBungeeVote.class);
@@ -1623,8 +1611,7 @@ public class VotingPluginProxyTest {
 				com.bencodez.votingplugin.proxy.VoteTotalsSnapshot.class, String.class, java.util.UUID.class);
 		receive.setAccessible(true);
 
-		receive.invoke(spyProxy, "Player", "Service", true, false, 100L, null,
-				"00000000-0000-0000-0000-000000000001", voteId);
+		ReflectiveAccess.invoke(receive, spyProxy, new Object[]{"Player", "Service", true, false, 100L, null, "00000000-0000-0000-0000-000000000001", voteId});
 		org.mockito.ArgumentCaptor<Runnable> scheduled = org.mockito.ArgumentCaptor.forClass(Runnable.class);
 		verify(scheduler, Mockito.atLeastOnce()).schedule(scheduled.capture(), Mockito.anyLong(),
 				Mockito.any(java.util.concurrent.TimeUnit.class));
@@ -1634,8 +1621,7 @@ public class VotingPluginProxyTest {
 						+ scheduled.getAllValues().stream().map(task -> task.getClass().getName()).toList()));
 		voteRetry.run();
 		// A duplicate socket/Redis delivery of the completed envelope is ignored.
-		receive.invoke(spyProxy, "Player", "Service", true, false, 100L, null,
-				"00000000-0000-0000-0000-000000000001", voteId);
+		ReflectiveAccess.invoke(receive, spyProxy, new Object[]{"Player", "Service", true, false, 100L, null, "00000000-0000-0000-0000-000000000001", voteId});
 
 		verify(spyProxy).addVoteParty();
 		java.lang.reflect.Field retries = VotingPluginProxy.class.getDeclaredField("liveVoteRetries");
@@ -1665,8 +1651,7 @@ public class VotingPluginProxyTest {
 				com.bencodez.votingplugin.proxy.VoteTotalsSnapshot.class, String.class, java.util.UUID.class);
 		receive.setAccessible(true);
 
-		receive.invoke(spyProxy, "Player", "Service", true, false, 100L, null,
-				"00000000-0000-0000-0000-000000000001", voteId);
+		ReflectiveAccess.invoke(receive, spyProxy, new Object[]{"Player", "Service", true, false, 100L, null, "00000000-0000-0000-0000-000000000001", voteId});
 		org.mockito.ArgumentCaptor<Runnable> scheduled = org.mockito.ArgumentCaptor.forClass(Runnable.class);
 		verify(scheduler).schedule(scheduled.capture(), Mockito.anyLong(),
 				Mockito.any(java.util.concurrent.TimeUnit.class));
@@ -1692,8 +1677,7 @@ public class VotingPluginProxyTest {
 				com.bencodez.votingplugin.proxy.VoteTotalsSnapshot.class, String.class, java.util.UUID.class);
 		receive.setAccessible(true);
 
-		receive.invoke(spyProxy, "Player", "Service", true, false, 100L, null,
-				"00000000-0000-0000-0000-000000000001", voteId);
+		ReflectiveAccess.invoke(receive, spyProxy, new Object[]{"Player", "Service", true, false, 100L, null, "00000000-0000-0000-0000-000000000001", voteId});
 
 		verify(spyProxy, never()).addVoteParty();
 	}
@@ -1720,8 +1704,7 @@ public class VotingPluginProxyTest {
 				com.bencodez.votingplugin.proxy.VoteTotalsSnapshot.class, String.class, java.util.UUID.class);
 		receive.setAccessible(true);
 
-		receive.invoke(spyProxy, "Player", "Service", false, true, 100L, null,
-				"00000000-0000-0000-0000-000000000001", voteId);
+		ReflectiveAccess.invoke(receive, spyProxy, new Object[]{"Player", "Service", false, true, 100L, null, "00000000-0000-0000-0000-000000000001", voteId});
 
 		assertEquals(1, queue.size());
 		assertEquals(voteId, queue.element().getVoteId());
@@ -1806,8 +1789,7 @@ public class VotingPluginProxyTest {
 				com.bencodez.votingplugin.proxy.VoteTotalsSnapshot.class, String.class, java.util.UUID.class);
 		receive.setAccessible(true);
 
-		receive.invoke(spyProxy, "Player", "Service", true, false, 100L, null,
-				"00000000-0000-0000-0000-000000000001", voteId);
+		ReflectiveAccess.invoke(receive, spyProxy, new Object[]{"Player", "Service", true, false, 100L, null, "00000000-0000-0000-0000-000000000001", voteId});
 		spyProxy.onDisable(false);
 
 		verify(spyProxy).addVoteParty();
@@ -1841,8 +1823,7 @@ public class VotingPluginProxyTest {
 				com.bencodez.votingplugin.proxy.VoteTotalsSnapshot.class, String.class, java.util.UUID.class);
 		receive.setAccessible(true);
 
-		receive.invoke(spyProxy, "Player", "Service", true, false, 100L, null,
-				"00000000-0000-0000-0000-000000000001", voteId);
+		ReflectiveAccess.invoke(receive, spyProxy, new Object[]{"Player", "Service", true, false, 100L, null, "00000000-0000-0000-0000-000000000001", voteId});
 		spyProxy.onDisable(false);
 
 		java.lang.reflect.Field retries = VotingPluginProxy.class.getDeclaredField("multiProxyVoteRetries");
@@ -1911,7 +1892,7 @@ public class VotingPluginProxyTest {
 		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
 		java.lang.reflect.Field decider = VotingPluginProxy.class.getDeclaredField("proxyBroadcastDecider");
 		decider.setAccessible(true);
-		decider.set(spyProxy, new ProxyBroadcastDecider(spyProxy::getConfig, spyProxy::getAllAvailableServers,
+		ReflectiveAccess.set(decider, spyProxy, new ProxyBroadcastDecider(spyProxy::getConfig, spyProxy::getAllAvailableServers,
 				server -> true, server -> false));
 		Mockito.doNothing().when(spyProxy).addVoteParty();
 		Mockito.doReturn(true).when(spyProxy).checkVoteDelay(Mockito.anyString(), Mockito.anyString(),
@@ -1947,8 +1928,7 @@ public class VotingPluginProxyTest {
 				com.bencodez.votingplugin.proxy.VoteTotalsSnapshot.class, String.class, java.util.UUID.class);
 		receive.setAccessible(true);
 
-		receive.invoke(spyProxy, "Player", "Service", true, false, 100L, null,
-				"00000000-0000-0000-0000-000000000001", java.util.UUID.randomUUID());
+		ReflectiveAccess.invoke(receive, spyProxy, new Object[]{"Player", "Service", true, false, 100L, null, "00000000-0000-0000-0000-000000000001", java.util.UUID.randomUUID()});
 
 		java.lang.reflect.Field liveRetries = VotingPluginProxy.class.getDeclaredField("liveVoteRetries");
 		liveRetries.setAccessible(true);
@@ -2846,7 +2826,7 @@ public class VotingPluginProxyTest {
 
 		java.lang.reflect.Method start = VotingPluginProxy.class.getDeclaredMethod("startHttpTransportOrFallBack");
 		start.setAccessible(true);
-		start.invoke(spyProxy);
+		ReflectiveAccess.invoke(start, spyProxy, new Object[]{});
 
 		assertEquals(BungeeMethod.PLUGINMESSAGING, spyProxy.getMethod());
 		assertFalse(java.nio.file.Files.exists(retained));
@@ -2865,7 +2845,7 @@ public class VotingPluginProxyTest {
 				.deleteRetainedHttpListenerSettings(retained);
 		java.lang.reflect.Method start = VotingPluginProxy.class.getDeclaredMethod("startHttpTransportOrFallBack");
 		start.setAccessible(true);
-		start.invoke(spyProxy);
+		ReflectiveAccess.invoke(start, spyProxy, new Object[]{});
 		assertEquals(BungeeMethod.PLUGINMESSAGING, spyProxy.getMethod());
 		assertTrue(java.nio.file.Files.isRegularFile(retained));
 		spyProxy.reloadFromControl();
@@ -2883,12 +2863,12 @@ public class VotingPluginProxyTest {
 		java.lang.reflect.Method start = VotingPluginProxy.class.getDeclaredMethod("startHttpTransportOrFallBack");
 		start.setAccessible(true);
 
-		start.invoke(votingPluginProxy);
+		ReflectiveAccess.invoke(start, votingPluginProxy, new Object[]{});
 
 		Object handler = getProxyField(votingPluginProxy, "encryptionHandler");
 		assertTrue(handler != null);
 		votingPluginProxy.setMethod(BungeeMethod.HTTP);
-		start.invoke(votingPluginProxy);
+		ReflectiveAccess.invoke(start, votingPluginProxy, new Object[]{});
 		assertSame(handler, getProxyField(votingPluginProxy, "encryptionHandler"));
 	}
 
@@ -2903,7 +2883,7 @@ public class VotingPluginProxyTest {
 			Mockito.when(votingPluginProxy.getConfig().getHttpPublicEndpoint()).thenReturn("");
 
 			java.lang.reflect.InvocationTargetException failure = assertThrows(
-					java.lang.reflect.InvocationTargetException.class, () -> start.invoke(votingPluginProxy), configured.name());
+					java.lang.reflect.InvocationTargetException.class, () -> ReflectiveAccess.invoke(start, votingPluginProxy, new Object[]{}), configured.name());
 
 			assertTrue(failure.getCause() instanceof IllegalStateException, configured.name());
 			assertEquals(BungeeMethod.HTTP, votingPluginProxy.getMethod(), configured.name());
@@ -3473,7 +3453,7 @@ public class VotingPluginProxyTest {
 		java.lang.reflect.Method probe = VotingPluginProxy.class
 				.getDeclaredMethod("probeReliableVoteDeliveryCapabilities");
 		probe.setAccessible(true);
-		probe.invoke(spyProxy);
+		ReflectiveAccess.invoke(probe, spyProxy, new Object[]{});
 
 		org.mockito.ArgumentCaptor<String> target = org.mockito.ArgumentCaptor.forClass(String.class);
 		org.mockito.ArgumentCaptor<JsonEnvelope> envelope = org.mockito.ArgumentCaptor.forClass(JsonEnvelope.class);
@@ -4123,7 +4103,7 @@ public class VotingPluginProxyTest {
 	private static void setProxyField(VotingPluginProxy target, String name, Object value) throws Exception {
 		java.lang.reflect.Field field = VotingPluginProxy.class.getDeclaredField(name);
 		field.setAccessible(true);
-		field.set(target, value);
+		ReflectiveAccess.set(field, target, value);
 	}
 
 	private static Object getProxyField(VotingPluginProxy target, String name) throws Exception {
