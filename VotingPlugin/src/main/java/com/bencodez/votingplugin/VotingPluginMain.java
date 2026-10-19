@@ -287,6 +287,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Getter
 	private TopVoterState topVoterState;
+	private volatile com.bencodez.votingplugin.topvoter.TopVoterDisplayFilter topVoterDisplayFilter;
 
 
 	@Getter
@@ -524,6 +525,84 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	public LinkedHashMap<TopVoterPlayer, Integer> getLastMonthTopVoter() {
 		return topVoterState.getLastMonthTopVoters();
+	}
+
+	/** Display-only snapshots; raw getters remain the award/accounting contract. */
+	public LinkedHashMap<TopVoterPlayer, Integer> getTopVoterDisplay(TopVoter top) {
+		return projectTopVoterDisplay(getTopVoter(top));
+	}
+
+	public java.util.concurrent.CompletionStage<LinkedHashMap<TopVoterPlayer, Integer>> getTopVoterDisplayAsync(TopVoter top) {
+		var filter = topVoterDisplayFilter;
+		var raw = new LinkedHashMap<>(getTopVoter(top));
+		return filter == null || !isEnabled() ? java.util.concurrent.CompletableFuture.completedFuture(raw)
+				: filter.projectAsync(raw, configFile != null && configFile.isHideTopVoterIfNotPlayedBefore());
+	}
+
+	private final java.util.concurrent.atomic.AtomicLong topVoterDisplayGeneration = new java.util.concurrent.atomic.AtomicLong();
+
+	public long getTopVoterDisplayGeneration() { return topVoterDisplayGeneration.get(); }
+
+	public LinkedHashMap<TopVoterPlayer, Integer> getLastMonthTopVoterDisplay() {
+		return projectTopVoterDisplay(getLastMonthTopVoter());
+	}
+
+	public LinkedHashMap<TopVoterPlayer, Integer> getPreviousMonthTopVoterDisplay(YearMonth month) {
+		return projectTopVoterDisplay(getPreviousMonthsTopVoters().getOrDefault(month, new LinkedHashMap<>()));
+	}
+
+	private LinkedHashMap<TopVoterPlayer, Integer> projectTopVoterDisplay(LinkedHashMap<TopVoterPlayer, Integer> raw) {
+		var filter = topVoterDisplayFilter;
+		return filter == null || !isEnabled() ? new LinkedHashMap<>(raw)
+				: filter.project(raw, configFile != null && configFile.isHideTopVoterIfNotPlayedBefore());
+	}
+
+	public void initializeTopVoterDisplayFilter() {
+		retireTopVoterDisplayFilter();
+		boolean onlineMode = getOptions().isOnlineMode();
+		var filter = new com.bencodez.votingplugin.topvoter.TopVoterDisplayFilter(row ->
+				com.bencodez.votingplugin.topvoter.TopVoterPresenceIdentity
+						.identities(row, onlineMode, UuidLookup.getInstance()::getCachedUUID),
+				(row, aliases) -> checkTopVoterPresence(aliases, onlineMode), System::nanoTime,
+				this::topVoterDisplayRankingRows);
+		registerEvents(filter);
+		topVoterDisplayFilter = filter;
+	}
+
+	/** Cache capacity follows already loaded rankings, including disjoint historical identities. */
+	private long topVoterDisplayRankingRows() {
+		var state = topVoterState;
+		if (state == null) return 0L;
+		long rows = state.getLastMonthTopVoters().size();
+		for (var board : state.getTopVoters().values()) if (board != null) rows += board.size();
+		for (var board : state.getPreviousMonthsTopVoters().values()) if (board != null) rows += board.size();
+		return rows;
+	}
+
+	private java.util.concurrent.CompletionStage<com.bencodez.advancedcore.api.user.presence.PlayerPresence>
+			checkTopVoterPresence(java.util.List<java.util.UUID> aliases, boolean onlineMode) {
+		boolean completeOnlineHistory = onlineMode || aliases.stream().anyMatch(alias ->
+				alias != null && alias.version() == 4 && alias.variant() == 2);
+		if (!completeOnlineHistory) return checkPlayerPresenceIdentitiesAsync(aliases);
+		try {
+			return checkPlayerPresenceIdentitiesAsync(aliases, true);
+		} catch (NoSuchMethodError | AbstractMethodError unsupported) {
+			// Older SDKs can retain a positive but cannot certify the wider absence scope.
+			return checkPlayerPresenceIdentitiesAsync(aliases).thenApply(evidence ->
+					evidence == com.bencodez.advancedcore.api.user.presence.PlayerPresence.NEVER_JOINED
+							? com.bencodez.advancedcore.api.user.presence.PlayerPresence.UNKNOWN : evidence);
+		}
+	}
+
+	private void retireTopVoterDisplayFilter() {
+		topVoterDisplayGeneration.incrementAndGet();
+		if (discordHandler != null) discordHandler.retireLeaderboardPublications();
+		var filter = topVoterDisplayFilter;
+		topVoterDisplayFilter = null;
+		if (filter != null) {
+			filter.close();
+			org.bukkit.event.HandlerList.unregisterAll(filter);
+		}
 	}
 
 	public LinkedHashMap<YearMonth, LinkedHashMap<TopVoterPlayer, Integer>> getPreviousMonthsTopVoters() {
@@ -802,6 +881,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		});
 
 		topVoterState = new TopVoterState();
+		initializeTopVoterDisplayFilter();
 		topVoterHandler = new TopVoterHandler(this);
 
 		new AdminGUI(this).loadHook();
@@ -1975,6 +2055,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Override
 	public void onDisable() {
+		if (discordHandler != null) discordHandler.close();
 		stopAutoCreateVoteSitesSetupReminder();
 		if (offlineVoteOwnerHandoffs != null) offlineVoteOwnerHandoffs.close();
 		try {
@@ -2011,6 +2092,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Override
 	public void onUnLoad() {
+		if (discordHandler != null) discordHandler.close();
+		retireTopVoterDisplayFilter();
 		if (voteStreaksMenu != null) voteStreaksMenu.close();
 		stopAutoCreateVoteSitesSetupReminder();
 		placeholderPlayerPresence.clear();
@@ -2176,6 +2259,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private void reloadPlugin(boolean userStorage, boolean reconcileHostedControl,
 			boolean updateActiveBackendRuntime) {
 		if (offlineVoteOwnerHandoffs != null) offlineVoteOwnerHandoffs.pause();
+		retireTopVoterDisplayFilter();
 		try {
 		if (voteStreaksMenu != null) voteStreaksMenu.suspend();
 		configFile.reloadData();
@@ -2196,6 +2280,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		updateAdvancedCoreHook();
 
 		reloadAdvancedCore(userStorage);
+		initializeTopVoterDisplayFilter();
 		// PerServerPoints can switch shared point storage on during a live reload.
 		// Re-evaluate after storage has reloaded; UserManager keeps this lifecycle task unique.
 		getVotingPluginUserManager().startSharedPointTransferRecovery();
