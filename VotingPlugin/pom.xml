@@ -364,7 +364,7 @@
         <dependency>
             <groupId>net.neoforged.fancymodloader</groupId>
             <artifactId>loader</artifactId>
-            <version>4.0.42</version>
+            <version>47.2.3</version>
             <scope>provided</scope>
             <exclusions>
                 <exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion>
