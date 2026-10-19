@@ -20,7 +20,7 @@ import org.bukkit.entity.Player;
 import org.junit.jupiter.api.Test;
 
 import com.bencodez.simpleapi.folialib.FoliaLib;
-import com.bencodez.simpleapi.folialib.impl.ServerImplementation;
+import com.bencodez.simpleapi.folialib.impl.PlatformScheduler;
 import com.bencodez.simpleapi.scheduler.BukkitScheduler;
 import com.bencodez.votingplugin.VotingPluginMain;
 
@@ -105,7 +105,7 @@ class BukkitCompletionSchedulerTest {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);
 		BukkitScheduler scheduler = mock(BukkitScheduler.class);
 		FoliaLib folia = mock(FoliaLib.class);
-		ServerImplementation entityScheduler = mock(ServerImplementation.class);
+		PlatformScheduler entityScheduler = mock(PlatformScheduler.class);
 		Player player = mock(Player.class);
 		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
 		when(scheduler.getFoliaLib()).thenReturn(folia);
@@ -118,6 +118,6 @@ class BukkitCompletionSchedulerTest {
 	}
 
 	private record Fixture(VotingPluginMain plugin, BukkitScheduler scheduler,
-			ServerImplementation entityScheduler, Player player) {
+			PlatformScheduler entityScheduler, Player player) {
 	}
 }

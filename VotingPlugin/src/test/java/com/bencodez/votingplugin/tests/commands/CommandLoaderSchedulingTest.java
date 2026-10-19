@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test;
 
 import com.bencodez.simpleapi.scheduler.BukkitScheduler;
 import com.bencodez.simpleapi.folialib.FoliaLib;
-import com.bencodez.simpleapi.folialib.impl.ServerImplementation;
+import com.bencodez.simpleapi.folialib.impl.PlatformScheduler;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.config.Config;
 import com.bencodez.votingplugin.user.PointTransferResult;
@@ -211,7 +211,7 @@ class CommandLoaderSchedulingTest {
 
 	private static void configureEntityScheduler(BukkitScheduler scheduler) {
 		FoliaLib folia = mock(FoliaLib.class);
-		ServerImplementation entityScheduler = mock(ServerImplementation.class);
+		PlatformScheduler entityScheduler = mock(PlatformScheduler.class);
 		when(scheduler.getFoliaLib()).thenReturn(folia);
 		when(folia.getImpl()).thenReturn(entityScheduler);
 		when(entityScheduler.runAtEntityWithFallback(any(), any(), any(Runnable.class)))

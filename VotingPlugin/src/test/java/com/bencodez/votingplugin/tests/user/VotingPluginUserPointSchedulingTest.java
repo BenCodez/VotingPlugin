@@ -61,7 +61,7 @@ import com.bencodez.advancedcore.api.user.usercache.UserDataCache;
 import com.bencodez.simpleapi.sql.mysql.ConnectionManager;
 import com.bencodez.simpleapi.scheduler.BukkitScheduler;
 import com.bencodez.simpleapi.folialib.FoliaLib;
-import com.bencodez.simpleapi.folialib.impl.ServerImplementation;
+import com.bencodez.simpleapi.folialib.impl.PlatformScheduler;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerReceivePointsEvent;
 
@@ -1967,7 +1967,7 @@ class VotingPluginUserPointSchedulingTest {
 
 	/** Runs the gate, off-thread journal claim, and Bukkit approval callback in order. */
 	private static void runTransferApprovalGate(ScheduledExecutorService persistence, BukkitScheduler scheduler,
-			VotingPluginMain plugin, ServerImplementation entityScheduler, Player player) {
+			VotingPluginMain plugin, PlatformScheduler entityScheduler, Player player) {
 		ArgumentCaptor<Runnable> gate = ArgumentCaptor.forClass(Runnable.class);
 		verify(scheduler).runTask(eq(plugin), gate.capture());
 		gate.getValue().run();
@@ -2106,9 +2106,9 @@ class VotingPluginUserPointSchedulingTest {
 		return fixture;
 	}
 
-	private static ServerImplementation configureEntityScheduler(VotingPluginMain plugin, BukkitScheduler scheduler) {
+	private static PlatformScheduler configureEntityScheduler(VotingPluginMain plugin, BukkitScheduler scheduler) {
 		FoliaLib folia = mock(FoliaLib.class);
-		ServerImplementation entityScheduler = mock(ServerImplementation.class);
+		PlatformScheduler entityScheduler = mock(PlatformScheduler.class);
 		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
 		when(scheduler.getFoliaLib()).thenReturn(folia);
 		when(folia.getImpl()).thenReturn(entityScheduler);
@@ -2223,7 +2223,7 @@ class VotingPluginUserPointSchedulingTest {
 		VotingPluginMain plugin;
 		ScheduledExecutorService persistence;
 		BukkitScheduler scheduler;
-		ServerImplementation entityScheduler;
+		PlatformScheduler entityScheduler;
 		Player player;
 		Player targetPlayer;
 		MySQL table;
@@ -2237,7 +2237,7 @@ class VotingPluginUserPointSchedulingTest {
 		VotingPluginMain plugin;
 		ScheduledExecutorService persistence;
 		BukkitScheduler scheduler;
-		ServerImplementation entityScheduler;
+		PlatformScheduler entityScheduler;
 		Player player;
 		Player targetPlayer;
 		MySQL table;
@@ -2263,7 +2263,7 @@ class VotingPluginUserPointSchedulingTest {
 		VotingPluginMain plugin;
 		ScheduledExecutorService persistence;
 		BukkitScheduler scheduler;
-		ServerImplementation entityScheduler;
+		PlatformScheduler entityScheduler;
 		Player player;
 		Player targetPlayer;
 		MySQL table;
