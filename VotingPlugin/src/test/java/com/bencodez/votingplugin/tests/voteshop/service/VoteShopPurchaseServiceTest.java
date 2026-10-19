@@ -1197,8 +1197,7 @@ class VoteShopPurchaseServiceTest {
 	void failedCompensationMarkerIsRetriedByPeriodicRecovery(@TempDir Path temporaryDirectory) throws Exception {
 		VotingPluginMain plugin = mockPluginForCompensation(temporaryDirectory);
 		com.bencodez.simpleapi.scheduler.BukkitScheduler scheduler = plugin.getBukkitScheduler();
-		com.bencodez.simpleapi.folialib.impl.PlatformScheduler entityScheduler =
-				plugin.getBukkitScheduler().getFoliaLib().getImpl();
+		var entityScheduler = plugin.getBukkitScheduler().getFoliaLib().getImpl();
 		when(entityScheduler.runAtEntityWithFallback(any(), any(), any(Runnable.class)))
 				.thenReturn(EntityTaskResultTestCompat.schedulerRetired());
 		SharedMysqlPurchaseJournalAccess journal = SharedMysqlPurchaseJournalAccess.mock();
@@ -1232,8 +1231,7 @@ class VoteShopPurchaseServiceTest {
 	private static VotingPluginMain mockPluginForCompensation(Path dataDirectory) {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
 		when(plugin.getDataFolder()).thenReturn(dataDirectory.toFile());
-		com.bencodez.simpleapi.folialib.impl.PlatformScheduler entityScheduler =
-				plugin.getBukkitScheduler().getFoliaLib().getImpl();
+		var entityScheduler = plugin.getBukkitScheduler().getFoliaLib().getImpl();
 		when(entityScheduler.runAtEntityWithFallback(any(), any(), any(Runnable.class)))
 				.thenReturn(EntityTaskResultTestCompat.schedulerRetired());
 		return plugin;
