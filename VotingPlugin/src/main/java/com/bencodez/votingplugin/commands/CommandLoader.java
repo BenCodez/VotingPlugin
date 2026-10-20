@@ -609,6 +609,7 @@ public class CommandLoader {
 	 */
 	private void loadAdminVoteCommand() {
 		plugin.setAdminVoteCommand(new ArrayList<>());
+        DateVoteMilestoneCommands.register(plugin, adminPerm);
 
 		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "CurrentPluginTime" },
 				"VotingPlugin.Commands.AdminVote.CurrentPluginTime|" + adminPerm, "Current plugin time") {
@@ -3631,7 +3632,15 @@ public class CommandLoader {
 	 */
 	private void loadVoteCommand() {
 		plugin.setVoteCommand(new ArrayList<>());
-		plugin.getVoteCommand().add(new CommandHandler(plugin, new String[] { "Help&?" },
+		plugin.getVoteCommand().add(new CommandHandler(plugin, new String[] { "DateEvents" },
+                "VotingPlugin.Commands.Vote.DateEvents|" + playerPerm, "View date-window vote milestone progress") {
+            @Override public void execute(CommandSender sender, String[] args) {
+                if (sender instanceof Player player) plugin.getDateVoteMilestones().progress(player);
+                else sender.sendMessage("Run /vote dateevents as a player.");
+            }
+        });
+
+        plugin.getVoteCommand().add(new CommandHandler(plugin, new String[] { "Help&?" },
 				"VotingPlugin.Commands.Vote.Help|" + playerPerm, "View help page") {
 
 			@Override
