@@ -1,0 +1,245 @@
+package com.bencodez.votingplugin.tests.core.session;
+
+import com.bencodez.votingplugin.core.session.GuidedVoteSession;
+
+import static org.junit.jupiter.api.Assertions.*;
+import java.util.List;
+import java.util.UUID;
+import org.junit.jupiter.api.Test;
+
+class GuidedVoteSessionTest {
+    @Test void guideCreationAndIngressShareAStrictSequenceWithoutDependingOnClockResolution() {
+        var old = new com.bencodez.votingplugin.events.PlayerVoteEvent(null, "Alex", "a", true);
+        var session = new GuidedVoteSession(100); session.refresh(List.of(site("a", true)));
+        session.acceptedObserved("a", UUID.randomUUID(), old.getBackendObservationOrder()); assertEquals(0, session.view("check").received());
+        var fresh = new com.bencodez.votingplugin.events.PlayerVoteEvent(null, "Alex", "a", true);
+        assertTrue(fresh.getBackendObservationOrder() > old.getBackendObservationOrder());
+        session.acceptedObserved("a", UUID.randomUUID(), fresh.getBackendObservationOrder()); assertEquals(1, session.view("check").received());
+    }
+    @Test void concurrentIngressOrdersAreUniqueAndStrictWithinEachProducer() throws Exception {
+        var orders = java.util.concurrent.ConcurrentHashMap.<Long>newKeySet();
+        try (var pool = java.util.concurrent.Executors.newFixedThreadPool(8)) {
+            var futures = new java.util.ArrayList<java.util.concurrent.Future<?>>();
+            for (int thread = 0; thread < 8; thread++) futures.add(pool.submit(() -> {
+                long previous = 0;
+                for (int i = 0; i < 128; i++) {
+                    long order = new com.bencodez.votingplugin.events.PlayerVoteEvent(null, "Alex", "a", true).getBackendObservationOrder();
+                    assertTrue(order > previous); assertTrue(orders.add(order)); previous = order;
+                }
+            }));
+            for (var future : futures) future.get();
+        }
+        assertEquals(1024, orders.size());
+    }
+    private GuidedVoteSession.Site site(String key, boolean eligible) {
+        return new GuidedVoteSession.Site(key, key, "https://example.org/" + key, eligible, 0);
+    }
+    @Test void onlyRealNewMatchingAcceptedVotesConfirmSites() {
+        var s = new GuidedVoteSession(100);
+        s.refresh(List.of(site("a", true), site("b", true)));
+        UUID id = UUID.randomUUID();
+        s.accepted("unrelated", id, 101, true, false);
+        s.accepted("a", id, 99, true, false);
+        s.accepted("a", id, 101, false, false);
+        s.accepted("a", id, 101, true, true);
+        assertEquals(0, s.view("check").received());
+        s.accepted("a", id, 101, true, false);
+        s.accepted("a", id, 101, true, false);
+        s.accepted("a", UUID.randomUUID(), 100, true, false);
+        assertEquals(1, s.view("check").received());
+        assertFalse(s.view("check").complete());
+    }
+    @Test void delayedNewVoteAndOutOfOrderDeliveryDoNotRegressProgress() {
+        var s = new GuidedVoteSession(100);
+        s.refresh(List.of(site("a", true)));
+        s.accepted("a", UUID.randomUUID(), 200, true, false);
+        s.accepted("a", UUID.randomUUID(), 150, true, false);
+        assertTrue(s.view("check").complete());
+    }
+    @Test void permissionCooldownChangesAndReopeningRetainObservedProgress() {
+        var s = new GuidedVoteSession(100);
+        s.refresh(List.of(site("a", true), site("b", true), site("cooldown", false)));
+        s.accepted("a", UUID.randomUUID(), 101, true, false);
+        s.refresh(List.of(site("a", false)));
+        var v = s.view("check");
+        assertEquals(GuidedVoteSession.Status.RECEIVED, v.entries().get(0).status());
+        assertEquals(GuidedVoteSession.Status.UNAVAILABLE, v.entries().get(1).status());
+        assertEquals(2, v.entries().size());
+        assertEquals(1, s.view("check").received());
+    }
+    @Test void notificationBeforeInitialSnapshotIsRetained() {
+        var s = new GuidedVoteSession(100);
+        s.bindCandidates(List.of(site("a", false)));
+        s.accepted("a", UUID.randomUUID(), 101, true, false);
+        s.refresh(List.of(new GuidedVoteSession.Site("a", "a", "https://example.org/a", false, 101)));
+        assertTrue(s.view("check").complete());
+    }
+    @Test void preSessionIngressProcessedLaterCannotAdmitAnInitiallyCoolingSite() {
+        for (long order : new long[] {99, 100}) {
+            var s = new GuidedVoteSession(100, 100);
+            s.bindCandidates(List.of(site("a", false)));
+            s.acceptedObserved("a", UUID.randomUUID(), order);
+            s.refresh(List.of(new GuidedVoteSession.Site("a", "a", "https://example.org/a", false, 101)));
+            assertTrue(s.view("check").entries().isEmpty(), "processing time cannot replace ingress order " + order);
+            assertEquals(0, s.view("check").received());
+            assertFalse(s.view("check").complete());
+        }
+    }
+    @Test void freshObservedReceiptBeforeInitialCooldownSampleAdmitsItsBoundSite() {
+        var s = new GuidedVoteSession(100, 100);
+        s.bindCandidates(List.of(site("a", false)));
+        s.acceptedObserved("a", UUID.randomUUID(), 101);
+        s.refresh(List.of(new GuidedVoteSession.Site("a", "a", "https://example.org/a", false, 100)));
+        assertEquals(1, s.view("check").entries().size());
+        assertTrue(s.view("check").complete());
+    }
+    @Test void olderCachedVoteCannotEraseAnEarlyConfirmedReceipt() {
+        var s = new GuidedVoteSession(100);
+        s.bindCandidates(List.of(site("a", true)));
+        s.accepted("a", UUID.randomUUID(), 101, true, false);
+        s.accepted("a", UUID.randomUUID(), 99, true, false);
+        s.refresh(List.of(new GuidedVoteSession.Site("a", "a", "https://example.org/a", false, 99)));
+        assertTrue(s.view("check").complete());
+        s.refresh(List.of(new GuidedVoteSession.Site("a", "a", "https://example.org/a", false, 99)));
+        assertEquals(1, s.view("check").received());
+    }
+    @Test void absentFirstSampleCannotDeleteConfirmedProgressOrOccurrenceIdentity() {
+        var s = new GuidedVoteSession(100); UUID occurrence = UUID.randomUUID();
+        s.bindCandidates(List.of(site("a", true), site("b", true)));
+        s.accepted("a", occurrence, 101, true, false);
+        s.refresh(List.of(site("b", true)));
+        assertEquals(1, s.view("check").received());
+        s.accepted("b", occurrence, 102, true, false);
+        s.refresh(List.of(site("a", false), site("b", true)));
+        assertEquals(1, s.view("check").received());
+        assertEquals(GuidedVoteSession.Status.RECEIVED, s.view("check").entries().stream()
+                .filter(e -> e.site().key().equals("a")).findFirst().orElseThrow().status());
+    }
+    @Test void receiptAfterFirstIneligibleSampleRestoresBoundCandidate() {
+        var s = new GuidedVoteSession(100, 100);
+        s.bindCandidates(List.of(site("a", false)));
+        s.refresh(List.of(new GuidedVoteSession.Site("a", "a", "https://example.org/a", false, 101)));
+        assertTrue(s.view("check").entries().isEmpty());
+        for (int i = 0; i < 101; i++) s.acceptedObserved("unrelated" + i, UUID.randomUUID(), 101);
+        s.acceptedObserved("a", UUID.randomUUID(), 101);
+        assertTrue(s.view("check").complete());
+        assertEquals(1, s.view("check").entries().size());
+    }
+    @Test void originalTimestampReceiptAfterFirstIneligibleSampleRestoresOnlyItsBoundCandidate() {
+        var s = new GuidedVoteSession(100);
+        s.bindCandidates(List.of(site("a", false), site("b", false)));
+        s.refresh(List.of(new GuidedVoteSession.Site("a", "a", "https://example.org/a", false, 101), site("b", false)));
+        assertTrue(s.view("check").entries().isEmpty());
+        UUID occurrence = UUID.randomUUID();
+        s.accepted("a", occurrence, 99, true, false);
+        s.accepted("a", occurrence, 100, true, false);
+        s.accepted("a", null, 101, true, false);
+        s.accepted("a", occurrence, 101, false, false);
+        s.accepted("a", occurrence, 101, true, true);
+        s.accepted("unrelated", occurrence, 101, true, false);
+        assertTrue(s.view("check").entries().isEmpty());
+        s.accepted("a", occurrence, 101, true, false);
+        s.accepted("a", occurrence, 101, true, false);
+        s.accepted("b", occurrence, 102, true, false);
+        s.accepted("a", UUID.randomUUID(), 99, true, false);
+        assertTrue(s.view("check").complete());
+        assertEquals(1, s.view("check").entries().size());
+        assertEquals("a", s.view("check").current().site().key());
+    }
+    @Test void initiallyCoolingDownSiteCannotJoinFromPreSessionTimestampReceipts() {
+        var s = new GuidedVoteSession(100);
+        s.bindCandidates(List.of(site("a", false)));
+        s.refresh(List.of(new GuidedVoteSession.Site("a", "a", "https://example.org/a", false, 99)));
+        s.accepted("a", UUID.randomUUID(), 99, true, false);
+        s.accepted("a", UUID.randomUUID(), 100, true, false);
+        assertTrue(s.view("check").entries().isEmpty());
+    }
+    @Test void oneCanonicalOccurrenceCannotConfirmTwoSites() {
+        var s = new GuidedVoteSession(100);
+        s.refresh(List.of(site("a", true), site("b", true)));
+        UUID occurrence = UUID.randomUUID();
+        s.accepted("a", occurrence, 101, true, false);
+        s.accepted("b", occurrence, 102, true, false);
+        assertEquals(1, s.view("check").received());
+    }
+    @Test void emptyAndFinishedSessionsDoNotInventCompletion() {
+        var s = new GuidedVoteSession(100);
+        s.refresh(List.of(site("a", false)));
+        assertNull(s.view("check").current());
+        assertFalse(s.view("finish").complete());
+        assertTrue(s.view("check").finished());
+    }
+    @Test void navigationAndSkipDoNotCountVotes() {
+        var s = new GuidedVoteSession(100);
+        s.refresh(List.of(site("a", true), site("b", true)));
+        assertEquals("b", s.view("next").current().site().key());
+        assertEquals("a", s.view("previous").current().site().key());
+        assertEquals("b", s.view("skip").current().site().key());
+        assertEquals(GuidedVoteSession.Status.SKIPPED, s.view("check").entries().get(0).status());
+        assertEquals(0, s.view("finish").received());
+    }
+    @Test void automaticSelectionStartsAtFirstEligibleSiteAndAdvancesReceivedCurrent() {
+        var s = new GuidedVoteSession(100);
+        s.refresh(List.of(site("a", true), site("b", true), site("c", true)));
+        assertEquals("a", s.view("check").current().site().key());
+        assertFalse(s.selectNextAwaiting());
+        s.accepted("a", UUID.randomUUID(), 101, true, false);
+        assertTrue(s.selectNextAwaiting());
+        assertEquals("b", s.view("check").current().site().key());
+    }
+    @Test void unrelatedReceiptDoesNotMoveCurrentAndEligibilityChangesSkipBlockedSites() {
+        var s = new GuidedVoteSession(100);
+        s.refresh(List.of(site("a", true), site("b", true), site("c", true)));
+        s.accepted("c", UUID.randomUUID(), 101, true, false);
+        assertFalse(s.selectNextAwaiting());
+        assertEquals("a", s.view("check").current().site().key());
+        s.accepted("a", UUID.randomUUID(), 102, true, false);
+        assertTrue(s.selectNextAwaiting());
+        assertEquals("b", s.view("check").current().site().key());
+        s.refresh(List.of(site("a", false), site("b", true), site("c", true)));
+        s.view("previous");
+        assertTrue(s.selectNextAwaiting());
+        assertEquals("b", s.view("check").current().site().key());
+    }
+    @Test void skippedReceivedUnavailableAndDuplicateDeliveryCannotStallOrRepeatAutoStep() {
+        var s = new GuidedVoteSession(100);
+        s.refresh(List.of(site("a", true), site("b", true), site("c", true)));
+        assertEquals("b", s.view("skip").current().site().key());
+        assertFalse(s.selectNextAwaiting());
+        s.accepted("b", UUID.randomUUID(), 101, true, false);
+        assertTrue(s.selectNextAwaiting());
+        assertEquals("c", s.view("check").current().site().key());
+        s.accepted("c", UUID.randomUUID(), 102, true, false);
+        assertFalse(s.selectNextAwaiting());
+        assertEquals("c", s.view("check").current().site().key());
+        UUID duplicate = UUID.randomUUID();
+        s.accepted("c", duplicate, 103, true, false);
+        s.accepted("c", duplicate, 104, true, false);
+        assertFalse(s.selectNextAwaiting());
+        assertFalse(s.selectNextAwaiting());
+    }
+    @Test void automaticSelectionHandlesEmptyAndAllDoneSessions() {
+        var empty = new GuidedVoteSession(100);
+        empty.refresh(List.of(site("a", false)));
+        assertFalse(empty.selectNextAwaiting());
+        var done = new GuidedVoteSession(100);
+        done.refresh(List.of(site("a", true)));
+        done.accepted("a", UUID.randomUUID(), 101, true, false);
+        assertFalse(done.selectNextAwaiting());
+        assertTrue(done.view("check").complete());
+        var finished = new GuidedVoteSession(100);
+        finished.refresh(List.of(site("a", true), site("b", true)));
+        finished.view("finish");
+        assertFalse(finished.selectNextAwaiting());
+    }
+    @Test void urlValidationUsesExactSelectedUrlWithoutUnsafeSchemes() {
+        assertEquals("https://example.org/a", GuidedVoteSession.httpUrl("https://example.org/a"));
+        String authenticatedUrl = "https://" + UUID.randomUUID() + ":" + UUID.randomUUID() + "@example.org";
+        for (String bad : List.of("", "javascript:alert(1)", "https://", authenticatedUrl, "not a url"))
+            assertNull(GuidedVoteSession.httpUrl(bad));
+        assertNull(GuidedVoteSession.httpUrl(null));
+        assertEquals("https://example.org/vote", GuidedVoteSession.httpUrl("[Text=\"Vote here\",url=\"https://example.org/vote\"]"));
+        assertNull(GuidedVoteSession.httpUrl("[Text=\"Vote here\",url=\"javascript:alert(1)\"]"));
+        assertNull(GuidedVoteSession.httpUrl("[Text=\"Vote here\",url=\"" + authenticatedUrl + "\"]"));
+    }
+}

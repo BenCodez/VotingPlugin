@@ -92,6 +92,8 @@ class TimeQueueHandlerRejectionTest {
 		verify(manager).callEvent(event.capture());
 		assertNotNull(event.getValue());
 		assertEquals(123L, event.getValue().getTime());
+        assertEquals(0L, event.getValue().getBackendObservationOrder());
+        org.junit.jupiter.api.Assertions.assertTrue(event.getValue().isTimeQueuedLocalSessionDelivery());
 	}
 
 	@Test
@@ -108,4 +110,19 @@ class TimeQueueHandlerRejectionTest {
 				org.mockito.ArgumentMatchers.eq(TimeUnit.SECONDS));
 		assertEquals(1, handler.getTimeChangeQueue().size());
 	}
+    @Test void freshTimeQueuePreservesOriginalIngressOrderAndTimestamp() {
+        when(serverData.getTimedVoteCacheKeys()).thenReturn(Set.of());
+        var handler = new TimeQueueHandler(plugin);
+        handler.addVote("Alex", "example.org", 42L);
+        var queued = handler.getTimeChangeQueue().peek();
+        long originalTime = queued.getTime();
+        var server = mock(Server.class); var manager = mock(PluginManager.class);
+        when(plugin.getServer()).thenReturn(server); when(server.getPluginManager()).thenReturn(manager);
+        var event = org.mockito.ArgumentCaptor.forClass(PlayerVoteEvent.class);
+        handler.processQueue(); verify(manager).callEvent(event.capture());
+        assertEquals(originalTime, event.getValue().getTime());
+        assertEquals(42L, event.getValue().getBackendObservationOrder());
+        org.junit.jupiter.api.Assertions.assertTrue(event.getValue().isTimeQueuedLocalSessionDelivery());
+        assertEquals(0, handler.getTimeChangeQueue().size());
+    }
 }

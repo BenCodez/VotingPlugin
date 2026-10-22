@@ -49,8 +49,15 @@ public class TimeQueueHandler implements Listener {
 	 * @param voteSiteName the vote site name
 	 */
 	public void addVote(String voteUsername, String voteSiteName) {
-		timeChangeQueue.add(new VoteTimeQueue(voteUsername, voteSiteName,
-				LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()));
+		addVote(voteUsername, voteSiteName, 0L);
+	}
+
+	/** Retain original ingress order only for this process; legacy callers have unknown order. */
+	public void addVote(String voteUsername, String voteSiteName, long observationOrder) {
+		VoteTimeQueue vote = new VoteTimeQueue(voteUsername, voteSiteName,
+				LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli());
+		vote.setBackendObservationOrder(observationOrder);
+		timeChangeQueue.add(vote);
 	}
 
 	/**
@@ -116,6 +123,8 @@ public class TimeQueueHandler implements Listener {
 					plugin.getVoteSiteManager().getVoteSite(plugin.getVoteSiteManager().getVoteSiteName(true, vote.getService()), true), vote.getName(),
 					vote.getService(), true);
 			voteEvent.setTime(vote.getTime());
+			voteEvent.setTimeQueuedLocalSessionDelivery(true);
+			voteEvent.setBackendObservationOrder(vote.getBackendObservationOrder());
 			plugin.getServer().getPluginManager().callEvent(voteEvent);
 
 			if (voteEvent.isCancelled()) {

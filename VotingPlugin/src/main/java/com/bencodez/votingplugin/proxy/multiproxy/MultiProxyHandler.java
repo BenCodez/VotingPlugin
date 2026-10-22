@@ -958,6 +958,8 @@ public abstract class MultiProxyHandler {
 				&& getRedisPrefix() != null && !getRedisPrefix().isEmpty();
 	}
 
+    protected void onSessionFenceReply(JsonEnvelope message) { }
+
 	private synchronized void loadMultiProxyRedisListener(String channel) {
 		if (!registeredRedisChannels.add(channel)) return;
 		try {
@@ -1161,6 +1163,18 @@ public abstract class MultiProxyHandler {
 			f = new HashMap<>();
 		}
 
+        if (sub.equals(VotingPluginWire.SUB_VOTE_SESSION_FENCE_REQUEST)) {
+            var request = VotingPluginWire.readSessionFenceRequest(envelope);
+            if (request != null && configuredMultiProxyRecipientNames().containsKey(request.origin().toLowerCase(Locale.ROOT)))
+                sendMultiProxyEnvelopeAccepted(VotingPluginWire.sessionFenceReply(request,
+                        com.bencodez.votingplugin.core.session.ProxyVoteSequence.currentFence()), List.of(request.origin()));
+            return;
+        }
+        if (sub.equals(VotingPluginWire.SUB_VOTE_SESSION_FENCE_REPLY)) {
+            var reply = VotingPluginWire.readSessionFenceReply(envelope);
+            if (reply != null && reply.request().origin().equals(getMultiProxyServerName())) onSessionFenceReply(envelope);
+            return;
+        }
 		if (sub.equalsIgnoreCase(VotingPluginWire.SUB_STATUS)) {
 			logInfo("Multi-proxy status message received");
 			return;
@@ -1276,6 +1290,8 @@ public abstract class MultiProxyHandler {
 				if (origin.isBlank()) {
 					triggerVote(player, service, realVote, true, 0L, VoteTotalsSnapshot.parseStorage(totals), uuid);
 				} else {
+					// Preserve the receiver-local time used by ordinary backend cooldowns.
+					// Guide confirmation rejects forwarded ingress independently of this time.
 					triggerVote(player, service, realVote, true, 0L, VoteTotalsSnapshot.parseStorage(totals), uuid,
 							wireVote.voteId, origin, wireVote.delayValidated, wireVote.delayValidationKnown);
 				}

@@ -20,6 +20,16 @@ import lombok.Setter;
  * Integrations must cancel before the MONITOR vote consumer runs.</p>
  */
 public class PlayerVoteEvent extends Event implements Cancellable {
+	@Getter @Setter private boolean proxySessionRealVote = true;
+
+	/** Backend-local strictly increasing observation, never a timestamp from another node. */
+	@Getter
+	@Setter
+	private long backendObservationOrder = com.bencodez.votingplugin.core.session.VoteObservationSequence.next();
+    /** Guide-only marker; preserves normal original vote timestamp and accounting semantics. */
+    @Getter
+    @Setter
+    private boolean timeQueuedLocalSessionDelivery;
 
 	/** The Constant handlers. */
 	private static final HandlerList handlers = new HandlerList();
@@ -95,6 +105,11 @@ public class PlayerVoteEvent extends Event implements Cancellable {
 	@Getter
 	@Setter
 	private boolean proxyQueueClassificationKnown;
+
+	/** Guide-only provenance: original ingress is forwarded, replayed, or unknown. */
+	@Getter
+	@Setter
+	private boolean unconfirmedProxySessionDelivery;
 
 	/** Whether the proxy explicitly supplied its delay-validation decision. */
 	@Getter

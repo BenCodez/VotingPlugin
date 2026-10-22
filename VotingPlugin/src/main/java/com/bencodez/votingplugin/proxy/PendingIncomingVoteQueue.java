@@ -14,7 +14,7 @@ public final class PendingIncomingVoteQueue {
 
 	public synchronized PendingIncomingVote admit(String player, String service) {
 		if (!accepting || votes.size() >= MAX_PENDING) return null;
-		PendingIncomingVote vote = new PendingIncomingVote(UUID.randomUUID(), player, service,
+		PendingIncomingVote vote = new PendingIncomingVote(com.bencodez.votingplugin.core.session.ProxyVoteSequence.nextVoteId(), player, service,
 				System.currentTimeMillis());
 		votes.put(vote.getVoteId(), vote);
 		return vote;
