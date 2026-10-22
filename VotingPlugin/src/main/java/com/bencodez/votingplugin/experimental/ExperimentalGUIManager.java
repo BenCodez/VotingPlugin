@@ -75,6 +75,7 @@ public final class ExperimentalGUIManager implements Listener {
         final Map<String, ItemStack> rewardIcons = new HashMap<>();
         final Map<String, List<String>> rewardDescriptions = new HashMap<>();
         int rewardPage;
+        double radialFloorY = Double.NaN;
         Menu(ExperimentalSessions.Session session, Player player, Location anchor,
                 ExperimentalGUISettings settings, Map<String, ItemStack> icons) {
             this.session = session;
@@ -171,7 +172,17 @@ public final class ExperimentalGUIManager implements Listener {
         }
         try {
             Location eyes = player.getEyeLocation();
-            Location anchor = eyes.clone().add(eyes.getDirection().multiply(settings.distance()));
+            double radialFloorY = Double.NaN;
+            Location anchor;
+            if (type == ExperimentalGUIType.RADIAL) {
+                radialFloorY = eyes.getY() - player.getEyeHeight();
+                Location horizontal = eyes.clone();
+                horizontal.setPitch(0);
+                anchor = eyes.clone().add(horizontal.getDirection().multiply(settings.distance()));
+                anchor.setY(Math.max(eyes.getY(), radialFloorY + radialRadius() + .75));
+            } else {
+                anchor = eyes.clone().add(eyes.getDirection().multiply(settings.distance()));
+            }
             anchor.setYaw(eyes.getYaw() + 180);
             anchor.setPitch(0);
             List<VoteSite> visible = visible(player);
@@ -181,6 +192,7 @@ public final class ExperimentalGUIManager implements Listener {
                 catch (RuntimeException invalidItem) { icons.put(site.getKey(), new ItemStack(Material.PAPER)); }
             }
             Menu menu = new Menu(session, player, anchor, settings, icons);
+            menu.radialFloorY = radialFloorY;
             menus.put(session.id, menu);
             session.own(() -> menus.remove(session.id, menu), this::cleanupError);
             session.own(() -> scheduler.player(player, () -> {
@@ -397,9 +409,11 @@ public final class ExperimentalGUIManager implements Listener {
     private void renderRadial(Menu menu) {
         List<ExperimentalDisplays.Target> targets = new ArrayList<>();
         var page = HologramVoteModel.page(menu.sites, menu.page, menu.settings.sitesPerPage());
-        double radius = plugin.getConfigFile().getData().getDouble("Experimental.VoteGUIs.Radial.Radius", 1.25);
-        if (!Double.isFinite(radius) || radius < 0.9 || radius > 1.8)
-            throw new IllegalArgumentException("Radial.Radius must be 0.9..1.8");
+        double radius = radialRadius();
+        // Controls are radius + .55 below the anchor; native hitboxes start .08
+        // lower. Preserve .12 clearance above the opening foot plane, also if
+        // an operator enlarges the radius before the next page is rendered.
+        menu.anchor.setY(Math.max(menu.anchor.getY(), menu.radialFloorY + radius + .75));
         for (int i = 0; i < page.size(); i++) {
             var site = page.get(i);
             double angle = -Math.PI / 2 + i * Math.PI * 2 / page.size();
@@ -428,6 +442,13 @@ public final class ExperimentalGUIManager implements Listener {
                 }
             } catch (RuntimeException failure) { fail(menu.session, menu.player, failure); }
         });
+    }
+
+    private double radialRadius() {
+        double radius = plugin.getConfigFile().getData().getDouble("Experimental.VoteGUIs.Radial.Radius", 1.25);
+        if (!Double.isFinite(radius) || radius < 0.9 || radius > 1.8)
+            throw new IllegalArgumentException("Radial.Radius must be 0.9..1.8");
+        return radius;
     }
 
     private void renderTerminal(Menu menu) {
