@@ -128,7 +128,7 @@ record NeoForgeProxyTransportConfiguration(Method method, String server, String 
         if (raw == null && node.virtual()) return fallback;
         if (!(raw instanceof String value) || value.length() > limit
                 || value.chars().anyMatch(c -> c == 0 || c == '\r' || c == '\n')) {
-            throw invalid("Invalid transport text setting");
+            throw invalid("Invalid transport text setting at " + node.path());
         }
         return value;
     }
@@ -137,7 +137,7 @@ record NeoForgeProxyTransportConfiguration(Method method, String server, String 
         if (node.virtual()) return "";
         Object raw = node.rawScalar();
         if (!(raw instanceof String value) || value.length() > 4096) {
-            throw invalid("Invalid transport credential setting");
+            throw invalid("Invalid transport credential setting at " + node.path());
         }
         // Broker/JDBC credentials are opaque data; do not trim or alter their contents.
         return value;
@@ -150,11 +150,11 @@ record NeoForgeProxyTransportConfiguration(Method method, String server, String 
         try {
             if (raw instanceof Number number) value = new BigDecimal(number.toString()).intValueExact();
             else if (raw instanceof String text && text.matches("-?[0-9]{1,10}")) value = Integer.parseInt(text);
-            else throw invalid("Transport port/count must be an integer");
+            else throw invalid("Transport port/count must be an integer at " + node.path());
         } catch (NumberFormatException | ArithmeticException failure) {
-            throw invalid("Transport port/count must be an integer");
+            throw invalid("Transport port/count must be an integer at " + node.path());
         }
-        if (value < minimum || value > maximum) throw invalid("Transport port/count is outside its supported range");
+        if (value < minimum || value > maximum) throw invalid("Transport port/count is outside its supported range at " + node.path());
         return value;
     }
 
@@ -165,7 +165,7 @@ record NeoForgeProxyTransportConfiguration(Method method, String server, String 
         if (raw instanceof String value && (value.equalsIgnoreCase("true") || value.equalsIgnoreCase("false"))) {
             return Boolean.parseBoolean(value);
         }
-        throw invalid("Transport flag must be true or false");
+        throw invalid("Transport flag must be true or false at " + node.path());
     }
 
     private static void validateBrokerUrl(String value) {

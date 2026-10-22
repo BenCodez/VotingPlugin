@@ -95,8 +95,8 @@ public class VotingPluginBackgroundTaskTest {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
 		BukkitScheduler scheduler = mock(BukkitScheduler.class);
 		com.bencodez.simpleapi.folialib.FoliaLib folia = mock(com.bencodez.simpleapi.folialib.FoliaLib.class);
-		com.bencodez.simpleapi.folialib.impl.ServerImplementation implementation =
-				mock(com.bencodez.simpleapi.folialib.impl.ServerImplementation.class);
+		com.bencodez.simpleapi.folialib.impl.PlatformScheduler implementation =
+				mock(com.bencodez.simpleapi.folialib.impl.PlatformScheduler.class);
 		org.bukkit.entity.Player player = mock(org.bukkit.entity.Player.class);
 		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
 		when(scheduler.getFoliaLib()).thenReturn(folia);

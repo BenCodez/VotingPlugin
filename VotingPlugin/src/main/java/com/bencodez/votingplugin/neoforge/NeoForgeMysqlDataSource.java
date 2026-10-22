@@ -41,7 +41,23 @@ final class NeoForgeMysqlDataSource {
 
     private static final class Source implements DataSource {
         private final Configuration configuration;
-        Source(Configuration configuration) { this.configuration = configuration; }
+        Source(Configuration configuration) {
+            // Direct use still initializes Connector/J's global registration.
+            // Remove only this private driver class before admitting pool work,
+            // including startup/connection failures that never reach shutdown.
+            new Driver();
+            var registered = java.sql.DriverManager.getDrivers();
+            while (registered.hasMoreElements()) {
+                java.sql.Driver driver = registered.nextElement();
+                if (driver.getClass() == Driver.class) {
+                    try { java.sql.DriverManager.deregisterDriver(driver); }
+                    catch (SQLException failure) {
+                        throw new IllegalStateException("Unable to isolate transport driver");
+                    }
+                }
+            }
+            this.configuration = configuration;
+        }
         @Override public Connection getConnection() throws SQLException { return Driver.connect(configuration); }
         @Override public Connection getConnection(String user, String password) throws SQLException {
             throw new SQLFeatureNotSupportedException("Use the configured transport credentials");

@@ -36,7 +36,7 @@ import com.bencodez.advancedcore.AdvancedCoreConfigOptions;
 import com.bencodez.simpleapi.time.ParsedDuration;
 import com.bencodez.simpleapi.scheduler.BukkitScheduler;
 import com.bencodez.simpleapi.folialib.FoliaLib;
-import com.bencodez.simpleapi.folialib.impl.ServerImplementation;
+import com.bencodez.simpleapi.folialib.impl.PlatformScheduler;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.data.ServerData;
@@ -258,7 +258,7 @@ public class VoteRemindersManagerTest {
 		VoteReminderCooldownStore store = mock(VoteReminderCooldownStore.class);
 		BukkitScheduler scheduler = mock(BukkitScheduler.class);
 		FoliaLib folia = mock(FoliaLib.class);
-		ServerImplementation implementation = mock(ServerImplementation.class);
+		PlatformScheduler implementation = mock(PlatformScheduler.class);
 		Player player = mock(Player.class);
 		PlaceholderPlayerPresence presence = new PlaceholderPlayerPresence();
 		UUID uuid = UUID.randomUUID();

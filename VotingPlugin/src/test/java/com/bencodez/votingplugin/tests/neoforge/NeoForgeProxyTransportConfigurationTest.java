@@ -212,6 +212,25 @@ class NeoForgeProxyTransportConfigurationTest {
         }
     }
 
+    @Test void invalidSettingMessagesNameOnlyTheKeyAndNeverItsValue() throws Exception {
+        Object[][] cases = {
+                {"Server", 1729, "Server"},
+                {"Redis.Prefix", 1729, "Prefix"},
+                {"Redis.Password", 1729, "Password"},
+                {"Redis.Port", "synthetic-invalid-private-port", "Port"},
+                {"Redis.Port", 65536, "Port"},
+                {"Redis.SSL", "synthetic-invalid-private-flag", "SSL"}
+        };
+        for (Object[] example : cases) {
+            ConfigurationNode bungee = yaml(base("REDIS") + "Redis: {Host: redis.example}\n");
+            bungee.node(((String) example[0]).split("\\.")).set(example[1]);
+            var failure = assertThrows(IllegalArgumentException.class, () -> load(bungee, yaml("{}")));
+            assertTrue(failure.getMessage().contains((String) example[2]), failure.getMessage());
+            assertFalse(failure.getMessage().contains(String.valueOf(example[1])));
+            assertNull(failure.getCause());
+        }
+    }
+
     private static String base(String method) {
         return "UseBungeecord: true\nBungeeMethod: '" + method
                 + "'\nServer: backend-test\nBungeeServer: {Name: proxy-test}\n";
