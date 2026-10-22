@@ -21,7 +21,7 @@ import com.bencodez.advancedcore.core.user.storage.sql.SqlUserBackendFactory;
 import com.bencodez.votingplugin.core.vote.SharedVoteIdentity;
 import com.bencodez.votingplugin.util.SqliteNativeLibrary;
 
-/** Owns NeoForge bootstrap resources; vote and reward services are not started here. */
+/** Owns NeoForge bootstrap, proxy ingress and reward resources. */
 public final class NeoForgeRuntime implements AutoCloseable {
     static final String USER_TABLE_NAME = "VotingPlugin_NeoForgeUsers";
     private final ConfigurationNode config;
@@ -34,7 +34,7 @@ public final class NeoForgeRuntime implements AutoCloseable {
     private final NeoForgeDeferredVoteStore deferredVotes;
     private final NeoForgeVoteProcessor voteProcessor;
     private final NeoForgeRewardReplayService rewardReplay;
-    private final NeoForgeProxySocketService proxySocket;
+    private final NeoForgeProxyTransport proxyTransport;
     private final NeoForgeServerScheduler scheduler = new NeoForgeServerScheduler();
     private final NeoForgePlayerDirectory players = new NeoForgePlayerDirectory();
     private boolean closed;
@@ -42,7 +42,7 @@ public final class NeoForgeRuntime implements AutoCloseable {
     private NeoForgeRuntime(Path directory, ConfigurationNode config, ConfigurationNode voteSites,
             ConfigurationNode specialRewards, ConfigurationNode bungeeSettings,
             NeoForgeVoteConfiguration voteConfiguration,
-            NeoForgeProxySocketConfiguration proxyConfiguration,
+            NeoForgeProxyTransportConfiguration proxyConfiguration,
             SqlUserBackend storage, Clock clock, Object server) {
         this.config = config;
         this.voteSites = voteSites;
@@ -56,14 +56,39 @@ public final class NeoForgeRuntime implements AutoCloseable {
         rewardReplay = server == null ? null : new NeoForgeRewardReplayService(voteConfiguration,
                 new NeoForgeRewardConfiguration(config, voteSites, specialRewards), accounting,
                 deferredVotes, players, new NeoForgeNativeRewardActions(server, scheduler, players));
-        NeoForgeProxySocketService startedProxy = null;
+        NeoForgeProxyTransport startedProxy = null;
         try {
             if (server != null && proxyConfiguration.enabled()) {
-                startedProxy = NeoForgeProxySocketService.start(directory, proxyConfiguration, voteProcessor, players);
+                startedProxy = switch (proxyConfiguration.method()) {
+                    case SOCKETS -> NeoForgeProxySocketService.start(directory, proxyConfiguration.socket(),
+                            voteProcessor, players);
+                    case MQTT -> {
+                        try {
+                            yield NeoForgeProxyMqttService.start(directory, proxyConfiguration, voteProcessor, players);
+                        } catch (IOException unavailable) {
+                            throw new IllegalStateException("MQTT security initialization failed", unavailable);
+                        }
+                    }
+                    case REDIS -> {
+                        try {
+                            yield NeoForgeProxyRedisService.start(directory, proxyConfiguration, voteProcessor, players);
+                        } catch (IOException unavailable) {
+                            throw new IllegalStateException("Redis security initialization failed", unavailable);
+                        }
+                    }
+                    case MYSQL -> {
+                        try {
+                            yield NeoForgeProxyMysqlService.start(directory, proxyConfiguration, voteProcessor, players);
+                        } catch (IOException unavailable) {
+                            throw new IllegalStateException("MySQL security initialization failed", unavailable);
+                        }
+                    }
+                    default -> throw new IllegalStateException("Selected NeoForge proxy adapter is not implemented");
+                };
             }
             if (rewardReplay != null) rewardReplay.start();
         } catch (RuntimeException failure) {
-            NeoForgeProxySocketService failedProxy = startedProxy;
+            NeoForgeProxyTransport failedProxy = startedProxy;
             RuntimeException cleanupFailure = closeAll(
                     () -> { if (failedProxy != null) failedProxy.close(); },
                     () -> { if (rewardReplay != null) rewardReplay.close(); },
@@ -71,7 +96,7 @@ public final class NeoForgeRuntime implements AutoCloseable {
             if (cleanupFailure != null) failure.addSuppressed(cleanupFailure);
             throw failure;
         }
-        proxySocket = startedProxy;
+        proxyTransport = startedProxy;
     }
 
     public static NeoForgeRuntime start(Path directory) throws IOException {
@@ -99,9 +124,9 @@ public final class NeoForgeRuntime implements AutoCloseable {
         ConfigurationNode specialRewards = YamlConfigurationLoader.builder().path(specialRewardsFile).build().load();
         ConfigurationNode bungeeSettings = YamlConfigurationLoader.builder().path(bungeeSettingsFile).build().load();
         NeoForgeVoteConfiguration voteConfiguration = NeoForgeVoteConfiguration.load(config, voteSites);
-        NeoForgeProxySocketConfiguration proxyConfiguration;
+        NeoForgeProxyTransportConfiguration proxyConfiguration;
         try {
-            proxyConfiguration = NeoForgeProxySocketConfiguration.load(bungeeSettings);
+            proxyConfiguration = NeoForgeProxyTransportConfiguration.load(bungeeSettings, config);
         } catch (IllegalArgumentException invalid) {
             throw new IOException("Invalid proxy configuration", invalid);
         }
@@ -160,7 +185,10 @@ public final class NeoForgeRuntime implements AutoCloseable {
     public NeoForgePlayerDirectory players() { return players; }
     public NeoForgeVoteProcessor voteProcessor() { return voteProcessor; }
     public Optional<NeoForgeRewardReplayService> rewardReplay() { return Optional.ofNullable(rewardReplay); }
-    public Optional<NeoForgeProxySocketService> proxySocket() { return Optional.ofNullable(proxySocket); }
+    public Optional<NeoForgeProxyTransport> proxyTransport() { return Optional.ofNullable(proxyTransport); }
+    public Optional<NeoForgeProxySocketService> proxySocket() {
+        return proxyTransport instanceof NeoForgeProxySocketService socket ? Optional.of(socket) : Optional.empty();
+    }
 
     public void playerJoined(Object player) {
         playerJoinedIdentity(player);
@@ -176,7 +204,7 @@ public final class NeoForgeRuntime implements AutoCloseable {
         if (closed) return;
         closed = true;
         RuntimeException failure = closeAll(
-                () -> { if (proxySocket != null) proxySocket.close(); },
+                () -> { if (proxyTransport != null) proxyTransport.close(); },
                 voteProcessor::stop,
                 () -> { if (rewardReplay != null) rewardReplay.stopAdmission(); },
                 scheduler::close,

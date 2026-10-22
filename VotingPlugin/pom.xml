@@ -127,6 +127,10 @@
                     </filters>
                     <relocations>
                         <relocation>
+                            <pattern>org.mariadb</pattern>
+                            <shadedPattern>${project.groupId}.votingplugin.neoforge.mariadb</shadedPattern>
+                        </relocation>
+                        <relocation>
                             <pattern>com.tcoded.folialib</pattern>
                             <shadedPattern>
                                 ${project.groupId}.votingplugin.simpleapi.folialib</shadedPattern>
@@ -204,6 +208,13 @@
                             <minimizeJar>false</minimizeJar>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
                             <filters>
+                                <filter>
+                                    <artifact>org.mariadb.jdbc:mariadb-java-client</artifact>
+                                    <excludes>
+                                        <!-- The NeoForge transport selects its private driver explicitly. -->
+                                        <exclude>META-INF/services/java.sql.Driver</exclude>
+                                    </excludes>
+                                </filter>
                                 <!-- Keep this PR buildable against both the current published
                                      AdvancedCore SNAPSHOT and its coordinated slimmer successor. -->
                                 <filter>
@@ -270,8 +281,36 @@
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>3.8.1</version>
+                <executions>
+                    <execution>
+                        <id>neoforge-platform-gson-fixture</id>
+                        <phase>generate-test-resources</phase>
+                        <goals><goal>copy</goal></goals>
+                        <configuration>
+                            <artifactItems>
+                                <artifactItem>
+                                    <groupId>com.google.code.gson</groupId>
+                                    <artifactId>gson</artifactId>
+                                    <!-- Minecraft 1.21.1's supplied library; test input only. -->
+                                    <version>2.10.1</version>
+                                    <outputDirectory>${project.build.directory}/test-platform-libraries</outputDirectory>
+                                </artifactItem>
+                            </artifactItems>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.5.4</version>
+                <configuration>
+                    <systemPropertyVariables>
+                        <votingplugin.neoforgeGsonJar>${project.build.directory}/test-platform-libraries/gson-2.10.1.jar</votingplugin.neoforgeGsonJar>
+                    </systemPropertyVariables>
+                </configuration>
                 <executions>
                     <execution>
                         <id>default-test</id>
@@ -351,6 +390,11 @@
         </repository>
     </repositories>
     <dependencies>
+        <dependency>
+            <groupId>org.mariadb.jdbc</groupId>
+            <artifactId>mariadb-java-client</artifactId>
+            <version>3.5.10</version>
+        </dependency>
         <dependency>
             <groupId>net.neoforged</groupId>
             <artifactId>neoforge</artifactId>
