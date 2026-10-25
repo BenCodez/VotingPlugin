@@ -39,8 +39,10 @@ class NeoForgeProxyMqttServiceTest {
     private static final String OUTBOUND = "fixture/votingplugin/servers/proxy";
     @TempDir Path directory;
     private SharedTransportEnvelopeAuthenticator proxy;
+    private com.bencodez.votingplugin.proxy.security.ProxyOriginEnvelopeSignature origin;
 
     @BeforeEach void configure() throws IOException {
+        origin = NeoForgeProxyOriginFixture.create(directory);
         byte[] independentKey = new byte[32];
         new java.security.SecureRandom().nextBytes(independentKey);
         Files.writeString(directory.resolve("secretkey.key"), Base64.getEncoder().encodeToString(independentKey));
@@ -67,7 +69,7 @@ class NeoForgeProxyMqttServiceTest {
                     assertTrue(connection.ready.await(3, TimeUnit.SECONDS));
                     connection.sent.clear();
                     for (int duplicate = 0; duplicate < 2; duplicate++) {
-                        deliver(connection, proxy.sign(vote(id, player), Domain.MQTT_PROXY_BACKEND,
+                        deliver(connection, signed(vote(id, player), Domain.MQTT_PROXY_BACKEND,
                                 "proxy-test", INBOUND));
                     }
                     assertEquals(1, runtime.deferredVotes().pending(player).size());
@@ -94,10 +96,10 @@ class NeoForgeProxyMqttServiceTest {
                 UUID player = UUID.randomUUID();
                 JsonEnvelope raw = vote(UUID.randomUUID(), player);
                 deliver(connection, raw);
-                deliver(connection, proxy.sign(raw, Domain.REDIS_PROXY_BACKEND, "proxy-test", INBOUND));
-                deliver(connection, proxy.sign(raw, Domain.MQTT_PROXY_BACKEND, "other-peer", INBOUND));
-                deliver(connection, proxy.sign(raw, Domain.MQTT_PROXY_BACKEND, "proxy-test", "other/topic"));
-                byte[] good = encode(proxy.sign(raw, Domain.MQTT_PROXY_BACKEND, "proxy-test", INBOUND));
+                deliver(connection, signed(raw, Domain.REDIS_PROXY_BACKEND, "proxy-test", INBOUND));
+                deliver(connection, signed(raw, Domain.MQTT_PROXY_BACKEND, "other-peer", INBOUND));
+                deliver(connection, signed(raw, Domain.MQTT_PROXY_BACKEND, "proxy-test", "other/topic"));
+                byte[] good = encode(signed(raw, Domain.MQTT_PROXY_BACKEND, "proxy-test", INBOUND));
                 connection.receiver.accept("other/topic", good);
                 connection.receiver.accept(INBOUND, new byte[] {(byte) 0xff});
                 connection.receiver.accept(INBOUND, new byte[256 * 1024 + 1]);
@@ -109,10 +111,36 @@ class NeoForgeProxyMqttServiceTest {
                 assertEquals(1, connection.sent.size());
                 service.close();
                 connection.sent.clear();
-                deliver(connection, proxy.sign(vote(UUID.randomUUID(), player), Domain.MQTT_PROXY_BACKEND,
+                deliver(connection, signed(vote(UUID.randomUUID(), player), Domain.MQTT_PROXY_BACKEND,
                         "proxy-test", INBOUND));
                 assertEquals(1, runtime.deferredVotes().pending(player).size());
                 assertTrue(connection.sent.isEmpty());
+            }
+        }
+    }
+
+    @Test void sharedKeyHolderCannotMintProxyOriginOrRedirectItsSignedPayload() throws Exception {
+        try (NeoForgeRuntime runtime = NeoForgeRuntimeAccess.start(directory)) {
+            Connection connection = new Connection();
+            try (NeoForgeProxyTransport service = create(runtime, connection, Mode.REQUIRED)) {
+                assertTrue(connection.ready.await(3, TimeUnit.SECONDS));
+                connection.sent.clear();
+                UUID player = UUID.randomUUID();
+                JsonEnvelope raw = vote(UUID.randomUUID(), player);
+                var originDomain = com.bencodez.votingplugin.proxy.security.ProxyOriginEnvelopeSignature.Domain.MQTT;
+                for (JsonEnvelope forged : List.of(raw,
+                        origin.sign(raw, originDomain, "proxy-test", "other-backend"),
+                        origin.sign(raw, originDomain, "other-proxy", "backend-test"),
+                        origin.sign(raw, com.bencodez.votingplugin.proxy.security.ProxyOriginEnvelopeSignature.Domain.MYSQL,
+                                "proxy-test", "backend-test"))) {
+                    // Attacker possesses the real network membership key, but not proxy signing authority.
+                    deliver(connection, proxy.sign(forged, Domain.MQTT_PROXY_BACKEND, "proxy-test", INBOUND));
+                    assertTrue(runtime.deferredVotes().pending(player).isEmpty());
+                    assertTrue(connection.sent.isEmpty());
+                }
+                deliver(connection, signed(raw, Domain.MQTT_PROXY_BACKEND, "proxy-test", INBOUND));
+                assertEquals(1, runtime.deferredVotes().pending(player).size());
+                assertEquals(1, connection.sent.size());
             }
         }
     }
@@ -129,7 +157,8 @@ class NeoForgeProxyMqttServiceTest {
                 }
                 connection.sent.clear();
                 UUID player = UUID.randomUUID();
-                deliver(connection, vote(UUID.randomUUID(), player));
+                deliver(connection, origin.sign(vote(UUID.randomUUID(), player),
+                        com.bencodez.votingplugin.proxy.security.ProxyOriginEnvelopeSignature.Domain.MQTT, "proxy-test", "backend-test"));
                 assertEquals(1, runtime.deferredVotes().pending(player).size());
                 assertEquals(1, connection.sent.size());
             }
@@ -143,11 +172,11 @@ class NeoForgeProxyMqttServiceTest {
                 assertTrue(connection.ready.await(3, TimeUnit.SECONDS));
                 UUID player = UUID.randomUUID();
                 for (int index = 0; index < NeoForgeDeferredVoteStoreAccess.MAX_DEFERRED_PER_USER; index++) {
-                    deliver(connection, proxy.sign(vote(UUID.randomUUID(), player), Domain.MQTT_PROXY_BACKEND,
+                    deliver(connection, signed(vote(UUID.randomUUID(), player), Domain.MQTT_PROXY_BACKEND,
                             "proxy-test", INBOUND));
                 }
                 connection.sent.clear();
-                deliver(connection, proxy.sign(vote(UUID.randomUUID(), player), Domain.MQTT_PROXY_BACKEND,
+                deliver(connection, signed(vote(UUID.randomUUID(), player), Domain.MQTT_PROXY_BACKEND,
                         "proxy-test", INBOUND));
                 assertTrue(connection.sent.isEmpty());
                 assertEquals(NeoForgeDeferredVoteStoreAccess.MAX_DEFERRED_PER_USER,
@@ -208,11 +237,11 @@ class NeoForgeProxyMqttServiceTest {
                 connection.failPublishes = true;
                 UUID player = UUID.randomUUID();
                 JsonEnvelope raw = vote(UUID.randomUUID(), player);
-                deliver(connection, proxy.sign(raw, Domain.MQTT_PROXY_BACKEND, "proxy-test", INBOUND));
+                deliver(connection, signed(raw, Domain.MQTT_PROXY_BACKEND, "proxy-test", INBOUND));
                 assertEquals(1, runtime.deferredVotes().pending(player).size());
                 assertTrue(connection.sent.isEmpty());
                 connection.failPublishes = false;
-                deliver(connection, proxy.sign(raw, Domain.MQTT_PROXY_BACKEND, "proxy-test", INBOUND));
+                deliver(connection, signed(raw, Domain.MQTT_PROXY_BACKEND, "proxy-test", INBOUND));
                 assertEquals(1, runtime.deferredVotes().pending(player).size());
                 assertEquals(1, connection.sent.size());
             }
@@ -221,7 +250,7 @@ class NeoForgeProxyMqttServiceTest {
 
     @Test void nativeRuntimeSelectsMqttAndClosesItsActualAdapterWithoutSocketStartup() throws Exception {
         Files.writeString(directory.resolve("BungeeSettings.yml"), "UseBungeecord: true\nBungeeMethod: MQTT\n"
-                + "Server: backend-test\nBungeeServer: {Name: proxy-test}\n");
+                + "Server: backend-test\n" + NeoForgeProxyOriginFixture.settings());
         Class<Object> type = ReflectiveAccess.type(OWNER);
         NeoForgeProxyTransport adapter = (NeoForgeProxyTransport) org.mockito.Mockito.mock(type);
         try (var mockedFactory = org.mockito.Mockito.mockStatic(type, invocation -> {
@@ -244,18 +273,24 @@ class NeoForgeProxyMqttServiceTest {
             Object factory) throws IOException {
         Path file = directory.resolve("mqtt-test-settings.yml");
         Files.writeString(file, "UseBungeecord: true\nBungeeMethod: MQTT\nServer: backend-test\n"
-                + "BungeeServer: {Name: proxy-test}\nSharedTransportAuthentication: " + mode
+                + NeoForgeProxyOriginFixture.settings() + "SharedTransportAuthentication: " + mode
                 + "\nMQTT: {BrokerURL: 'tcp://broker.example:1883', Prefix: 'fixture/'}\n");
         Object config = ReflectiveAccess.call("com.bencodez.votingplugin.neoforge.NeoForgeProxyTransportConfiguration",
                 null, "load", new String[] {"ConfigurationNode", "ConfigurationNode"},
                 new Object[] {YamlConfigurationLoader.builder().path(file).build().load(), runtime.config()});
         return (NeoForgeProxyTransport) ReflectiveAccess.construct(OWNER,
                 new String[] {"NeoForgeProxyTransportConfiguration", "NeoForgeVoteProcessor", "NeoForgePlayerDirectory",
-                        "SharedTransportEnvelopeAuthenticator", "TransportEnvelopeEncryption", "ConnectionFactory", "boolean"},
+                        "SharedTransportEnvelopeAuthenticator", "TransportEnvelopeEncryption", "ProxyOriginEnvelopeSignature", "ConnectionFactory", "boolean"},
                 new Object[] {config, runtime.voteProcessor(), runtime.players(),
                         SharedTransportEnvelopeAuthenticator.load(directory.resolve("secretkey.key"), mode),
                         TransportEnvelopeEncryption.disabled(TransportEnvelopeEncryption.Domain.PROXY_BACKEND),
-                        factory, false});
+                        NeoForgeProxyOriginFixture.verifier(directory), factory, false});
+    }
+
+    private JsonEnvelope signed(JsonEnvelope envelope, Domain domain, String sender, String recipient) {
+        var proof = origin.sign(envelope, com.bencodez.votingplugin.proxy.security.ProxyOriginEnvelopeSignature.Domain.MQTT,
+                "proxy-test", "backend-test");
+        return proxy.sign(proof, domain, sender, recipient);
     }
 
     private static void deliver(Connection connection, JsonEnvelope envelope) {

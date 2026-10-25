@@ -231,9 +231,23 @@ class NeoForgeProxyTransportConfigurationTest {
         }
     }
 
+    @Test void enabledSharedTransportsRequireAPinnedVerifierAndProxyIdentity() throws Exception {
+        for (String method : java.util.List.of("MYSQL", "REDIS", "MQTT")) {
+            String shared = base(method);
+            if (method.equals("REDIS")) shared += "Redis: {Host: redis.example}\n";
+            String database = "Database: {Host: db.example, Database: fixture, Username: fixture-user}\n";
+            final String noVerifier = shared.replace("ProxyVerificationKeyFile: synthetic-proxy-public.key\n", "");
+            assertTrue(assertThrows(IllegalArgumentException.class, () -> load(noVerifier, database))
+                    .getMessage().contains("ProxyVerificationKeyFile"));
+            final String noProxy = shared.replace("BungeeServer: {Name: proxy-test}\n", "");
+            assertTrue(assertThrows(IllegalArgumentException.class, () -> load(noProxy, database))
+                    .getMessage().contains("BungeeServer.Name"));
+        }
+    }
+
     private static String base(String method) {
         return "UseBungeecord: true\nBungeeMethod: '" + method
-                + "'\nServer: backend-test\nBungeeServer: {Name: proxy-test}\n";
+                + "'\nServer: backend-test\nBungeeServer: {Name: proxy-test}\nProxyVerificationKeyFile: synthetic-proxy-public.key\n";
     }
 
     private Object load(String bungee, String config) throws IOException { return load(yaml(bungee), yaml(config)); }

@@ -12,9 +12,11 @@ import java.util.logging.Logger;
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
 import com.bencodez.votingplugin.core.vote.SharedVoteIdentity;
 import com.bencodez.votingplugin.proxy.VotingPluginWire;
+import com.bencodez.votingplugin.proxy.security.ProxyOriginEnvelopeSignature;
+import com.bencodez.votingplugin.proxy.security.ProxyOriginEnvelopeSignature.Domain;
 import com.bencodez.votingplugin.proxy.security.TransportEnvelopeEncryption;
 
-/** SQL credentials establish the shared database trust domain, not per-node cryptographic identity. */
+/** SQL routing remains untrusted until a pinned proxy-origin signature is verified. */
 final class NeoForgeProxyMysqlService implements NeoForgeProxyTransport {
     interface Receiver { boolean receive(String source, String destination, byte[] payload); }
     interface Queue extends AutoCloseable {
@@ -26,6 +28,8 @@ final class NeoForgeProxyMysqlService implements NeoForgeProxyTransport {
 
     private static final Logger LOGGER = Logger.getLogger(NeoForgeProxyMysqlService.class.getName());
     private final String server;
+    private final String proxyName;
+    private final ProxyOriginEnvelopeSignature origin;
     private final TransportEnvelopeEncryption encryption;
     private final QueueFactory factory;
     private final NeoForgeProxyMessageService messages;
@@ -42,7 +46,7 @@ final class NeoForgeProxyMysqlService implements NeoForgeProxyTransport {
             NeoForgeVoteProcessor processor, NeoForgePlayerDirectory players) throws IOException {
         var encryption = TransportEnvelopeEncryption.load(directory.resolve("secretkey.key"),
                 TransportEnvelopeEncryption.Domain.PROXY_BACKEND, configuration.communicationEncryption());
-        return new NeoForgeProxyMysqlService(configuration, processor, players, encryption,
+        return new NeoForgeProxyMysqlService(configuration, processor, players, configuration.loadOriginVerifier(directory), encryption,
                 () -> {
                     var source = NeoForgeMysqlDataSource.open(configuration.mysql());
                     try { return new NeoForgeMysqlQueue(source, source, configuration.server()); }
@@ -51,12 +55,14 @@ final class NeoForgeProxyMysqlService implements NeoForgeProxyTransport {
     }
 
     NeoForgeProxyMysqlService(NeoForgeProxyTransportConfiguration configuration, NeoForgeVoteProcessor processor,
-            NeoForgePlayerDirectory players, TransportEnvelopeEncryption encryption, QueueFactory factory,
+            NeoForgePlayerDirectory players, ProxyOriginEnvelopeSignature origin, TransportEnvelopeEncryption encryption, QueueFactory factory,
             boolean scheduleHeartbeat) {
         if (configuration.method() != NeoForgeProxyTransportConfiguration.Method.MYSQL) {
             throw new IllegalArgumentException("MySQL transport settings required");
         }
         server = configuration.server();
+        proxyName = configuration.proxyName();
+        this.origin = Objects.requireNonNull(origin, "origin");
         this.encryption = Objects.requireNonNull(encryption, "encryption");
         this.factory = Objects.requireNonNull(factory, "factory");
         worker = new ScheduledThreadPoolExecutor(1, task -> {
@@ -117,7 +123,9 @@ final class NeoForgeProxyMysqlService implements NeoForgeProxyTransport {
     boolean receive(String source, String destination, byte[] payload) {
         if (!open.get() || !"proxy".equals(source) || !server.equals(destination)) return false;
         try {
-            var decrypted = encryption.decrypt(NeoForgeProxyEnvelopeCodec.decode(payload));
+            var verified = origin.verify(NeoForgeProxyEnvelopeCodec.decode(payload), Domain.MYSQL, proxyName, server);
+            if (verified == null) return false;
+            var decrypted = encryption.decrypt(verified);
             if (!decrypted.accepted()) return false;
             return messages.receive(decrypted.envelope());
         } catch (IOException | RuntimeException failure) {

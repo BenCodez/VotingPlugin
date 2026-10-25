@@ -11,7 +11,7 @@ import org.spongepowered.configurate.ConfigurationNode;
 import com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.Mode;
 
 /** Captured transport settings; loading this view never opens a connection or changes user storage. */
-record NeoForgeProxyTransportConfiguration(Method method, String server, String proxyName,
+record NeoForgeProxyTransportConfiguration(Method method, String server, String proxyName, String proxyVerificationKeyFile,
         Mode sharedAuthentication, boolean communicationEncryption, boolean debug,
         NeoForgeProxySocketConfiguration socket, Redis redis, Mqtt mqtt, Mysql mysql) {
     enum Method { DISABLED, SOCKETS, REDIS, MQTT, MYSQL }
@@ -35,7 +35,7 @@ record NeoForgeProxyTransportConfiguration(Method method, String server, String 
         Objects.requireNonNull(config, "config");
         // Preserve the existing selector and its historical misspelling.
         if (!bungee.node("UseBungeecord").getBoolean(bungee.node("UseBungeecoord").getBoolean(false))) {
-            return new NeoForgeProxyTransportConfiguration(Method.DISABLED, "", "", Mode.REQUIRED,
+            return new NeoForgeProxyTransportConfiguration(Method.DISABLED, "", "", "", Mode.REQUIRED,
                     false, false, null, null, null, null);
         }
         Method method;
@@ -48,11 +48,12 @@ record NeoForgeProxyTransportConfiguration(Method method, String server, String 
         if (method == Method.DISABLED) throw invalid("BungeeMethod must select an enabled transport");
         if (method == Method.SOCKETS) {
             var socket = NeoForgeProxySocketConfiguration.load(bungee);
-            return new NeoForgeProxyTransportConfiguration(method, socket.server(), socket.proxyName(),
+            return new NeoForgeProxyTransportConfiguration(method, socket.server(), socket.proxyName(), "",
                     Mode.REQUIRED, socket.communicationEncryption(), socket.debug(), socket, null, null, null);
         }
         String server = identity(bungee.node("Server"), "Server");
-        String proxy = method == Method.MYSQL ? "" : identity(bungee.node("BungeeServer", "Name"), "BungeeServer.Name");
+        String proxy = identity(bungee.node("BungeeServer", "Name"), "BungeeServer.Name");
+        String verificationKey = required(bungee.node("ProxyVerificationKeyFile"), "ProxyVerificationKeyFile", 256);
         Mode authentication = Mode.REQUIRED;
         if (method == Method.REDIS || method == Method.MQTT) {
             authentication = Mode.parse(text(bungee.node("SharedTransportAuthentication"), "COMPATIBILITY", 32));
@@ -98,8 +99,16 @@ record NeoForgeProxyTransportConfiguration(Method method, String server, String 
             }
             default -> throw invalid("Unsupported proxy transport");
         }
-        return new NeoForgeProxyTransportConfiguration(method, server, proxy, authentication,
+        return new NeoForgeProxyTransportConfiguration(method, server, proxy, verificationKey, authentication,
                 encryption, debug, null, redis, mqtt, mysql);
+    }
+
+    com.bencodez.votingplugin.proxy.security.ProxyOriginEnvelopeSignature loadOriginVerifier(java.nio.file.Path directory)
+            throws java.io.IOException {
+        java.nio.file.Path root = directory.toAbsolutePath().normalize();
+        java.nio.file.Path file = root.resolve(proxyVerificationKeyFile).normalize();
+        if (!file.startsWith(root)) throw new java.io.IOException("Proxy verification key outside data directory");
+        return com.bencodez.votingplugin.proxy.security.ProxyOriginEnvelopeSignature.loadVerifier(file);
     }
 
     boolean enabled() { return method != Method.DISABLED; }

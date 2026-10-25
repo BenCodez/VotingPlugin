@@ -14,6 +14,7 @@ import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
 import com.bencodez.votingplugin.core.vote.SharedVoteIdentity;
 import com.bencodez.votingplugin.proxy.VotingPluginWire;
 import com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator;
+import com.bencodez.votingplugin.proxy.security.ProxyOriginEnvelopeSignature;
 import com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.Domain;
 import com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.Mode;
 import com.bencodez.votingplugin.proxy.security.TransportEnvelopeEncryption;
@@ -33,6 +34,7 @@ final class NeoForgeProxyBrokerService implements NeoForgeProxyTransport {
     private final NeoForgeProxyTransportConfiguration configuration;
     private final SharedTransportEnvelopeAuthenticator authenticator;
     private final TransportEnvelopeEncryption encryption;
+    private final ProxyOriginEnvelopeSignature origin;
     private final ConnectionFactory factory;
     private final Domain domain;
     private final String inboundTopic;
@@ -47,7 +49,7 @@ final class NeoForgeProxyBrokerService implements NeoForgeProxyTransport {
 
     NeoForgeProxyBrokerService(NeoForgeProxyTransportConfiguration configuration, NeoForgeVoteProcessor processor,
             NeoForgePlayerDirectory players, SharedTransportEnvelopeAuthenticator authenticator,
-            TransportEnvelopeEncryption encryption, ConnectionFactory factory, boolean scheduleHeartbeat) {
+            TransportEnvelopeEncryption encryption, ProxyOriginEnvelopeSignature origin, ConnectionFactory factory, boolean scheduleHeartbeat) {
         this.configuration = Objects.requireNonNull(configuration, "configuration");
         if (configuration.method() != NeoForgeProxyTransportConfiguration.Method.MQTT
                 && configuration.method() != NeoForgeProxyTransportConfiguration.Method.REDIS) {
@@ -55,6 +57,7 @@ final class NeoForgeProxyBrokerService implements NeoForgeProxyTransport {
         }
         this.authenticator = Objects.requireNonNull(authenticator, "authenticator");
         this.encryption = Objects.requireNonNull(encryption, "encryption");
+        this.origin = Objects.requireNonNull(origin, "origin");
         this.factory = Objects.requireNonNull(factory, "factory");
         boolean redis = configuration.method() == NeoForgeProxyTransportConfiguration.Method.REDIS;
         domain = redis ? Domain.REDIS_PROXY_BACKEND : Domain.MQTT_PROXY_BACKEND;
@@ -118,7 +121,12 @@ final class NeoForgeProxyBrokerService implements NeoForgeProxyTransport {
                 warnInvalid();
                 return;
             }
-            var decrypted = encryption.decrypt(verified.envelope());
+            var verifiedOrigin = origin.verify(verified.envelope(),
+                    domain == Domain.REDIS_PROXY_BACKEND ? ProxyOriginEnvelopeSignature.Domain.REDIS
+                            : ProxyOriginEnvelopeSignature.Domain.MQTT,
+                    configuration.proxyName(), configuration.server());
+            if (verifiedOrigin == null) { warnInvalid(); return; }
+            var decrypted = encryption.decrypt(verifiedOrigin);
             if (!decrypted.accepted()) {
                 warnInvalid();
                 return;
