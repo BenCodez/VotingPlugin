@@ -78,6 +78,46 @@ public class ServerData {
 		}
 	}
 
+
+    /** Detached shutdown payload: no platform object is accessed by its publisher. */
+    public static final class SignSnapshot {
+        private final String count;
+        private final SignCoordinates location;
+        private final SignCoordinates skull;
+        private final String data;
+        private final int position;
+
+        private SignSnapshot(String count, Location location, Location skull, String data, int position) {
+            this.count = count;
+            this.location = SignCoordinates.capture(location);
+            this.skull = skull == null ? null : SignCoordinates.capture(skull);
+            this.data = data;
+            this.position = position;
+        }
+
+        private void store(ConfigurationSection target) {
+            location.store(target, "Signs." + count);
+            target.set("Signs." + count + ".Data", data);
+            target.set("Signs." + count + ".Position", position);
+            if (skull != null) skull.store(target, "Signs." + count + ".Skull");
+        }
+    }
+
+    public static SignSnapshot captureSignSnapshot(String count, Location location, Location skull,
+            String data, int position) {
+        return new SignSnapshot(count, location, skull, data, position);
+    }
+
+    /** Worker-only: publish the whole captured sign batch through the actual durable SDK owner. */
+    public java.util.concurrent.CompletionStage<Void> publishShutdownSigns(List<SignSnapshot> signs) {
+        var snapshot = List.copyOf(signs);
+        return getFile().mutateFinalData(candidate -> {
+            var target = candidate.getConfigurationSection("VotingPlugin");
+            if (target == null) target = candidate.createSection("VotingPlugin");
+            for (var sign : snapshot) sign.store(target);
+        });
+    }
+
 	/** Only YAML work belongs here; platform callbacks run outside the file owner. */
 	private void mutateData(Runnable mutation) {
 		var fence = getPublicationFence();

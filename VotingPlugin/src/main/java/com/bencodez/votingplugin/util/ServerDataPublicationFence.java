@@ -9,6 +9,10 @@ import java.util.Locale;
 import java.util.Properties;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /** Memory-only admission for participating plugin generations sharing one server-data path in a JVM. */
 public final class ServerDataPublicationFence {
@@ -19,6 +23,56 @@ public final class ServerDataPublicationFence {
     private final String generation;
     private final AtomicBoolean retirementStarted = new AtomicBoolean();
     private final java.util.concurrent.CompletableFuture<Void> retirementCompleted = new java.util.concurrent.CompletableFuture<>();
+
+    private final CompletableFuture<Long> processShutdownStarted = new CompletableFuture<>();
+    private final CompletableFuture<Void> processExitCompletion = new CompletableFuture<>();
+    private final AtomicBoolean processHookRemoved = new AtomicBoolean();
+    private volatile Runtime processRuntime;
+    private volatile Thread processHook;
+
+    /** Opt in during startup, before the JVM can begin invoking shutdown hooks. */
+    public synchronized void retainForProcessExit() {
+        if (processHook != null) return;
+        var runtime = Runtime.getRuntime();
+        var hook = new Thread(this::awaitProcessExit, "VotingPlugin-ServerData-Exit");
+        runtime.addShutdownHook(hook);
+        processRuntime = runtime;
+        processHook = hook;
+        processExitCompletion.whenComplete((ignored, failure) -> removeProcessHook());
+    }
+
+    /** The first disable entry fixes the deadline; retries cannot renew it. No caller wait. */
+    public void beginShutdown(long startedNanos) {
+        if (processShutdownStarted.complete(startedNanos) && processHook != null) {
+            CompletableFuture.delayedExecutor(remainingProcessWait(startedNanos), TimeUnit.NANOSECONDS)
+                    .execute(this::removeProcessHook);
+        }
+    }
+
+    private static long remainingProcessWait(long startedNanos) {
+        long elapsed = Math.max(0L, System.nanoTime() - startedNanos);
+        return Math.max(0L, TimeUnit.SECONDS.toNanos(15) - elapsed);
+    }
+
+    private void awaitProcessExit() {
+        long exitStarted = System.nanoTime();
+        try {
+            long disableStarted = processShutdownStarted.get(remainingProcessWait(exitStarted), TimeUnit.NANOSECONDS);
+            long remaining = Math.min(remainingProcessWait(exitStarted), remainingProcessWait(disableStarted));
+            if (remaining > 0) processExitCompletion.get(remaining, TimeUnit.NANOSECONDS);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+        } catch (ExecutionException | TimeoutException pendingOrExpired) {
+            // Process exit is bounded. Timeout does not acknowledge publication or release a lease.
+        }
+    }
+
+    private void removeProcessHook() {
+        var hook = processHook;
+        if (hook == null || !processHookRemoved.compareAndSet(false, true)) return;
+        try { processRuntime.removeShutdownHook(hook); }
+        catch (IllegalStateException stopping) { /* The JVM is already invoking its hooks. */ }
+    }
 
     private ServerDataPublicationFence(Properties registry, String key, String generation) {
         this.registry = registry;
@@ -63,10 +117,16 @@ public final class ServerDataPublicationFence {
 
     /** Existing operations/retries retain ownership; a successor requires zero outstanding leases. */
     public void retire() {
+        boolean drained = false;
         synchronized (registry) {
             State current = state(registry.get(key));
-            if (generation.equals(current.generation)) registry.setProperty(key, generation + ":" + current.users + ":true");
+            if (generation.equals(current.generation)) {
+                registry.setProperty(key, generation + ":" + current.users + ":true");
+                drained = current.users == 0;
+            }
         }
+        // Completion callbacks may remove a JVM hook; never run them under the registry monitor.
+        if (drained) processExitCompletion.complete(null);
     }
 
     /** Reserve before asynchronous admission; a failed stage never proves drain. */
@@ -142,13 +202,16 @@ public final class ServerDataPublicationFence {
         private final AtomicBoolean closed = new AtomicBoolean();
         private Lease(ServerDataPublicationFence owner) { this.owner = owner; }
         @Override public void close() {
+            boolean drained;
             synchronized (owner.registry) {
                 if (closed.get()) return;
                 State current = owner.current();
                 if (current.users <= 0) throw new IllegalStateException("Server-data publication ownership is invalid");
                 owner.registry.setProperty(owner.key, owner.generation + ":" + (current.users - 1) + ":" + current.retiring);
                 closed.set(true);
+                drained = current.retiring && current.users == 1;
             }
+            if (drained) owner.processExitCompletion.complete(null);
         }
     }
 }

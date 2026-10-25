@@ -46,6 +46,7 @@ class DisplayUnloadIntegrationTest {
         field(plugin, "backendControlConnectorLifecycle", stoppedExecutor());
         field(plugin, "voteTimer", stoppedExecutor());
         var signs = mock(Signs.class); doReturn(signs).when(plugin).getSigns();
+        when(signs.storeSignsForShutdown()).thenReturn(CompletableFuture.completedFuture(null));
         field(plugin, "signs", signs);
         var pending = new CompletableFuture<PlayerPresence>();
         var filter = new TopVoterDisplayFilter(row -> pending);
@@ -69,7 +70,7 @@ class DisplayUnloadIntegrationTest {
             assertEquals(1, generation.get());
             menu.open(player);
             verifyNoInteractions(player);
-            verify(signs).storeSigns();
+            verify(signs).storeSignsForShutdown();
         }
     }
 }

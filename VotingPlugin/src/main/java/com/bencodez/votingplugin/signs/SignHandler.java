@@ -286,6 +286,12 @@ public class SignHandler {
 	/**
 	 * Store sign.
 	 */
+    /** Capture platform state on the caller before shutdown transfers publication ownership. */
+    public com.bencodez.votingplugin.data.ServerData.SignSnapshot captureShutdownSnapshot() {
+        return com.bencodez.votingplugin.data.ServerData.captureSignSnapshot(
+                sign, location, skullLocation, data, position);
+    }
+
 	public void storeSign() {
 		plugin.getServerData().setSign(sign, location, skullLocation, data, position);
 	}

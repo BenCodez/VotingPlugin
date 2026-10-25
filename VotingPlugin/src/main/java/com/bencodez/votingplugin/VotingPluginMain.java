@@ -341,6 +341,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private volatile AtomicBoolean basicBungeeUpdateRunning;
 	private final AtomicBoolean unloadInProgress = new AtomicBoolean();
 	private Set<String> completedUnloadSteps;
+	private java.util.concurrent.CompletionStage<Void> signShutdownPublication;
 
 	private synchronized AtomicBoolean basicBungeeUpdateAdmission() {
 		if (basicBungeeUpdateRunning == null) basicBungeeUpdateRunning = new AtomicBoolean();
@@ -2063,6 +2064,15 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			if (serverDataPublicationFence != null) getServerDataFile();
 			serverDataPublicationFence = com.bencodez.votingplugin.util.ServerDataPublicationFence.beginGeneration(
 					getDataFolder().toPath().resolve("ServerData.yml"));
+            try { serverDataPublicationFence.retainForProcessExit(); }
+            catch (RuntimeException | Error registrationFailure) {
+                serverDataEnableAdmissionRejected = true;
+                try { serverDataPublicationFence.retire(); }
+                catch (RuntimeException | Error cleanupFailure) {
+                    if (cleanupFailure != registrationFailure) registrationFailure.addSuppressed(cleanupFailure);
+                }
+                throw registrationFailure;
+            }
 			serverDataFinalPublication = new java.util.concurrent.CompletableFuture<>();
 			serverDataFinalPublicationReserved = false;
 			serverDataFinalStageAttached = false;
@@ -2093,6 +2103,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		plugin = this;
 		unloadInProgress.set(false);
 		completedUnloadSteps = new java.util.HashSet<>();
+		signShutdownPublication = null;
 
 		setupFiles();
 		if ("SQLITE".equalsIgnoreCase(configFile.getData().getString("DataStorage", "SQLITE"))) {
@@ -2136,6 +2147,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	public void onDisable() {
 		// The rejected enable owns no SDK shutdown stage to complete a new reservation.
 		if (serverDataEnableAdmissionRejected) return;
+		runShutdownStep("server-data process drain", this::beginServerDataProcessDrain);
 		serverDataEnableCleanupStarted = true;
 		runShutdownStep("Discord leaderboards", () -> {
 			if (discordHandler != null) discordHandler.close();
@@ -2222,6 +2234,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Override
 	public void onUnLoad() {
+		runShutdownStep("server-data process drain", this::beginServerDataProcessDrain);
 		if (!unloadInProgress.compareAndSet(false, true)) {
 			runShutdownStep("time queue retry", () -> {
 				if (timeQueueHandler != null) timeQueueHandler.saveForShutdown();
@@ -2270,15 +2283,25 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 					coolDownCheck = null;
 				}
 			});
-			runUnloadStep("signs", () -> {
-				if (signs != null) signs.storeSigns();
-			});
+			runShutdownStep("signs", this::shutdownSigns);
 			runUnloadStep("event handlers", () -> HandlerList.unregisterAll(this));
 			// Late producers must see rejection until their overflow and handler cleanup finishes.
 			if (completedUnloadSteps.contains("vote timer")) voteTimer = null;
 			if (plugin == this) plugin = null;
 		} finally { unloadInProgress.set(false); }
 	}
+
+    private void beginServerDataProcessDrain() {
+        var owner = serverDataPublicationFence;
+        if (owner != null) owner.beginShutdown(System.nanoTime());
+    }
+
+    private void shutdownSigns() {
+        if (signs == null) return;
+        var previous = signShutdownPublication;
+        if (previous != null && !previous.toCompletableFuture().isCompletedExceptionally()) return;
+        signShutdownPublication = java.util.Objects.requireNonNull(signs.storeSignsForShutdown());
+    }
 
 	private void runUnloadStep(String name, Runnable step) {
 		if (!completedUnloadSteps.contains(name) && runShutdownStep(name, step)) completedUnloadSteps.add(name);

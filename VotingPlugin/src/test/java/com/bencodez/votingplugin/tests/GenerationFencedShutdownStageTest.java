@@ -56,6 +56,26 @@ class GenerationFencedShutdownStageTest {
         }
     }
 
+    @Test void disableStartsTheProcessDrainBeforeSdkCleanupAndNeverRenewsIt() throws Exception {
+        var fence = ServerDataPublicationFence.beginGeneration(directory.resolve("ServerData.yml"));
+        var plugin = plugin(fence);
+        var startedField = ServerDataPublicationFence.class.getDeclaredField("processShutdownStarted");
+        startedField.setAccessible(true);
+        var started = (CompletableFuture<?>) startedField.get(fence);
+        try (var cleanup = mockConstruction(AdvancedCoreLifecycle.class, (owner, context) -> {
+            doAnswer(call -> {
+                assertTrue(started.isDone(), "The consumer deadline must precede SDK cleanup");
+                return null;
+            }).when(owner).shutdown(anyLong());
+        })) {
+            plugin.onDisable();
+            var original = started.get(5, TimeUnit.SECONDS);
+            plugin.onDisable();
+            assertEquals(original, started.get());
+            plugin.onShutdownComplete(CompletableFuture.completedFuture(null));
+        }
+    }
+
     @Test void failedFinalStageRetainsTheGenerationAfterAllCapturedExecutorsTerminate() throws Exception {
         checkFailure(false);
     }

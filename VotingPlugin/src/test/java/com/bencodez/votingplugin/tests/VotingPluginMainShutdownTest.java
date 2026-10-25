@@ -92,13 +92,13 @@ class VotingPluginMainShutdownTest {
         setField(plugin, "placeholderPlayerPresence", new PlaceholderPlayerPresence());
         initializeEarlyLifecycle(plugin);
         var menu = mock(com.bencodez.votingplugin.streaks.VoteStreaksMenu.class);
-        var signs = mock(Signs.class);
+        var signs = shutdownSignsMock();
         setField(plugin, "voteStreaksMenu", menu);
         setField(plugin, "signs", signs);
         assertDoesNotThrow(plugin::onUnLoad);
         assertDoesNotThrow(plugin::onUnLoad);
         verify(menu).close();
-        verify(signs).storeSigns();
+        verify(signs).storeSignsForShutdown();
     }
 
     @Test
@@ -108,15 +108,15 @@ class VotingPluginMainShutdownTest {
         setField(plugin, "placeholderPlayerPresence", new PlaceholderPlayerPresence());
         initializeEarlyLifecycle(plugin);
         var menu = mock(com.bencodez.votingplugin.streaks.VoteStreaksMenu.class);
-        var signs = mock(Signs.class);
+        var signs = shutdownSignsMock();
         setField(plugin, "voteStreaksMenu", menu);
         setField(plugin, "signs", signs);
         doThrow(new IllegalStateException("synthetic close failure")).doNothing().when(menu).close();
         assertDoesNotThrow(plugin::onUnLoad);
-        verify(signs).storeSigns();
+        verify(signs).storeSignsForShutdown();
         assertDoesNotThrow(plugin::onUnLoad);
         verify(menu, org.mockito.Mockito.times(2)).close();
-        verify(signs).storeSigns();
+        verify(signs).storeSignsForShutdown();
     }
 
     @Test
@@ -137,17 +137,17 @@ class VotingPluginMainShutdownTest {
         rankings.put(new com.bencodez.votingplugin.topvoter.TopVoterPlayer(java.util.UUID.randomUUID(), "Example", 1L), 10);
         var display = filter.projectAsync(rankings, true).toCompletableFuture();
         org.junit.jupiter.api.Assertions.assertFalse(display.isDone());
-        var signs = mock(Signs.class);
+        var signs = shutdownSignsMock();
         setField(plugin, "signs", signs);
         try (var handlers = org.mockito.Mockito.mockStatic(org.bukkit.event.HandlerList.class)) {
             assertDoesNotThrow(plugin::onUnLoad);
             org.junit.jupiter.api.Assertions.assertTrue(display.isDone(), "A failed independent close must not strand pending display evidence");
             org.junit.jupiter.api.Assertions.assertEquals(rankings, display.getNow(null));
-            verify(signs).storeSigns();
+            verify(signs).storeSignsForShutdown();
             assertDoesNotThrow(plugin::onUnLoad);
             verify(discord, org.mockito.Mockito.times(2)).close();
             verify(discord).retireLeaderboardPublications();
-            verify(signs).storeSigns();
+            verify(signs).storeSignsForShutdown();
             org.junit.jupiter.api.Assertions.assertEquals(1L, generation.get());
             pending.complete(com.bencodez.advancedcore.api.user.presence.PlayerPresence.NEVER_JOINED);
             org.junit.jupiter.api.Assertions.assertEquals(rankings, display.getNow(null));
@@ -161,17 +161,17 @@ class VotingPluginMainShutdownTest {
         setField(plugin, "unloadInProgress", new java.util.concurrent.atomic.AtomicBoolean());
         setField(plugin, "placeholderPlayerPresence", new PlaceholderPlayerPresence());
         initializeEarlyLifecycle(plugin);
-        Signs signs = mock(Signs.class);
+        Signs signs = shutdownSignsMock();
         TimeQueueHandler timeQueue = mock(TimeQueueHandler.class);
         setField(plugin, "signs", signs);
         setField(plugin, "timeQueueHandler", timeQueue);
 
         plugin.onUnLoad();
 
-        verify(signs).storeSigns();
+        verify(signs).storeSignsForShutdown();
         verify(timeQueue).saveForShutdown();
         plugin.onUnLoad();
-        verify(signs).storeSigns();
+        verify(signs).storeSignsForShutdown();
     }
 
     @Test
@@ -181,7 +181,7 @@ class VotingPluginMainShutdownTest {
         setField(plugin, "unloadInProgress", new java.util.concurrent.atomic.AtomicBoolean());
         setField(plugin, "placeholderPlayerPresence", new PlaceholderPlayerPresence());
         initializeEarlyLifecycle(plugin);
-        Signs signs = mock(Signs.class);
+        Signs signs = shutdownSignsMock();
         TimeQueueHandler timeQueue = mock(TimeQueueHandler.class);
         VotingPluginWebhookManager webhook = mock(VotingPluginWebhookManager.class);
         doThrow(new IllegalStateException("webhook close failed")).when(webhook).shutdown();
@@ -194,7 +194,7 @@ class VotingPluginMainShutdownTest {
 
         verify(webhook).shutdown();
         verify(timeQueue).saveForShutdown();
-        verify(signs).storeSigns();
+        verify(signs).storeSignsForShutdown();
     }
 
     @Test
@@ -205,7 +205,7 @@ class VotingPluginMainShutdownTest {
         initializeEarlyLifecycle(plugin);
         var backend = mock(com.bencodez.votingplugin.backendproxy.BackendProxyHandler.class);
         var webhook = mock(VotingPluginWebhookManager.class);
-        var signs = mock(Signs.class);
+        var signs = shutdownSignsMock();
         org.mockito.Mockito.doReturn(backend).when(plugin).getBackendProxyHandler();
         org.mockito.Mockito.doThrow(new IllegalStateException("synthetic backend close failure")).doNothing()
                 .when(backend).closeForShutdown();
@@ -218,7 +218,7 @@ class VotingPluginMainShutdownTest {
             assertDoesNotThrow(plugin::onUnLoad);
             verify(backend, org.mockito.Mockito.times(2)).closeForShutdown();
             verify(webhook, org.mockito.Mockito.times(2)).shutdown();
-            verify(signs).storeSigns();
+            verify(signs).storeSignsForShutdown();
             handlers.verify(() -> org.bukkit.event.HandlerList.unregisterAll(plugin));
         }
     }
@@ -284,7 +284,7 @@ class VotingPluginMainShutdownTest {
         setField(plugin, "placeholderPlayerPresence", new PlaceholderPlayerPresence());
         initializeEarlyLifecycle(plugin);
         TimeQueueHandler timeQueue = mock(TimeQueueHandler.class);
-        Signs signs = mock(Signs.class);
+        Signs signs = shutdownSignsMock();
         org.mockito.Mockito.doThrow(new IllegalStateException("disk unavailable")).doNothing()
                 .when(timeQueue).saveForShutdown();
         setField(plugin, "timeQueueHandler", timeQueue);
@@ -292,7 +292,7 @@ class VotingPluginMainShutdownTest {
         assertDoesNotThrow(plugin::onUnLoad);
         assertDoesNotThrow(plugin::onUnLoad);
         verify(timeQueue, org.mockito.Mockito.times(2)).saveForShutdown();
-        verify(signs).storeSigns();
+        verify(signs).storeSignsForShutdown();
     }
 
     @Test
@@ -408,6 +408,134 @@ class VotingPluginMainShutdownTest {
             verify(logger, never()).log(org.mockito.ArgumentMatchers.eq(java.util.logging.Level.WARNING),
                     org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(Throwable.class));
         } finally { coreTimer.shutdownNow(); }
+    }
+
+    @Test
+    void signPersistenceDoesNotReblockUnloadAfterATimedVoteCheckpointTimesOut(
+            @org.junit.jupiter.api.io.TempDir java.nio.file.Path directory) throws Exception {
+        var entered = new java.util.concurrent.CountDownLatch(1);
+        var release = new java.util.concurrent.CountDownLatch(1);
+        var firstMove = new java.util.concurrent.atomic.AtomicBoolean(true);
+        var caller = java.util.concurrent.Executors.newSingleThreadExecutor();
+        var producers = new java.util.concurrent.ScheduledThreadPoolExecutor(1);
+        producers.setExecuteExistingDelayedTasksAfterShutdownPolicy(false);
+        try (var schedulers = org.mockito.Mockito.mockConstruction(
+                com.bencodez.simpleapi.scheduler.BukkitScheduler.class)) {
+            var plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
+            setField(plugin, "unloadInProgress", new java.util.concurrent.atomic.AtomicBoolean());
+            setField(plugin, "placeholderPlayerPresence", new PlaceholderPlayerPresence());
+            initializeEarlyLifecycle(plugin);
+            org.mockito.Mockito.doReturn(directory.toFile()).when(plugin).getDataFolder();
+            var fence = com.bencodez.votingplugin.util.ServerDataPublicationFence.beginGeneration(
+                    directory.resolve("ServerData.yml"));
+            setField(plugin, "serverDataPublicationFence", fence);
+            var backing = new com.bencodez.advancedcore.data.ServerData(plugin) {
+                @Override protected void moveAtomically(java.nio.file.Path source, java.nio.file.Path target)
+                        throws java.io.IOException {
+                    if (firstMove.compareAndSet(true, false)) {
+                        entered.countDown();
+                        try {
+                            if (!release.await(10, java.util.concurrent.TimeUnit.SECONDS))
+                                throw new java.io.IOException("Synthetic stalled writer was not released");
+                        } catch (InterruptedException failure) {
+                            Thread.currentThread().interrupt();
+                            throw new java.io.IOException(failure);
+                        }
+                    }
+                    super.moveAtomically(source, target);
+                }
+            };
+            backing.setData(new org.bukkit.configuration.file.YamlConfiguration());
+            var facade = new com.bencodez.votingplugin.data.GenerationFencedServerDataFile(plugin, backing, fence);
+            org.mockito.Mockito.doReturn(facade).when(plugin).getServerDataFile();
+            var data = new com.bencodez.votingplugin.data.ServerData(plugin);
+            org.mockito.Mockito.doReturn(data).when(plugin).getServerData();
+            org.mockito.Mockito.doReturn(producers).when(plugin).getVoteTimer();
+            var queue = new TimeQueueHandler(plugin);
+            queue.addVote("SyntheticVoter", "SyntheticSite");
+            producers.shutdown();
+            org.junit.jupiter.api.Assertions.assertTrue(producers.awaitTermination(2,
+                    java.util.concurrent.TimeUnit.SECONDS));
+            setField(plugin, "timeQueueHandler", queue);
+            var signs = new Signs(plugin);
+            var sign = mock(com.bencodez.votingplugin.signs.SignHandler.class, CALLS_REAL_METHODS);
+            for (var entry : java.util.Map.<String, Object>of("plugin", plugin, "sign", "0",
+                    "data", "SyntheticSign", "position", 1).entrySet()) {
+                var f = com.bencodez.votingplugin.signs.SignHandler.class.getDeclaredField(entry.getKey());
+                f.setAccessible(true);
+                f.set(sign, entry.getValue());
+            }
+            var world = mock(org.bukkit.World.class);
+            org.mockito.Mockito.when(world.getName()).thenReturn("SyntheticWorld");
+            sign.setLocation(new org.bukkit.Location(world, -1.5, 64, 2.5));
+            signs.getSigns().add(sign);
+            setField(plugin, "signs", signs);
+            try {
+                var unload = caller.submit(() -> {
+                    try (var handlers = org.mockito.Mockito.mockStatic(org.bukkit.event.HandlerList.class)) {
+                        plugin.onUnLoad();
+                        handlers.verify(() -> org.bukkit.event.HandlerList.unregisterAll(plugin));
+                    }
+                });
+                org.junit.jupiter.api.Assertions.assertTrue(entered.await(5,
+                        java.util.concurrent.TimeUnit.SECONDS), "Actual SDK file writer did not reach disk boundary");
+                org.junit.jupiter.api.Assertions.assertDoesNotThrow(
+                        () -> unload.get(3, java.util.concurrent.TimeUnit.SECONDS),
+                        "Sign persistence must not reacquire the stalled YAML monitor on the unload caller");
+                org.junit.jupiter.api.Assertions.assertEquals(1, release.getCount(),
+                        "Unload must complete before the stalled writer is released");
+            } finally {
+                release.countDown();
+                var pendingSigns = (java.util.concurrent.CompletionStage<?>) field(plugin, "signShutdownPublication");
+                if (pendingSigns != null) pendingSigns.toCompletableFuture().get(5, java.util.concurrent.TimeUnit.SECONDS);
+                queue.saveForShutdown();
+                var disk = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(
+                        directory.resolve("ServerData.yml").toFile());
+                org.junit.jupiter.api.Assertions.assertEquals("SyntheticSign", disk.getString("VotingPlugin.Signs.0.Data"));
+                org.junit.jupiter.api.Assertions.assertEquals(1, data.getTimedVoteCacheKeys().size(),
+                        "Final sign publication must preserve the timed-vote checkpoint");
+                caller.shutdown();
+                org.junit.jupiter.api.Assertions.assertTrue(caller.awaitTermination(5,
+                        java.util.concurrent.TimeUnit.SECONDS));
+                fence.retire();
+            }
+        } finally {
+            release.countDown();
+            caller.shutdownNow();
+            producers.shutdownNow();
+        }
+    }
+
+    @Test
+    void repeatedUnloadRetriesAFailedSignPublicationWithoutRepeatingListenerCleanup() throws Exception {
+        var plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
+        setField(plugin, "unloadInProgress", new java.util.concurrent.atomic.AtomicBoolean());
+        setField(plugin, "placeholderPlayerPresence", new PlaceholderPlayerPresence());
+        initializeEarlyLifecycle(plugin);
+        var signs = mock(Signs.class);
+        var pending = new java.util.concurrent.CompletableFuture<Void>();
+        org.mockito.Mockito.when(signs.storeSignsForShutdown()).thenReturn(
+                java.util.concurrent.CompletableFuture.failedFuture(new IllegalStateException("Synthetic I/O")),
+                pending.minimalCompletionStage());
+        setField(plugin, "signs", signs);
+        try (var handlers = org.mockito.Mockito.mockStatic(org.bukkit.event.HandlerList.class)) {
+            plugin.onUnLoad();
+            plugin.onUnLoad();
+            plugin.onUnLoad();
+            verify(signs, org.mockito.Mockito.times(2)).storeSignsForShutdown();
+            verify(signs, never()).storeSigns();
+            handlers.verify(() -> org.bukkit.event.HandlerList.unregisterAll(plugin));
+            pending.complete(null);
+            plugin.onUnLoad();
+            verify(signs, org.mockito.Mockito.times(2)).storeSignsForShutdown();
+        }
+    }
+
+    private static Signs shutdownSignsMock() {
+        var signs = mock(Signs.class);
+        org.mockito.Mockito.when(signs.storeSignsForShutdown())
+                .thenReturn(java.util.concurrent.CompletableFuture.completedFuture(null));
+        return signs;
     }
 
     private static Throwable rootCause(Throwable failure) {
