@@ -104,6 +104,10 @@ import com.bencodez.votingplugin.votesites.VoteSite;
 
 public class CommandLoader {
 	private static final int BULK_PLAYER_CAPTURE_BATCH_SIZE = 64;
+	private final Set<CommandHandler> guidedSessionCommands = new HashSet<>();
+	private volatile CommandHandler guidedSessionPermissionHandler;
+	private final java.util.concurrent.atomic.AtomicLong guidedPermissionRevision = new java.util.concurrent.atomic.AtomicLong();
+	private final java.util.concurrent.atomic.AtomicBoolean guidedPermissionsManaged = new java.util.concurrent.atomic.AtomicBoolean();
 	private final MaintenanceConfirmation maintenanceConfirmation =
 			new MaintenanceConfirmation();
 
@@ -3274,6 +3278,7 @@ public class CommandLoader {
 				}
 			}
 		}
+		refreshGuidedSessionPermissionIndex();
 	}
 
 	static void registerAdditionalPermissions(PluginManager manager, CommandHandler handler) {
@@ -3629,7 +3634,83 @@ public class CommandLoader {
 	/**
 	 * Load vote command.
 	 */
+    /** Refresh only guide-owned handlers; preserve production/custom registrations and command-map aliases. */
+    public void refreshGuidedSessionCommands() {
+        boolean previouslyRegistered = !guidedSessionCommands.isEmpty();
+        long permissionRevision = guidedPermissionRevision.incrementAndGet();
+        ArrayList<CommandHandler> handlers = new ArrayList<>(plugin.getVoteCommand());
+        handlers.removeAll(guidedSessionCommands);
+        guidedSessionCommands.clear();
+        if (plugin.getConfigFile().getData().getBoolean("GuidedVotingSession.Enabled", false)) {
+            for (String action : java.util.List.of("", "next", "previous", "skip", "check", "finish", "restart")) {
+                String[] path = action.isEmpty() ? new String[] { "Session" } : new String[] { "Session", action };
+                var sessionCommand = plugin.getGuidedVotingSessions().commandHandler(action);
+                CommandHandler handler = new CommandHandler(plugin, path,
+                        "VotingPlugin.Commands.Vote.Session|" + playerPerm, "Guided voting session", false) {
+                    @Override public void execute(CommandSender sender, String[] args) {
+                        sessionCommand.accept((Player) sender);
+                    }
+                };
+                if (plugin.getConfigFile().getDisabledCommands().stream().noneMatch(handler.getPerm()::contains)) {
+                    if (plugin.getConfigFile().getDisabledDefaultPermissions().stream()
+                            .anyMatch(disabled -> handler.getPerm().contains(disabled + "|"))) {
+                        handler.setPerm(handler.getPerm().replace("|" + playerPerm, ""));
+                    }
+                    guidedSessionCommands.add(handler);
+                    handlers.add(guidedSessionCommands.size() - 1, handler);
+                }
+            }
+        }
+        plugin.setVoteCommand(handlers);
+        refreshGuidedSessionPermissionIndex();
+        if (previouslyRegistered || !guidedSessionCommands.isEmpty()) guidedPermissionsManaged.set(true);
+        if (guidedPermissionsManaged.get()) {
+            String inheritedPermission = "VotingPlugin.Commands.Vote.Session|" + playerPerm;
+            boolean inherit = plugin.getConfigFile().getDisabledDefaultPermissions().stream()
+                    .noneMatch(disabled -> inheritedPermission.contains(disabled + "|"))
+                    && handlers.stream().anyMatch(handler -> handler.getPerm().contains(inheritedPermission));
+            plugin.getBukkitScheduler().runTask(plugin, () -> {
+                if (guidedPermissionRevision.get() != permissionRevision) return;
+                Permission parent = Bukkit.getPluginManager().getPermission(playerPerm);
+                if (parent == null) return;
+                if (inherit) parent.getChildren().put("VotingPlugin.Commands.Vote.Session", true);
+                else parent.getChildren().remove("VotingPlugin.Commands.Vote.Session");
+                parent.recalculatePermissibles();
+            });
+        }
+    }
+
+    /** Use the registered built-in command policy for guide-owned callbacks and refreshes. */
+    public boolean canUseGuidedSession(Player player) {
+        CommandHandler handler = guidedSessionPermissionHandler;
+        return handler != null && handler.hasPerm(player);
+    }
+
+    /** Keep the session lookup consistent with routing without registering or replacing Bukkit aliases. */
+    private void refreshGuidedSessionPermissionIndex() {
+        CommandHandler selected = null;
+        for (CommandHandler handler : plugin.getVoteCommand()) {
+            if (!handler.isCommand("Session")) continue;
+            if (guidedSessionCommands.contains(handler)) {
+                if (handler.getArgs().length == 1) {
+                    selected = handler;
+                    break;
+                }
+            } else {
+                // Preserve the existing alias index's last-handler policy when the guide is disabled.
+                selected = handler;
+            }
+        }
+        guidedSessionPermissionHandler = selected != null && guidedSessionCommands.contains(selected) ? selected : null;
+        if (commands == null) return;
+        final CommandHandler indexed = selected;
+        commands.entrySet().removeIf(entry -> entry.getKey().equalsIgnoreCase("voteSession"));
+        if (indexed != null) commands.put("voteSession", indexed);
+    }
+
 	private void loadVoteCommand() {
+		guidedSessionPermissionHandler = null;
+		guidedSessionCommands.clear();
 		plugin.setVoteCommand(new ArrayList<>());
 		plugin.getVoteCommand().add(new CommandHandler(plugin, new String[] { "Help&?" },
 				"VotingPlugin.Commands.Vote.Help|" + playerPerm, "View help page") {
@@ -3695,6 +3776,8 @@ public class CommandLoader {
 				}
 			}
 		});
+
+        refreshGuidedSessionCommands();
 
 		plugin.getVoteCommand().add(new CommandHandler(plugin, new String[] { "URL", "(SiteName)" },
 				"VotingPlugin.Commands.Vote.URL.VoteSite", "Open VoteURL GUI for VoteSite", false) {
