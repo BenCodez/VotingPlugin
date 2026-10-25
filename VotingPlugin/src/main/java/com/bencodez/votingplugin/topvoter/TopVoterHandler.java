@@ -113,11 +113,12 @@ public class TopVoterHandler implements Listener {
 	 */
 	public String[] getTopVotersWeekly() {
 		ArrayList<String> msg = new ArrayList<>();
-		ArrayList<TopVoterPlayer> users = new ArrayList<>(plugin.getTopVoter(TopVoter.Weekly).keySet());
+		var board = plugin.getTopVoterDisplay(TopVoter.Weekly);
+		ArrayList<TopVoterPlayer> users = new ArrayList<>(board.keySet());
 		for (int i = 0; i < users.size(); i++) {
 			String line = plugin.getConfigFile().getFormatCommandsVoteTopLine().replace("%num%", "" + (i + 1))
 					.replace("%player%", users.get(i).getPlayerName())
-					.replace("%votes%", "" + plugin.getTopVoter(TopVoter.Weekly).get(users.get(i)));
+					.replace("%votes%", "" + board.get(users.get(i)));
 			msg.add(line);
 		}
 		msg = ArrayUtils.colorize(msg);
@@ -638,11 +639,12 @@ public class TopVoterHandler implements Listener {
 	 * @return the string[]
 	 */
 	public String[] topVoterAllTime(int page) {
-		int pagesize = plugin.getConfigFile().getFormatPageSize();
+		page = Math.max(1, page);
+		int pagesize = Math.max(1, plugin.getConfigFile().getFormatPageSize());
 		ArrayList<String> msg = new ArrayList<>();
 		ArrayList<String> topVoters = new ArrayList<>();
 		int count = 1;
-		for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(TopVoter.AllTime).entrySet()) {
+		for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoterDisplay(TopVoter.AllTime).entrySet()) {
 			String line = plugin.getConfigFile().getFormatCommandsVoteTopLine();
 			line = line.replace("%num%", "" + count);
 			line = line.replace("%player%", entry.getKey().getPlayerName());
@@ -662,7 +664,8 @@ public class TopVoterHandler implements Listener {
 		title = title.replace("%Top%", plugin.getConfigFile().getFormatTopVoterAllTime());
 		msg.add(MessageAPI.colorize(title));
 
-		for (int i = (page - 1) * pagesize; (i < topVoters.size()) && (i < (((page - 1) * pagesize) + 10)); i++) {
+		long start = (long) (page - 1) * pagesize;
+		for (int i = (int) Math.min(start, topVoters.size()); i < topVoters.size() && i < start + pagesize; i++) {
 			msg.add(topVoters.get(i));
 		}
 
@@ -676,11 +679,12 @@ public class TopVoterHandler implements Listener {
 	 * @return array of formatted top voter lines
 	 */
 	public String[] topVoterDaily(int page) {
-		int pagesize = plugin.getConfigFile().getFormatPageSize();
+		page = Math.max(1, page);
+		int pagesize = Math.max(1, plugin.getConfigFile().getFormatPageSize());
 		ArrayList<String> msg = new ArrayList<>();
 		ArrayList<String> topVoters = new ArrayList<>();
 		int count = 1;
-		for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(TopVoter.Daily).entrySet()) {
+		for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoterDisplay(TopVoter.Daily).entrySet()) {
 			String line = plugin.getConfigFile().getFormatCommandsVoteTopLine();
 			line = line.replace("%num%", "" + count);
 			line = line.replace("%player%", entry.getKey().getPlayerName());
@@ -700,7 +704,8 @@ public class TopVoterHandler implements Listener {
 		title = title.replace("%Top%", plugin.getConfigFile().getFormatTopVoterDaily());
 		msg.add(MessageAPI.colorize(title));
 
-		for (int i = (page - 1) * pagesize; (i < topVoters.size()) && (i < (((page - 1) * pagesize) + 10)); i++) {
+		long start = (long) (page - 1) * pagesize;
+		for (int i = (int) Math.min(start, topVoters.size()); i < topVoters.size() && i < start + pagesize; i++) {
 			msg.add(topVoters.get(i));
 		}
 
@@ -714,11 +719,12 @@ public class TopVoterHandler implements Listener {
 	 * @return array of formatted top voter lines
 	 */
 	public String[] topVoterMonthly(int page) {
-		int pagesize = plugin.getConfigFile().getFormatPageSize();
+		page = Math.max(1, page);
+		int pagesize = Math.max(1, plugin.getConfigFile().getFormatPageSize());
 		ArrayList<String> msg = new ArrayList<>();
 		ArrayList<String> topVoters = new ArrayList<>();
 		int count = 1;
-		for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(TopVoter.Monthly).entrySet()) {
+		for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoterDisplay(TopVoter.Monthly).entrySet()) {
 			String line = plugin.getConfigFile().getFormatCommandsVoteTopLine();
 			line = line.replace("%num%", "" + count);
 			line = line.replace("%player%", entry.getKey().getPlayerName());
@@ -738,7 +744,8 @@ public class TopVoterHandler implements Listener {
 		title = title.replace("%Top%", plugin.getConfigFile().getFormatTopVoterMonthly());
 		msg.add(MessageAPI.colorize(title));
 
-		for (int i = (page - 1) * pagesize; (i < topVoters.size()) && (i < (((page - 1) * pagesize) + 10)); i++) {
+		long start = (long) (page - 1) * pagesize;
+		for (int i = (int) Math.min(start, topVoters.size()); i < topVoters.size() && i < start + pagesize; i++) {
 			msg.add(topVoters.get(i));
 		}
 
@@ -752,7 +759,7 @@ public class TopVoterHandler implements Listener {
 	 */
 	public String[] topVotersAllTime() {
 		ArrayList<String> msg = new ArrayList<>();
-		List<Entry<TopVoterPlayer, Integer>> list = new LinkedList<>(plugin.getTopVoter(TopVoter.AllTime).entrySet());
+		List<Entry<TopVoterPlayer, Integer>> list = new LinkedList<>(plugin.getTopVoterDisplay(TopVoter.AllTime).entrySet());
 		int i = 0;
 		for (Entry<TopVoterPlayer, Integer> entry : list) {
 			String line = "%num%: %player%, %votes%";
@@ -778,7 +785,8 @@ public class TopVoterHandler implements Listener {
 	 */
 	public String[] topVotersDaily() {
 		ArrayList<String> msg = new ArrayList<>();
-		ArrayList<TopVoterPlayer> users = new ArrayList<>(plugin.getTopVoter(TopVoter.Daily).keySet());
+		var board = plugin.getTopVoterDisplay(TopVoter.Daily);
+		ArrayList<TopVoterPlayer> users = new ArrayList<>(board.keySet());
 		for (int i = 0; i < users.size(); i++) {
 			String line = "%num%: %player%, %votes%";
 			line = line.replace("%num%", "" + (i + 1));
@@ -787,7 +795,7 @@ public class TopVoterHandler implements Listener {
 			} catch (Exception ex) {
 				VotingPluginMain.plugin.debug(ex);
 			}
-			line = line.replace("%votes%", "" + plugin.getTopVoter(TopVoter.Monthly).get(users.get(i)));
+			line = line.replace("%votes%", "" + board.get(users.get(i)));
 			msg.add(line);
 		}
 
@@ -801,7 +809,7 @@ public class TopVoterHandler implements Listener {
 	 */
 	public String[] topVotersMonthly() {
 		ArrayList<String> msg = new ArrayList<>();
-		List<Entry<TopVoterPlayer, Integer>> list = new LinkedList<>(plugin.getTopVoter(TopVoter.Monthly).entrySet());
+		List<Entry<TopVoterPlayer, Integer>> list = new LinkedList<>(plugin.getTopVoterDisplay(TopVoter.Monthly).entrySet());
 		int i = 0;
 		for (Entry<TopVoterPlayer, Integer> entry : list) {
 			String line = "%num%: %player%, %votes%";
@@ -827,11 +835,12 @@ public class TopVoterHandler implements Listener {
 	 * @return array of formatted top voter lines
 	 */
 	public String[] topVoterWeekly(int page) {
-		int pagesize = plugin.getConfigFile().getFormatPageSize();
+		page = Math.max(1, page);
+		int pagesize = Math.max(1, plugin.getConfigFile().getFormatPageSize());
 		ArrayList<String> msg = new ArrayList<>();
 		ArrayList<String> topVoters = new ArrayList<>();
 		int count = 1;
-		for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(TopVoter.Weekly).entrySet()) {
+		for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoterDisplay(TopVoter.Weekly).entrySet()) {
 			String line = plugin.getConfigFile().getFormatCommandsVoteTopLine();
 			line = line.replace("%num%", "" + count);
 			line = line.replace("%player%", entry.getKey().getPlayerName());
@@ -851,7 +860,8 @@ public class TopVoterHandler implements Listener {
 		title = title.replace("%Top%", plugin.getConfigFile().getFormatTopVoterWeekly());
 		msg.add(MessageAPI.colorize(title));
 
-		for (int i = (page - 1) * pagesize; (i < topVoters.size()) && (i < (((page - 1) * pagesize) + 10)); i++) {
+		long start = (long) (page - 1) * pagesize;
+		for (int i = (int) Math.min(start, topVoters.size()); i < topVoters.size() && i < start + pagesize; i++) {
 			msg.add(topVoters.get(i));
 		}
 

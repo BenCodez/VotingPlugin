@@ -607,6 +607,28 @@ public class CommandLoader {
 	/**
 	 * Load admin vote command.
 	 */
+	private void clearDiscordMessageId(CommandSender sender, TopVoter top) {
+		try {
+			plugin.getTimer().execute(() -> {
+				boolean confirmed;
+				try { confirmed = clearDiscordMessageId(top); }
+				catch (RuntimeException failure) { confirmed = false; }
+				String message = confirmed ? "&cCleared discord message ID for " + top.toString()
+						: "&cUnable to confirm the cleared Discord message ID; check storage before restarting.";
+				runForCommandSender(sender, () -> sender.sendMessage(MessageAPI.colorize(message)));
+			});
+		} catch (RuntimeException rejected) {
+			runForCommandSender(sender, () -> sender.sendMessage(MessageAPI.colorize(
+					"&cUnable to schedule clearing the Discord message ID; no changes made.")));
+		}
+	}
+
+	private boolean clearDiscordMessageId(TopVoter top) {
+		var discord = plugin.getDiscordHandler();
+		return discord != null ? discord.clearTopVoterMessageId(top)
+				: plugin.getServerData().setTopVoterMessageIdConfirmed(top, 0L);
+	}
+
 	private void loadAdminVoteCommand() {
 		plugin.setAdminVoteCommand(new ArrayList<>());
 
@@ -2947,9 +2969,7 @@ public class CommandLoader {
 					public void execute(CommandSender sender, String[] args) {
 						String topVoter = args[1];
 						TopVoter top = TopVoter.getTopVoter(topVoter);
-						plugin.getServerData().setTopVoterMessageId(top, 0);
-						plugin.getDiscordHandler().getTopVoterMessageIds().put(top, 0L);
-						sendMessage(sender, "&cCleared discord message ID for " + top.toString());
+						clearDiscordMessageId(sender, top);
 					}
 				});
 

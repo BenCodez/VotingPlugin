@@ -497,6 +497,23 @@ public class ServerData {
 	}
 
 	/**
+	 * Uses the existing writer and confirms this ID in the saved file. Legacy void saves may
+	 * swallow I/O failure; queued/custom writers may also remain unconfirmed at this point.
+	 * False is an uncertain outcome, never permission to delete a possibly recorded message.
+	 * Call only on the existing worker, under this facade's normal save ordering.
+	 */
+	public synchronized boolean setTopVoterMessageIdConfirmed(TopVoter top, long messageId) {
+		setTopVoterMessageId(top, messageId);
+		try {
+			var saved = new org.bukkit.configuration.file.YamlConfiguration();
+			saved.load(plugin.getServerDataFile().getdFile());
+			return saved.getLong("VotingPlugin.DiscordSRV.TopVoterMessageId." + top.toString(), 0) == messageId;
+		} catch (java.io.IOException | org.bukkit.configuration.InvalidConfigurationException | RuntimeException failure) {
+			return false;
+		}
+	}
+
+	/**
 	 * Removes the sign.
 	 *
 	 * @param sign the sign

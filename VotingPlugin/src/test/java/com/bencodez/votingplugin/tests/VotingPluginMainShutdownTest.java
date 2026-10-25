@@ -120,6 +120,41 @@ class VotingPluginMainShutdownTest {
     }
 
     @Test
+    void failedDiscordCloseDoesNotSkipDisplayRetirementAndRetriesOnlyTheFailedStep() throws Exception {
+        var plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
+        setField(plugin, "unloadInProgress", new java.util.concurrent.atomic.AtomicBoolean());
+        setField(plugin, "placeholderPlayerPresence", new PlaceholderPlayerPresence());
+        initializeEarlyLifecycle(plugin);
+        var generation = new java.util.concurrent.atomic.AtomicLong();
+        setField(plugin, "topVoterDisplayGeneration", generation);
+        var discord = mock(com.bencodez.votingplugin.discord.DiscordHandler.class);
+        setField(plugin, "discordHandler", discord);
+        doThrow(new IllegalStateException("synthetic Discord close failure")).doNothing().when(discord).close();
+        var pending = new java.util.concurrent.CompletableFuture<com.bencodez.advancedcore.api.user.presence.PlayerPresence>();
+        var filter = new com.bencodez.votingplugin.topvoter.TopVoterDisplayFilter(row -> pending);
+        setField(plugin, "topVoterDisplayFilter", filter);
+        var rankings = new java.util.LinkedHashMap<com.bencodez.votingplugin.topvoter.TopVoterPlayer, Integer>();
+        rankings.put(new com.bencodez.votingplugin.topvoter.TopVoterPlayer(java.util.UUID.randomUUID(), "Example", 1L), 10);
+        var display = filter.projectAsync(rankings, true).toCompletableFuture();
+        org.junit.jupiter.api.Assertions.assertFalse(display.isDone());
+        var signs = mock(Signs.class);
+        setField(plugin, "signs", signs);
+        try (var handlers = org.mockito.Mockito.mockStatic(org.bukkit.event.HandlerList.class)) {
+            assertDoesNotThrow(plugin::onUnLoad);
+            org.junit.jupiter.api.Assertions.assertTrue(display.isDone(), "A failed independent close must not strand pending display evidence");
+            org.junit.jupiter.api.Assertions.assertEquals(rankings, display.getNow(null));
+            verify(signs).storeSigns();
+            assertDoesNotThrow(plugin::onUnLoad);
+            verify(discord, org.mockito.Mockito.times(2)).close();
+            verify(discord).retireLeaderboardPublications();
+            verify(signs).storeSigns();
+            org.junit.jupiter.api.Assertions.assertEquals(1L, generation.get());
+            pending.complete(com.bencodez.advancedcore.api.user.presence.PlayerPresence.NEVER_JOINED);
+            org.junit.jupiter.api.Assertions.assertEquals(rankings, display.getNow(null));
+        }
+    }
+
+    @Test
     void publicUnloadCleansInitializedQueueAndSignResources() throws Exception {
         VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
         setField(plugin, "plugin", plugin);
@@ -395,6 +430,8 @@ class VotingPluginMainShutdownTest {
     }
 
     private static void initializeEarlyLifecycle(VotingPluginMain plugin) throws Exception {
+        // The real plugin initializes this display retirement counter before startup.
+        setField(plugin, "topVoterDisplayGeneration", new java.util.concurrent.atomic.AtomicLong());
         // Mockito bypasses the SDK constructor that creates this lock.
         setField(plugin, "lifecycleLock", new Object());
         var hosted = mock(java.util.concurrent.ExecutorService.class);
