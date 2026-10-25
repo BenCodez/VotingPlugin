@@ -6484,7 +6484,7 @@ public abstract class VotingPluginProxy {
 		if (retry == null && !recovery.isVotePartyApplied() && !recovery.isTotalsApplied()
 				&& recovery.isRealVote() && !recovery.isWasOnlineKnown()
 				&& (recovery.getUuid() == null || recovery.getUuid().isEmpty())
-				&& (recovery.getTotals() == null || recovery.getTotals().isEmpty())) return true;
+				&& isAdmissionOnlyRecoveryTotals(recovery.getTotals())) return true;
 		VoteTimeQueue state = retry == null ? recovery
 				: snapshotIncomingVoteForRestart(new PendingIncomingVote(recovery.getVoteId(), recovery.getName(),
 						recovery.getService(), recovery.getTime()));
@@ -6512,6 +6512,20 @@ public abstract class VotingPluginProxy {
 
 	enum QueuedVoteResult {
 		SUCCESS, RETRY, RETRY_NONBLOCKING, TERMINAL
+	}
+
+	private static boolean isAdmissionOnlyRecoveryTotals(String stored) {
+		if (stored == null || stored.isEmpty()) return true;
+		VoteTotalsSnapshot parsed = VoteTotalsSnapshot.parseStorage(stored);
+		if (!parsed.isLocalProxyOrigin()
+				|| !parsed.getLocalOriginProof().matches("[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]{86}")) return false;
+		VoteTotalsSnapshot admission = new VoteTotalsSnapshot();
+		admission.setLocalProxyOrigin(true);
+		admission.setLocalOriginProof(parsed.getLocalOriginProof());
+		// Match only the exact zero snapshot emitted before any effects. The storage
+		// parser is deliberately lenient, so parsed zeros alone are not sufficient.
+		// This preserves an existing owner; it does not authenticate incoming data.
+		return stored.equals(admission.toStorageString());
 	}
 
 	protected QueuedVoteResult replayQueuedVote(VoteTimeQueue vote, VoteTotalsSnapshot totals, boolean realVote) {

@@ -373,6 +373,160 @@ class ProxyOriginProducerTest {
         verifyNoInteractions(sql);
     }
 
+    @Test void admissionOnlyEmergencyJournalCannotEraseRecordedProgress() throws Exception {
+        var cache = durableCache(); set("voteCacheHandler", cache);
+        for (boolean signed : List.of(false, true)) {
+            for (boolean rescue : List.of(false, true)) {
+                var id = java.util.UUID.randomUUID();
+                var pending = new com.bencodez.votingplugin.proxy.PendingIncomingVote(
+                        id, "Synthetic", "fixture-site", 1234L);
+                var admission = proxy.snapshotIncomingVoteForRestart(pending);
+                assertFalse(admission.getTotals().isEmpty(), "exercise the installed real signer");
+                if (!signed) admission.setTotals("");
+                var row = new com.bencodez.votingplugin.timequeue.VoteTimeQueue(
+                        id, "Synthetic", "fixture-site", 1234L);
+                String player = java.util.UUID.randomUUID().toString();
+                String totals = new VoteTotalsSnapshot(9, 8, 7, 6, 5, 4, 3, 2).toStorageString();
+                row.setUuid(player); row.setWasOnline(false); row.setDelayValidated(true);
+                row.setVotePartyApplied(true); row.setTotalsApplied(true); row.setTotals(totals);
+                row.setProxyBroadcastHandled(true); row.getBroadcastTargets().add("backend-test");
+                row.getBroadcastForwardedServers().add("backend-test");
+                row.setHttpBroadcastDeliveryId("legacy", id.toString());
+                row.setMultiProxyForwardingHandled(true);
+                assertTrue(cache.addTimeVoteToCache(row));
+                var journalDirectory = directory.resolve("emergency-" + id);
+                var journal = rescue
+                        ? com.bencodez.votingplugin.proxy.PendingIncomingVoteJournal.rescue(journalDirectory)
+                        : new com.bencodez.votingplugin.proxy.PendingIncomingVoteJournal(journalDirectory);
+                journal.merge(List.of(admission));
+                var loaded = journal.load().get(0);
+                assertEquals(admission.getTotals(), loaded.getTotals());
+                // Preserving recorded progress must not depend on still having the old signer.
+                if (signed && rescue) set("proxyOriginSigners", Map.of());
+                // Both platform import loops use this overload after journal deserialization.
+                assertTrue(proxy.retainIncomingVoteForRestart(loaded));
+                assertAll("journal import preserves committed progress",
+                        () -> assertEquals(player, row.getUuid()),
+                        () -> assertEquals(totals, row.getTotals()),
+                        () -> assertTrue(row.isVotePartyApplied()),
+                        () -> assertTrue(row.isTotalsApplied()));
+                // The direct shutdown overload must preserve the same owner too.
+                assertTrue(proxy.retainIncomingVoteForRestart(pending));
+                var restarted = durableCache(); restarted.load();
+                var recovered = restarted.getTimeChangeQueue().stream()
+                        .filter(vote -> id.equals(vote.getVoteId())).findFirst().orElseThrow();
+                assertAll("admission is not an effects checkpoint",
+                        () -> assertEquals(player, recovered.getUuid()),
+                        () -> assertEquals(totals, recovered.getTotals()),
+                        () -> assertTrue(recovered.isVotePartyApplied()),
+                        () -> assertTrue(recovered.isTotalsApplied()),
+                        () -> assertTrue(recovered.isWasOnlineKnown()),
+                        () -> assertFalse(recovered.isWasOnline()),
+                        () -> assertTrue(recovered.isDelayValidated()),
+                        () -> assertTrue(recovered.isProxyBroadcastHandled()),
+                        () -> assertTrue(recovered.getBroadcastTargets().contains("backend-test")),
+                        () -> assertTrue(recovered.getBroadcastForwardedServers().contains("backend-test")),
+                        () -> assertEquals(id.toString(), recovered.getHttpBroadcastDeliveryId("legacy")),
+                        () -> assertTrue(recovered.isMultiProxyForwardingHandled()));
+            }
+        }
+    }
+
+    @Test void admissionOnlySnapshotStillCreatesAnAuthenticatedNewQueueOwner() throws Exception {
+        var cache = durableCache(); set("voteCacheHandler", cache);
+        var pending = new com.bencodez.votingplugin.proxy.PendingIncomingVote(
+                java.util.UUID.randomUUID(), "Synthetic", "fixture-site", 1234L);
+        var journal = new com.bencodez.votingplugin.proxy.PendingIncomingVoteJournal(directory.resolve("new-owner"));
+        journal.merge(List.of(proxy.snapshotIncomingVoteForRestart(pending)));
+        assertTrue(proxy.retainIncomingVoteForRestart(journal.load().get(0)));
+        var restarted = durableCache(); restarted.load();
+        var recovered = restarted.getTimeChangeQueue().peek();
+        assertEquals(pending.getVoteId(), recovered.getVoteId());
+        assertFalse(recovered.isVotePartyApplied()); assertFalse(recovered.isTotalsApplied());
+        assertEquals(true, ReflectiveAccess.call(VotingPluginProxy.class.getName(), proxy,
+                "hasLocalOriginProof", new String[] {"VoteTimeQueue"}, new Object[] {recovered}));
+    }
+
+    @Test void actualRecordedRecoveryIsNotMistakenForAdmissionOnlyTotals() throws Exception {
+        var cache = durableCache(); set("voteCacheHandler", cache);
+        for (int kind = 0; kind < 13; kind++) {
+            var pending = new com.bencodez.votingplugin.proxy.PendingIncomingVote(
+                    java.util.UUID.randomUUID(), "Synthetic", "fixture-site", 1234L);
+            var incoming = proxy.snapshotIncomingVoteForRestart(pending);
+            var recorded = new com.bencodez.votingplugin.timequeue.VoteTimeQueue(
+                    pending.getVoteId(), "Synthetic", "fixture-site", 1234L);
+            recorded.setTotals("previous totals");
+            assertTrue(cache.addTimeVoteToCache(recorded));
+            if (kind < 8) {
+                String[] fields = incoming.getTotals().split("//", -1);
+                fields[kind + 1] = "1"; incoming.setTotals(String.join("//", fields));
+            } else if (kind == 8) incoming.setUuid(java.util.UUID.randomUUID().toString());
+            else if (kind == 9) incoming.setWasOnline(false);
+            else if (kind == 10) incoming.setVotePartyApplied(true);
+            else if (kind == 11) incoming.setTotalsApplied(true);
+            else incoming.setRealVote(false);
+            assertTrue(proxy.retainIncomingVoteForRestart(incoming));
+            var restarted = durableCache(); restarted.load();
+            var recovered = restarted.getTimeChangeQueue().stream()
+                    .filter(vote -> pending.getVoteId().equals(vote.getVoteId())).findFirst().orElseThrow();
+            assertEquals(incoming.getTotals(), recovered.getTotals(), "recorded state " + kind);
+            assertEquals(incoming.getUuid(), recovered.getUuid());
+            assertEquals(incoming.isVotePartyApplied(), recovered.isVotePartyApplied());
+            assertEquals(incoming.isTotalsApplied(), recovered.isTotalsApplied());
+            assertEquals(incoming.isWasOnlineKnown(), recovered.isWasOnlineKnown());
+            assertEquals(incoming.isRealVote(), recovered.isRealVote());
+        }
+    }
+
+    @Test void malformedAndUnsignedZeroTotalsKeepTheirExistingRecoveryMeaning() throws Exception {
+        var cache = durableCache(); set("voteCacheHandler", cache);
+        for (int kind = 0; kind < 10; kind++) {
+            var pending = new com.bencodez.votingplugin.proxy.PendingIncomingVote(
+                    java.util.UUID.randomUUID(), "Synthetic", "fixture-site", 1234L);
+            var incoming = proxy.snapshotIncomingVoteForRestart(pending);
+            String[] fields = incoming.getTotals().split("//", -1);
+            if (kind == 0) fields[1] = "bad";
+            else if (kind == 1) fields[1] = "00";
+            else if (kind == 2) fields[1] = "+0";
+            else if (kind == 3) fields[0] = "v99";
+            else if (kind == 4) fields[9] = "local-proxy-origin-v1";
+            incoming.setTotals(kind == 5 ? new VoteTotalsSnapshot().toStorageString() : String.join("//", fields));
+            if (kind == 6) incoming.setTotals(incoming.getTotals() + "\n");
+            if (kind == 7) incoming.setTotals(incoming.getTotals() + "//adjacent");
+            if (kind == 8) incoming.setTotals(incoming.getTotals().substring(0, incoming.getTotals().length() - 1));
+            if (kind == 9) incoming.setTotals(incoming.getTotals().replace("local-proxy-origin-v1:", "local-proxy-origin-v1:."));
+            var recorded = new com.bencodez.votingplugin.timequeue.VoteTimeQueue(
+                    pending.getVoteId(), "Synthetic", "fixture-site", 1234L);
+            recorded.setTotals("previous totals"); assertTrue(cache.addTimeVoteToCache(recorded));
+            assertTrue(proxy.retainIncomingVoteForRestart(incoming));
+            assertEquals(incoming.getTotals(), recorded.getTotals(), "not a canonical signed admission " + kind);
+        }
+    }
+
+    @Test void activeRetryWinsOverAdmissionOnlyJournalForExistingQueue() throws Exception {
+        proxy = spy(proxy);
+        var cache = durableCache(); set("voteCacheHandler", cache); set("enabled", true);
+        proxy.setMethod(BungeeMethod.MYSQL); proxy.setPlayerOnline(false);
+        when(proxy.getConfig().getOnlineMode()).thenReturn(true);
+        when(proxy.getConfig().getBlockedServers()).thenReturn(List.of());
+        doThrow(new IllegalStateException("synthetic party failure")).when(proxy).addVoteParty();
+        var id = java.util.UUID.randomUUID(); var uuid = java.util.UUID.randomUUID().toString();
+        assertThrows(RuntimeException.class,
+                () -> proxy.vote("Synthetic", "fixture-site", true, false, 1234L, null, uuid, id));
+        var admission = new com.bencodez.votingplugin.timequeue.VoteTimeQueue(
+                id, "Synthetic", "fixture-site", 1234L);
+        assertTrue(cache.addTimeVoteToCache(admission));
+        var journal = new com.bencodez.votingplugin.proxy.PendingIncomingVoteJournal(directory.resolve("live-retry"));
+        journal.merge(List.of(new com.bencodez.votingplugin.timequeue.VoteTimeQueue(
+                id, "Synthetic", "fixture-site", 1234L)));
+        assertTrue(proxy.retainIncomingVoteForRestart(journal.load().get(0)));
+        var restarted = durableCache(); restarted.load();
+        var recovered = restarted.getTimeChangeQueue().peek();
+        assertEquals(uuid, recovered.getUuid()); assertTrue(recovered.isWasOnlineKnown());
+        assertEquals(true, ReflectiveAccess.call(VotingPluginProxy.class.getName(), proxy,
+                "hasLocalOriginProof", new String[] {"VoteTimeQueue"}, new Object[] {recovered}));
+    }
+
     @Test void emergencySnapshotRestampsFinalFieldsWhenPartyFailureLeavesNoTotals() throws Exception {
         proxy = spy(proxy);
         set("voteCacheHandler", durableCache()); set("enabled", true);
