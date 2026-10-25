@@ -1505,7 +1505,7 @@ public class PlaceHolders {
 	/**
 	 * Update placeholders for specific user.
 	 * @param user the voting plugin user
-	 * @param login whether this is a login update
+	 * @param login whether to include uncached entries, such as a login or worker warmup
 	 */
 	public void onUpdate(VotingPluginUser user, boolean login) {
 		if (user == null) return;
@@ -1590,7 +1590,9 @@ public class PlaceHolders {
 			@Override
 			public void run() {
 				checkNonCachedPlaceholders();
-				onUpdate(user, plugin.getPlaceholderPlayerPresence().isOnline(user.getJavaUUID()));
+				// Admit cold offline entries only from this worker callback.
+				onUpdate(user, !getCacheLevel().onlineOnly()
+						|| plugin.getPlaceholderPlayerPresence().isOnline(user.getJavaUUID()));
 			}
 		});
 	}
