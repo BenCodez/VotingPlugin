@@ -14,12 +14,13 @@ import com.bencodez.simpleapi.folialib.impl.ServerImplementation;
 import com.bencodez.simpleapi.folialib.wrapper.task.WrappedTask;
 
 class TimeQueueSchedulerContractTest {
-    @Test void installedSimpleApiForwardsAsyncDelayAsSecondsToThePlatformImplementation() {
+    @Test void installedSimpleApiForwardsAsyncDelayAsSecondsToThePlatformImplementation() throws Exception {
         BukkitScheduler scheduler = mock(BukkitScheduler.class, CALLS_REAL_METHODS);
         FoliaLib bridge = mock(FoliaLib.class);
-        ServerImplementation platform = mock(ServerImplementation.class);
+        ServerImplementation platform = (ServerImplementation) mock(
+                FoliaLib.class.getMethod("getImpl").getReturnType());
         doReturn(bridge).when(scheduler).getFoliaLib();
-        when(bridge.getImpl()).thenReturn(platform);
+        when(bridge.getImpl()).thenAnswer(ignored -> platform);
         AtomicBoolean ran = new AtomicBoolean();
         scheduler.runTaskLaterAsynchronously(mock(org.bukkit.plugin.Plugin.class), () -> ran.set(true), 7L);
         @SuppressWarnings("unchecked")

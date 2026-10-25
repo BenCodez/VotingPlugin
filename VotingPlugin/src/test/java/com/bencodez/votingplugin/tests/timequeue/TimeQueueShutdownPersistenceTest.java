@@ -168,6 +168,7 @@ class TimeQueueShutdownPersistenceTest {
     @Test void actualTimedCacheWriteReportsIoFailureAndSucceedsAfterRepair() throws Exception {
         VotingPluginMain plugin = mock(VotingPluginMain.class);
         var file = mock(com.bencodez.advancedcore.data.ServerData.class);
+        when(file.publicationMonitor()).thenCallRealMethod();
         when(plugin.getServerDataFile()).thenReturn(file);
         YamlConfiguration yaml = new YamlConfiguration();
         when(file.getData()).thenReturn(yaml);

@@ -26,6 +26,8 @@ mvn -B -f VotingPlugin/pom.xml -Dtest=BackendControlConnectorProtocolTest,Contro
 CI runs `mvn -B -f VotingPlugin/pom.xml package`; see `.github/workflows/maven.yml`. Do not use the `dev` Maven profile in
 automation because it copies a JAR into a developer-specific server directory.
 
+All project tests and test-only helpers belong under `VotingPlugin/src/test/java/com/bencodez/votingplugin/tests/`, with package `com.bencodez.votingplugin.tests` or a meaningful subpackage. Keep paths and package declarations aligned, and update cross-test imports, resources, and build selectors when moving tests. Preserve package-phase artifact checks and test discovery. Do not widen production APIs to make tests accessible; use narrowly scoped test-only reflection for non-public seams. Platform API fixtures that must retain an external runtime class identity (such as `net.minecraft.network.chat.Component`) stay in that platform package and must not contain test cases.
+
 Assign one owner to Maven validation in each worktree. Never run concurrent Maven commands in the same worktree, including focused tests alongside a clean/package build: compilation and cleanup share `target/` and can invalidate each other. Reviewers must inspect source only while that owner builds, or run validation in a separate worktree.
 
 Keep the downloadable VotingPlugin JAR as small as practical. The 10 MiB size target is advisory:
@@ -58,6 +60,10 @@ For compatibility-sensitive changes, add regression coverage that exercises the 
 - `com.bencodez.votingplugin.core` and its subpackages are platform-independent. Classes there must not import Bukkit, Paper, Fabric, Forge, or NeoForge APIs. Keep loader-specific adapters outside this package and enforce the boundary with `CorePlatformIsolationTest`.
 - `proxy/VotingPluginProxy` and the Bungee/Velocity platform packages own proxy lifecycle and vote routing.
 - `listeners/` receives Bukkit-side vote/player events; `proxy/cache/` owns proxy pending-vote queues.
+- `commands/CommandLoader` captures `VoteCommandEnabled`, `VoteCommandName` and `LoadCommandAliases` at startup.
+  Configuration reload must not change the registered player root or generated help/navigation. Preserve exact command
+  ownership, admin roots/aliases and canonical `VotingPlugin.Commands.Vote.*` permissions when disabling or renaming;
+  standalone player aliases retain their `vote...`/`v...` identities. See `docs/player-command-root.md`.
 - `votesites/` resolves configured service names. Be alert to the distinction between read-only resolution and paths that
   may auto-create a site.
 - `user/` owns player totals, points, streaks, last-vote values, and backend offline rewards.

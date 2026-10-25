@@ -360,6 +360,7 @@ class TimeQueueRecoveryCheckpointTest {
                     : new YamlConfiguration());
             yaml.set("Adjacent.Value", "keep");
             var file = mock(com.bencodez.advancedcore.data.ServerData.class);
+            when(file.publicationMonitor()).thenCallRealMethod();
             when(file.getData()).thenReturn(yaml);
             when(file.getdFile()).thenReturn(path.toFile());
             when(plugin.getServerDataFile()).thenReturn(file);

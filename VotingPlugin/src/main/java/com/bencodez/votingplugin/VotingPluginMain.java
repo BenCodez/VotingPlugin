@@ -71,11 +71,9 @@ import com.bencodez.votingplugin.broadcast.BroadcastSettings;
 import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.bencodez.votingplugin.commands.CommandLoader;
 import com.bencodez.votingplugin.commands.executers.CommandAdminVote;
-import com.bencodez.votingplugin.commands.executers.CommandVote;
 import com.bencodez.votingplugin.commands.gui.AdminGUI;
 import com.bencodez.votingplugin.commands.tabcompleter.AdminVoteTabCompleter;
 import com.bencodez.votingplugin.commands.tabcompleter.AliasCommandFilterListener;
-import com.bencodez.votingplugin.commands.tabcompleter.VoteTabCompleter;
 import com.bencodez.votingplugin.config.BungeeSettings;
 import com.bencodez.votingplugin.config.Config;
 import com.bencodez.votingplugin.config.ConfigVoteSites;
@@ -87,6 +85,9 @@ import com.bencodez.votingplugin.cooldown.CoolDownCheck;
 import com.bencodez.votingplugin.control.BackendControlAutoEnrollment;
 import com.bencodez.votingplugin.control.BackendControlConnector;
 import com.bencodez.votingplugin.data.ServerData;
+import com.bencodez.votingplugin.maintenance.AutoCreateVoteSitesReminderService;
+import com.bencodez.votingplugin.maintenance.AutoCreateVoteSitesReminderService.Settings;
+import com.bencodez.votingplugin.core.maintenance.AutoCreateVoteSitesReminderState;
 import com.bencodez.votingplugin.discord.DiscordHandler;
 import com.bencodez.votingplugin.listeners.BlockBreak;
 import com.bencodez.votingplugin.integration.votifier.VotifierIntegration;
@@ -175,6 +176,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private BroadcastHandler broadcastHandler;
 
 	@Getter
+	private com.bencodez.votingplugin.streaks.VoteStreaksMenu voteStreaksMenu;
+
+	@Getter
 	private BackendProxyHandler backendProxyHandler;
 	private ProcessedVoteCache backendProcessedVoteCache;
 	private BackendOrderedVoteOverflowQueue backendOrderedVoteOverflowQueue;
@@ -212,6 +216,21 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Getter
 	private CommandLoader commandLoader;
+
+	/** Runtime command identity is captured at startup; configuration reload does not rename it. */
+	public String getVoteCommandPrefix() {
+		return "/" + (commandLoader == null ? "vote" : commandLoader.getVoteCommandName());
+	}
+
+	public boolean isVoteCommandEnabled() {
+		return commandLoader == null || commandLoader.isVoteCommandEnabled();
+	}
+
+	/** Retarget the built-in invalid-command help hint, including existing Config.yml text. */
+	public String formatVoteCommandMessage(String message) {
+		return message.replace("%votecommand%", getVoteCommandPrefix())
+				.replaceAll("(?i)/vote(?=\\s|$|[!.,])", getVoteCommandPrefix());
+	}
 
 	@Getter
 	private NameMCLikeCheckerTask nameMCLikeCheckerTask;
@@ -296,6 +315,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Getter
 	private ScheduledExecutorService voteTimer;
+	private volatile AutoCreateVoteSitesReminderService autoCreateVoteSitesSetupReminder;
+	private ScheduledExecutorService autoCreateVoteSitesReminderWorker;
 
 	@Getter
 	private UserManager votingPluginUserManager;
@@ -696,6 +717,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Override
 	public void onPostLoad() {
+		serverData.refreshVotePartyDisplay();
 		ensureCommunicationSecret();
 		// auto conversion for Shop.yml
 		if (plugin.getShopFile().isJustCreated()) {
@@ -724,6 +746,16 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		voteTester = new VoteTester(plugin);
 
 		loadVoteTimer();
+		BoundedScheduledExecutor setupReminderWorker = new BoundedScheduledExecutor(1, 4);
+		setupReminderWorker.setThreadFactory(runnable -> {
+			Thread worker = new Thread(runnable, "VotingPlugin-SiteSetupReminder");
+			worker.setDaemon(true);
+			return worker;
+		});
+		autoCreateVoteSitesReminderWorker = setupReminderWorker;
+		autoCreateVoteSitesSetupReminder = new AutoCreateVoteSitesReminderService(getDataFolder().toPath(),
+				setupReminderWorker, getLogger(), autoCreateVoteSitesReminderSettings());
+		autoCreateVoteSitesSetupReminder.start();
 		getVotingPluginUserManager().startSharedPointTransferRecovery();
 
 		if (bungeeSettings.isUseBungeecoord()) {
@@ -1907,16 +1939,27 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	private volatile com.bencodez.votingplugin.data.GenerationFencedServerDataFile fencedServerDataFile;
 
+	private java.util.concurrent.CompletableFuture<Void> serverDataFinalPublication;
+	private boolean serverDataFinalPublicationReserved;
+	private boolean serverDataFinalStageAttached;
+	private volatile boolean serverDataEnableCleanupStarted;
+	private volatile boolean serverDataEnableAdmissionRejected;
+
 	@Override
 	public com.bencodez.advancedcore.data.ServerData getServerDataFile() {
 		var file = super.getServerDataFile();
 		var current = fencedServerDataFile;
-		if (current != null && current.wraps(file)) return current;
+		if (current != null && current.wraps(file)) {
+			// The SDK replaces its file after pre-load. A failed new generation has
+			// no file to finalize; never expose the predecessor as its current owner.
+			return current.belongsTo(serverDataPublicationFence) ? current : null;
+		}
 		synchronized (this) {
 			file = super.getServerDataFile();
 			var owner = serverDataPublicationFence;
 			if (file == null || owner == null) return file;
 			current = fencedServerDataFile;
+			if (current != null && current.wraps(file) && !current.belongsTo(owner)) return null;
 			if (current == null || !current.wraps(file)) {
 				current = new com.bencodez.votingplugin.data.GenerationFencedServerDataFile(this, file, owner);
 				fencedServerDataFile = current;
@@ -1940,9 +1983,29 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			if (serverDataPublicationFence != null) getServerDataFile();
 			serverDataPublicationFence = com.bencodez.votingplugin.util.ServerDataPublicationFence.beginGeneration(
 					getDataFolder().toPath().resolve("ServerData.yml"));
+			serverDataFinalPublication = new java.util.concurrent.CompletableFuture<>();
+			serverDataFinalPublicationReserved = false;
+			serverDataFinalStageAttached = false;
+			serverDataEnableCleanupStarted = false;
+			serverDataEnableAdmissionRejected = false;
 		}
 		// Failed startup can already own SDK writers; disable must retire them before replacement.
-		super.onEnable();
+		try { super.onEnable(); }
+		catch (RuntimeException | Error failure) {
+			// SDK admission can fail before its startup-cleanup try/catch. Such an
+			// attempt admitted no new writers and must not strand an empty plugin owner.
+			// An admitted startup failure already entered our onDisable; preserve its drain.
+			if (!serverDataEnableCleanupStarted) {
+				serverDataEnableAdmissionRejected = true;
+				try {
+					serverDataPublicationFence.retire();
+					serverDataFinalPublication.complete(null);
+				} catch (RuntimeException | Error cleanupFailure) {
+					if (cleanupFailure != failure) failure.addSuppressed(cleanupFailure);
+				}
+			}
+			throw failure;
+		}
 	}
 
 	@Override
@@ -1991,8 +2054,13 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Override
 	public void onDisable() {
+		// The rejected enable owns no SDK shutdown stage to complete a new reservation.
+		if (serverDataEnableAdmissionRejected) return;
+		serverDataEnableCleanupStarted = true;
+		runShutdownStep("setup reminder", this::stopAutoCreateVoteSitesSetupReminder);
 		runShutdownStep("server-data writer retirement", () -> {
 			if (serverDataPublicationFence != null) {
+				retainServerDataFinalPublication();
 				var coreWriters = getServerDataWriterExecutors();
 				var writers = java.util.Arrays.copyOf(coreWriters, coreWriters.length + 1);
 				writers[coreWriters.length] = voteTimer;
@@ -2014,6 +2082,54 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 	}
 
+	/** Reserve before SDK shutdown can enqueue a final file publication. No YAML lock or wait. */
+	private void retainServerDataFinalPublication() {
+		synchronized (this) {
+			if (serverDataFinalPublicationReserved) return;
+			if (serverDataFinalPublication == null)
+				serverDataFinalPublication = new java.util.concurrent.CompletableFuture<>();
+			serverDataPublicationFence.retainUntilSuccessfulPublication(serverDataFinalPublication);
+			serverDataFinalPublicationReserved = true;
+		}
+	}
+
+	@Override
+	public void onShutdownComplete(java.util.concurrent.CompletionStage<Void> finalFilesStage) {
+		java.util.concurrent.CompletableFuture<Void> publication;
+		synchronized (this) {
+			publication = serverDataFinalStageAttached ? null : serverDataFinalPublication;
+			serverDataFinalStageAttached = true;
+		}
+		try {
+			if (publication != null) {
+				try {
+					java.util.Objects.requireNonNull(finalFilesStage).whenComplete((ignored, failure) -> {
+						if (failure == null) publication.complete(null);
+						else publication.completeExceptionally(failure);
+					});
+				} catch (Throwable failure) { publication.completeExceptionally(failure); }
+			}
+		} finally { super.onShutdownComplete(finalFilesStage); }
+	}
+
+	private Settings autoCreateVoteSitesReminderSettings() {
+		return new Settings(true, configFile.isAutoCreateVoteSites(),
+				AutoCreateVoteSitesReminderState.DEFAULT_THRESHOLD_MILLIS,
+				AutoCreateVoteSitesReminderState.DEFAULT_REPEAT_MILLIS);
+	}
+
+	private void stopAutoCreateVoteSitesSetupReminder() {
+		AutoCreateVoteSitesReminderService current = autoCreateVoteSitesSetupReminder;
+		autoCreateVoteSitesSetupReminder = null;
+		ScheduledExecutorService worker = autoCreateVoteSitesReminderWorker;
+		autoCreateVoteSitesReminderWorker = null;
+		try {
+			if (current != null) current.closeAsync();
+		} finally {
+			if (worker != null) worker.shutdown();
+		}
+	}
+
 	private void shutdownVoteReminders() {
 		if (voteRemindersManager != null) {
 			voteRemindersManager.shutdown();
@@ -2031,6 +2147,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 		try {
 			if (completedUnloadSteps == null) completedUnloadSteps = new java.util.HashSet<>();
+			runUnloadStep("streak menu", () -> {
+				if (voteStreaksMenu != null) voteStreaksMenu.close();
+			});
+			runUnloadStep("setup reminder", this::stopAutoCreateVoteSitesSetupReminder);
 			runUnloadStep("player presence", placeholderPlayerPresence::clear);
 			runUnloadStep("backend hosted Control", this::stopBackendHostedControlLifecycle);
 			runUnloadStep("backend Control connector", this::stopBackendControlConnectorLifecycle);
@@ -2115,12 +2235,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		commandLoader.loadCommands();
 		commandLoader.loadAliases();
 
-		// /vote, /v
-		getCommand("vote").setExecutor(new CommandVote(this));
-		getCommand("vote").setTabCompleter(new VoteTabCompleter());
-		// getCommand("v").setExecutor(new CommandVote(this));
-		// getCommand("v").setTabCompleter(new VoteTabCompleter());
-
 		// /adminvote, /av
 		getCommand("adminvote").setExecutor(new CommandAdminVote(this));
 		getCommand("adminvote").setTabCompleter(new AdminVoteTabCompleter());
@@ -2147,6 +2261,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	 * Register events.
 	 */
 	private void registerEvents() {
+		voteStreaksMenu = new com.bencodez.votingplugin.streaks.VoteStreaksMenu(this);
+		getServer().getPluginManager().registerEvents(voteStreaksMenu, this);
 		PluginManager pm = getServer().getPluginManager();
 
 		pm.registerEvents(new PlayerJoinEvent(this), this);
@@ -2202,15 +2318,19 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	/** Captures Bukkit presence while the lifecycle caller owns platform access. */
 	public void refreshPlaceholderPlayerPresence() {
 		boolean onlineMode = getOptions().isOnlineMode();
-		placeholderPlayerPresence.replace(Bukkit::getOnlinePlayers,
-				player -> placeholderStorageUuid(player, onlineMode));
+		placeholderPlayerPresence.refresh(Bukkit::getOnlinePlayers, (player, capture) ->
+				com.bencodez.votingplugin.util.BukkitCompletionScheduler.run(this, player, () -> {
+					if (!player.isOnline()) return;
+					UUID storageUuid = placeholderPlayerPresence.storageUuid(player);
+					capture.accept(storageUuid == null ? placeholderStorageUuid(player, onlineMode) : storageUuid);
+				}, () -> { }, () -> { }));
 	}
 
 	static UUID placeholderStorageUuid(Player player, boolean onlineMode) {
 		if (onlineMode) return player.getUniqueId();
-		String cachedUuid = UuidLookup.getInstance().getCachedUUID(player.getName());
+		String resolvedUuid = UuidLookup.getInstance().getUUIDWithoutStorage(player.getName());
 		try {
-			return UUID.fromString(cachedUuid);
+			return UUID.fromString(resolvedUuid);
 		} catch (IllegalArgumentException | NullPointerException ignored) {
 			return player.getUniqueId();
 		}
@@ -2227,8 +2347,11 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			boolean updateActiveBackendRuntime) {
 		if (offlineVoteOwnerHandoffs != null) offlineVoteOwnerHandoffs.pause();
 		try {
+		if (voteStreaksMenu != null) voteStreaksMenu.suspend();
 		configFile.reloadData();
 		configFile.loadValues();
+		AutoCreateVoteSitesReminderService setupReminder = autoCreateVoteSitesSetupReminder;
+		if (setupReminder != null) setupReminder.reload(autoCreateVoteSitesReminderSettings());
 
 		configVoteSites.reloadData();
 
@@ -2278,6 +2401,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		setUpdate(true);
 		} finally {
+			if (voteStreaksMenu != null) voteStreaksMenu.resume();
 			if (offlineVoteOwnerHandoffs != null) offlineVoteOwnerHandoffs.resume();
 		}
 	}

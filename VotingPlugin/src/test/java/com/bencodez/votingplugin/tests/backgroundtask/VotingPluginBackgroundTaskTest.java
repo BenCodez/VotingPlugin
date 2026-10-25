@@ -1,6 +1,8 @@
 package com.bencodez.votingplugin.tests.backgroundtask;
 
-import com.bencodez.votingplugin.util.EntityTaskResultTestCompat;
+import com.bencodez.votingplugin.tests.support.ReflectiveAccess;
+
+import com.bencodez.votingplugin.tests.util.EntityTaskResultTestCompat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -28,7 +30,7 @@ public class VotingPluginBackgroundTaskTest {
 
 	@Test
 	public void requestedStateCanBeDelegated() {
-		VotingPluginBackgroundTask task = new VotingPluginBackgroundTask(mock(VotingPluginMain.class));
+		VotingPluginBackgroundTask task = VotingPluginBackgroundTaskAccess.create(mock(VotingPluginMain.class));
 		assertFalse(task.isRequested());
 		task.setRequested(true);
 		assertTrue(task.isRequested());
@@ -46,7 +48,7 @@ public class VotingPluginBackgroundTaskTest {
 				new java.util.concurrent.atomic.AtomicReference<>();
 		org.mockito.Mockito.doAnswer(call -> { callback.set(call.getArgument(0)); return null; })
 				.when(plugin).captureOnlineTopVoterIgnore(any(), any());
-		VotingPluginBackgroundTask task = new VotingPluginBackgroundTask(plugin);
+		VotingPluginBackgroundTask task = VotingPluginBackgroundTaskAccess.create(plugin);
 		task.setRequested(true);
 
 		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
@@ -74,7 +76,7 @@ public class VotingPluginBackgroundTaskTest {
 				.when(plugin).captureOnlineTopVoterIgnore(any(), any());
 		java.util.concurrent.ScheduledExecutorService storage = mock(java.util.concurrent.ScheduledExecutorService.class);
 		when(plugin.getUserManager().getDataManager().getTimer()).thenReturn(storage);
-		VotingPluginBackgroundTask task = new VotingPluginBackgroundTask(plugin);
+		VotingPluginBackgroundTask task = VotingPluginBackgroundTaskAccess.create(plugin);
 		task.setRequested(true);
 
 		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
@@ -93,8 +95,8 @@ public class VotingPluginBackgroundTaskTest {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
 		BukkitScheduler scheduler = mock(BukkitScheduler.class);
 		com.bencodez.simpleapi.folialib.FoliaLib folia = mock(com.bencodez.simpleapi.folialib.FoliaLib.class);
-		com.bencodez.simpleapi.folialib.impl.ServerImplementation implementation =
-				mock(com.bencodez.simpleapi.folialib.impl.ServerImplementation.class);
+		com.bencodez.simpleapi.folialib.impl.PlatformScheduler implementation =
+				mock(com.bencodez.simpleapi.folialib.impl.PlatformScheduler.class);
 		org.bukkit.entity.Player player = mock(org.bukkit.entity.Player.class);
 		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
 		when(scheduler.getFoliaLib()).thenReturn(folia);
@@ -124,7 +126,7 @@ public class VotingPluginBackgroundTaskTest {
 		java.lang.reflect.Constructor<VotingPluginBackgroundTask> constructor =
 				VotingPluginBackgroundTask.class.getDeclaredConstructor(VotingPluginMain.class, long.class);
 		constructor.setAccessible(true);
-		VotingPluginBackgroundTask task = constructor.newInstance(plugin, 10L);
+		VotingPluginBackgroundTask task = ReflectiveAccess.newInstance(constructor, new Object[]{plugin, 10L});
 		task.setRequested(true);
 
 		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
@@ -147,7 +149,7 @@ public class VotingPluginBackgroundTaskTest {
 		when(plugin.getConfigFile()).thenReturn(config);
 		doAnswer(call -> { call.getArgument(1, Runnable.class).run(); return null; })
 				.when(plugin).captureOnlineTopVoterIgnore(any(), any());
-		VotingPluginBackgroundTask task = new VotingPluginBackgroundTask(plugin);
+		VotingPluginBackgroundTask task = VotingPluginBackgroundTaskAccess.create(plugin);
 		task.setRequested(true);
 
 		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
@@ -174,7 +176,7 @@ public class VotingPluginBackgroundTaskTest {
 		java.lang.reflect.Constructor<VotingPluginBackgroundTask> constructor =
 				VotingPluginBackgroundTask.class.getDeclaredConstructor(VotingPluginMain.class, long.class);
 		constructor.setAccessible(true);
-		VotingPluginBackgroundTask task = constructor.newInstance(plugin, 10L);
+		VotingPluginBackgroundTask task = ReflectiveAccess.newInstance(constructor, new Object[]{plugin, 10L});
 		task.setRequested(true);
 
 		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {

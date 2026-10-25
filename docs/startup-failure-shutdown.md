@@ -10,9 +10,15 @@ the interrupt flag when shutdown is interrupted. Concurrent unload callbacks do 
 ## Building the complete SQL failure fix
 
 The MySQL authentication-failure regression exercises the corrected SimpleAPI and AdvancedCore constructors.
-SimpleAPI PR #111 and AdvancedCore PR #361 are merged, and the corrected dependencies are published. The POM pins
-SimpleAPI `1.0.2-20261011.161601-40`; normal Maven resolution supplies AdvancedCore. CI no longer builds an older
-AdvancedCore source checkout before testing VotingPlugin.
+SimpleAPI PR #111 and AdvancedCore PR #361 supply the merged constructor corrections. The generation-fenced final
+publication integration additionally requires the AdvancedCore publication and shutdown APIs from PR #360.
+An AdvancedCore snapshot without those APIs cannot compile this candidate. The POM retains the normal
+AdvancedCore and SimpleAPI snapshot coordinates; it does not pin the earlier SimpleAPI snapshot 40.
+
+Validate the exact candidate AdvancedCore artifact and its SimpleAPI scheduler inputs, including existing consumer
+binary compatibility. Repeat consumer validation against compatible normally published dependencies before marking
+the integration ready. A passing build with a locally reconstructed candidate does not establish normal dependency
+delivery or native server acceptance. CI no longer builds an older AdvancedCore source checkout before testing VotingPlugin.
 
 Run the focused lifecycle and timed-vote regressions, then the required clean package:
 
@@ -86,3 +92,14 @@ processing guard is released before requesting another attempt. Shutdown fences 
 events are quarantined without being dispatched again. The installed SimpleAPI asynchronous delay is in seconds; retries
 start at one second and cap at sixty seconds. Rejected retry scheduling reports retained ownership, not durable
 recovery that has not been confirmed.
+
+VoteParty current, required and remaining placeholders read an immutable live display
+snapshot. Startup initializes it before placeholder registration. Ordinary mutations
+refresh it through the backing SDK owner before disk publication, including when a
+callback changes live counters and then fails. Setup, load, reload and case-mode
+changes refresh it from the same authoritative file. Native final publication keeps
+staged counters hidden until the real owner completes; cancelling a caller's
+observation does not cancel that owner or release its generation. A stalled writer therefore cannot hold a placeholder request on
+the file publication monitor. This projection represents live counters, including
+mutations whose save fails; it is not a durable-write acknowledgement. Reward and
+vote accounting continue to use authoritative state rather than this projection.

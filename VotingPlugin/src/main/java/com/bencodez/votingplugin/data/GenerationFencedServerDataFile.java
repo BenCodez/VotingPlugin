@@ -1,10 +1,16 @@
 package com.bencodez.votingplugin.data;
 
 import java.io.File;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.plugin.Plugin;
 
+import com.bencodez.advancedcore.api.time.TimeType;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.util.ServerDataPublicationFence;
 
@@ -15,10 +21,12 @@ import com.bencodez.votingplugin.util.ServerDataPublicationFence;
 public final class GenerationFencedServerDataFile extends com.bencodez.advancedcore.data.ServerData {
     private final com.bencodez.advancedcore.data.ServerData delegate;
     private final ServerDataPublicationFence fence;
+    private final VotingPluginMain ownerPlugin;
 
     public GenerationFencedServerDataFile(VotingPluginMain plugin,
             com.bencodez.advancedcore.data.ServerData delegate, ServerDataPublicationFence fence) {
         super(plugin);
+        this.ownerPlugin = java.util.Objects.requireNonNull(plugin);
         this.delegate = java.util.Objects.requireNonNull(delegate);
         this.fence = java.util.Objects.requireNonNull(fence);
     }
@@ -27,6 +35,33 @@ public final class GenerationFencedServerDataFile extends com.bencodez.advancedc
 
     public boolean belongsTo(ServerDataPublicationFence owner) { return fence == owner; }
 
+    /** Checkpoint callers use the same monitor as native final publication. */
+    @Override public Object publicationMonitor() {
+        return java.util.Objects.requireNonNull(delegate.publicationMonitor(), "Server-data publication monitor");
+    }
+
+    private void withOwner(Runnable operation) {
+        try (var lease = fence.acquire()) {
+            synchronized (publicationMonitor()) {
+                try { operation.run(); }
+                catch (RuntimeException | Error failure) {
+                    try { refreshVotePartyDisplay(); }
+                    catch (RuntimeException | Error observationFailure) {
+                        if (observationFailure != failure) failure.addSuppressed(observationFailure);
+                    }
+                    throw failure;
+                }
+                refreshVotePartyDisplay();
+            }
+        }
+    }
+
+    private <T> T withOwnedValue(Supplier<T> operation) {
+        try (var lease = fence.acquire()) {
+            synchronized (publicationMonitor()) { return operation.get(); }
+        }
+    }
+
     @Override public FileConfiguration getData() { return delegate.getData(); }
     @Override public File getdFile() { return delegate.getdFile(); }
     @Override public JavaPlugin getPlugin() { return delegate.getPlugin(); }
@@ -34,36 +69,137 @@ public final class GenerationFencedServerDataFile extends com.bencodez.advancedc
     @Override public boolean isFailedToRead() { return delegate.isFailedToRead(); }
     @Override public boolean isIgnoreCase() { return delegate.isIgnoreCase(); }
     @Override public void setIgnoreCase(boolean value) {
-        try (var lease = fence.acquire()) { delegate.setIgnoreCase(value); }
+        withOwner(() -> delegate.setIgnoreCase(value));
     }
     @Override public void createSection(String path) {
-        try (var lease = fence.acquire()) { delegate.createSection(path); }
+        mutateOrdinaryData(data -> data.createSection(path));
     }
     @Override public void setData(FileConfiguration data) {
-        try (var lease = fence.acquire()) { delegate.setData(data); }
+        withOwner(() -> delegate.setData(data));
     }
     @Override public void setValue(String path, Object value) {
-        try (var lease = fence.acquire()) { delegate.setValue(path, value); }
+        mutateOrdinaryData(data -> data.set(path, value));
     }
     @Override public void onFileCreation() {
-        try (var lease = fence.acquire()) { delegate.onFileCreation(); }
+        withOwner(delegate::onFileCreation);
     }
 
-    @Override public synchronized void setup() {
-        try (var lease = fence.acquire()) { delegate.setup(); }
+    @Override public void setup() {
+        withOwner(delegate::setup);
     }
     @Override public void loadValues() {
-        try (var lease = fence.acquire()) { delegate.loadValues(); }
+        withOwner(delegate::loadValues);
     }
     @Override public void reloadData() {
-        try (var lease = fence.acquire()) { delegate.reloadData(); }
+        withOwner(delegate::reloadData);
     }
+    private void refreshVotePartyDisplay() {
+        var wrapper = ownerPlugin.getServerData();
+        if (wrapper != null) {
+            synchronized (publicationMonitor()) {
+                if (delegate.getData() != null) wrapper.refreshVotePartyDisplay();
+            }
+        }
+    }
+
     @Override public void saveData() {
-        try (var lease = fence.acquire()) { delegate.saveData(); }
+        withOwner(() -> {
+            refreshVotePartyDisplay();
+            delegate.saveData();
+        });
     }
-    @Override protected synchronized void saveTimeChangeTransitionData() {
-        // Preserve AdvancedCore's checked, atomic transition publication rather
-        // than substituting the legacy saveData() IO-error reporting contract.
-        try (var lease = fence.acquire()) { super.saveTimeChangeTransitionData(); }
+    @Override public void saveDataChecked() {
+        withOwner(() -> {
+            refreshVotePartyDisplay();
+            delegate.saveDataChecked();
+        });
+    }
+    @Override protected void saveTimeChangeTransitionData() { saveDataChecked(); }
+
+    @Override public void mutateOrdinaryData(Consumer<FileConfiguration> mutation) {
+        // Delegate admission, live mutation and saving to the actual SDK owner.
+        // The projection is published inside that owner's callback before I/O.
+        withOwner(() -> delegate.mutateOrdinaryData(data -> applyOwnedMutation(mutation, data)));
+    }
+
+    private void refreshIfLiveMutation(FileConfiguration data) {
+        var wrapper = ownerPlugin.getServerData();
+        if (wrapper == null) return;
+        synchronized (publicationMonitor()) {
+            // Native final publication mutates a staged candidate first. Legacy
+            // adapters may instead mutate the live owner before their save.
+            if (data == delegate.getData()) wrapper.refreshVotePartyDisplay();
+        }
+    }
+
+    private void applyOwnedMutation(Consumer<FileConfiguration> mutation, FileConfiguration data) {
+        try { mutation.accept(data); }
+        catch (RuntimeException | Error failure) {
+            try { refreshIfLiveMutation(data); }
+            catch (RuntimeException | Error observationFailure) {
+                if (observationFailure != failure) failure.addSuppressed(observationFailure);
+            }
+            throw failure;
+        }
+        refreshIfLiveMutation(data);
+    }
+
+    private void finishFinalPublication(ServerDataPublicationFence.Lease lease,
+            CompletableFuture<Void> result, Throwable failure) {
+        Throwable outcome = failure;
+        try {
+            // Partial startup may have no display wrapper. In that case, do not
+            // introduce a YAML-observation dependency into final-stage drain.
+            refreshVotePartyDisplay();
+        } catch (Throwable observationFailure) {
+            if (outcome == null) outcome = observationFailure;
+            else if (outcome != observationFailure) outcome.addSuppressed(observationFailure);
+        }
+        // Refresh observes only the actual live owner; it never acknowledges a
+        // failed/cancelled publication or releases its retained generation.
+        if (outcome != null) { result.completeExceptionally(outcome); return; }
+        try { lease.close(); result.complete(null); }
+        catch (Throwable releaseFailure) { result.completeExceptionally(releaseFailure); }
+    }
+
+    @Override public CompletionStage<Void> mutateFinalData(Consumer<FileConfiguration> mutation) {
+        var result = new CompletableFuture<Void>();
+        ServerDataPublicationFence.Lease lease;
+        try { lease = fence.acquire(); }
+        catch (Throwable failure) { return CompletableFuture.failedFuture(failure); }
+        try {
+            java.util.Objects.requireNonNull(mutation, "mutation");
+            // The delegate acquires its monitor. Do not hold a facade/YAML lock
+            // while observing an asynchronous owner's completion.
+            java.util.Objects.requireNonNull(delegate.mutateFinalData(data -> applyOwnedMutation(mutation, data)))
+                    .whenComplete((ignored, failure) -> finishFinalPublication(lease, result, failure));
+        } catch (Throwable failure) { finishFinalPublication(lease, result, failure); }
+        // Failure or cancellation cannot prove writer drain; retain the lease.
+        // A caller may cancel its observation without cancelling the real owner.
+        return result.minimalCompletionStage();
+    }
+
+    @Override public void setData(String path, Object value) { mutateOrdinaryData(data -> data.set(path, value)); }
+    @Override public void setIgnoreTime(boolean value) { withOwner(() -> delegate.setIgnoreTime(value)); }
+    @Override public void setLastUpdated() { withOwner(delegate::setLastUpdated); }
+    @Override public void setPluginVersion(Plugin plugin) { withOwner(() -> delegate.setPluginVersion(plugin)); }
+    @Override public void setPrevDay(int value) { withOwner(() -> delegate.setPrevDay(value)); }
+    @Override public void setPrevMonth(String value) { withOwner(() -> delegate.setPrevMonth(value)); }
+    @Override public void setPrevWeekDay(int value) { withOwner(() -> delegate.setPrevWeekDay(value)); }
+
+    @Override public TimeChangeTransitionState beginTimeChangeTransition(TimeType type, String period, String marker) {
+        return withOwnedValue(() -> delegate.beginTimeChangeTransition(type, period, marker));
+    }
+    @Override public TimeChangeTransitionState getPendingTimeChangeTransition(TimeType type) {
+        return withOwnedValue(() -> delegate.getPendingTimeChangeTransition(type));
+    }
+    @Override public void completeTimeChangeTransition(TimeChangeTransitionState transition) {
+        withOwner(() -> delegate.completeTimeChangeTransition(transition));
+    }
+    @Override public void failTimeChangeTransition(TimeChangeTransitionState transition) {
+        withOwner(() -> delegate.failTimeChangeTransition(transition));
+    }
+    @Override public boolean isPendingTimeChangeTransition(TimeChangeTransitionState transition) {
+        return withOwnedValue(() -> delegate.isPendingTimeChangeTransition(transition));
     }
 }

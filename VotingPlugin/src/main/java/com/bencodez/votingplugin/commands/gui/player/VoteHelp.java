@@ -55,6 +55,7 @@ public class VoteHelp extends GUIHandler {
 	 */
 	public ArrayList<TextComponent> helpText(CommandSender sender) {
 		ArrayList<TextComponent> msg = new ArrayList<>();
+		if (!plugin.isVoteCommandEnabled()) return msg;
 		HashMap<String, TextComponent> unsorted = new HashMap<>();
 
 		boolean requirePerms = plugin.getConfigFile().isFormatCommandsVoteHelpRequirePermission();
@@ -70,7 +71,7 @@ public class VoteHelp extends GUIHandler {
 		}
 		for (CommandHandler cmdHandle : plugin.getVoteCommand()) {
 			if (!requirePerms || cmdHandle.hasPerm(sender)) {
-				unsorted.put(cmdHandle.getHelpLineCommand("/vote"), cmdHandle.getHelpLine("/vote",
+				unsorted.put(cmdHandle.getHelpLineCommand(plugin.getVoteCommandPrefix()), cmdHandle.getHelpLine(plugin.getVoteCommandPrefix(),
 						plugin.getConfigFile().getFormatCommandsVoteHelpLine(), hoverColor));
 			}
 		}
@@ -92,14 +93,15 @@ public class VoteHelp extends GUIHandler {
 	 */
 	public ArrayList<TextComponent> helpTextLegacy(CommandSender sender) {
 		ArrayList<TextComponent> msg = new ArrayList<>();
+		if (!plugin.isVoteCommandEnabled()) return msg;
 		HashMap<String, TextComponent> unsorted = new HashMap<>();
 
 		boolean requirePerms = plugin.getConfigFile().isFormatCommandsVoteHelpRequirePermission();
 
 		for (CommandHandler cmdHandle : plugin.getVoteCommand()) {
 			if (!requirePerms || cmdHandle.hasPerm(sender)) {
-				unsorted.put(cmdHandle.getHelpLineCommand("/vote"),
-						cmdHandle.getHelpLine("/vote", plugin.getConfigFile().getFormatCommandsVoteHelpLine()));
+				unsorted.put(cmdHandle.getHelpLineCommand(plugin.getVoteCommandPrefix()),
+						cmdHandle.getHelpLine(plugin.getVoteCommandPrefix(), plugin.getConfigFile().getFormatCommandsVoteHelpLine()));
 			}
 		}
 		ArrayList<String> unsortedList = new ArrayList<>();

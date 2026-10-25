@@ -20,6 +20,26 @@ import com.bencodez.votingplugin.topvoter.TopVoter;
 
 public class ServerData {
 
+	/** Immutable live display values, separate from durable publication acknowledgement. */
+	public record VotePartyDisplay(int total, int extraRequired) {
+		public int required(int configured) { return extraRequired > 0 ? configured + extraRequired : configured; }
+		public int needed(int configured) { return required(configured) - total; }
+	}
+
+	private volatile VotePartyDisplay votePartyDisplay = new VotePartyDisplay(0, 0);
+
+	/** Snapshot-only: never acquires a YAML owner or waits for filesystem publication. */
+	public VotePartyDisplay getVotePartyDisplay() { return votePartyDisplay; }
+
+	/** Called during startup before placeholders are registered. */
+	public void refreshVotePartyDisplay() { mutateData(this::captureVotePartyDisplay); }
+
+	private void captureVotePartyDisplay() {
+		var data = getFile().getData().getConfigurationSection("VotingPlugin");
+		votePartyDisplay = data == null ? new VotePartyDisplay(0, 0)
+				: new VotePartyDisplay(data.getInt("VoteParty.Total"), data.getInt("VotePartyExtraRequired"));
+	}
+
 	private VotingPluginMain plugin = VotingPluginMain.plugin;
 	private volatile com.bencodez.advancedcore.data.ServerData generationFile;
 	private final Object generationBinding = new Object();
@@ -41,6 +61,67 @@ public class ServerData {
 			}
 			return generationFile;
 		}
+	}
+
+
+
+	private record SignCoordinates(String world, int x, int y, int z) {
+		static SignCoordinates capture(Location location) {
+			return new SignCoordinates(location.getWorld().getName(), (int) location.getX(),
+					(int) location.getY(), (int) location.getZ());
+		}
+		void store(ConfigurationSection data, String path) {
+			data.set(path + ".World", world);
+			data.set(path + ".X", x);
+			data.set(path + ".Y", y);
+			data.set(path + ".Z", z);
+		}
+	}
+
+	/** Only YAML work belongs here; platform callbacks run outside the file owner. */
+	private void mutateData(Runnable mutation) {
+		var fence = getPublicationFence();
+		try (var owner = fence == null ? null : fence.acquire()) {
+			synchronized (publicationMonitor()) {
+				mutation.run();
+			}
+		}
+	}
+
+	/** Admit the complete ordinary mutation before changing live YAML or its display. */
+	private void mutateSavedData(Runnable mutation) {
+		mutateData(() -> getFile().mutateOrdinaryData(ignored -> {
+			try { mutation.run(); }
+			catch (RuntimeException | Error failure) {
+				try { captureVotePartyDisplay(); }
+				catch (RuntimeException | Error observationFailure) {
+					if (observationFailure != failure) failure.addSuppressed(observationFailure);
+				}
+				throw failure;
+			}
+			captureVotePartyDisplay();
+		}));
+	}
+
+	/** Store a scalar and save under the same YAML ownership as final SDK snapshots. */
+	public void setInt(String path, int value) {
+		mutateSavedData(() -> {
+			getData().set(path, value);
+		});
+	}
+
+	/** Store a detached string list, preventing later caller mutation of live YAML. */
+	public void setStringList(String path, List<String> values) {
+		var snapshot = values == null ? null : new ArrayList<>(values);
+		mutateSavedData(() -> {
+			getData().set(path, snapshot);
+		});
+	}
+
+	/** All mutations serialize with the actual SDK YAML owner. */
+	private Object publicationMonitor() {
+		var file = getFile();
+		return java.util.Objects.requireNonNull(file.publicationMonitor(), "Server-data publication monitor");
 	}
 
 	private com.bencodez.votingplugin.util.ServerDataPublicationFence getPublicationFence() {
@@ -68,12 +149,14 @@ public class ServerData {
 	 * @param placeholder the placeholder to add
 	 */
 	public void addAutoCachedPlaceholder(String placeholder) {
-		List<String> p = getAutoCachedPlaceholder();
+		mutateData(() -> {
+			List<String> p = getAutoCachedPlaceholder();
 
-		if (!ArrayUtils.containsIgnoreCase(p, placeholder)) {
-			p.add(placeholder);
-			setAutoCachedPlaceholder(p);
-		}
+			if (!ArrayUtils.containsIgnoreCase(p, placeholder)) {
+				p.add(placeholder);
+				setAutoCachedPlaceholder(p);
+			}
+		});
 	}
 
 	/**
@@ -81,12 +164,14 @@ public class ServerData {
 	 *
 	 * @param site the service site to add
 	 */
-	public synchronized void addServiceSite(String site) {
-		ArrayList<String> l = getServiceSites();
-		if (!getServiceSites().contains(site)) {
-			l.add(site);
-		}
-		setServiceSites(ArrayUtils.removeDuplicates(l));
+	public void addServiceSite(String site) {
+		mutateData(() -> {
+			ArrayList<String> l = getServiceSites();
+			if (!getServiceSites().contains(site)) {
+				l.add(site);
+			}
+			setServiceSites(ArrayUtils.removeDuplicates(l));
+		});
 	}
 
 	/**
@@ -97,18 +182,19 @@ public class ServerData {
 	 * @param position the position
 	 */
 	public void addSign(Location location, String data, int position) {
-
-		int count = nextSignNumber();
-
-		getData().set("Signs." + count + ".World", location.getWorld().getName());
-		getData().set("Signs." + count + ".X", location.getBlockX());
-		getData().set("Signs." + count + ".Y", location.getBlockY());
-		getData().set("Signs." + count + ".Z", location.getBlockZ());
-		getData().set("Signs." + count + ".Data", data);
-		getData().set("Signs." + count + ".Position", position);
-		saveData();
-		plugin.getSigns().getSigns().add(new SignHandler(plugin, "" + count, getSignLocation("" + count),
-				getSignSkullLocation("" + count), getSignData("" + count), getSignPosition("" + count)));
+		var coordinates = new SignCoordinates(location.getWorld().getName(), location.getBlockX(),
+				location.getBlockY(), location.getBlockZ());
+		int[] selected = new int[1];
+		mutateSavedData(() -> {
+			int count = nextSignNumber();
+			selected[0] = count;
+			coordinates.store(getData(), "Signs." + count);
+			getData().set("Signs." + count + ".Data", data);
+			getData().set("Signs." + count + ".Position", position);
+		});
+		String count = Integer.toString(selected[0]);
+		plugin.getSigns().getSigns().add(new SignHandler(plugin, count, getSignLocation(count),
+				getSignSkullLocation(count), getSignData(count), getSignPosition(count)));
 	}
 
 	/**
@@ -118,12 +204,12 @@ public class ServerData {
 	 * @param vote the vote time queue entry
 	 */
 	public void addTimeVoted(int num, VoteTimeQueue vote) {
-		synchronized (getFile()) {
+		mutateData(() -> {
 			getData().set("TimedVoteCache." + num + ".Name", vote.getName());
 			getData().set("TimedVoteCache." + num + ".Service", vote.getService());
 			getData().set("TimedVoteCache." + num + ".Time", vote.getTime());
 			saveTimedVoteCache();
-		}
+		});
 	}
 
 	/**
@@ -132,17 +218,19 @@ public class ServerData {
 	 * @param ident the vote shop identifier
 	 */
 	public void addVoteShopPurchase(String ident) {
-		setVoteShopPurchases(ident, (getVoteShopPurchases(ident) + 1));
+		mutateData(() -> {
+			setVoteShopPurchases(ident, (getVoteShopPurchases(ident) + 1));
+		});
 	}
 
 	/**
 	 * Clears the timed vote cache.
 	 */
 	public void clearTimedVoteCache() {
-		synchronized (getFile()) {
+		mutateData(() -> {
 			getData().set("TimedVoteCache", null);
 			saveTimedVoteCache();
-		}
+		});
 	}
 
 	/**
@@ -178,12 +266,14 @@ public class ServerData {
 	 * @return the data
 	 */
 	public ConfigurationSection getData() {
-		ConfigurationSection data = getFile().getData().getConfigurationSection("VotingPlugin");
-		if (data == null) {
-			getFile().getData().createSection("VotingPlugin");
-			data = getFile().getData().getConfigurationSection("VotingPlugin");
+		var fence = getPublicationFence();
+		try (var owner = fence == null ? null : fence.acquire()) {
+			synchronized (publicationMonitor()) {
+				ConfigurationSection data = getFile().getData().getConfigurationSection("VotingPlugin");
+				if (data == null) data = getFile().getData().createSection("VotingPlugin");
+				return data;
+			}
 		}
-		return data;
 	}
 
 	/**
@@ -200,9 +290,10 @@ public class ServerData {
 	 *
 	 * @return the service sites
 	 */
-	@SuppressWarnings("unchecked")
 	public ArrayList<String> getServiceSites() {
-		return (ArrayList<String>) getData().getList("GottenServiceSites", new ArrayList<>());
+		synchronized (publicationMonitor()) {
+			return new ArrayList<>(getData().getStringList("GottenServiceSites"));
+		}
 	}
 
 	/**
@@ -211,9 +302,11 @@ public class ServerData {
 	 *
 	 * @return persisted service-site observations
 	 */
-	public synchronized List<String> getServiceSitesReadOnly() {
-		ConfigurationSection root = getFile().getData().getConfigurationSection("VotingPlugin");
-		return root == null ? List.of() : List.copyOf(root.getStringList("GottenServiceSites"));
+	public List<String> getServiceSitesReadOnly() {
+		synchronized (publicationMonitor()) {
+			ConfigurationSection root = getFile().getData().getConfigurationSection("VotingPlugin");
+			return root == null ? List.of() : List.copyOf(root.getStringList("GottenServiceSites"));
+		}
 	}
 
 	/**
@@ -375,7 +468,10 @@ public class ServerData {
 	 * Reload data.
 	 */
 	public void reloadData() {
-		getFile().reloadData();
+		mutateData(() -> {
+			getFile().reloadData();
+			captureVotePartyDisplay();
+		});
 	}
 
 	/**
@@ -395,8 +491,9 @@ public class ServerData {
 	 * @param messageId the message ID
 	 */
 	public void setTopVoterMessageId(TopVoter top, long messageId) {
-		getData().set("DiscordSRV.TopVoterMessageId." + top.toString(), messageId);
-		saveData();
+		mutateSavedData(() -> {
+			getData().set("DiscordSRV.TopVoterMessageId." + top.toString(), messageId);
+		});
 	}
 
 	/**
@@ -405,23 +502,24 @@ public class ServerData {
 	 * @param sign the sign
 	 */
 	public void removeSign(String sign) {
-		getData().set("Signs." + sign + ".World", null);
-		getData().set("Signs." + sign + ".X", null);
-		getData().set("Signs." + sign + ".Y", null);
-		getData().set("Signs." + sign + ".Z", null);
-		getData().set("Signs." + sign + ".Data", null);
-		getData().set("Signs." + sign + ".Position", null);
-		getData().set("Signs." + sign, null);
-		getData().set("Signs." + sign + ".Skull.World", null);
-		getData().set("Signs." + sign + ".Skull.X", null);
-		getData().set("Signs." + sign + ".Skull.Y", null);
-		getData().set("Signs." + sign + ".Skull.Z", null);
-		saveData();
+		mutateSavedData(() -> {
+			getData().set("Signs." + sign + ".World", null);
+			getData().set("Signs." + sign + ".X", null);
+			getData().set("Signs." + sign + ".Y", null);
+			getData().set("Signs." + sign + ".Z", null);
+			getData().set("Signs." + sign + ".Data", null);
+			getData().set("Signs." + sign + ".Position", null);
+			getData().set("Signs." + sign, null);
+			getData().set("Signs." + sign + ".Skull.World", null);
+			getData().set("Signs." + sign + ".Skull.X", null);
+			getData().set("Signs." + sign + ".Skull.Y", null);
+			getData().set("Signs." + sign + ".Skull.Z", null);
+		});
 	}
 
 	/** Checkpoint the pending suffix without retiring its live queue entries. */
 	public void replaceTimedVoteCache(java.util.Collection<VoteTimeQueue> pending) {
-		synchronized (getFile()) {
+		mutateData(() -> {
 			Object previous = getData().get("TimedVoteCache");
 			try {
 				setTimedVoteCache(pending);
@@ -430,13 +528,13 @@ public class ServerData {
 				getData().set("TimedVoteCache", previous);
 				throw failure;
 			}
-		}
+		});
 	}
 
 	/** Publish the recovery suffix and conservative in-flight record in one file save. */
 	public void prepareTimedVoteDispatch(UUID id, VoteTimeQueue vote,
 			java.util.Collection<VoteTimeQueue> pending) {
-		synchronized (getFile()) {
+		mutateData(() -> {
 			String path = "UncertainTimedVotes." + id;
 			Object previousCache = getData().get("TimedVoteCache");
 			Object previousRecord = getData().get(path);
@@ -450,12 +548,12 @@ public class ServerData {
 				getData().set(path, previousRecord);
 				throw failure;
 			}
-		}
+		});
 	}
 
 	/** Restore an undispatched occurrence and its pending suffix for ordinary restart recovery. */
 	public void abortTimedVoteDispatch(UUID id, java.util.Collection<VoteTimeQueue> pending) {
-		synchronized (getFile()) {
+		mutateData(() -> {
 			String path = "UncertainTimedVotes." + id;
 			Object previousCache = getData().get("TimedVoteCache");
 			Object previousRecord = getData().get(path);
@@ -468,12 +566,12 @@ public class ServerData {
 				getData().set(path, previousRecord);
 				throw failure;
 			}
-		}
+		});
 	}
 
 	/** Clear only a confirmed dispatch record; failed writes retain its live representation. */
 	public void completeTimedVoteDispatch(UUID id) {
-		synchronized (getFile()) {
+		mutateData(() -> {
 			String path = "UncertainTimedVotes." + id;
 			Object previous = getData().get(path);
 			try {
@@ -483,7 +581,7 @@ public class ServerData {
 				getData().set(path, previous);
 				throw failure;
 			}
-		}
+		});
 	}
 
 	private void setTimedVoteCache(java.util.Collection<VoteTimeQueue> pending) {
@@ -504,33 +602,35 @@ public class ServerData {
 
 	/** Retain an ambiguous event delivery without making it eligible for automatic replay. */
 	public void addUncertainTimedVote(java.util.UUID id, VoteTimeQueue vote) {
-		synchronized (getFile()) {
+		mutateData(() -> {
 			String path = "UncertainTimedVotes." + id;
 			getData().set(path + ".Name", vote.getName());
 			getData().set(path + ".Service", vote.getService());
 			getData().set(path + ".Time", vote.getTime());
 			saveTimedVoteCache();
-		}
+		});
 	}
 
 	/** Timed votes must observe write failures before their in-memory queue is retired. */
 	private void saveTimedVoteCache() {
 		var fence = getPublicationFence();
 		try (var owner = fence == null ? null : fence.acquire()) {
-			getFile().getData().save(getFile().getdFile());
+			var file = getFile();
+			if (file instanceof GenerationFencedServerDataFile guarded) guarded.saveDataChecked();
+			else file.getData().save(file.getdFile());
 		} catch (java.io.IOException failure) {
 			throw new java.io.UncheckedIOException("Failed to save timed vote cache", failure);
 		}
 	}
 
 	/** Saves server data through the existing general-purpose file helper. */
-	public synchronized void saveData() {
-		var fence = getPublicationFence();
-		try (var owner = fence == null ? null : fence.acquire()) {
-			synchronized (getFile()) {
-				getFile().saveData();
-			}
-		}
+	public void saveData() {
+		mutateData(() -> {
+			// Publish the complete live display projection before entering disk I/O.
+			// A failed save still does not acknowledge durable storage.
+			captureVotePartyDisplay();
+			getFile().saveData();
+		});
 	}
 
 	/**
@@ -540,11 +640,8 @@ public class ServerData {
 	 */
 	public void saveDisabledReminders(ArrayList<UUID> disabledReminders) {
 		ArrayList<String> uuids = new ArrayList<>();
-		for (UUID uuid : disabledReminders) {
-			uuids.add(uuid.toString());
-		}
-		getData().set("DisabledReminders", uuids);
-		saveData();
+		for (UUID uuid : disabledReminders) uuids.add(uuid.toString());
+		setStringList("DisabledReminders", uuids);
 	}
 
 	/**
@@ -553,8 +650,7 @@ public class ServerData {
 	 * @param placeholders the list of placeholders
 	 */
 	public void setAutoCachedPlaceholder(List<String> placeholders) {
-		getData().set("AutoCachePlaceholders", placeholders);
-		saveData();
+		setStringList("AutoCachePlaceholders", placeholders);
 	}
 
 	/**
@@ -563,8 +659,7 @@ public class ServerData {
 	 * @param current the current vote count
 	 */
 	public void setBungeeVotePartyCurrent(int current) {
-		getData().set("BungeeVotePartyCurrent", current);
-		saveData();
+		setInt("BungeeVotePartyCurrent", current);
 	}
 
 	/**
@@ -573,8 +668,7 @@ public class ServerData {
 	 * @param required the required vote count
 	 */
 	public void setBungeeVotePartyRequired(int required) {
-		getData().set("BungeeVotePartyRequired", required);
-		saveData();
+		setInt("BungeeVotePartyRequired", required);
 	}
 
 	/**
@@ -583,8 +677,7 @@ public class ServerData {
 	 * @param list the service sites list
 	 */
 	public void setServiceSites(ArrayList<String> list) {
-		getData().set("GottenServiceSites", list);
-		saveData();
+		setStringList("GottenServiceSites", list);
 	}
 
 	/**
@@ -593,8 +686,9 @@ public class ServerData {
 	 * @param value the converted status
 	 */
 	public void setShopConverted(boolean value) {
-		getData().set("VoteShopConverted", value);
-		saveData();
+		mutateSavedData(() -> {
+			getData().set("VoteShopConverted", value);
+		});
 	}
 
 	/**
@@ -607,20 +701,14 @@ public class ServerData {
 	 * @param position the sign position
 	 */
 	public void setSign(String count, Location location, Location skullLocation, String data, int position) {
-
-		getData().set("Signs." + count + ".World", location.getWorld().getName());
-		getData().set("Signs." + count + ".X", (int) location.getX());
-		getData().set("Signs." + count + ".Y", (int) location.getY());
-		getData().set("Signs." + count + ".Z", (int) location.getZ());
-		getData().set("Signs." + count + ".Data", data);
-		getData().set("Signs." + count + ".Position", position);
-		if (skullLocation != null) {
-			getData().set("Signs." + count + ".Skull.World", skullLocation.getWorld().getName());
-			getData().set("Signs." + count + ".Skull.X", (int) skullLocation.getX());
-			getData().set("Signs." + count + ".Skull.Y", (int) skullLocation.getY());
-			getData().set("Signs." + count + ".Skull.Z", (int) skullLocation.getZ());
-		}
-		saveData();
+		var coordinates = SignCoordinates.capture(location);
+		var skull = skullLocation == null ? null : SignCoordinates.capture(skullLocation);
+		mutateSavedData(() -> {
+			coordinates.store(getData(), "Signs." + count);
+			getData().set("Signs." + count + ".Data", data);
+			getData().set("Signs." + count + ".Position", position);
+			if (skull != null) skull.store(getData(), "Signs." + count + ".Skull");
+		});
 	}
 
 	/**
@@ -630,20 +718,19 @@ public class ServerData {
 	 * @param skullLocation the skull location
 	 */
 	public void setSkullLocation(String count, Location skullLocation) {
-		if (skullLocation != null) {
-			getData().set("Signs." + count + ".Skull.World", skullLocation.getWorld().getName());
-			getData().set("Signs." + count + ".Skull.X", (int) skullLocation.getX());
-			getData().set("Signs." + count + ".Skull.Y", (int) skullLocation.getY());
-			getData().set("Signs." + count + ".Skull.Z", (int) skullLocation.getZ());
-		}
+		if (skullLocation == null) return;
+		var coordinates = SignCoordinates.capture(skullLocation);
+		mutateData(() -> coordinates.store(getData(), "Signs." + count + ".Skull"));
 	}
 
 	/**
 	 * Sets the version.
 	 */
 	public void setVersion() {
-		getData().set("Version", Bukkit.getVersion());
-		saveData();
+		String version = Bukkit.getVersion();
+		mutateSavedData(() -> {
+			getData().set("Version", version);
+		});
 	}
 
 	/**
@@ -652,8 +739,9 @@ public class ServerData {
 	 * @param value the extra required votes
 	 */
 	public void setVotePartyExtraRequired(int value) {
-		getData().set("VotePartyExtraRequired", value);
-		saveData();
+		mutateSavedData(() -> {
+			getData().set("VotePartyExtraRequired", value);
+		});
 	}
 
 	/**
@@ -663,41 +751,44 @@ public class ServerData {
 	 * @param amount the purchase amount
 	 */
 	public void setVoteShopPurchases(String ident, int amount) {
-		getData().set("VoteShopPurchases." + ident, amount);
-		saveData();
+		mutateSavedData(() -> {
+			getData().set("VoteShopPurchases." + ident, amount);
+		});
 	}
 
 	/**
 	 * Updates the last vote party timestamp to today.
 	 */
 	public void updateLastVoteParty() {
-		getData().set("LastVoteParty", plugin.getTimeChecker().getTime().getDayOfYear());
-		saveData();
+		int day = plugin.getTimeChecker().getTime().getDayOfYear();
+		setInt("LastVoteParty", day);
 	}
 
 	/**
 	 * Updates the last vote party week timestamp to this week.
 	 */
 	public void updateLastVotePartyWeek() {
-		getData().set("LastVotePartyWeek",
-				plugin.getTimeChecker().getTime().get(WeekFields.of(Locale.getDefault()).weekOfYear()));
-		saveData();
+		int week = plugin.getTimeChecker().getTime().get(WeekFields.of(Locale.getDefault()).weekOfYear());
+		setInt("LastVotePartyWeek", week);
 	}
 
 	/**
 	 * Updates placeholders to lowercase format.
 	 */
 	public void updatePlaceholders() {
-		boolean data = getData().getBoolean("AutoCacheUpdated", false);
-		if (!data) {
-			List<String> placeholders = getAutoCachedPlaceholder();
-			for (int i = 0; i < placeholders.size(); i++) {
-				placeholders.set(i, placeholders.get(i).toLowerCase());
+		mutateData(() -> {
+			boolean data = getData().getBoolean("AutoCacheUpdated", false);
+			if (!data) {
+				mutateSavedData(() -> {
+					List<String> placeholders = getAutoCachedPlaceholder();
+					for (int i = 0; i < placeholders.size(); i++) {
+						placeholders.set(i, placeholders.get(i).toLowerCase());
+					}
+					getData().set("AutoCachePlaceholders", placeholders);
+					getData().set("AutoCacheUpdated", true);
+				});
 			}
-			setAutoCachedPlaceholder(placeholders);
-			getData().set("AutoCacheUpdated", true);
-			saveData();
-		}
+		});
 	}
 
 	/**

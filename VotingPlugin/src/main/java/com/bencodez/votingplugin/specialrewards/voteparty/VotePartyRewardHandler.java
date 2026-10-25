@@ -120,7 +120,7 @@ public final class VotePartyRewardHandler {
 			return triggeringUser;
 		}
 		VotingPluginUser user = onlinePlayer == null
-				? plugin.getVotingPluginUserManager().getVotingPluginUser(uuid)
+				? plugin.getVotingPluginUserManager().getVotingPluginUser(uuid, true)
 				: plugin.getVotingPluginUserManager().getVotingPluginUser(onlinePlayer);
 		user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
 		return user;

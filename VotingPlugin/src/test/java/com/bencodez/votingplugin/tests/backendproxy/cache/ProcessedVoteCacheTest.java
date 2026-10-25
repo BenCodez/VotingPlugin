@@ -16,7 +16,7 @@ public class ProcessedVoteCacheTest {
 
 	@Test
 	public void duplicateVoteIdIsRejected() {
-		ProcessedVoteCache cache = new ProcessedVoteCache();
+		ProcessedVoteCache cache = ProcessedVoteCacheAccess.create();
 		UUID voteId = UUID.randomUUID();
 		assertTrue(cache.reserve(voteId));
 		assertFalse(cache.reserve(voteId));
@@ -25,7 +25,7 @@ public class ProcessedVoteCacheTest {
 
 	@Test
 	public void nullVoteIdsRemainCompatible() {
-		ProcessedVoteCache cache = new ProcessedVoteCache();
+		ProcessedVoteCache cache = ProcessedVoteCacheAccess.create();
 		assertTrue(cache.reserve(null));
 		assertTrue(cache.reserve(null));
 		assertTrue(cache.getProcessedVotes().isEmpty());
@@ -33,7 +33,7 @@ public class ProcessedVoteCacheTest {
 
 	@Test
 	public void expiredVoteIdCanBeReservedAgain() throws Exception {
-		ProcessedVoteCache cache = new ProcessedVoteCache(1);
+		ProcessedVoteCache cache = ProcessedVoteCacheAccess.create(1);
 		UUID voteId = UUID.randomUUID();
 		assertTrue(cache.reserve(voteId));
 		Thread.sleep(5);
@@ -43,7 +43,7 @@ public class ProcessedVoteCacheTest {
 
 	@Test
 	public void redisDeliveryIsAcceptedOnceAcrossSharedHandlers() {
-		ProcessedVoteCache cache = new ProcessedVoteCache();
+		ProcessedVoteCache cache = ProcessedVoteCacheAccess.create();
 		String deliveryId = UUID.randomUUID().toString();
 		assertTrue(cache.reserveRedisDelivery(deliveryId));
 		assertFalse(cache.reserveRedisDelivery(deliveryId));
@@ -53,7 +53,7 @@ public class ProcessedVoteCacheTest {
 
 	@Test
 	public void legacyRedisHandoffMatchesOldAndBufferedDeliveryCounts() {
-		ProcessedVoteCache cache = new ProcessedVoteCache();
+		ProcessedVoteCache cache = ProcessedVoteCacheAccess.create();
 		Object previous = new Object();
 		Object replacement = new Object();
 		cache.registerRedisSubscriber(previous);
@@ -69,7 +69,7 @@ public class ProcessedVoteCacheTest {
 
 	@Test
 	public void legacyRedisHandoffAccountingIsBounded() throws Exception {
-		ProcessedVoteCache cache = new ProcessedVoteCache();
+		ProcessedVoteCache cache = ProcessedVoteCacheAccess.create();
 		Object previous = new Object();
 		Object replacement = new Object();
 		cache.registerRedisSubscriber(previous);
@@ -87,7 +87,7 @@ public class ProcessedVoteCacheTest {
 
 	@Test
 	public void legacyRedisHandoffAccountingRejectsOversizedSignatures() throws Exception {
-		ProcessedVoteCache cache = new ProcessedVoteCache();
+		ProcessedVoteCache cache = ProcessedVoteCacheAccess.create();
 		Object previous = new Object();
 		cache.registerRedisSubscriber(previous);
 		cache.registerRedisSubscriber(new Object());

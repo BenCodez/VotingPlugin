@@ -88,7 +88,7 @@ public class VotePartyTest {
 	public void addTotal_IncrementsTotalVotes() {
 		when(plugin.getServerData().getData().getInt("VoteParty.Total")).thenReturn(5);
 		voteParty.addTotal(user);
-		verify(plugin.getServerData().getData()).set("VoteParty.Total", 6);
+		verify(plugin.getServerData()).setInt("VoteParty.Total", 6);
 	}
 
 	@Test
@@ -114,6 +114,8 @@ public class VotePartyTest {
 
 	@Test
 	public void commandVoteParty_VotePartyEnabled_SendsMessage() {
+		when(plugin.getServerData().getVotePartyDisplay()).thenReturn(
+				new com.bencodez.votingplugin.data.ServerData.VotePartyDisplay(0, 0));
 		CommandSender sender = Mockito.mock(CommandSender.class);
 		when(plugin.getSpecialRewardsConfig().isVotePartyEnabled()).thenReturn(true);
 		when(plugin.getConfigFile().getFormatCommandsVoteParty()).thenReturn(new ArrayList<>());

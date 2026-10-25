@@ -954,7 +954,7 @@ public class PlaceHolders {
 
 			@Override
 			public String placeholderRequest(String identifier) {
-				return Integer.toString(plugin.getVoteParty().getTotalVotes());
+				return Integer.toString(plugin.getServerData().getVotePartyDisplay().total());
 			}
 		}.withDescription("Current amount of voteparty votes"));
 
@@ -962,7 +962,8 @@ public class PlaceHolders {
 
 			@Override
 			public String placeholderRequest(String identifier) {
-				return Integer.toString(plugin.getVoteParty().getNeededVotes());
+				return Integer.toString(plugin.getServerData().getVotePartyDisplay()
+						.needed(plugin.getSpecialRewardsConfig().getVotePartyVotesRequired()));
 			}
 		}.withDescription("Voteparty votes needed"));
 
@@ -970,7 +971,8 @@ public class PlaceHolders {
 
 			@Override
 			public String placeholderRequest(String identifier) {
-				return Integer.toString(plugin.getVoteParty().getVotesRequired());
+				return Integer.toString(plugin.getServerData().getVotePartyDisplay()
+						.required(plugin.getSpecialRewardsConfig().getVotePartyVotesRequired()));
 			}
 		}.withDescription("Amount of votes needed for voteparty"));
 

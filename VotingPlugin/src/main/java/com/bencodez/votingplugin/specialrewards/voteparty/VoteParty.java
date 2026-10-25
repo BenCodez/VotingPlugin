@@ -146,8 +146,9 @@ public class VoteParty implements Listener {
 	public void commandVoteParty(CommandSender sender) {
 		if (plugin.getSpecialRewardsConfig().isVotePartyEnabled()) {
 			ArrayList<String> msg = plugin.getConfigFile().getFormatCommandsVoteParty();
-			int votesRequired = getVotesRequired();
-			int votes = getTotalVotes();
+			var display = plugin.getServerData().getVotePartyDisplay();
+			int votesRequired = display.required(plugin.getSpecialRewardsConfig().getVotePartyVotesRequired());
+			int votes = display.total();
 			int neededVotes = votesRequired - votes;
 			HashMap<String, String> placeholders = new HashMap<>();
 			placeholders.put("votesrequired", "" + votesRequired);

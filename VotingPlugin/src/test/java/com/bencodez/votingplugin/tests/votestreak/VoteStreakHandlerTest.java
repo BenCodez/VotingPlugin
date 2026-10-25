@@ -1,5 +1,7 @@
 package com.bencodez.votingplugin.tests.votestreak;
 
+import com.bencodez.votingplugin.tests.support.ReflectiveAccess;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -240,7 +242,7 @@ class VoteStreakHandlerTest {
 	private boolean shouldReward(VoteStreakDefinition def, int streakCount) throws Exception {
 		Method m = VoteStreakHandler.class.getDeclaredMethod("shouldReward", VoteStreakDefinition.class, int.class);
 		m.setAccessible(true);
-		return (boolean) m.invoke(handler, def, streakCount);
+		return (boolean) ReflectiveAccess.invoke(m, handler, new Object[]{def, streakCount});
 	}
 
 	private boolean shouldGiveProgressGroupLostRewards(List<VoteStreakDefinition> definitions,
@@ -248,7 +250,7 @@ class VoteStreakHandlerTest {
 		Method m = VoteStreakHandler.class.getDeclaredMethod("shouldGiveProgressGroupLostRewards", List.class,
 				VoteStreakDefinition.class, int.class);
 		m.setAccessible(true);
-		return (boolean) m.invoke(handler, definitions, progressDefinition, lostStreakCount);
+		return (boolean) ReflectiveAccess.invoke(m, handler, new Object[]{definitions, progressDefinition, lostStreakCount});
 	}
 
 	@Test

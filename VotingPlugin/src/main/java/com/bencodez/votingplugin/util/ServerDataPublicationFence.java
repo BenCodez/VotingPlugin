@@ -69,6 +69,15 @@ public final class ServerDataPublicationFence {
         }
     }
 
+    /** Reserve before asynchronous admission; a failed stage never proves drain. */
+    public void retainUntilSuccessfulPublication(java.util.concurrent.CompletionStage<Void> publication) {
+        java.util.Objects.requireNonNull(publication);
+        Lease lease = acquire();
+        publication.whenComplete((ignored, failure) -> {
+            if (failure == null) lease.close();
+        });
+    }
+
     /** Reserve before disable and release only after existing SDK writers actually terminate. */
     public java.util.concurrent.CompletionStage<Void> retainUntilTermination(java.util.concurrent.ScheduledExecutorService[] writers) {
         var snapshot = writers.clone();

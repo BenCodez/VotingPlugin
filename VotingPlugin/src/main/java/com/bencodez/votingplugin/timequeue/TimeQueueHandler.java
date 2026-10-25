@@ -36,6 +36,11 @@ public class TimeQueueHandler implements Listener {
 	private final Object persistenceLock = new Object();
 	private volatile boolean stopping;
 	private final AtomicReference<FutureTask<Void>> shutdownSave = new AtomicReference<>();
+	// A failed task is retryable, but cannot release its unsaved suffix to a successor.
+	private final AtomicReference<ShutdownPublication> shutdownPublicationOwner = new AtomicReference<>();
+	private record ShutdownPublication(com.bencodez.votingplugin.util.ServerDataPublicationFence.Lease lease,
+			java.util.concurrent.ScheduledExecutorService producers,
+			java.util.concurrent.ScheduledExecutorService[] coreWriters) { }
 	private final AtomicBoolean processing = new AtomicBoolean();
 	private VoteTimeQueue dispatchingVote;
 	private UUID dispatchId;
@@ -245,18 +250,19 @@ public class TimeQueueHandler implements Listener {
 				shutdownSave.compareAndSet(save, null);
 				continue;
 			}
-			var publicationOwner = new AtomicReference<com.bencodez.votingplugin.util.ServerDataPublicationFence.Lease>();
-			var producers = plugin.getVoteTimer();
-			var coreWriters = plugin.getServerDataWriterExecutors();
 			FutureTask<Void> candidate = new FutureTask<Void>(() -> {
-				try (var owner = publicationOwner.get()) {
+				try {
+					var publication = java.util.Objects.requireNonNull(shutdownPublicationOwner.get());
 					try { synchronized (persistenceLock) { persistPendingVotes(); } }
 					finally {
 						// Publication failure does not terminate previously admitted producers.
-						awaitRetiringProducers(producers);
-						if (coreWriters != null) for (var writer : coreWriters) awaitWriterTermination(writer);
+						awaitRetiringProducers(publication.producers());
+						if (publication.coreWriters() != null)
+							for (var writer : publication.coreWriters()) awaitWriterTermination(writer);
 					}
 					synchronized (persistenceLock) { persistPendingVotes(); }
+					if (publication.lease() != null) publication.lease().close();
+					shutdownPublicationOwner.compareAndSet(publication, null);
 				} catch (RuntimeException | Error failure) {
 					try {
 						plugin.getLogger().warning("Timed vote shutdown persistence failed; pending votes remain owned for retry. Recovery is not confirmed.");
@@ -274,14 +280,20 @@ public class TimeQueueHandler implements Listener {
 			if (existing == null) {
 				save = candidate;
 				try {
-					var fence = plugin.getServerDataPublicationFence();
-					publicationOwner.set(fence == null ? null : fence.acquire());
-					Thread worker = new Thread(candidate, "VotingPlugin-timed-vote-shutdown");
-					worker.setDaemon(true);
-					worker.start();
+					if (shutdownPublicationOwner.get() == null) {
+						// Unload can clear these fields even while their original work survives.
+						// Keep the snapshot with its lease through every rejected or failed attempt.
+						var producers = plugin.getVoteTimer();
+						var coreWriters = plugin.getServerDataWriterExecutors();
+						var retainedWriters = coreWriters == null ? null : coreWriters.clone();
+						var fence = plugin.getServerDataPublicationFence();
+						shutdownPublicationOwner.set(new ShutdownPublication(
+								fence == null ? null : fence.acquire(), producers, retainedWriters));
+					}
+					startShutdownWorker(candidate);
 				}
 				catch (RuntimeException | Error failure) {
-					if (publicationOwner.get() != null) publicationOwner.get().close();
+					// Even a rejected worker retains the queue owner for an explicit retry.
 					candidate.cancel(false);
 					shutdownSave.compareAndSet(candidate, null);
 					throw failure;
@@ -304,6 +316,13 @@ public class TimeQueueHandler implements Listener {
 			if (cause instanceof RuntimeException runtime) throw runtime;
 			throw new IllegalStateException("Timed vote shutdown persistence failed", cause);
 		}
+	}
+
+	/** Kept separate so worker-admission failure can be exercised without replacing persistence. */
+	protected void startShutdownWorker(Runnable task) {
+		Thread worker = new Thread(task, "VotingPlugin-timed-vote-shutdown");
+		worker.setDaemon(true);
+		worker.start();
 	}
 
 	private void awaitRetiringProducers(java.util.concurrent.ScheduledExecutorService producers) {
