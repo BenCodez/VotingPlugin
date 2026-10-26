@@ -162,21 +162,63 @@ public final class GenerationFencedServerDataFile extends com.bencodez.advancedc
         catch (Throwable releaseFailure) { result.completeExceptionally(releaseFailure); }
     }
 
+    /** Retain this handle only for retries of the same accepted mutation. */
+    FinalPublication prepareFinalPublication(Consumer<FileConfiguration> mutation) {
+        return new FinalPublication(mutation);
+    }
+
+    final class FinalPublication {
+        private final Consumer<FileConfiguration> mutation;
+        private ServerDataPublicationFence.Lease lease;
+        private CompletableFuture<Void> attempt;
+        private boolean publicationConfirmed;
+
+        private FinalPublication(Consumer<FileConfiguration> mutation) { this.mutation = mutation; }
+
+        CompletionStage<Void> publish() {
+            CompletableFuture<Void> result;
+            ServerDataPublicationFence.Lease owner;
+            boolean refreshOnly;
+            synchronized (this) {
+                if (attempt != null && !attempt.isCompletedExceptionally())
+                    return attempt.minimalCompletionStage();
+                if (lease == null) {
+                    try { lease = fence.acquire(); }
+                    catch (Throwable failure) { return CompletableFuture.failedFuture(failure); }
+                }
+                owner = lease;
+                result = new CompletableFuture<>();
+                attempt = result;
+                refreshOnly = publicationConfirmed;
+            }
+            // No operation lock is held across the actual owner's YAML or I/O.
+            if (refreshOnly) finish(owner, result, null);
+            else {
+                try {
+                    java.util.Objects.requireNonNull(mutation, "mutation");
+                    java.util.Objects.requireNonNull(delegate.mutateFinalData(data -> applyOwnedMutation(mutation, data)))
+                            .whenComplete((ignored, failure) -> finish(owner, result, failure));
+                } catch (Throwable failure) { finish(owner, result, failure); }
+            }
+            return result.minimalCompletionStage();
+        }
+
+        private void finish(ServerDataPublicationFence.Lease owner,
+                CompletableFuture<Void> result, Throwable failure) {
+            if (failure == null) {
+                synchronized (this) { publicationConfirmed = true; }
+            }
+            // A retry after a display-observation failure must not repeat a
+            // confirmed mutation. Failed publication instead retains this one
+            // lease until this same operation has a confirmed successful retry.
+            finishFinalPublication(owner, result, failure);
+        }
+    }
+
     @Override public CompletionStage<Void> mutateFinalData(Consumer<FileConfiguration> mutation) {
-        var result = new CompletableFuture<Void>();
-        ServerDataPublicationFence.Lease lease;
-        try { lease = fence.acquire(); }
-        catch (Throwable failure) { return CompletableFuture.failedFuture(failure); }
-        try {
-            java.util.Objects.requireNonNull(mutation, "mutation");
-            // The delegate acquires its monitor. Do not hold a facade/YAML lock
-            // while observing an asynchronous owner's completion.
-            java.util.Objects.requireNonNull(delegate.mutateFinalData(data -> applyOwnedMutation(mutation, data)))
-                    .whenComplete((ignored, failure) -> finishFinalPublication(lease, result, failure));
-        } catch (Throwable failure) { finishFinalPublication(lease, result, failure); }
-        // Failure or cancellation cannot prove writer drain; retain the lease.
-        // A caller may cancel its observation without cancelling the real owner.
-        return result.minimalCompletionStage();
+        // Ordinary one-shot callers retain failed ownership conservatively.
+        // A caller with an explicit retry contract retains the operation handle.
+        return prepareFinalPublication(mutation).publish();
     }
 
     @Override public void setData(String path, Object value) { mutateOrdinaryData(data -> data.set(path, value)); }

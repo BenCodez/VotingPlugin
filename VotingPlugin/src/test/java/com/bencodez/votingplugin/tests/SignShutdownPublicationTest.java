@@ -174,6 +174,154 @@ class SignShutdownPublicationTest {
         verifyNoInteractions(plugin);
     }
 
+    @Test void actualSdkFailedThenSuccessfulRetryReleasesTheOriginalPublicationOwner() throws Exception {
+        try (var schedulers = mockConstruction(com.bencodez.simpleapi.scheduler.BukkitScheduler.class)) {
+            var target = directory.resolve("ServerData.yml");
+            var fence = ServerDataPublicationFence.beginGeneration(target);
+            var plugin = plugin(fence);
+            var attempts = new java.util.concurrent.atomic.AtomicInteger();
+            var backing = new com.bencodez.advancedcore.data.ServerData(plugin) {
+                @Override protected void moveAtomically(Path source, Path destination) throws java.io.IOException {
+                    if (attempts.incrementAndGet() == 1)
+                        throw new java.io.IOException("Synthetic first publication failure");
+                    super.moveAtomically(source, destination);
+                }
+            };
+            backing.setData(new YamlConfiguration());
+            backing.getData().set("VotingPlugin.Unrelated", "preserved");
+            var facade = new GenerationFencedServerDataFile(plugin, backing, fence);
+            when(plugin.getServerDataFile()).thenReturn(facade);
+            var data = new ServerData(plugin);
+            when(plugin.getServerData()).thenReturn(data);
+            var signs = new Admission(plugin);
+            var world = mock(World.class);
+            when(world.getName()).thenReturn("SyntheticWorld");
+            signs.getSigns().add(sign(plugin, "0", new Location(world, 1, 2, 3), null));
+            var failed = signs.storeSignsForShutdown();
+            signs.workers.getFirst().run();
+            assertThrows(java.util.concurrent.CompletionException.class, () -> failed.toCompletableFuture().join());
+            fence.retire();
+            assertThrows(IllegalStateException.class, () -> ServerDataPublicationFence.beginGeneration(target));
+            facade.mutateFinalData(candidate -> candidate.set("Independent.Value", "confirmed"))
+                    .toCompletableFuture().get(5, TimeUnit.SECONDS);
+            assertThrows(IllegalStateException.class, () -> ServerDataPublicationFence.beginGeneration(target),
+                    "A different successful operation cannot acknowledge the failed sign batch");
+            signs.getSigns().clear();
+            var retry = signs.storeSignsForShutdown();
+            signs.workers.get(1).run();
+            retry.toCompletableFuture().get(5, TimeUnit.SECONDS);
+            var disk = YamlConfiguration.loadConfiguration(target.toFile());
+            assertEquals("SyntheticSign0", disk.getString("VotingPlugin.Signs.0.Data"));
+            assertEquals("preserved", disk.getString("VotingPlugin.Unrelated"));
+            assertEquals("confirmed", disk.getString("Independent.Value"));
+            assertEquals(3, attempts.get());
+            signs.storeSignsForShutdown();
+            assertEquals(2, signs.workers.size(), "Successful retry is not republished");
+            assertDoesNotThrow(() -> ServerDataPublicationFence.beginGeneration(target).retire(),
+                    "Confirmed retry must release both facade and sign-batch ownership");
+        }
+    }
+
+    @Test void actualPendingRetryCoalescesWithoutReplacingItsPayloadOrTrustingObservationCancellation() throws Exception {
+        try (var schedulers = mockConstruction(com.bencodez.simpleapi.scheduler.BukkitScheduler.class)) {
+            var target = directory.resolve("ServerData.yml");
+            var fence = ServerDataPublicationFence.beginGeneration(target);
+            var plugin = plugin(fence);
+            var attempts = new java.util.concurrent.atomic.AtomicInteger();
+            var retryEntered = new java.util.concurrent.CountDownLatch(1);
+            var releaseRetry = new java.util.concurrent.CountDownLatch(1);
+            var backing = new com.bencodez.advancedcore.data.ServerData(plugin) {
+                @Override protected void moveAtomically(Path source, Path destination) throws java.io.IOException {
+                    if (attempts.incrementAndGet() == 1)
+                        throw new java.io.IOException("Synthetic first publication failure");
+                    retryEntered.countDown();
+                    try {
+                        if (!releaseRetry.await(5, TimeUnit.SECONDS))
+                            throw new java.io.IOException("Synthetic retry barrier expired");
+                    } catch (InterruptedException interrupted) {
+                        Thread.currentThread().interrupt();
+                        throw new java.io.IOException(interrupted);
+                    }
+                    super.moveAtomically(source, destination);
+                }
+            };
+            backing.setData(new YamlConfiguration());
+            var facade = new GenerationFencedServerDataFile(plugin, backing, fence);
+            when(plugin.getServerDataFile()).thenReturn(facade);
+            var data = new ServerData(plugin);
+            when(plugin.getServerData()).thenReturn(data);
+            var world = mock(World.class);
+            when(world.getName()).thenReturn("SyntheticWorld");
+            var snapshot = List.of(ServerData.captureSignSnapshot("0", new Location(world, 1, 2, 3),
+                    null, "OriginalAcceptedSign", 2));
+            var different = List.of(ServerData.captureSignSnapshot("0", new Location(world, 9, 8, 7),
+                    null, "DifferentUnacceptedSign", 4));
+            assertThrows(java.util.concurrent.CompletionException.class,
+                    () -> data.publishShutdownSigns(snapshot).toCompletableFuture().join());
+            fence.retire();
+            var workers = java.util.concurrent.Executors.newFixedThreadPool(2);
+            try {
+                var retry = workers.submit(() -> data.publishShutdownSigns(snapshot));
+                assertTrue(retryEntered.await(5, TimeUnit.SECONDS));
+                var coalesced = workers.submit(() -> data.publishShutdownSigns(snapshot)).get(2, TimeUnit.SECONDS);
+                coalesced.toCompletableFuture().cancel(true);
+                coalesced.toCompletableFuture().complete(null);
+                assertFalse(coalesced.toCompletableFuture().isDone(), "The real publication still owns its lease");
+                var rejected = workers.submit(() -> data.publishShutdownSigns(different)).get(2, TimeUnit.SECONDS);
+                assertThrows(java.util.concurrent.CompletionException.class, () -> rejected.toCompletableFuture().join());
+                assertThrows(IllegalStateException.class, () -> ServerDataPublicationFence.beginGeneration(target));
+                releaseRetry.countDown();
+                retry.get(5, TimeUnit.SECONDS).toCompletableFuture().get(5, TimeUnit.SECONDS);
+                coalesced.toCompletableFuture().get(5, TimeUnit.SECONDS);
+                data.publishShutdownSigns(snapshot).toCompletableFuture().get(5, TimeUnit.SECONDS);
+                assertEquals(2, attempts.get(), "One failed attempt and one shared durable retry");
+                var disk = YamlConfiguration.loadConfiguration(target.toFile());
+                assertEquals("OriginalAcceptedSign", disk.getString("VotingPlugin.Signs.0.Data"));
+                assertEquals(1, disk.getInt("VotingPlugin.Signs.0.X"));
+                ServerDataPublicationFence.beginGeneration(target).retire();
+            } finally {
+                releaseRetry.countDown();
+                workers.shutdownNow();
+                assertTrue(workers.awaitTermination(5, TimeUnit.SECONDS));
+            }
+        }
+    }
+
+    @Test void confirmedPublicationRetriesOnlyFailedDisplayObservationWithoutRepeatingTheWrite() throws Exception {
+        try (var schedulers = mockConstruction(com.bencodez.simpleapi.scheduler.BukkitScheduler.class)) {
+            var target = directory.resolve("ServerData.yml");
+            var fence = ServerDataPublicationFence.beginGeneration(target);
+            var plugin = plugin(fence);
+            var writes = new java.util.concurrent.atomic.AtomicInteger();
+            var backing = new com.bencodez.advancedcore.data.ServerData(plugin) {
+                @Override protected void moveAtomically(Path source, Path destination) throws java.io.IOException {
+                    writes.incrementAndGet();
+                    super.moveAtomically(source, destination);
+                }
+            };
+            backing.setData(new YamlConfiguration());
+            var facade = new GenerationFencedServerDataFile(plugin, backing, fence);
+            when(plugin.getServerDataFile()).thenReturn(facade);
+            var data = spy(new ServerData(plugin));
+            when(plugin.getServerData()).thenReturn(data);
+            doThrow(new IllegalStateException("Synthetic observation failure")).doCallRealMethod()
+                    .when(data).refreshVotePartyDisplay();
+            var world = mock(World.class);
+            when(world.getName()).thenReturn("SyntheticWorld");
+            var snapshot = List.of(ServerData.captureSignSnapshot("0", new Location(world, 1, 2, 3),
+                    null, "OriginalAcceptedSign", 2));
+            assertThrows(java.util.concurrent.CompletionException.class,
+                    () -> data.publishShutdownSigns(snapshot).toCompletableFuture().join());
+            assertEquals("OriginalAcceptedSign", YamlConfiguration.loadConfiguration(target.toFile())
+                    .getString("VotingPlugin.Signs.0.Data"), "The write committed before observation failed");
+            fence.retire();
+            assertThrows(IllegalStateException.class, () -> ServerDataPublicationFence.beginGeneration(target));
+            data.publishShutdownSigns(snapshot).toCompletableFuture().get(5, TimeUnit.SECONDS);
+            assertEquals(1, writes.get(), "Retry must not replay an already confirmed mutation");
+            ServerDataPublicationFence.beginGeneration(target).retire();
+        }
+    }
+
     @Test void actualSdkIoFailureKeepsTheGenerationBlocked() throws Exception {
         try (var schedulers = mockConstruction(com.bencodez.simpleapi.scheduler.BukkitScheduler.class)) {
             var target = directory.resolve("ServerData.yml");

@@ -108,14 +108,36 @@ public class ServerData {
         return new SignSnapshot(count, location, skull, data, position);
     }
 
-    /** Worker-only: publish the whole captured sign batch through the actual durable SDK owner. */
+    private record ShutdownSignPublication(List<SignSnapshot> snapshot,
+            java.util.function.Supplier<java.util.concurrent.CompletionStage<Void>> publisher) { }
+    private final Object shutdownSignBinding = new Object();
+    private ShutdownSignPublication shutdownSignPublication;
+
+    /** Worker-only: one accepted sign batch, with the same publication owner across retries. */
     public java.util.concurrent.CompletionStage<Void> publishShutdownSigns(List<SignSnapshot> signs) {
         var snapshot = List.copyOf(signs);
-        return getFile().mutateFinalData(candidate -> {
-            var target = candidate.getConfigurationSection("VotingPlugin");
-            if (target == null) target = candidate.createSection("VotingPlugin");
-            for (var sign : snapshot) sign.store(target);
-        });
+        ShutdownSignPublication publication;
+        synchronized (shutdownSignBinding) {
+            if (shutdownSignPublication == null) {
+                var file = getFile();
+                java.util.function.Consumer<org.bukkit.configuration.file.FileConfiguration> mutation = candidate -> {
+                    var target = candidate.getConfigurationSection("VotingPlugin");
+                    if (target == null) target = candidate.createSection("VotingPlugin");
+                    for (var sign : snapshot) sign.store(target);
+                };
+                java.util.function.Supplier<java.util.concurrent.CompletionStage<Void>> publisher;
+                if (file instanceof GenerationFencedServerDataFile guarded) {
+                    var retained = guarded.prepareFinalPublication(mutation);
+                    publisher = retained::publish;
+                } else publisher = () -> file.mutateFinalData(mutation);
+                shutdownSignPublication = new ShutdownSignPublication(snapshot, publisher);
+            } else if (!shutdownSignPublication.snapshot().equals(snapshot)) {
+                return java.util.concurrent.CompletableFuture.failedFuture(
+                        new IllegalStateException("Shutdown sign publication already owns a different batch"));
+            }
+            publication = shutdownSignPublication;
+        }
+        return publication.publisher().get();
     }
 
 	/** Only YAML work belongs here; platform callbacks run outside the file owner. */
