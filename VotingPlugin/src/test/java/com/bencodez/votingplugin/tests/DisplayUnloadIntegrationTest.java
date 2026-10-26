@@ -34,6 +34,7 @@ class DisplayUnloadIntegrationTest {
     }
     @Test void unloadSettlesPendingLeaderboardEvidenceAndRejectsLaterStreakMenuOpens() throws Exception {
         var plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
+        field(plugin, "unloadInProgress", new java.util.concurrent.atomic.AtomicBoolean());
         var discord = mock(com.bencodez.votingplugin.discord.DiscordHandler.class);
         field(plugin, "discordHandler", discord);
         doReturn(true).when(plugin).isEnabled();
@@ -45,6 +46,8 @@ class DisplayUnloadIntegrationTest {
         field(plugin, "backendControlConnectorLifecycle", stoppedExecutor());
         field(plugin, "voteTimer", stoppedExecutor());
         var signs = mock(Signs.class); doReturn(signs).when(plugin).getSigns();
+        when(signs.storeSignsForShutdown()).thenReturn(CompletableFuture.completedFuture(null));
+        field(plugin, "signs", signs);
         var pending = new CompletableFuture<PlayerPresence>();
         var filter = new TopVoterDisplayFilter(row -> pending);
         field(plugin, "topVoterDisplayFilter", filter);
@@ -67,7 +70,7 @@ class DisplayUnloadIntegrationTest {
             assertEquals(1, generation.get());
             menu.open(player);
             verifyNoInteractions(player);
-            verify(signs).storeSigns();
+            verify(signs).storeSignsForShutdown();
         }
     }
 }

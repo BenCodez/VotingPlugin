@@ -339,6 +339,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	private volatile VotingPluginBackgroundTask backgroundTask;
 	private volatile AtomicBoolean basicBungeeUpdateRunning;
+	private final AtomicBoolean unloadInProgress = new AtomicBoolean();
+	private Set<String> completedUnloadSteps;
+	private java.util.concurrent.CompletionStage<Void> signShutdownPublication;
 
 	private synchronized AtomicBoolean basicBungeeUpdateAdmission() {
 		if (basicBungeeUpdateRunning == null) basicBungeeUpdateRunning = new AtomicBoolean();
@@ -794,6 +797,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Override
 	public void onPostLoad() {
+		serverData.refreshVotePartyDisplay();
 		ensureCommunicationSecret();
 		// auto conversion for Shop.yml
 		if (plugin.getShopFile().isJustCreated()) {
@@ -2011,9 +2015,95 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		configFile.saveData();
 	}
 
+	@Getter
+	private volatile com.bencodez.votingplugin.util.ServerDataPublicationFence serverDataPublicationFence;
+
+	private volatile com.bencodez.votingplugin.data.GenerationFencedServerDataFile fencedServerDataFile;
+
+	private java.util.concurrent.CompletableFuture<Void> serverDataFinalPublication;
+	private boolean serverDataFinalPublicationReserved;
+	private boolean serverDataFinalStageAttached;
+	private volatile boolean serverDataEnableCleanupStarted;
+	private volatile boolean serverDataEnableAdmissionRejected;
+
+	@Override
+	public com.bencodez.advancedcore.data.ServerData getServerDataFile() {
+		var file = super.getServerDataFile();
+		var current = fencedServerDataFile;
+		if (current != null && current.wraps(file)) {
+			// The SDK replaces its file after pre-load. A failed new generation has
+			// no file to finalize; never expose the predecessor as its current owner.
+			return current.belongsTo(serverDataPublicationFence) ? current : null;
+		}
+		synchronized (this) {
+			file = super.getServerDataFile();
+			var owner = serverDataPublicationFence;
+			if (file == null || owner == null) return file;
+			current = fencedServerDataFile;
+			if (current != null && current.wraps(file) && !current.belongsTo(owner)) return null;
+			if (current == null || !current.wraps(file)) {
+				current = new com.bencodez.votingplugin.data.GenerationFencedServerDataFile(this, file, owner);
+				fencedServerDataFile = current;
+			}
+			return current;
+		}
+	}
+
+	/** Capture the existing AdvancedCore executors which can still publish server-data state. */
+	public ScheduledExecutorService[] getServerDataWriterExecutors() {
+		var checker = getTimeChecker();
+		return new ScheduledExecutorService[] { getTimer(), getLoginTimer(), getInventoryTimer(),
+				checker == null ? null : checker.getTimer() };
+	}
+
+	@Override
+	public void onEnable() {
+		synchronized (this) {
+			// Bind a retained SDK file before changing owner. AdvancedCore replaces its
+			// private file only later in loadHook(), after onPreLoad().
+			if (serverDataPublicationFence != null) getServerDataFile();
+			serverDataPublicationFence = com.bencodez.votingplugin.util.ServerDataPublicationFence.beginGeneration(
+					getDataFolder().toPath().resolve("ServerData.yml"));
+            try { serverDataPublicationFence.retainForProcessExit(); }
+            catch (RuntimeException | Error registrationFailure) {
+                serverDataEnableAdmissionRejected = true;
+                try { serverDataPublicationFence.retire(); }
+                catch (RuntimeException | Error cleanupFailure) {
+                    if (cleanupFailure != registrationFailure) registrationFailure.addSuppressed(cleanupFailure);
+                }
+                throw registrationFailure;
+            }
+			serverDataFinalPublication = new java.util.concurrent.CompletableFuture<>();
+			serverDataFinalPublicationReserved = false;
+			serverDataFinalStageAttached = false;
+			serverDataEnableCleanupStarted = false;
+			serverDataEnableAdmissionRejected = false;
+		}
+		// Failed startup can already own SDK writers; disable must retire them before replacement.
+		try { super.onEnable(); }
+		catch (RuntimeException | Error failure) {
+			// SDK admission can fail before its startup-cleanup try/catch. Such an
+			// attempt admitted no new writers and must not strand an empty plugin owner.
+			// An admitted startup failure already entered our onDisable; preserve its drain.
+			if (!serverDataEnableCleanupStarted) {
+				serverDataEnableAdmissionRejected = true;
+				try {
+					serverDataPublicationFence.retire();
+					serverDataFinalPublication.complete(null);
+				} catch (RuntimeException | Error cleanupFailure) {
+					if (cleanupFailure != failure) failure.addSuppressed(cleanupFailure);
+				}
+			}
+			throw failure;
+		}
+	}
+
 	@Override
 	public void onPreLoad() {
 		plugin = this;
+		unloadInProgress.set(false);
+		completedUnloadSteps = new java.util.HashSet<>();
+		signShutdownPublication = null;
 
 		setupFiles();
 		if ("SQLITE".equalsIgnoreCase(configFile.getData().getString("DataStorage", "SQLITE"))) {
@@ -2055,14 +2145,66 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Override
 	public void onDisable() {
-		if (discordHandler != null) discordHandler.close();
-		stopAutoCreateVoteSitesSetupReminder();
-		if (offlineVoteOwnerHandoffs != null) offlineVoteOwnerHandoffs.close();
+		// The rejected enable owns no SDK shutdown stage to complete a new reservation.
+		if (serverDataEnableAdmissionRejected) return;
+		runShutdownStep("server-data process drain", this::beginServerDataProcessDrain);
+		serverDataEnableCleanupStarted = true;
+		runShutdownStep("Discord leaderboards", () -> {
+			if (discordHandler != null) discordHandler.close();
+		});
+		runShutdownStep("setup reminder", this::stopAutoCreateVoteSitesSetupReminder);
+		runShutdownStep("server-data writer retirement", () -> {
+			if (serverDataPublicationFence != null) {
+				retainServerDataFinalPublication();
+				var coreWriters = getServerDataWriterExecutors();
+				var writers = java.util.Arrays.copyOf(coreWriters, coreWriters.length + 1);
+				writers[coreWriters.length] = voteTimer;
+				serverDataPublicationFence.retainUntilTermination(writers);
+			}
+		});
 		try {
-			shutdownVoteReminders();
+			runShutdownStep("offline vote handoffs", () -> {
+				if (offlineVoteOwnerHandoffs != null) offlineVoteOwnerHandoffs.close();
+			});
 		} finally {
-			super.onDisable();
+			try { shutdownVoteReminders(); }
+			finally {
+				try { super.onDisable(); }
+				finally { runShutdownStep("server-data publication owner", () -> {
+					if (serverDataPublicationFence != null) serverDataPublicationFence.retire();
+				}); }
+			}
 		}
+	}
+
+	/** Reserve before SDK shutdown can enqueue a final file publication. No YAML lock or wait. */
+	private void retainServerDataFinalPublication() {
+		synchronized (this) {
+			if (serverDataFinalPublicationReserved) return;
+			if (serverDataFinalPublication == null)
+				serverDataFinalPublication = new java.util.concurrent.CompletableFuture<>();
+			serverDataPublicationFence.retainUntilSuccessfulPublication(serverDataFinalPublication);
+			serverDataFinalPublicationReserved = true;
+		}
+	}
+
+	@Override
+	public void onShutdownComplete(java.util.concurrent.CompletionStage<Void> finalFilesStage) {
+		java.util.concurrent.CompletableFuture<Void> publication;
+		synchronized (this) {
+			publication = serverDataFinalStageAttached ? null : serverDataFinalPublication;
+			serverDataFinalStageAttached = true;
+		}
+		try {
+			if (publication != null) {
+				try {
+					java.util.Objects.requireNonNull(finalFilesStage).whenComplete((ignored, failure) -> {
+						if (failure == null) publication.complete(null);
+						else publication.completeExceptionally(failure);
+					});
+				} catch (Throwable failure) { publication.completeExceptionally(failure); }
+			}
+		} finally { super.onShutdownComplete(finalFilesStage); }
 	}
 
 	private Settings autoCreateVoteSitesReminderSettings() {
@@ -2092,52 +2234,107 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Override
 	public void onUnLoad() {
-		if (discordHandler != null) discordHandler.close();
-		retireTopVoterDisplayFilter();
-		if (voteStreaksMenu != null) voteStreaksMenu.close();
-		stopAutoCreateVoteSitesSetupReminder();
-		placeholderPlayerPresence.clear();
-		stopBackendHostedControlLifecycle();
-		stopBackendControlConnectorLifecycle();
-		if (getBackendProxyHandler() != null) {
-			try {
-				getBackendProxyHandler().closeForShutdown();
-			} catch (Exception e) {
-				debug(e);
-			}
+		runShutdownStep("server-data process drain", this::beginServerDataProcessDrain);
+		if (!unloadInProgress.compareAndSet(false, true)) {
+			runShutdownStep("time queue retry", () -> {
+				if (timeQueueHandler != null) timeQueueHandler.saveForShutdown();
+			});
+			return;
 		}
-		if (backendOrderedVoteOverflowQueue != null) {
-			backendOrderedVoteOverflowQueue.close();
-			backendOrderedVoteOverflowQueue = null;
-		}
-		if (webhookManager != null) {
-			webhookManager.shutdown();
-		}
-		voteTimer.shutdown();
 		try {
-			voteTimer.awaitTermination(1, TimeUnit.SECONDS);
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		}
-		voteTimer.shutdownNow();
-		if (votifierVoteOverflowQueue != null) {
-			votifierVoteOverflowQueue.close();
-			votifierVoteOverflowQueue = null;
-		}
-		if (timeQueueHandler != null) {
-			timeQueueHandler.save();
-		}
+			if (completedUnloadSteps == null) completedUnloadSteps = new java.util.HashSet<>();
+			runUnloadStep("Discord leaderboards", () -> {
+				if (discordHandler != null) discordHandler.close();
+			});
+			runUnloadStep("top voter display", this::retireTopVoterDisplayFilter);
+			runUnloadStep("streak menu", () -> {
+				if (voteStreaksMenu != null) voteStreaksMenu.close();
+			});
+			runUnloadStep("setup reminder", this::stopAutoCreateVoteSitesSetupReminder);
+			runUnloadStep("player presence", placeholderPlayerPresence::clear);
+			runUnloadStep("backend hosted Control", this::stopBackendHostedControlLifecycle);
+			runUnloadStep("backend Control connector", this::stopBackendControlConnectorLifecycle);
+			runUnloadStep("backend proxy", () -> {
+				if (getBackendProxyHandler() != null) getBackendProxyHandler().closeForShutdown();
+			});
+			runUnloadStep("backend ordered vote queue", () -> {
+				if (backendOrderedVoteOverflowQueue != null) {
+					backendOrderedVoteOverflowQueue.close();
+					backendOrderedVoteOverflowQueue = null;
+				}
+			});
+			runUnloadStep("webhook manager", () -> {
+				if (webhookManager != null) webhookManager.shutdown();
+			});
+			runUnloadStep("vote timer", this::shutdownVoteTimer);
+			runUnloadStep("Votifier vote queue", () -> {
+				if (votifierVoteOverflowQueue != null) {
+					votifierVoteOverflowQueue.close();
+					votifierVoteOverflowQueue = null;
+				}
+			});
+			runShutdownStep("time queue", () -> {
+				if (timeQueueHandler != null) timeQueueHandler.saveForShutdown();
+			});
+			runUnloadStep("vote reminders", this::shutdownVoteReminders);
+			runUnloadStep("cooldown checker", () -> {
+				if (coolDownCheck != null) {
+					coolDownCheck.shutdown();
+					coolDownCheck = null;
+				}
+			});
+			runShutdownStep("signs", this::shutdownSigns);
+			runUnloadStep("event handlers", () -> HandlerList.unregisterAll(this));
+			// Late producers must see rejection until their overflow and handler cleanup finishes.
+			if (completedUnloadSteps.contains("vote timer")) voteTimer = null;
+			if (plugin == this) plugin = null;
+		} finally { unloadInProgress.set(false); }
+	}
 
-		shutdownVoteReminders();
+    private void beginServerDataProcessDrain() {
+        var owner = serverDataPublicationFence;
+        if (owner != null) owner.beginShutdown(System.nanoTime());
+    }
 
-		if (coolDownCheck != null) {
-			coolDownCheck.shutdown();
-			coolDownCheck = null;
+    private void shutdownSigns() {
+        if (signs == null) return;
+        var previous = signShutdownPublication;
+        if (previous != null && !previous.toCompletableFuture().isCompletedExceptionally()) return;
+        signShutdownPublication = java.util.Objects.requireNonNull(signs.storeSignsForShutdown());
+    }
+
+	private void runUnloadStep(String name, Runnable step) {
+		if (!completedUnloadSteps.contains(name) && runShutdownStep(name, step)) completedUnloadSteps.add(name);
+	}
+
+	private boolean runShutdownStep(String name, Runnable step) {
+		try {
+			step.run();
+			return true;
+		} catch (RuntimeException | Error failure) {
+			try {
+				getLogger().log(java.util.logging.Level.WARNING, "Failed to shut down " + name, failure);
+			} catch (RuntimeException | Error ignored) {
+				// Logging must not prevent the next independent cleanup step.
+			}
+			return false;
 		}
+	}
 
-		getSigns().storeSigns();
-		HandlerList.unregisterAll(plugin);
-		plugin = null;
+	private void shutdownVoteTimer() {
+		if (voteTimer == null) return;
+		try {
+			voteTimer.shutdown();
+			if (!voteTimer.awaitTermination(1, TimeUnit.SECONDS)) voteTimer.shutdownNow();
+		} catch (InterruptedException interrupted) {
+			Thread.currentThread().interrupt();
+			voteTimer.shutdownNow();
+		} catch (RuntimeException failure) {
+			try {
+				getLogger().log(java.util.logging.Level.WARNING, "Failed to shut down vote timer", failure);
+			} catch (RuntimeException | Error ignored) { }
+			voteTimer.shutdownNow();
+		}
 	}
 
 	/**

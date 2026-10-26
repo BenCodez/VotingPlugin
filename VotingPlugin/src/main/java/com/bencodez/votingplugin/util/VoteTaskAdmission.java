@@ -13,11 +13,12 @@ public final class VoteTaskAdmission {
 	/**
 	 * Attempts to submit a one-shot vote task without running it on the caller.
 	 *
-	 * @param executor bounded vote executor
+	 * @param executor bounded vote executor, or null before startup/after shutdown
 	 * @param task task to submit
 	 * @return true when the task was admitted
 	 */
 	public static boolean trySubmit(ScheduledExecutorService executor, Runnable task) {
+		if (executor == null) return false;
 		try {
 			executor.submit(task);
 			return true;
@@ -29,13 +30,14 @@ public final class VoteTaskAdmission {
 	/**
 	 * Attempts to schedule a one-shot vote task without blocking the caller.
 	 *
-	 * @param executor bounded vote executor
+	 * @param executor bounded vote executor, or null before startup/after shutdown
 	 * @param task task to schedule
 	 * @param delay delay before execution
 	 * @param unit delay unit
 	 * @return true when the task was admitted
 	 */
 	public static boolean trySchedule(ScheduledExecutorService executor, Runnable task, long delay, TimeUnit unit) {
+		if (executor == null) return false;
 		try {
 			executor.schedule(task, delay, unit);
 			return true;

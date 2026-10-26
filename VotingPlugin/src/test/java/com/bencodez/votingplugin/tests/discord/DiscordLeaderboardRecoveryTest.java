@@ -383,7 +383,8 @@ class DiscordLeaderboardRecoveryTest {
             var pathField=com.bencodez.simpleapi.file.YMLFile.class.getDeclaredField("dFile");
             pathField.setAccessible(true);pathField.set(file,directory.toFile());
             when(f.plugin.getServerDataFile()).thenReturn(file);
-            when(f.plugin.getServerData()).thenReturn(new ServerData(f.plugin));
+            var serverData = new ServerData(f.plugin);
+            when(f.plugin.getServerData()).thenReturn(serverData);
             startPersistentSend(f,false);var created=new CreatedMessage(12L);
             f.sendSuccess.accept(created.message);f.drain();
             assertEquals(12L,yaml.getLong("VotingPlugin.DiscordSRV.TopVoterMessageId.Monthly"));
