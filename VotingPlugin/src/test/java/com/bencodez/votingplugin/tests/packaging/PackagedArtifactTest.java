@@ -163,6 +163,34 @@ public class PackagedArtifactTest {
     }
 
     @Test
+    void packagedProxySqlDriverSelectionKeepsExternalMariaDbIdentity() throws Exception {
+        // The private NeoForge transport driver must not become the default proxy SQL driver.
+        // Shade can otherwise rewrite string constants in both plugin and shaded SDK classes.
+        try (URLClassLoader loader = new URLClassLoader(new URL[] {packagedJar().toUri().toURL()},
+                ClassLoader.getPlatformClassLoader())) {
+            Class<?> installer = Class.forName(
+                    "com.bencodez.votingplugin.proxy.velocity.VelocityDatabaseDriverInstaller", true, loader);
+            var field = installer.getDeclaredField("MARIADB");
+            field.setAccessible(true);
+            assertTrue("org.mariadb.jdbc.Driver".equals(field.get(null)),
+                    "Velocity must probe the external MariaDB driver, not the NeoForge-private driver");
+        }
+        try (JarFile artifact = new JarFile(packagedJar().toFile())) {
+            for (String path : new String[] {
+                    "com/bencodez/votingplugin/simpleapi/sql/mysql/ConnectionManager.class",
+                    "com/bencodez/votingplugin/control/NetworkHealthStorageFacts.class"}) {
+                var entry = artifact.getEntry(path);
+                assertNotNull(entry, "Missing packaged driver-selection class: " + path);
+                String bytes = new String(artifact.getInputStream(entry).readAllBytes(), StandardCharsets.ISO_8859_1);
+                assertTrue(bytes.contains("org.mariadb.jdbc.Driver"),
+                        "Proxy SQL must retain the external MariaDB driver identity: " + path);
+                assertFalse(bytes.contains("com.bencodez.votingplugin.neoforge.mariadb.jdbc.Driver"),
+                        "NeoForge's private driver must not replace the proxy SQL default: " + path);
+            }
+        }
+    }
+
+    @Test
     void packagedJdkTlsIdentityWorksWithoutExternalCrypto(@TempDir Path directory) throws Exception {
         URL jar = packagedJar().toUri().toURL();
         try (URLClassLoader loader = new URLClassLoader(new URL[] { jar }, ClassLoader.getPlatformClassLoader())) {

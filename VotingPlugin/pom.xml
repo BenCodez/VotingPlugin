@@ -126,9 +126,18 @@
                         </filter>
                     </filters>
                     <relocations>
+                        <!-- Keep external JDBC driver-name strings unchanged in proxy consumers.
+                             Relocate the private Driver's JVM paths separately; ordinary relocation
+                             continues to rewrite its sibling classes and service providers. -->
                         <relocation>
                             <pattern>org.mariadb</pattern>
                             <shadedPattern>${project.groupId}.votingplugin.neoforge.mariadb</shadedPattern>
+                            <excludes><exclude>org.mariadb.jdbc.Driver</exclude></excludes>
+                        </relocation>
+                        <relocation>
+                            <pattern>org/mariadb/jdbc/Driver</pattern>
+                            <shadedPattern>com/bencodez/votingplugin/neoforge/mariadb/jdbc/Driver</shadedPattern>
+                            <rawString>true</rawString>
                         </relocation>
                         <relocation>
                             <pattern>com.tcoded.folialib</pattern>
