@@ -17,6 +17,18 @@ public class VoteTotalsSnapshot {
 
 	// Current storage version
 	private static final int CURRENT_VERSION = 2;
+	private static final String LOCAL_ORIGIN = "local-proxy-origin-v1";
+	/** Trusted cache provenance; shared ingress must clear it before admission. */
+	@Getter
+	@Setter
+	private boolean localProxyOrigin;
+	@Getter
+	@Setter
+	private String localOriginProof = "";
+	public void setLocalProxyOrigin(boolean value) {
+		localProxyOrigin = value;
+		if (!value) localOriginProof = "";
+	}
 
 	@Getter
 	@Setter
@@ -111,6 +123,13 @@ public class VoteTotalsSnapshot {
 			break;
 		}
 
+		// Old v2 readers ignore trailing fields. Missing/unknown/malformed markers
+		// remain unclassified; never infer authority from totals or a current config.
+		if ("v2".equals(t[0]) && t.length == 10 && t[9].length() <= 1024) {
+			out.localProxyOrigin = LOCAL_ORIGIN.equals(t[9]) || t[9].startsWith(LOCAL_ORIGIN + ":");
+			if (out.localProxyOrigin && t[9].startsWith(LOCAL_ORIGIN + ":"))
+				out.localOriginProof = t[9].substring(LOCAL_ORIGIN.length() + 1);
+		}
 		return out;
 	}
 
@@ -120,7 +139,8 @@ public class VoteTotalsSnapshot {
 
 	public String toStorageString() {
 		return "v" + CURRENT_VERSION + SEP + allTimeTotal + SEP + monthTotal + SEP + weeklyTotal + SEP + dailyTotal
-				+ SEP + points + SEP + votePartyCurrent + SEP + votePartyRequired + SEP + dateMonthTotal;
+				+ SEP + points + SEP + votePartyCurrent + SEP + votePartyRequired + SEP + dateMonthTotal
+				+ (localProxyOrigin ? SEP + LOCAL_ORIGIN + (localOriginProof.isEmpty() ? "" : ":" + localOriginProof) : "");
 	}
 
 	@Override

@@ -54,6 +54,173 @@ import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
  */
 public class VoteCacheHandlerVoteIdTest {
 	@Test
+	public void sqlImportsCannotLaunderAdmissionProofThroughPrivateFallback() throws Exception {
+		assertSqlImportsCannotLaunderAdmissionProof(0);
+	}
+
+	@Test
+	public void legacyWrappedSqlImportsCannotLaunderAdmissionProofThroughPrivateFallback() throws Exception {
+		assertSqlImportsCannotLaunderAdmissionProof(1);
+		assertSqlImportsCannotLaunderAdmissionProof(2);
+		assertSqlImportsCannotLaunderAdmissionProof(8);
+	}
+
+	private void assertSqlImportsCannotLaunderAdmissionProof(int wrappers) throws Exception {
+		Path caseDirectory = tempDir.resolve("wrappers-" + wrappers);
+		Files.createDirectories(caseDirectory);
+		var platform = mock(VotingPluginBungee.class);
+		when(platform.getDataFolder()).thenReturn(caseDirectory.toFile());
+		var realStorage = new BungeeJsonVoteCache(platform);
+		var sqlOwner = newMysqlEnabledLoadHandler(realStorage);
+		var totals = new com.bencodez.votingplugin.proxy.VoteTotalsSnapshot(4, 5, 6, 7, 8, 9, 10, 11);
+		String numeric = totals.toStorageString();
+		totals.setLocalProxyOrigin(true); totals.setLocalOriginProof("independently-synthetic-admission");
+		String untrusted = totals.toStorageString();
+		for (int i = 0; i < wrappers; i++) {
+			numeric = legacyForwardedTotals(numeric, i % 2 == 0);
+			untrusted = legacyForwardedTotals(untrusted, i % 2 == 0);
+		}
+		var serverId = UUID.randomUUID(); var onlineId = UUID.randomUUID(); var timedId = UUID.randomUUID();
+		var serverRow = new ProxyVoteCacheTable.VoteRow(1, serverId.toString(), "player-uuid", "Player",
+				"Service", 100L, true, false, false, untrusted, false, false, "", "", false, "", "", "server");
+		var onlineRow = new ProxyOnlineVoteCacheTable.VoteRow(2, onlineId.toString(), "player-uuid", "Player",
+				"Service", 100L, true, false, false, untrusted, false, false, "", "", false, "", "");
+		var timedRow = new ProxyTimedVoteCacheTable.TimedVoteRow(3, "Player", "Service", 100L, timedId,
+				"player-uuid", false, "", "", untrusted, false, false, false, false, true, "", false,
+				"", "", "", "", false, false);
+		var serverTable = mock(ProxyVoteCacheTable.class);
+		var onlineTable = mock(ProxyOnlineVoteCacheTable.class);
+		var timedTable = mock(ProxyTimedVoteCacheTable.class);
+		when(serverTable.getAllVotesChecked()).thenReturn(List.of(serverRow));
+		when(onlineTable.getAllVotesChecked()).thenReturn(List.of(onlineRow));
+		when(timedTable.getAllVotesChecked()).thenReturn(List.of(timedRow));
+		setPrivateField(sqlOwner, "voteCacheTable", serverTable);
+		setPrivateField(sqlOwner, "onlineVoteCacheTable", onlineTable);
+		setPrivateField(sqlOwner, "timedVoteCacheTable", timedTable);
+		sqlOwner.load();
+		var server = sqlOwner.getVotes("server").get(0);
+		var online = sqlOwner.getOnlineVotes("player-uuid").get(0);
+		var timed = sqlOwner.getTimeChangeQueue().element();
+		assertEquals(numeric, server.getText()); assertEquals(numeric, online.getText());
+		assertEquals(numeric, timed.getTotals());
+		assertEquals(serverId, server.getVoteId()); assertEquals(onlineId, online.getVoteId());
+		assertEquals(timedId, timed.getVoteId()); assertEquals(untrusted, serverRow.getText());
+		assertTrue(sqlOwner.prepareCachedVoteBatch("server", false, List.of(server), 1));
+		assertTrue(sqlOwner.prepareCachedVoteBatch("player-uuid", true, List.of(online), 1));
+		assertFalse(sqlOwner.updateTimeVote(timed)); // An unconfirmed SQL update retains its existing owner.
+		assertTrue(sqlOwner.getTimeChangeQueue().contains(timed));
+		var privateOwner = newHandler(realStorage); privateOwner.load();
+		assertEquals(numeric, privateOwner.getVotes("server").get(0).getText());
+		assertEquals(numeric, privateOwner.getOnlineVotes("player-uuid").get(0).getText());
+		assertTrue(privateOwner.addTimeVoteToCache(timed)); // A later private-owner handoff is not re-attestation.
+		var reloadedPrivateOwner = newHandler(realStorage); reloadedPrivateOwner.load();
+		assertEquals(numeric, reloadedPrivateOwner.getTimeChangeQueue().element().getTotals());
+	}
+
+	@Test
+	public void legacySqlProofCannotSurviveActualEmergencyTwinAndRestart() throws Exception {
+		for (boolean realVote : List.of(false, true)) {
+			Path folder = tempDir.resolve(Boolean.toString(realVote));
+			Files.createDirectories(folder);
+			com.bencodez.votingplugin.tests.neoforge.NeoForgeProxyOriginFixture.create(folder);
+			var proxy = new VotingPluginProxyTestImpl();
+			proxy.setDataFolder(folder.toFile());
+			when(proxy.getConfig().getSpigotServers()).thenReturn(List.of("backend-test"));
+			when(proxy.getConfig().getSpigotServerConfiguration("backend-test"))
+					.thenReturn(Map.of("ProxySigningKeyFile", "synthetic-proxy-private.key"));
+			when(proxy.getConfig().getProxyServerName()).thenReturn("proxy-test");
+			var proxyType = com.bencodez.votingplugin.proxy.VotingPluginProxy.class;
+			var signersMethod = proxyType.getDeclaredMethod("createProxyOriginSigners",
+					com.bencodez.votingplugin.proxy.BungeeMethod.class);
+			signersMethod.setAccessible(true);
+			var signers = proxyType.getDeclaredField("proxyOriginSigners");
+			signers.setAccessible(true);
+			signers.set(proxy, signersMethod.invoke(proxy, com.bencodez.votingplugin.proxy.BungeeMethod.MYSQL));
+			var id = UUID.randomUUID();
+			var totals = new com.bencodez.votingplugin.proxy.VoteTotalsSnapshot(4, 5, 6, 7, 8, 9, 10, 11);
+			String numeric = totals.toStorageString();
+			var stamp = proxyType.getDeclaredMethod("stampLocalOriginTotals", UUID.class, String.class,
+					String.class, String.class, long.class, boolean.class, boolean.class, boolean.class,
+					boolean.class, boolean.class, com.bencodez.votingplugin.proxy.VoteTotalsSnapshot.class, boolean.class);
+			stamp.setAccessible(true);
+			stamp.invoke(proxy, id, "雪😀\r\nPlayer", "player-uuid", "Service", 100L, realVote,
+					false, false, false, false, totals, true);
+			var original = new VoteTimeQueue(id, "雪😀\r\nPlayer", "Service", 100L, false,
+					Set.of(), Set.of(), totals.toStorageString(), false, "player-uuid");
+			original.setRealVote(realVote);
+			var accepts = proxyType.getDeclaredMethod("hasLocalOriginProof", VoteTimeQueue.class);
+			accepts.setAccessible(true);
+			assertTrue((boolean) accepts.invoke(proxy, original), "positive control: captured real admission proof");
+			String wrapped = legacyForwardedTotals(original.getTotals(), realVote);
+			original.setTotals(wrapped);
+			var platform = mock(VotingPluginBungee.class);
+			when(platform.getDataFolder()).thenReturn(folder.toFile());
+			var disk = new BungeeJsonVoteCache(platform);
+			disk.addTimedVote(0, original);
+			disk.save();
+			var sqlOwner = newMysqlEnabledLoadHandler(disk);
+			var table = mock(ProxyTimedVoteCacheTable.class);
+			when(table.getAllVotesChecked()).thenReturn(List.of(new ProxyTimedVoteCacheTable.TimedVoteRow(
+					3, original.getName(), original.getService(), 100L, id, "player-uuid", false, "", "",
+					wrapped, false, false, false, false, realVote, "", false, "", "", "", "", false, false)));
+			when(table.updateTimedVote(org.mockito.ArgumentMatchers.any())).thenReturn(true);
+			setPrivateField(sqlOwner, "timedVoteCacheTable", table);
+			sqlOwner.load();
+			var loaded = sqlOwner.getTimeChangeQueue().element();
+			assertTrue(sqlOwner.updateTimeVote(loaded), "confirmed SQL update also persists actual emergency twin");
+			var privateOwner = newHandler(new BungeeJsonVoteCache(platform));
+			privateOwner.load();
+			var recovered = privateOwner.getTimeChangeQueue().element();
+			String[] decoded = decodeLegacyForwardedTotals(recovered.getTotals());
+			assertEquals(Boolean.toString(realVote), decoded[0]);
+			recovered.setTotals(decoded[1]);
+			recovered.setRealVote(Boolean.parseBoolean(decoded[0]));
+			assertEquals(numeric, recovered.getTotals());
+			assertEquals(id, recovered.getVoteId());
+			assertFalse((boolean) accepts.invoke(proxy, recovered), "shared bytes must not regain signing authority");
+		}
+	}
+
+	@Test
+	public void privateLegacyWrapperAndMalformedSqlValuesRetainTheirExistingMeaning() throws Exception {
+		String plain = "v2//4//5//6//7//8//9//10//11";
+		for (String raw : List.of(plain, legacyForwardedTotals(plain, false), legacyForwardedTotals(plain, true),
+				"\u0000VP-FWD:2:ignored", "\u0000VP-FWD:1:!bad", "\u0000VP-FWD:1", "雪\r\n" + plain)) {
+			var owner = newMysqlEnabledLoadHandler(storage);
+			var table = mock(ProxyTimedVoteCacheTable.class);
+			when(table.getAllVotesChecked()).thenReturn(List.of(new ProxyTimedVoteCacheTable.TimedVoteRow(
+					3, "Player", "Service", 100L, UUID.randomUUID(), "player-uuid", false, "", "", raw,
+					false, false, false, false, true, "", false, "", "", "", "", false, false)));
+			setPrivateField(owner, "timedVoteCacheTable", table);
+			owner.load();
+			assertEquals(raw, owner.getTimeChangeQueue().element().getTotals());
+		}
+		var platform = mock(VotingPluginBungee.class);
+		when(platform.getDataFolder()).thenReturn(tempDir.toFile());
+		var disk = new BungeeJsonVoteCache(platform);
+		var totals = com.bencodez.votingplugin.proxy.VoteTotalsSnapshot.parseStorage(plain);
+		totals.setLocalProxyOrigin(true); totals.setLocalOriginProof("independently-synthetic-admission");
+		String trusted = legacyForwardedTotals(totals.toStorageString(), false);
+		var queued = new VoteTimeQueue(UUID.randomUUID(), "Player", "Service", 100L, false,
+				Set.of(), Set.of(), trusted, false, "player-uuid");
+		assertTrue(newHandler(disk).addTimeVoteToCache(queued));
+		var reloaded = newHandler(new BungeeJsonVoteCache(platform)); reloaded.load();
+		assertEquals(trusted, reloaded.getTimeChangeQueue().element().getTotals(), "private ownership is not declassified");
+	}
+
+	private static String legacyForwardedTotals(String totals, boolean real) {
+		return "\u0000VP-FWD:" + (real ? "1:" : "0:") + java.util.Base64.getUrlEncoder().withoutPadding()
+				.encodeToString(totals.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+	}
+
+	private static String[] decodeLegacyForwardedTotals(String totals) throws Exception {
+		var method = com.bencodez.votingplugin.proxy.VotingPluginProxy.class
+				.getDeclaredMethod("decodeForwardedQueueTotals", String.class);
+		method.setAccessible(true);
+		return (String[]) method.invoke(null, totals);
+	}
+
+	@Test
 	public void legacySqlRowConstructorsPreserveUnknownDelayValidation() {
 		ProxyVoteCacheTable.VoteRow server = new ProxyVoteCacheTable.VoteRow(1, "vote", "uuid", "Player",
 				"Service", 100L, true, false, false, "totals", false, false, "", "", false, "", "",
