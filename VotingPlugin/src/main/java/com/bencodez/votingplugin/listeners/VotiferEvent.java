@@ -94,6 +94,10 @@ public class VotiferEvent implements Listener {
                 if (completed) {
                     captured.remove(vote.id);
                     if (vote.transferred) acknowledge = vote.recoveryOwner;
+                } else if (accepting && !vote.transferred && !vote.transferring) {
+                    // Retain the same occurrence and hand it to recovery after
+                    // the normal callback has finished, including partial failures.
+                    transferLocked(vote);
                 }
             }
             if (completed && vote.recoveryOwner != null) vote.recoveryOwner.releaseCapture(vote.id);
@@ -320,8 +324,14 @@ public class VotiferEvent implements Listener {
                 return;
             }
         }
-        try { plugin.getVoteTimer().submit(() -> runCaptured(vote)); }
-        catch (RejectedExecutionException rejected) {
+        try {
+            var timer = plugin.getVoteTimer();
+            if (timer == null) {
+                synchronized (captureLock) { transferLocked(vote); }
+                return;
+            }
+            timer.submit(() -> runCaptured(vote));
+        } catch (RejectedExecutionException rejected) {
             synchronized (captureLock) { transferLocked(vote); }
         }
     }

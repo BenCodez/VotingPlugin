@@ -33,6 +33,7 @@ import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.timequeue.TimeQueueHandler;
 
 class TimeQueueHandlerRejectionTest {
+	@org.junit.jupiter.api.io.TempDir java.nio.file.Path directory;
 	private VotingPluginMain plugin;
 	private ServerData serverData;
 	private ScheduledExecutorService voteTimer;
@@ -99,7 +100,7 @@ class TimeQueueHandlerRejectionTest {
 		TimeQueueHandler handler = new TimeQueueHandler(plugin);
 		org.mockito.ArgumentCaptor<Runnable> retry = org.mockito.ArgumentCaptor.forClass(Runnable.class);
 		verify(plugin.getBukkitScheduler()).runTaskLaterAsynchronously(
-				org.mockito.ArgumentMatchers.eq(plugin), retry.capture(), org.mockito.ArgumentMatchers.eq(20L));
+				org.mockito.ArgumentMatchers.eq(plugin), retry.capture(), org.mockito.ArgumentMatchers.eq(1L));
 
 		reset(voteTimer);
 		retry.getValue().run();
@@ -112,9 +113,7 @@ class TimeQueueHandlerRejectionTest {
     @Test
     void actualCacheWriterAndReplayKeepProcessingAndOccurrenceClocksSeparate() throws Exception {
         var stored = new org.bukkit.configuration.file.YamlConfiguration();
-        ServerData writer = org.mockito.Mockito.spy(new ServerData(plugin));
-        org.mockito.Mockito.doReturn(stored).when(writer).getData();
-        org.mockito.Mockito.doNothing().when(writer).saveData();
+        ServerData writer = writerWithFile(stored);
         var captured = new com.bencodez.votingplugin.timequeue.VoteTimeQueue("Steve", "example.org", 789L);
         java.util.UUID occurrenceId = java.util.UUID.randomUUID();
         captured.setLocalOccurrenceId(occurrenceId);
@@ -162,9 +161,7 @@ class TimeQueueHandlerRejectionTest {
     @Test
     void actualAdmissionSaveAndRestartReplayRetainLocalId() throws Exception {
         var stored = new org.bukkit.configuration.file.YamlConfiguration();
-        ServerData writer = org.mockito.Mockito.spy(new ServerData(plugin));
-        org.mockito.Mockito.doReturn(stored).when(writer).getData();
-        org.mockito.Mockito.doNothing().when(writer).saveData();
+        ServerData writer = writerWithFile(stored);
         when(plugin.getServerData()).thenReturn(writer);
         TimeQueueHandler original = new TimeQueueHandler(plugin);
         java.util.UUID occurrenceId = java.util.UUID.randomUUID();
@@ -193,14 +190,12 @@ class TimeQueueHandlerRejectionTest {
             legacy.set("TimedVoteCache." + key + ".Time", 123L);
         }
         String beforeMigration = legacy.saveToString();
-        ServerData writer = org.mockito.Mockito.spy(new ServerData(plugin));
-        org.mockito.Mockito.doReturn(legacy).when(writer).getData();
-        org.mockito.Mockito.doNothing().when(writer).saveData();
+        ServerData writer = writerWithFile(legacy);
         when(plugin.getServerData()).thenReturn(writer);
         var first = new TimeQueueHandler(plugin).getTimeChangeQueue().stream()
                 .map(com.bencodez.votingplugin.timequeue.VoteTimeQueue::getLocalOccurrenceId).toList();
         assertEquals(2, first.stream().distinct().count());
-        org.mockito.Mockito.verify(writer, org.mockito.Mockito.times(2)).saveData();
+        org.mockito.Mockito.verify(plugin.getServerDataFile(), org.mockito.Mockito.atLeast(2)).getdFile();
         // Simulate a restart that sees only the old on-disk representation.
         var unpublished = new org.bukkit.configuration.file.YamlConfiguration();
         unpublished.loadFromString(beforeMigration);
@@ -221,6 +216,17 @@ class TimeQueueHandlerRejectionTest {
         assertEquals(456L, queued.getCanonicalOccurrenceTime());
         assertEquals(occurrenceId, queued.getLocalOccurrenceId());
         org.junit.jupiter.api.Assertions.assertNull(queued.getVoteId());
+    }
+
+    private ServerData writerWithFile(org.bukkit.configuration.file.YamlConfiguration data) {
+        var file = mock(com.bencodez.advancedcore.data.ServerData.class);
+        when(file.publicationMonitor()).thenCallRealMethod();
+        when(file.getData()).thenReturn(data);
+        when(file.getdFile()).thenReturn(directory.resolve("ServerData.yml").toFile());
+        when(plugin.getServerDataFile()).thenReturn(file);
+        ServerData writer = org.mockito.Mockito.spy(new ServerData(plugin));
+        org.mockito.Mockito.doReturn(data).when(writer).getData();
+        return writer;
     }
 
 }

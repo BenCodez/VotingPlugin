@@ -39,7 +39,7 @@ import com.bencodez.advancedcore.api.placeholder.PlaceHolder;
 import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
 import com.bencodez.advancedcore.api.user.usercache.UserDataManager;
 import com.bencodez.simpleapi.folialib.FoliaLib;
-import com.bencodez.simpleapi.folialib.impl.ServerImplementation;
+import com.bencodez.simpleapi.folialib.impl.PlatformScheduler;
 import com.bencodez.simpleapi.scheduler.BukkitScheduler;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.config.Config;
@@ -225,7 +225,7 @@ class PlaceHoldersWorkerSafetyTest {
 		PlaceHoldersAccess.publishUserDataChangePlaceholders(fixture.placeholders);
 		fixture.presence.playerOnline(fixture.player);
 		FoliaLib folia = mock(FoliaLib.class);
-		ServerImplementation entityScheduler = mock(ServerImplementation.class);
+		PlatformScheduler entityScheduler = mock(PlatformScheduler.class);
 		when(fixture.scheduler.getFoliaLib()).thenReturn(folia);
 		when(folia.getImpl()).thenReturn(entityScheduler);
 		when(entityScheduler.runAtEntityWithFallback(eq(fixture.player), any(), any(Runnable.class)))

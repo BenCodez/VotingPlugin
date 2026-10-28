@@ -28,6 +28,7 @@ class DateEventUnloadIntegrationTest {
     @Test void unloadClosesDateIngressAndRejectsLaterStreakMenuOpens() throws Exception {
         var plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
         doReturn(true).when(plugin).isEnabled();
+        field(plugin, "unloadInProgress", new java.util.concurrent.atomic.AtomicBoolean());
         var listener = mock(com.bencodez.votingplugin.listeners.VotiferEvent.class);
         field(plugin, "localVotifierListener", listener);
         field(plugin, "localVotifierIngressReady", true);
@@ -36,7 +37,9 @@ class DateEventUnloadIntegrationTest {
         field(plugin, "backendHostedControlManagers", new HashSet<>());
         field(plugin, "backendControlConnectorLifecycle", stoppedExecutor());
         field(plugin, "voteTimer", stoppedExecutor());
-        var signs = mock(Signs.class); doReturn(signs).when(plugin).getSigns();
+        var signs = mock(Signs.class);
+        when(signs.storeSignsForShutdown()).thenReturn(java.util.concurrent.CompletableFuture.completedFuture(null));
+        field(plugin, "signs", signs);
         var menu = new VoteStreaksMenu(plugin); field(plugin, "voteStreaksMenu", menu);
         var player = mock(Player.class);
         try (var handlers = mockStatic(HandlerList.class); var scheduler = mockStatic(BukkitCompletionScheduler.class)) {
@@ -49,7 +52,7 @@ class DateEventUnloadIntegrationTest {
             verifyNoInteractions(proxy);
             menu.open(player);
             verifyNoInteractions(player);
-            verify(signs).storeSigns();
+            verify(signs).storeSignsForShutdown();
         }
     }
 }

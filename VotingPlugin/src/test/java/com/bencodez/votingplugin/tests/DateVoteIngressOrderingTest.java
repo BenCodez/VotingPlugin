@@ -124,4 +124,50 @@ class DateVoteIngressOrderingTest {
         assertEquals(2, registered.size()); verify(plugin.getDateVoteMilestones(), times(2)).reload();
     }
 
+    @Test void reenableCreatesNewIngressAndFencesOldReadiness() throws Exception {
+        VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+        when(plugin.isVotifierLoaded()).thenReturn(true);
+        when(plugin.getBungeeSettings().isUseBungeecoord()).thenReturn(true);
+        when(plugin.getBungeeSettings().isGloblalDataEnabled()).thenReturn(true);
+        DateVoteIngressAccess.callRealRegistration(plugin);
+        DateVoteIngressAccess.callRealInitialization(plugin);
+        var listenerField = VotingPluginMain.class.getDeclaredField("localVotifierListener");
+        listenerField.setAccessible(true);
+        var readyField = com.bencodez.votingplugin.listeners.VotiferEvent.class.getDeclaredField("ready");
+        readyField.setAccessible(true);
+        var closedField = VotingPluginMain.class.getDeclaredField("localVotifierIngressClosed");
+        closedField.setAccessible(true);
+        var steps = VotingPluginMain.class.getDeclaredField("completedUnloadSteps"); steps.setAccessible(true);
+        var reset = VotingPluginMain.class.getDeclaredMethod("resetDateVoteIngressForEnable"); reset.setAccessible(true);
+        try (var queues = mockConstruction(com.bencodez.votingplugin.listeners.VotifierVoteOverflowQueue.class)) {
+            DateVoteIngressAccess.registerEarlyVotifierIngress(plugin);
+            Object first = listenerField.get(plugin);
+            var oldReady = (java.util.function.BooleanSupplier) readyField.get(first);
+            closedField.setBoolean(plugin, true);
+            steps.set(plugin, new java.util.HashSet<>(java.util.Set.of("local Votifier ingress", "event handlers")));
+            reset.invoke(plugin);
+            assertFalse(oldReady.getAsBoolean());
+            DateVoteIngressAccess.registerEarlyVotifierIngress(plugin);
+            Object second = listenerField.get(plugin);
+            assertNotSame(first, second);
+            ready(plugin);
+            DateVoteIngressAccess.initializeDateVoteIngress(plugin, () -> { });
+            assertTrue(((java.util.function.BooleanSupplier) readyField.get(second)).getAsBoolean());
+            assertFalse(oldReady.getAsBoolean(), "a retired generation must not become ready again");
+            verify(plugin.getServer().getPluginManager(), times(3)).registerEvents(any(), eq(plugin));
+        }
+    }
+
+    @Test void reenableRejectsIncompletePriorIngressRetirement() throws Exception {
+        VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+        var listener = VotingPluginMain.class.getDeclaredField("localVotifierListener"); listener.setAccessible(true);
+        listener.set(plugin, mock(com.bencodez.votingplugin.listeners.VotiferEvent.class));
+        var steps = VotingPluginMain.class.getDeclaredField("completedUnloadSteps"); steps.setAccessible(true);
+        steps.set(plugin, new java.util.HashSet<>(java.util.Set.of("event handlers")));
+        var reset = VotingPluginMain.class.getDeclaredMethod("resetDateVoteIngressForEnable"); reset.setAccessible(true);
+        var failure = assertThrows(java.lang.reflect.InvocationTargetException.class, () -> reset.invoke(plugin));
+        assertInstanceOf(IllegalStateException.class, failure.getCause());
+        assertNotNull(listener.get(plugin));
+    }
+
 }

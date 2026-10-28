@@ -664,8 +664,8 @@ class VoteShopPurchaseServiceTest {
 		com.bencodez.simpleapi.scheduler.BukkitScheduler scheduler =
 				mock(com.bencodez.simpleapi.scheduler.BukkitScheduler.class);
 		com.bencodez.simpleapi.folialib.FoliaLib folia = mock(com.bencodez.simpleapi.folialib.FoliaLib.class);
-		com.bencodez.simpleapi.folialib.impl.ServerImplementation entityScheduler =
-				mock(com.bencodez.simpleapi.folialib.impl.ServerImplementation.class);
+		com.bencodez.simpleapi.folialib.impl.PlatformScheduler entityScheduler =
+				mock(com.bencodez.simpleapi.folialib.impl.PlatformScheduler.class);
 		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
 		when(scheduler.getFoliaLib()).thenReturn(folia);
 		when(folia.getImpl()).thenReturn(entityScheduler);
@@ -745,8 +745,8 @@ class VoteShopPurchaseServiceTest {
 		com.bencodez.simpleapi.scheduler.BukkitScheduler scheduler =
 				mock(com.bencodez.simpleapi.scheduler.BukkitScheduler.class);
 		com.bencodez.simpleapi.folialib.FoliaLib folia = mock(com.bencodez.simpleapi.folialib.FoliaLib.class);
-		com.bencodez.simpleapi.folialib.impl.ServerImplementation entityScheduler =
-				mock(com.bencodez.simpleapi.folialib.impl.ServerImplementation.class);
+		com.bencodez.simpleapi.folialib.impl.PlatformScheduler entityScheduler =
+				mock(com.bencodez.simpleapi.folialib.impl.PlatformScheduler.class);
 		ScheduledExecutorService persistenceExecutor = mock(ScheduledExecutorService.class);
 		RewardHandler rewardHandler = mock(RewardHandler.class);
 		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
@@ -816,8 +816,8 @@ class VoteShopPurchaseServiceTest {
 		com.bencodez.simpleapi.scheduler.BukkitScheduler scheduler =
 				mock(com.bencodez.simpleapi.scheduler.BukkitScheduler.class);
 		com.bencodez.simpleapi.folialib.FoliaLib folia = mock(com.bencodez.simpleapi.folialib.FoliaLib.class);
-		com.bencodez.simpleapi.folialib.impl.ServerImplementation entityScheduler =
-				mock(com.bencodez.simpleapi.folialib.impl.ServerImplementation.class);
+		com.bencodez.simpleapi.folialib.impl.PlatformScheduler entityScheduler =
+				mock(com.bencodez.simpleapi.folialib.impl.PlatformScheduler.class);
 		ScheduledExecutorService persistenceExecutor = mock(ScheduledExecutorService.class);
 		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
 		when(scheduler.getFoliaLib()).thenReturn(folia);
@@ -850,8 +850,8 @@ class VoteShopPurchaseServiceTest {
 		com.bencodez.simpleapi.scheduler.BukkitScheduler scheduler =
 				mock(com.bencodez.simpleapi.scheduler.BukkitScheduler.class);
 		com.bencodez.simpleapi.folialib.FoliaLib folia = mock(com.bencodez.simpleapi.folialib.FoliaLib.class);
-		com.bencodez.simpleapi.folialib.impl.ServerImplementation entityScheduler =
-				mock(com.bencodez.simpleapi.folialib.impl.ServerImplementation.class);
+		com.bencodez.simpleapi.folialib.impl.PlatformScheduler entityScheduler =
+				mock(com.bencodez.simpleapi.folialib.impl.PlatformScheduler.class);
 		ScheduledExecutorService persistenceExecutor = mock(ScheduledExecutorService.class);
 		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
 		when(scheduler.getFoliaLib()).thenReturn(folia);
@@ -892,8 +892,8 @@ class VoteShopPurchaseServiceTest {
 		com.bencodez.simpleapi.scheduler.BukkitScheduler scheduler =
 				mock(com.bencodez.simpleapi.scheduler.BukkitScheduler.class);
 		com.bencodez.simpleapi.folialib.FoliaLib folia = mock(com.bencodez.simpleapi.folialib.FoliaLib.class);
-		com.bencodez.simpleapi.folialib.impl.ServerImplementation entityScheduler =
-				mock(com.bencodez.simpleapi.folialib.impl.ServerImplementation.class);
+		com.bencodez.simpleapi.folialib.impl.PlatformScheduler entityScheduler =
+				mock(com.bencodez.simpleapi.folialib.impl.PlatformScheduler.class);
 		ScheduledExecutorService persistenceExecutor = mock(ScheduledExecutorService.class);
 		RewardHandler rewardHandler = mock(RewardHandler.class);
 		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
@@ -955,8 +955,8 @@ class VoteShopPurchaseServiceTest {
 		com.bencodez.simpleapi.scheduler.BukkitScheduler scheduler =
 				mock(com.bencodez.simpleapi.scheduler.BukkitScheduler.class);
 		com.bencodez.simpleapi.folialib.FoliaLib folia = mock(com.bencodez.simpleapi.folialib.FoliaLib.class);
-		com.bencodez.simpleapi.folialib.impl.ServerImplementation entityScheduler =
-				mock(com.bencodez.simpleapi.folialib.impl.ServerImplementation.class);
+		com.bencodez.simpleapi.folialib.impl.PlatformScheduler entityScheduler =
+				mock(com.bencodez.simpleapi.folialib.impl.PlatformScheduler.class);
 		ScheduledExecutorService persistenceExecutor = mock(ScheduledExecutorService.class);
 		RewardHandler rewardHandler = mock(RewardHandler.class);
 		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
@@ -1004,8 +1004,8 @@ class VoteShopPurchaseServiceTest {
 		com.bencodez.simpleapi.scheduler.BukkitScheduler scheduler =
 				mock(com.bencodez.simpleapi.scheduler.BukkitScheduler.class);
 		com.bencodez.simpleapi.folialib.FoliaLib folia = mock(com.bencodez.simpleapi.folialib.FoliaLib.class);
-		com.bencodez.simpleapi.folialib.impl.ServerImplementation entityScheduler =
-				mock(com.bencodez.simpleapi.folialib.impl.ServerImplementation.class);
+		com.bencodez.simpleapi.folialib.impl.PlatformScheduler entityScheduler =
+				mock(com.bencodez.simpleapi.folialib.impl.PlatformScheduler.class);
 		ScheduledExecutorService persistenceExecutor = mock(ScheduledExecutorService.class);
 		RewardHandler rewardHandler = mock(RewardHandler.class);
 		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
@@ -1163,8 +1163,8 @@ class VoteShopPurchaseServiceTest {
 		com.bencodez.simpleapi.scheduler.BukkitScheduler scheduler =
 				mock(com.bencodez.simpleapi.scheduler.BukkitScheduler.class);
 		com.bencodez.simpleapi.folialib.FoliaLib folia = mock(com.bencodez.simpleapi.folialib.FoliaLib.class);
-		com.bencodez.simpleapi.folialib.impl.ServerImplementation entityScheduler =
-				mock(com.bencodez.simpleapi.folialib.impl.ServerImplementation.class);
+		com.bencodez.simpleapi.folialib.impl.PlatformScheduler entityScheduler =
+				mock(com.bencodez.simpleapi.folialib.impl.PlatformScheduler.class);
 		ScheduledExecutorService persistenceExecutor = mock(ScheduledExecutorService.class);
 		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
 		when(scheduler.getFoliaLib()).thenReturn(folia);
@@ -1197,8 +1197,7 @@ class VoteShopPurchaseServiceTest {
 	void failedCompensationMarkerIsRetriedByPeriodicRecovery(@TempDir Path temporaryDirectory) throws Exception {
 		VotingPluginMain plugin = mockPluginForCompensation(temporaryDirectory);
 		com.bencodez.simpleapi.scheduler.BukkitScheduler scheduler = plugin.getBukkitScheduler();
-		com.bencodez.simpleapi.folialib.impl.ServerImplementation entityScheduler =
-				plugin.getBukkitScheduler().getFoliaLib().getImpl();
+		var entityScheduler = plugin.getBukkitScheduler().getFoliaLib().getImpl();
 		when(entityScheduler.runAtEntityWithFallback(any(), any(), any(Runnable.class)))
 				.thenReturn(EntityTaskResultTestCompat.schedulerRetired());
 		SharedMysqlPurchaseJournalAccess journal = SharedMysqlPurchaseJournalAccess.mock();
@@ -1232,8 +1231,7 @@ class VoteShopPurchaseServiceTest {
 	private static VotingPluginMain mockPluginForCompensation(Path dataDirectory) {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
 		when(plugin.getDataFolder()).thenReturn(dataDirectory.toFile());
-		com.bencodez.simpleapi.folialib.impl.ServerImplementation entityScheduler =
-				plugin.getBukkitScheduler().getFoliaLib().getImpl();
+		var entityScheduler = plugin.getBukkitScheduler().getFoliaLib().getImpl();
 		when(entityScheduler.runAtEntityWithFallback(any(), any(), any(Runnable.class)))
 				.thenReturn(EntityTaskResultTestCompat.schedulerRetired());
 		return plugin;
@@ -1541,8 +1539,8 @@ class VoteShopPurchaseServiceTest {
 		com.bencodez.simpleapi.scheduler.BukkitScheduler scheduler =
 				mock(com.bencodez.simpleapi.scheduler.BukkitScheduler.class);
 		com.bencodez.simpleapi.folialib.FoliaLib folia = mock(com.bencodez.simpleapi.folialib.FoliaLib.class);
-		com.bencodez.simpleapi.folialib.impl.ServerImplementation entityScheduler =
-				mock(com.bencodez.simpleapi.folialib.impl.ServerImplementation.class);
+		com.bencodez.simpleapi.folialib.impl.PlatformScheduler entityScheduler =
+				mock(com.bencodez.simpleapi.folialib.impl.PlatformScheduler.class);
 		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
 		AtomicReference<Runnable> claimWork = new AtomicReference<>();
 		doAnswer(invocation -> {

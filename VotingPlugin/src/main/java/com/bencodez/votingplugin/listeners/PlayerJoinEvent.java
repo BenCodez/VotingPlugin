@@ -35,7 +35,7 @@ public class PlayerJoinEvent implements Listener {
 	public void onPlayerJoin(org.bukkit.event.player.PlayerJoinEvent event) {
 		if (event == null || event.getPlayer() == null) return;
 		Player player = event.getPlayer();
-		plugin.getPlaceholderPlayerPresence().playerOnline(placeholderUuid(player), player);
+		plugin.getPlaceholderPlayerPresence().captureOnline(placeholderUuid(player), player);
 	}
 
 	private UUID placeholderUuid(Player player) {
@@ -83,7 +83,7 @@ public class PlayerJoinEvent implements Listener {
 
 		Player player = event.getPlayer();
 		if (player != null) {
-			plugin.getPlaceholderPlayerPresence().playerOnline(user.getJavaUUID(), player);
+			if (!plugin.getPlaceholderPlayerPresence().updateStorageUuid(user.getJavaUUID(), player)) return;
 		}
 
 		if (player != null && plugin.isYmlError()) {
@@ -160,17 +160,19 @@ public class PlayerJoinEvent implements Listener {
 			plugin.getBackendProxyHandler().playerOffline(player.getName());
 		}
 
+		final UUID serverUuid = player.getUniqueId();
+		final String playerName = player.getName();
 		plugin.getLoginTimer().execute(new Runnable() {
 
 			@Override
 			public void run() {
-				VotingPluginMain.plugin.getAdvancedTab().remove(player.getUniqueId());
+				VotingPluginMain.plugin.getAdvancedTab().remove(serverUuid);
 
 				// Use AdvancedCore UUIDLookup to derive the correct UUID (online/offline aware)
-				String uuid = UuidLookup.getInstance().getUUID(player.getName());
+				String uuid = UuidLookup.getInstance().getUUID(playerName);
 				if (isBlank(uuid)) {
 					// Fallback to online UUID if lookup fails
-					uuid = player.getUniqueId().toString();
+					uuid = serverUuid.toString();
 				}
 
 				VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);

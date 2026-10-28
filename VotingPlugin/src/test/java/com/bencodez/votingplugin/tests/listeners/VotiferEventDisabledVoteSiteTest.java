@@ -200,4 +200,30 @@ public class VotiferEventDisabledVoteSiteTest {
                 org.mockito.ArgumentMatchers.eq(SERVICE_SITE), org.mockito.ArgumentMatchers.anyLong(), any(java.util.UUID.class), any(java.util.function.BooleanSupplier.class), any());
 		verify(pluginManager, never()).callEvent(any(PlayerVoteEvent.class));
 	}
+
+	@Test
+	void unavailableTimerUsesTheSameOverflowAdmissionPath() {
+		when(plugin.getVoteTimer()).thenReturn(null);
+		listener.onVotiferEvent(createVoteEvent(SERVICE_SITE));
+        verify(overflowQueue).enqueueAfterInitialization(org.mockito.ArgumentMatchers.eq("Steve"),
+                org.mockito.ArgumentMatchers.eq(SERVICE_SITE), org.mockito.ArgumentMatchers.anyLong(),
+                any(java.util.UUID.class), any(java.util.function.BooleanSupplier.class), any());
+        org.junit.jupiter.api.Assertions.assertEquals(1, listener.getPendingCaptureCount());
+		verify(pluginManager, never()).callEvent(any(PlayerVoteEvent.class));
+	}
+    @Test
+    void failedAdmittedCallbackTransfersItsOriginalOccurrenceToRecovery() {
+        var serverData = plugin.getServerData();
+        doThrow(new IllegalStateException("temporary storage failure"))
+                .when(serverData).addServiceSite(SERVICE_SITE);
+        listener.onVotiferEvent(createVoteEvent(SERVICE_SITE));
+        var identity = org.mockito.ArgumentCaptor.forClass(java.util.UUID.class);
+        verify(overflowQueue).reserveCapture(identity.capture());
+        verify(overflowQueue).enqueueAfterInitialization(org.mockito.ArgumentMatchers.eq("Steve"),
+                org.mockito.ArgumentMatchers.eq(SERVICE_SITE), org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.eq(identity.getValue()), any(java.util.function.BooleanSupplier.class), any());
+        org.junit.jupiter.api.Assertions.assertEquals(1, listener.getPendingCaptureCount());
+        verify(pluginManager, never()).callEvent(any(PlayerVoteEvent.class));
+    }
+
 }

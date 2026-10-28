@@ -60,7 +60,7 @@ public class VoteToday extends GUIHandler {
 									Player clicked = player.getServer().getPlayer(payload.owner());
 									if (clicked != null) {
 										VotingPluginUser clickedUser = plugin.getVotingPluginUserManager()
-												.getVotingPluginUser(uuid);
+												.getVotingPluginUser(uuid, true);
 										new VoteGUI(plugin, clicked, clickedUser).open(
 												GUIMethod.valueOf(plugin.getGui().getGuiMethodGUI().toUpperCase()));
 									}
@@ -161,7 +161,7 @@ public class VoteToday extends GUIHandler {
 				inv.addButton(inv.getNextSlot(), new BInventoryButton(item) {
 					@Override
 					public void onClick(ClickEvent clickEvent) {
-						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
+						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid, true);
 						new VoteGUI(plugin, player, user)
 								.open(GUIMethod.valueOf(plugin.getGui().getGuiMethodGUI().toUpperCase()));
 					}

@@ -281,6 +281,7 @@ class PlayerJoinEventReplayCompletionTest {
 			}).when(proxyHandler).playerOnline("Player", uuid.toString());
 			when(plugin.isMySQLOkay()).thenReturn(true);
 			when(plugin.getPlaceholderPlayerPresence()).thenReturn(presence);
+			presence.playerOnline(uuid, player);
 			when(plugin.getVotingPluginUserManager().getVotingPluginUser(uuid.toString())).thenReturn(user);
 			when(plugin.getBungeeSettings().isUseBungeecoord()).thenReturn(true);
 			when(event.getUser()).thenReturn(base);

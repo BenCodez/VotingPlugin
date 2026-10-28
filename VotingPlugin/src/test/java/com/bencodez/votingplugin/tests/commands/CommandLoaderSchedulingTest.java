@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test;
 
 import com.bencodez.simpleapi.scheduler.BukkitScheduler;
 import com.bencodez.simpleapi.folialib.FoliaLib;
-import com.bencodez.simpleapi.folialib.impl.ServerImplementation;
+import com.bencodez.simpleapi.folialib.impl.PlatformScheduler;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.config.Config;
 import com.bencodez.votingplugin.user.PointTransferResult;
@@ -161,7 +161,7 @@ class CommandLoaderSchedulingTest {
 		when(user.getPlayer()).thenReturn(player);
 		when(plugin.getUserManager().getAllUUIDs())
 				.thenReturn(new java.util.ArrayList<>(java.util.List.of(uuid.toString())));
-		when(plugin.getVotingPluginUserManager().getVotingPluginUser(uuid)).thenReturn(user);
+		when(plugin.getVotingPluginUserManager().getVotingPluginUser(uuid, true)).thenReturn(user);
 		AtomicReference<Runnable> platform = new AtomicReference<>();
 		org.mockito.Mockito.doAnswer(call -> { platform.set(call.getArgument(1)); return null; })
 				.when(scheduler).runTask(eq(plugin), any(Runnable.class));
@@ -193,7 +193,7 @@ class CommandLoaderSchedulingTest {
 		java.util.List<String> uuids = new java.util.ArrayList<>();
 		for (int index = 0; index < 65; index++) uuids.add(UUID.randomUUID().toString());
 		when(plugin.getUserManager().getAllUUIDs()).thenReturn(new java.util.ArrayList<>(uuids));
-		when(plugin.getVotingPluginUserManager().getVotingPluginUser(any(UUID.class))).thenReturn(user);
+		when(plugin.getVotingPluginUserManager().getVotingPluginUser(any(UUID.class), eq(true))).thenReturn(user);
 		java.util.List<Runnable> platformTasks = new java.util.ArrayList<>();
 		org.mockito.Mockito.doAnswer(call -> { platformTasks.add(call.getArgument(1)); return null; })
 				.when(scheduler).runTask(eq(plugin), any(Runnable.class));
@@ -209,9 +209,53 @@ class CommandLoaderSchedulingTest {
 		org.junit.jupiter.api.Assertions.assertEquals(2, storageTasks.size());
 	}
 
+
+    @Test void clearingDiscordIdRunsOnTheWorkerAndReportsOnlyAfterConfirmation() throws Exception {
+        VotingPluginMain plugin = mock(VotingPluginMain.class);
+        var discord = mock(com.bencodez.votingplugin.discord.DiscordHandler.class);
+        when(plugin.getDiscordHandler()).thenReturn(discord);
+        when(discord.clearTopVoterMessageId(com.bencodez.votingplugin.topvoter.TopVoter.Monthly)).thenReturn(true);
+        var worker = mock(java.util.concurrent.ScheduledExecutorService.class);
+        when(plugin.getTimer()).thenReturn(worker);
+        BukkitScheduler scheduler = mock(BukkitScheduler.class); when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+        var queued = new AtomicReference<Runnable>(); var completion = new AtomicReference<Runnable>();
+        org.mockito.Mockito.doAnswer(call -> { queued.set(call.getArgument(0)); return null; })
+                .when(worker).execute(any(Runnable.class));
+        org.mockito.Mockito.doAnswer(call -> { completion.set(call.getArgument(1)); return null; })
+                .when(scheduler).runTask(eq(plugin),any(Runnable.class));
+        CommandSender sender = mock(CommandSender.class);
+        var method = CommandLoader.class.getDeclaredMethod("clearDiscordMessageId",CommandSender.class,
+                com.bencodez.votingplugin.topvoter.TopVoter.class); method.setAccessible(true);
+        method.invoke(new CommandLoader(plugin),sender,com.bencodez.votingplugin.topvoter.TopVoter.Monthly);
+        org.mockito.Mockito.verifyNoInteractions(discord,sender);
+        org.junit.jupiter.api.Assertions.assertNotNull(queued.get()); queued.get().run();
+        verify(discord).clearTopVoterMessageId(com.bencodez.votingplugin.topvoter.TopVoter.Monthly);
+        org.mockito.Mockito.verifyNoInteractions(sender);
+        org.junit.jupiter.api.Assertions.assertNotNull(completion.get()); completion.get().run();
+        verify(sender).sendMessage(org.mockito.ArgumentMatchers.contains("Cleared discord message ID"));
+    }
+
+    @Test void rejectedDiscordIdClearDoesNotTouchStorage() throws Exception {
+        VotingPluginMain plugin = mock(VotingPluginMain.class);
+        var discord = mock(com.bencodez.votingplugin.discord.DiscordHandler.class); when(plugin.getDiscordHandler()).thenReturn(discord);
+        var worker = mock(java.util.concurrent.ScheduledExecutorService.class); when(plugin.getTimer()).thenReturn(worker);
+        doThrow(new java.util.concurrent.RejectedExecutionException("synthetic")).when(worker).execute(any(Runnable.class));
+        BukkitScheduler scheduler = mock(BukkitScheduler.class); when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+        var completion = new AtomicReference<Runnable>();
+        org.mockito.Mockito.doAnswer(call -> { completion.set(call.getArgument(1)); return null; })
+                .when(scheduler).runTask(eq(plugin),any(Runnable.class));
+        CommandSender sender = mock(CommandSender.class);
+        var method = CommandLoader.class.getDeclaredMethod("clearDiscordMessageId",CommandSender.class,
+                com.bencodez.votingplugin.topvoter.TopVoter.class); method.setAccessible(true);
+        method.invoke(new CommandLoader(plugin),sender,com.bencodez.votingplugin.topvoter.TopVoter.Monthly);
+        org.mockito.Mockito.verifyNoInteractions(discord);verify(plugin,never()).getServerData();
+        org.junit.jupiter.api.Assertions.assertNotNull(completion.get());completion.get().run();
+        verify(sender).sendMessage(org.mockito.ArgumentMatchers.contains("no changes made"));
+    }
+
 	private static void configureEntityScheduler(BukkitScheduler scheduler) {
 		FoliaLib folia = mock(FoliaLib.class);
-		ServerImplementation entityScheduler = mock(ServerImplementation.class);
+		PlatformScheduler entityScheduler = mock(PlatformScheduler.class);
 		when(scheduler.getFoliaLib()).thenReturn(folia);
 		when(folia.getImpl()).thenReturn(entityScheduler);
 		when(entityScheduler.runAtEntityWithFallback(any(), any(), any(Runnable.class)))

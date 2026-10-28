@@ -24,8 +24,7 @@ public final class VotePartyState {
 	}
 
 	public void setTotalVotes(int value) {
-		plugin.getServerData().getData().set(TOTAL_PATH, value);
-		plugin.getServerData().saveData();
+		plugin.getServerData().setInt(TOTAL_PATH, value);
 	}
 
 	public List<String> getVotedUsers() {
@@ -34,8 +33,7 @@ public final class VotePartyState {
 	}
 
 	public void setVotedUsers(List<String> users) {
-		plugin.getServerData().getData().set(VOTED_PATH, users);
-		plugin.getServerData().saveData();
+		plugin.getServerData().setStringList(VOTED_PATH, users);
 	}
 
 	public int getVotesRequired() {
