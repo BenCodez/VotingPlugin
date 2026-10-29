@@ -27,12 +27,14 @@ public final class DateVoteMilestones {
     private final java.util.Set<UUID> pendingProgress = new java.util.HashSet<>();
     private final java.util.concurrent.atomic.AtomicInteger deferredAccounting = new java.util.concurrent.atomic.AtomicInteger();
     private final java.util.concurrent.atomic.AtomicInteger pendingAdministration = new java.util.concurrent.atomic.AtomicInteger();
-    private final java.util.Map<UUID, CachedProgress> placeholderCache = new java.util.LinkedHashMap<>(256, 0.75f, true);
+    private record PlaceholderIdentity(UUID player, boolean resolveName) { }
+    private final java.util.Map<PlaceholderIdentity, CachedProgress> placeholderCache = new java.util.LinkedHashMap<>(256, 0.75f, true);
     private static final class ProgressRequest {
         boolean invalidated;
+        UUID resolvedStorageId;
     }
-    private final java.util.Map<UUID, ProgressRequest> placeholderRequests = new java.util.HashMap<>();
-    private record CachedProgress(Object generation, long expires, java.util.Map<String, DateVoteLedger.Progress> events) { }
+    private final java.util.Map<PlaceholderIdentity, ProgressRequest> placeholderRequests = new java.util.HashMap<>();
+    private record CachedProgress(Object generation, long expires, UUID storageId, java.util.Map<String, DateVoteLedger.Progress> events) { }
     private volatile Object generation = new Object();
     private DateVoteLedger ledger;
     public DateVoteMilestones(VotingPluginMain plugin) { this.plugin = plugin; }
@@ -353,15 +355,24 @@ public final class DateVoteMilestones {
     }
     private void invalidateProgress(UUID player) {
         synchronized (placeholderCache) {
-            placeholderCache.remove(player);
-            var request = placeholderRequests.get(player);
-            if (request != null) request.invalidated = true;
+            placeholderCache.entrySet().removeIf(entry -> player.equals(entry.getValue().storageId()));
+            // Unresolved names have not read the ledger yet; their later read
+            // will observe this mutation. Once resolved, fence matching reads.
+            placeholderRequests.values().forEach(request -> {
+                if (player.equals(request.resolvedStorageId)) request.invalidated = true;
+            });
         }
     }
 
-    /** Nonblocking projection. UUID is the user's snapshot-only storage identity, never a name lookup. */
+    /** Nonblocking projection using a previously captured storage identity. */
     public String placeholder(UUID player, String request) {
+        return placeholder(player, null, request);
+    }
+
+    /** Named offline identity is resolved only on the persistence worker. */
+    public String placeholder(UUID player, java.util.function.Supplier<String> offlineName, String request) {
         if (player == null || request == null || request.length() > 100 || !plugin.isEnabled()) return "unavailable";
+        PlaceholderIdentity identity = new PlaceholderIdentity(player, offlineName != null);
         int split = request.indexOf('_');
         if (split < 1) return "invalid";
         String metric = request.substring(0, split).toLowerCase(java.util.Locale.ROOT);
@@ -386,16 +397,18 @@ public final class DateVoteMilestones {
         CachedProgress cached;
         ProgressRequest launch = null;
         synchronized (placeholderCache) {
-            cached = placeholderCache.get(player);
+            cached = placeholderCache.get(identity);
             if (cached == null || cached.generation() != epoch || System.nanoTime() >= cached.expires()) {
                 cached = null;
-                if (!placeholderRequests.containsKey(player)) {
+                if (!placeholderRequests.containsKey(identity)) {
                     if (placeholderRequests.size() >= 64) return "unavailable";
-                    launch = new ProgressRequest(); placeholderRequests.put(player, launch);
+                    launch = new ProgressRequest();
+                    if (!identity.resolveName()) launch.resolvedStorageId = player;
+                    placeholderRequests.put(identity, launch);
                 }
             }
         }
-        if (launch != null && !refreshPlaceholder(player, epoch, definitions, launch)) return "unavailable";
+        if (launch != null && !refreshPlaceholder(identity, offlineName, epoch, definitions, launch)) return "unavailable";
         if (cached == null) return "loading";
         var progress = cached.events().get(eventId);
         if (progress == null) return "unavailable";
@@ -405,34 +418,53 @@ public final class DateVoteMilestones {
         return progress.reservedAwards().contains(threshold) ? "pending_review" : progress.submittedAwards().contains(threshold)
                 ? "submitted" : progress.deferredAwards().contains(threshold) ? "deferred" : "not_reached";
     }
-    private boolean refreshPlaceholder(UUID player, Object epoch, List<Definition> snapshot, ProgressRequest request) {
+    private boolean refreshPlaceholder(PlaceholderIdentity identity, java.util.function.Supplier<String> offlineName, Object epoch, List<Definition> snapshot, ProgressRequest request) {
         try {
             plugin.getUserManager().getDataManager().getTimer().execute(() -> {
                 try {
                     if (!current(epoch)) return;
+                    UUID storageId;
+                    try {
+                        String name = offlineName == null ? null : offlineName.get();
+                        storageId = name == null || name.isBlank() ? identity.player()
+                                : plugin.getVotingPluginUserManager().getVotingPluginUser(identity.player(), name).getJavaUUID();
+                        if (storageId == null) throw new IllegalStateException("Missing storage identity");
+                        synchronized (placeholderCache) {
+                            if (!current(epoch) || request.invalidated || placeholderRequests.get(identity) != request) return;
+                            request.resolvedStorageId = storageId;
+                        }
+                    } catch (RuntimeException unavailable) {
+                        synchronized (placeholderCache) {
+                            if (current(epoch) && !request.invalidated && placeholderRequests.get(identity) == request) {
+                                if (placeholderCache.size() >= 256) placeholderCache.remove(placeholderCache.keySet().iterator().next());
+                                placeholderCache.put(identity, new CachedProgress(epoch, System.nanoTime() + 1_000_000_000L, null, java.util.Map.of()));
+                            }
+                        }
+                        return;
+                    }
                     java.util.Map<String, DateVoteLedger.Progress> results = new HashMap<>();
                     for (Definition definition : snapshot) {
                         var event = definition.event();
                         if (plugin.getBungeeSettings().isUseBungeecoord()
                                 && !event.accountingServer().equals(plugin.getBungeeSettings().getServer())) continue;
-                        try { results.put(event.id(), ledger().progress(event, player)); }
+                        try { results.put(event.id(), ledger().progress(event, storageId)); }
                         catch (IOException | RuntimeException unavailable) { /* Missing entry means unavailable, never zero. */ }
                     }
                     synchronized (placeholderCache) {
-                        if (!current(epoch) || request.invalidated || placeholderRequests.get(player) != request) return;
+                        if (!current(epoch) || request.invalidated || placeholderRequests.get(identity) != request) return;
                         if (placeholderCache.size() >= 256) placeholderCache.remove(placeholderCache.keySet().iterator().next());
-                        placeholderCache.put(player, new CachedProgress(epoch, System.nanoTime() + 5_000_000_000L, java.util.Map.copyOf(results)));
+                        placeholderCache.put(identity, new CachedProgress(epoch, System.nanoTime() + 5_000_000_000L, storageId, java.util.Map.copyOf(results)));
                     }
-                } finally { synchronized (placeholderCache) { placeholderRequests.remove(player, request); } }
+                } finally { synchronized (placeholderCache) { placeholderRequests.remove(identity, request); } }
             });
             return true;
         } catch (RuntimeException unavailable) {
             synchronized (placeholderCache) {
-                if (current(epoch) && placeholderRequests.get(player) == request) {
+                if (current(epoch) && placeholderRequests.get(identity) == request) {
                     if (placeholderCache.size() >= 256) placeholderCache.remove(placeholderCache.keySet().iterator().next());
-                    placeholderCache.put(player, new CachedProgress(epoch, System.nanoTime() + 1_000_000_000L, java.util.Map.of()));
+                    placeholderCache.put(identity, new CachedProgress(epoch, System.nanoTime() + 1_000_000_000L, null, java.util.Map.of()));
                 }
-                placeholderRequests.remove(player, request);
+                placeholderRequests.remove(identity, request);
             }
             return false;
         }

@@ -25,7 +25,7 @@ class DateVotePlaceholderEntryPointTest {
         when(plugin.getConfigFile().getPlaceholderCacheLevel()).thenReturn(PlaceholderCacheLevel.AUTO);
         when(offline.getUniqueId()).thenReturn(offlineId);
         when(manager.placeholder(storage, "votes_Event_With_Case")).thenReturn("3");
-        when(manager.placeholder(offlineId, "award_10_Event_With_Case")).thenReturn("submitted");
+        when(manager.placeholder(eq(offlineId), any(java.util.function.Supplier.class), eq("award_10_Event_With_Case"))).thenReturn("submitted");
         var placeholders = new PlaceHolders(plugin);
         assertEquals("3", placeholders.getPlaceHolder(player, "DateVoteMilestones_votes_Event_With_Case"));
         assertEquals("3", placeholders.getPlaceHolder((OfflinePlayer) player, "datevotemilestones_votes_Event_With_Case", true));

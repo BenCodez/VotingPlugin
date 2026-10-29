@@ -196,9 +196,13 @@ public class PlaceHolders {
         if (identifier.regionMatches(true, 0, datePrefix, 0, datePrefix.length())) {
             if (p == null) return "no player";
             var manager = plugin.getDateVoteMilestones();
-            UUID storageId = p instanceof Player online ? plugin.getPlaceholderPlayerPresence().storageUuid(online) : p.getUniqueId();
-            return manager == null || storageId == null ? "unavailable"
-                    : manager.placeholder(storageId, identifier.substring(datePrefix.length()));
+            if (manager == null) return "unavailable";
+            if (p instanceof Player online) {
+                UUID storageId = plugin.getPlaceholderPlayerPresence().storageUuid(online);
+                return storageId == null ? "unavailable" : manager.placeholder(storageId, identifier.substring(datePrefix.length()));
+            }
+            UUID playerId = p.getUniqueId();
+            return playerId == null ? "unavailable" : manager.placeholder(playerId, p::getName, identifier.substring(datePrefix.length()));
         }
 		if (plugin.getConfigFile().isUseJavascriptPlaceholders() && javascript && p != null) {
 			identifier = PlaceholderUtils.replaceJavascript(p, identifier);

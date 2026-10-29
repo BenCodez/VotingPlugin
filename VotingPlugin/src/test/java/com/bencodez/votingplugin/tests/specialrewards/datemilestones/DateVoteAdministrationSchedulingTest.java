@@ -174,6 +174,75 @@ class DateVoteAdministrationSchedulingTest {
             assertEquals("deferred", manager.placeholder(storageId, "award_3_festival_With_Underscores"));
         }
     }
+    @Test void offlinePlaceholderUsesNamedStorageIdentityOnWorkerAndInvalidatesAliases() {
+        UUID serverId = UUID.randomUUID();
+        String mixedCase = "ExamplePlayer";
+        when(plugin.getVotingPluginUserManager().getVotingPluginUser(serverId, mixedCase)).thenReturn(user);
+        var offline = mock(org.bukkit.OfflinePlayer.class);
+        when(offline.getUniqueId()).thenReturn(serverId);
+        when(offline.getName()).thenReturn(mixedCase);
+        var placeholders = new com.bencodez.votingplugin.placeholders.PlaceHolders(plugin);
+        try (var scheduling = scheduling()) {
+            command(AdminAction.SetVotes, "3");
+            assertEquals("loading", placeholders.getPlaceholderValue(offline, "DateVoteMilestones_votes_festival_With_Underscores", false, false, false));
+            verify(plugin.getVotingPluginUserManager(), never()).getVotingPluginUser(serverId, mixedCase);
+            verify(offline, never()).getName();
+            worker.remove().run();
+            verify(offline).getName();
+            verify(plugin.getVotingPluginUserManager()).getVotingPluginUser(serverId, mixedCase);
+            assertEquals("3", placeholders.getPlaceholderValue(offline, "DateVoteMilestones_votes_festival_With_Underscores", false, false, false));
+            assertEquals("deferred", placeholders.getPlaceholderValue(offline, "DateVoteMilestones_award_3_festival_With_Underscores", false, false, false));
+            command(AdminAction.SetVotes, "1");
+            assertEquals("loading", placeholders.getPlaceholderValue(offline, "DateVoteMilestones_votes_festival_With_Underscores", false, false, false));
+            worker.remove().run();
+            assertEquals("1", placeholders.getPlaceholderValue(offline, "DateVoteMilestones_votes_festival_With_Underscores", false, false, false));
+        }
+    }
+    @Test void unnamedOfflinePlaceholderUsesSuppliedUuidWithoutNameLookup() {
+        java.util.concurrent.atomic.AtomicInteger calls = new java.util.concurrent.atomic.AtomicInteger();
+        java.util.function.Supplier<String> missingName = () -> { calls.incrementAndGet(); return null; };
+        assertEquals("loading", manager.placeholder(storageId, missingName, "votes_festival_With_Underscores"));
+        assertEquals(0, calls.get());
+        worker.remove().run();
+        assertEquals(1, calls.get());
+        assertEquals("0", manager.placeholder(storageId, missingName, "votes_festival_With_Underscores"));
+        assertEquals(1, calls.get());
+        verify(plugin.getVotingPluginUserManager(), never()).getVotingPluginUser(any(UUID.class), anyString());
+    }
+    @Test void failedOfflineIdentityLookupReturnsUnavailableAndDoesNotReadWrongLedger() {
+        UUID id = UUID.randomUUID();
+        when(plugin.getVotingPluginUserManager().getVotingPluginUser(id, "MixedCase")).thenThrow(new IllegalStateException("unavailable"));
+        assertEquals("loading", manager.placeholder(id, () -> "MixedCase", "votes_festival_With_Underscores"));
+        worker.remove().run();
+        assertEquals("unavailable", manager.placeholder(id, () -> "MixedCase", "votes_festival_With_Underscores"));
+        assertFalse(Files.exists(root.resolve("date-vote-milestones")));
+    }
+    @Test void unrelatedMutationDoesNotInvalidateKnownPlayerRefresh() {
+        UUID otherPlayer = UUID.randomUUID();
+        assertEquals("loading", manager.placeholder(otherPlayer, "votes_festival_With_Underscores"));
+        try (var scheduling = scheduling()) {
+            manager.administer(console, AdminAction.SetVotes, "Example", "festival_With_Underscores", "1");
+            effects.remove().run();
+            worker.removeLast().run(); // Write player B before player A's queued refresh.
+            effects.remove().run();
+            worker.remove().run();
+            assertEquals("0", manager.placeholder(otherPlayer, "votes_festival_With_Underscores"));
+            assertTrue(worker.isEmpty(), "unrelated writes must not discard the completed refresh");
+        }
+    }
+    @Test void unresolvedNamedRefreshReadsAWriteCompletedBeforeIdentityResolution() {
+        UUID serverId = UUID.randomUUID();
+        when(plugin.getVotingPluginUserManager().getVotingPluginUser(serverId, "MixedName")).thenReturn(user);
+        java.util.function.Supplier<String> name = () -> "MixedName";
+        assertEquals("loading", manager.placeholder(serverId, name, "votes_festival_With_Underscores"));
+        try (var scheduling = scheduling()) {
+            manager.administer(console, AdminAction.SetVotes, "Example", "festival_With_Underscores", "1");
+            effects.remove().run(); worker.removeLast().run(); effects.remove().run();
+            worker.remove().run();
+            assertEquals("1", manager.placeholder(serverId, name, "votes_festival_With_Underscores"));
+            assertTrue(worker.isEmpty());
+        }
+    }
     @Test void placeholderReloadRejectionAndCorruptionDoNotBecomeAuthoritativeZero() throws Exception {
         assertEquals("loading", manager.placeholder(storageId, "votes_festival_With_Underscores"));
         manager.reload(); worker.remove().run();
