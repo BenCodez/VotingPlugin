@@ -509,6 +509,18 @@ public class VotingPluginVelocity {
 		}
 	}
 
+	/** Captured ingress survives scheduler/reload/identity-resolution delays. */
+	public IncomingVoteRuntimeResult processIncomingVote(String player, String service, UUID voteId, long occurredAt) {
+		if (reloading) return IncomingVoteRuntimeResult.RETRY_AFTER_RELOAD;
+		synchronized (reloadLock) {
+			if (reloading) return IncomingVoteRuntimeResult.RETRY_AFTER_RELOAD;
+			VotingPluginProxy runtime = votingPluginProxy;
+			if (!runtimeOperational || runtime == null) return IncomingVoteRuntimeResult.RUNTIME_UNAVAILABLE;
+			runtime.vote(player, service, true, false, 0, null, null, voteId, occurredAt);
+			return IncomingVoteRuntimeResult.PROCESSED;
+		}
+	}
+
 	/** Owns a Votifier event before any fallible executor handoff. */
 	public void acceptIncomingVote(String player, String service) {
 		PendingIncomingVote pending = pendingIncomingVotes.admit(player, service);
@@ -558,7 +570,7 @@ public class VotingPluginVelocity {
 		try {
 			IncomingVoteRuntimeResult result;
 			synchronized (reloadLock) {
-				result = processIncomingVote(pending.getPlayer(), pending.getService(), pending.getVoteId());
+				result = processIncomingVote(pending.getPlayer(), pending.getService(), pending.getVoteId(), pending.getAcceptedAt());
 				if (result == IncomingVoteRuntimeResult.PROCESSED) pendingIncomingVotes.complete(pending);
 			}
 			if (result == IncomingVoteRuntimeResult.PROCESSED) {
