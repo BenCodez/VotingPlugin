@@ -11,10 +11,13 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
+import com.bencodez.advancedcore.api.rewards.Reward;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
 import com.bencodez.advancedcore.api.user.UserDataFetchMode;
@@ -36,12 +39,14 @@ public class CoolDownCheck implements Listener {
 	private final VotingPluginMain plugin;
 
 	private final Map<UUID, ScheduledFuture<?>> perSiteTasks = new ConcurrentHashMap<>();
+	private final Map<UUID, Object> perSiteGenerations = new ConcurrentHashMap<>();
 	private final Map<UUID, ScheduledFuture<?>> allSiteTasks = new ConcurrentHashMap<>();
 
 	@Getter
 	private final ScheduledExecutorService timer;
 
 	private volatile boolean cooldownCheckEnabled = false;
+	private volatile boolean stopped = false;
 
 	/**
 	 * Constructs a new cooldown check manager.
@@ -74,6 +79,8 @@ public class CoolDownCheck implements Listener {
 	 * Shuts down the cooldown check timer.
 	 */
 	public void shutdown() {
+		stopped = true;
+		perSiteGenerations.clear();
 		timer.shutdownNow();
 
 		for (ScheduledFuture<?> f : perSiteTasks.values()) {
@@ -147,6 +154,7 @@ public class CoolDownCheck implements Listener {
 					user.updateTempCacheWithColumns(cols);
 					cols.clear(); // help GC (only useful if reused)
 				}
+				capturePlayerName(user);
 
 				checkPerSite(site, user);
 			} finally {
@@ -219,13 +227,20 @@ public class CoolDownCheck implements Listener {
 	 * Site-specific version used by batch checks / checkAllVoteSite.
 	 */
 	private void checkPerSite(VoteSite site, VotingPluginUser user) {
+		checkPerSite(site, user, null);
+	}
+
+	private HashMap<String, Boolean> checkPerSite(VoteSite site, VotingPluginUser user,
+			HashMap<String, Boolean> coolDownChecks) {
 		if (!plugin.getConfigFile().isPerSiteCoolDownEvents() || site == null) {
-			return;
+			return coolDownChecks;
 		}
 
-		HashMap<String, Boolean> coolDownChecks = user.getCoolDownCheckSiteList();
+		if (coolDownChecks == null) {
+			coolDownChecks = user.getCoolDownCheckSiteList();
+		}
 		if (Boolean.TRUE.equals(coolDownChecks.get(site.getKey()))) {
-			return;
+			return coolDownChecks;
 		}
 
 		if (user.canVoteSite(site)) {
@@ -237,6 +252,7 @@ public class CoolDownCheck implements Listener {
 			PlayerVoteSiteCoolDownEndEvent event = new PlayerVoteSiteCoolDownEndEvent(user, site);
 			plugin.getServer().getPluginManager().callEvent(event);
 		}
+		return coolDownChecks;
 	}
 
 	/**
@@ -267,8 +283,8 @@ public class CoolDownCheck implements Listener {
 	 */
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onCoolDownEnd(PlayerVoteCoolDownEndEvent event) {
-		plugin.getRewardHandler().giveReward(event.getPlayer(), plugin.getSpecialRewardsConfig().getData(),
-				"VoteCoolDownEndedReward", new RewardOptions());
+		dispatchCooldownReward(event.getPlayer(), plugin.getSpecialRewardsConfig().getData(),
+				"VoteCoolDownEndedReward", "all", new RewardOptions());
 	}
 
 	/**
@@ -278,9 +294,71 @@ public class CoolDownCheck implements Listener {
 	 */
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onCoolDownEnd(PlayerVoteSiteCoolDownEndEvent event) {
-		plugin.getRewardHandler().giveReward(event.getPlayer(), event.getSite().getSiteData(), "CoolDownEndRewards",
-				new RewardOptions().addPlaceholder("sitename", event.getSite().getDisplayName())
+		dispatchCooldownReward(event.getPlayer(), event.getSite().getSiteData(), "CoolDownEndRewards",
+				"site:" + event.getSite().getKey(), new RewardOptions()
+						.addPlaceholder("sitename", event.getSite().getDisplayName())
 						.addPlaceholder("url", event.getSite().getVoteURL(false)));
+	}
+
+	private void dispatchCooldownReward(VotingPluginUser user, ConfigurationSection data, String path,
+			String site, RewardOptions options) {
+		boolean configured = false;
+		try {
+			configured = hasConfiguredCooldownReward(data, path);
+		} catch (RuntimeException ignored) {
+			// Preserve legacy dispatch even when diagnostic configuration inspection fails.
+		}
+		if (!configured) {
+			plugin.getRewardHandler().giveReward(user, data, path, options);
+			return;
+		}
+		String occurrence = UUID.randomUUID().toString();
+		String player = user.getUUID();
+		String safeSite = String.valueOf(site).replaceAll("[\\r\\n\\p{Cntrl}]", "?");
+		long time = System.currentTimeMillis();
+		String context = " occurrence=" + occurrence + " player=" + player + " site=" + safeSite + " time=" + time;
+		logCooldownDiagnostic(false, "Cooldown reward status=attempted" + context);
+		options.setAsyncFailureObserver(failure -> logCooldownFailure(context, failure));
+		try {
+			plugin.getRewardHandler().giveReward(user, data, path, options);
+		} catch (RuntimeException | Error failure) {
+			logCooldownFailure(context, failure);
+			throw failure;
+		}
+	}
+
+	private boolean hasConfiguredCooldownReward(ConfigurationSection data, String path) {
+		if (data == null) return false;
+		if (data instanceof FileConfiguration) {
+			return plugin.getRewardHandler().hasRewards((FileConfiguration) data, path);
+		}
+		if (data.isList(path)) return !data.getList(path, new ArrayList<>()).isEmpty();
+		if (data.isConfigurationSection(path)) return !data.getConfigurationSection(path).getKeys(false).isEmpty();
+		return data.isString(path) && !data.getString(path, "").isEmpty();
+	}
+
+	private void logCooldownFailure(String context, Throwable failure) {
+		int completed = -1;
+		Throwable current = failure;
+		for (int depth = 0; current != null && depth < 32; depth++, current = current.getCause()) {
+			if (current instanceof Reward.RewardReplayFailure) {
+				completed = ((Reward.RewardReplayFailure) current).getCompletedInjectionCount();
+				break;
+			}
+		}
+		String error = failure == null ? "unknown" : failure.getClass().getSimpleName();
+		logCooldownDiagnostic(true, "Cooldown reward outcome=unknown/partial" + context + " error=" + error
+				+ " completedInjections=" + (completed < 0 ? "unknown" : completed)
+				+ "; inspect effects before reissuing");
+	}
+
+	private void logCooldownDiagnostic(boolean warning, String message) {
+		try {
+			if (warning) plugin.getLogger().warning(message);
+			else plugin.getLogger().info(message);
+		} catch (RuntimeException ignored) {
+			// A broken logger must not suppress or retry the reward.
+		}
 	}
 
 	/**
@@ -324,7 +402,7 @@ public class CoolDownCheck implements Listener {
 	 * @param force whether to force the schedule
 	 */
 	public void schedulePerSite(VotingPluginUser user, boolean force) {
-		if (!plugin.getConfigFile().isPerSiteCoolDownEvents()) {
+		if (stopped || !plugin.getConfigFile().isPerSiteCoolDownEvents()) {
 			return;
 		}
 
@@ -333,6 +411,7 @@ public class CoolDownCheck implements Listener {
 		}
 
 		final UUID uuid = user.getJavaUUID();
+		final String scheduledName = user.getPlayerName();
 
 		final NextSite next = user.getNextSiteAvailable();
 
@@ -340,8 +419,13 @@ public class CoolDownCheck implements Listener {
 			if (existing != null) {
 				existing.cancel(false);
 			}
+			if (stopped) {
+				perSiteGenerations.remove(uuid);
+				return null;
+			}
 
 			if (next == null || next.getSite() == null || next.getSecondsUntilAvailable() <= 0) {
+				perSiteGenerations.remove(uuid);
 				plugin.extraDebug(user.getUUID() + "/" + user.getPlayerName() + " not scheduling per-site cooldown check");
 				return null; // remove entry
 			}
@@ -349,18 +433,42 @@ public class CoolDownCheck implements Listener {
 			plugin.devDebug("PerSiteCoolDownEvent schedule: site=" + next.getSite().getKey() + " time="
 					+ next.getSecondsUntilAvailable() + " seconds");
 
-			return timer.schedule(() -> {
-				if (!plugin.isEnabled()) {
-					return;
-				}
-
-				// Only check the next site; this will set the cooldown-end flag + fire event if ready
-				checkPerSite(next.getSite(), user);
-
-				// Schedule the following site (if any)
-				schedulePerSite(user, false);
-
-			}, next.getSecondsUntilAvailable() + 2, TimeUnit.SECONDS);
+			Object generation = new Object();
+			perSiteGenerations.put(uuid, generation);
+			try {
+				return timer.schedule(() -> {
+					if (stopped || !plugin.isEnabled() || perSiteGenerations.get(uuid) != generation) {
+						return;
+					}
+					UUID occurrence = UUID.randomUUID();
+					try {
+						// The batch user's temporary row may have been cleared or replaced by a newer vote.
+						VotingPluginUser current = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid, false);
+						if (!current.isCached()) {
+							current.userDataFetechMode(UserDataFetchMode.NO_CACHE);
+						}
+						String storedName = current.getData().getString("PlayerName", current.getUserDataFetchMode());
+						String name = storedName != null && !storedName.isBlank() ? storedName : scheduledName;
+						if (name != null && !name.isBlank()) {
+							current.setPlayerName(name);
+						}
+						if (perSiteGenerations.get(uuid) != generation) return;
+						checkPerSite(next.getSite(), current);
+						if (perSiteGenerations.get(uuid) == generation) schedulePerSite(current, false);
+					} catch (RuntimeException | Error failure) {
+						String siteKey = String.valueOf(next.getSite().getKey()).replaceAll("[\\r\\n\\p{Cntrl}]", "?");
+						logCooldownDiagnostic(true, "Cooldown timer failed: occurrence=" + occurrence + " player=" + uuid
+								+ " site=" + siteKey + " time=" + System.currentTimeMillis() + " error="
+								+ failure.getClass().getSimpleName() + "; reward outcome is uncertain; inspect effects before reissuing");
+						throw failure;
+					} finally {
+						perSiteGenerations.remove(uuid, generation);
+					}
+				}, next.getSecondsUntilAvailable() + 2, TimeUnit.SECONDS);
+			} catch (RuntimeException | Error failure) {
+				perSiteGenerations.remove(uuid, generation);
+				throw failure;
+			}
 		});
 	}
 
@@ -378,6 +486,14 @@ public class CoolDownCheck implements Listener {
 		if (plugin.getConfigFile().isPerSiteCoolDownEvents()) {
 			user.setCoolDownCheckSite(site, Boolean.FALSE);
 			schedulePerSite(user, true);
+		}
+	}
+
+	/** Preserve the name needed by asynchronous rewards after the temporary row is cleared. */
+	private static void capturePlayerName(VotingPluginUser user) {
+		String name = user.getPlayerName();
+		if (name != null && !name.isBlank()) {
+			user.setPlayerName(name);
 		}
 	}
 
@@ -421,9 +537,11 @@ public class CoolDownCheck implements Listener {
 					user.updateTempCacheWithColumns(cols);
 					cols.clear();
 				}
+				capturePlayerName(user);
 
+				HashMap<String, Boolean> coolDownChecks = null;
 				for (int i = 0; i < dailySites.size(); i++) {
-					checkPerSite(dailySites.get(i), user);
+					coolDownChecks = checkPerSite(dailySites.get(i), user, coolDownChecks);
 				}
 
 				check(user);
