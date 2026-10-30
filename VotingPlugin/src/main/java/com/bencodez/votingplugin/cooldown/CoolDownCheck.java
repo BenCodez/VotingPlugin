@@ -436,40 +436,55 @@ public class CoolDownCheck implements Listener {
 			Object generation = new Object();
 			perSiteGenerations.put(uuid, generation);
 			try {
-				return timer.schedule(() -> {
-					if (stopped || !plugin.isEnabled() || perSiteGenerations.get(uuid) != generation) {
-						return;
-					}
-					UUID occurrence = UUID.randomUUID();
-					try {
-						// The batch user's temporary row may have been cleared or replaced by a newer vote.
-						VotingPluginUser current = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid, false);
-						if (!current.isCached()) {
-							current.userDataFetechMode(UserDataFetchMode.NO_CACHE);
-						}
-						String storedName = current.getData().getString("PlayerName", current.getUserDataFetchMode());
-						String name = storedName != null && !storedName.isBlank() ? storedName : scheduledName;
-						if (name != null && !name.isBlank()) {
-							current.setPlayerName(name);
-						}
-						if (perSiteGenerations.get(uuid) != generation) return;
-						checkPerSite(next.getSite(), current);
-						if (perSiteGenerations.get(uuid) == generation) schedulePerSite(current, false);
-					} catch (RuntimeException | Error failure) {
-						String siteKey = String.valueOf(next.getSite().getKey()).replaceAll("[\\r\\n\\p{Cntrl}]", "?");
-						logCooldownDiagnostic(true, "Cooldown timer failed: occurrence=" + occurrence + " player=" + uuid
-								+ " site=" + siteKey + " time=" + System.currentTimeMillis() + " error="
-								+ failure.getClass().getSimpleName() + "; reward outcome is uncertain; inspect effects before reissuing");
-						throw failure;
-					} finally {
-						perSiteGenerations.remove(uuid, generation);
-					}
-				}, next.getSecondsUntilAvailable() + 2, TimeUnit.SECONDS);
+				return timer.schedule(() -> runPerSiteTimer(uuid, scheduledName, next, generation, 0),
+						next.getSecondsUntilAvailable() + 2, TimeUnit.SECONDS);
 			} catch (RuntimeException | Error failure) {
 				perSiteGenerations.remove(uuid, generation);
 				throw failure;
 			}
 		});
+	}
+
+
+	private void runPerSiteTimer(UUID uuid, String scheduledName, NextSite next, Object generation, int retries) {
+		if (stopped || !plugin.isEnabled() || perSiteGenerations.get(uuid) != generation) return;
+		UUID occurrence = UUID.randomUUID();
+		boolean[] retried = { false };
+		try {
+			VotingPluginUser current;
+			try {
+				// The batch user's temporary row may have been cleared or replaced by a newer vote.
+				current = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid, false);
+				if (!current.isCached()) current.userDataFetechMode(UserDataFetchMode.NO_CACHE);
+				String storedName = current.getData().getString("PlayerName", current.getUserDataFetchMode());
+				String name = storedName != null && !storedName.isBlank() ? storedName : scheduledName;
+				if (name != null && !name.isBlank()) current.setPlayerName(name);
+			} catch (RuntimeException refreshFailure) {
+				if (retries < 3) {
+					perSiteTasks.compute(uuid, (key, existing) -> {
+						if (stopped || !plugin.isEnabled() || perSiteGenerations.get(uuid) != generation) return existing;
+						ScheduledFuture<?> retry = timer.schedule(
+								() -> runPerSiteTimer(uuid, scheduledName, next, generation, retries + 1),
+								30, TimeUnit.SECONDS);
+						retried[0] = true;
+						return retry;
+					});
+					if (retried[0]) return;
+				}
+				throw refreshFailure;
+			}
+			if (perSiteGenerations.get(uuid) != generation) return;
+			checkPerSite(next.getSite(), current);
+			if (perSiteGenerations.get(uuid) == generation) schedulePerSite(current, false);
+		} catch (RuntimeException | Error failure) {
+			String siteKey = String.valueOf(next.getSite().getKey()).replaceAll("[\\r\\n\\p{Cntrl}]", "?");
+			logCooldownDiagnostic(true, "Cooldown timer failed: occurrence=" + occurrence + " player=" + uuid
+					+ " site=" + siteKey + " time=" + System.currentTimeMillis() + " error="
+					+ failure.getClass().getSimpleName() + "; reward outcome is uncertain; inspect effects before reissuing");
+			throw failure;
+		} finally {
+			if (!retried[0]) perSiteGenerations.remove(uuid, generation);
+		}
 	}
 
 	/**

@@ -64,12 +64,48 @@ class CoolDownTimerGenerationTest {
             f.check.schedulePerSite(f.user, true);
             var data = f.fresh.getData();
             when(data.getString(eq("PlayerName"), nullable(com.bencodez.advancedcore.api.user.UserDataFetchMode.class))).thenThrow(new IllegalStateException("private detail"));
-            IllegalStateException thrown = assertThrows(IllegalStateException.class, () -> f.tasks.get(0).run());
+            f.tasks.get(0).run();
+            f.tasks.get(1).run();
+            f.tasks.get(2).run();
+            IllegalStateException thrown = assertThrows(IllegalStateException.class, () -> f.tasks.get(3).run());
             assertEquals("private detail", thrown.getMessage());
             verify(f.plugin.getLogger()).warning(argThat((String message) -> message.contains("occurrence=")
                 && message.contains("player=" + f.uuid) && message.contains("site=site")
                 && message.contains("time=") && message.contains("outcome is uncertain")
                 && !message.contains("private detail")));
+        } finally { f.check.shutdown(); }
+    }
+
+    @Test void failedRefreshRetriesThenChecksWithoutReplaying() throws Exception {
+        Fixture f = new Fixture();
+        try {
+            var data = f.fresh.getData();
+            when(data.getString(eq("PlayerName"), nullable(com.bencodez.advancedcore.api.user.UserDataFetchMode.class)))
+                .thenThrow(new IllegalStateException("unavailable")).thenReturn("CurrentName");
+            f.check.schedulePerSite(f.user, true);
+            f.tasks.get(0).run();
+            verify(f.fresh, never()).getCoolDownCheckSiteList();
+            assertEquals(2, f.tasks.size());
+            verify(f.timer).schedule(any(Runnable.class), eq(30L), eq(TimeUnit.SECONDS));
+            f.tasks.get(1).run();
+            verify(f.fresh).setPlayerName("CurrentName");
+            verify(f.fresh).getCoolDownCheckSiteList();
+        } finally { f.check.shutdown(); }
+    }
+
+    @Test void replacedOrStoppedRetryCannotLoad() throws Exception {
+        Fixture f = new Fixture();
+        try {
+            when(f.fresh.getData().getString(eq("PlayerName"), nullable(com.bencodez.advancedcore.api.user.UserDataFetchMode.class)))
+                .thenThrow(new IllegalStateException("unavailable"));
+            f.check.schedulePerSite(f.user, true);
+            f.tasks.get(0).run();
+            f.check.schedulePerSite(f.user, true);
+            f.tasks.get(1).run();
+            verify(f.plugin.getVotingPluginUserManager(), times(1)).getVotingPluginUser(f.uuid, false);
+            f.check.shutdown();
+            f.tasks.get(2).run();
+            verify(f.plugin.getVotingPluginUserManager(), times(1)).getVotingPluginUser(f.uuid, false);
         } finally { f.check.shutdown(); }
     }
 
@@ -80,6 +116,7 @@ class CoolDownTimerGenerationTest {
             when(f.fresh.getCoolDownCheckSiteList()).thenThrow(new IllegalStateException("cache retired"));
             assertThrows(IllegalStateException.class, () -> f.tasks.get(0).run());
             verify(f.fresh, never()).setCoolDownCheckSite(any());
+            assertEquals(1, f.tasks.size());
             verify(f.plugin.getLogger()).warning(argThat((String message) -> message.contains("player=" + f.uuid)
                 && message.contains("site=site") && message.contains("outcome is uncertain")
                 && !message.contains("cache retired")));
