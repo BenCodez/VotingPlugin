@@ -40,6 +40,64 @@ import com.bencodez.votingplugin.votesites.VoteSiteManager;
 
 class CoolDownRewardIntegrationTest {
     @TempDir Path tempDir;
+    private boolean globalsChanged;
+    private com.bencodez.advancedcore.AdvancedCorePlugin oldInstance;
+    private com.bencodez.advancedcore.api.misc.MiscUtils misc;
+    private Field miscPlugin;
+    private Object oldMiscPlugin;
+    private RewardHandler activeRewards;
+    private CoolDownCheck activeCheck;
+
+    private void installGlobals(VotingPluginMain plugin) throws Exception {
+        oldInstance = com.bencodez.advancedcore.AdvancedCorePlugin.getInstance();
+        misc = com.bencodez.advancedcore.api.misc.MiscUtils.getInstance();
+        miscPlugin = misc.getClass().getDeclaredField("plugin");
+        miscPlugin.setAccessible(true);
+        oldMiscPlugin = miscPlugin.get(misc);
+        globalsChanged = true;
+        com.bencodez.advancedcore.AdvancedCorePlugin.setInstance(plugin);
+        miscPlugin.set(misc, plugin);
+    }
+
+    @org.junit.jupiter.api.AfterEach void cleanup() throws Exception {
+        try {
+            if (activeCheck != null) activeCheck.shutdown();
+        } finally {
+            try {
+                if (activeRewards != null) activeRewards.getDelayedTimer().shutdownNow();
+            } finally {
+                if (globalsChanged) {
+                    try { miscPlugin.set(misc, oldMiscPlugin); }
+                    finally {
+                        com.bencodez.advancedcore.AdvancedCorePlugin.setInstance(oldInstance);
+                        globalsChanged = false;
+                    }
+                }
+            }
+        }
+    }
+
+    @Test void cleanupRestoresNullInstanceAfterPartialSetupFailure() throws Exception {
+        var originalInstance = com.bencodez.advancedcore.AdvancedCorePlugin.getInstance();
+        var originalMisc = com.bencodez.advancedcore.api.misc.MiscUtils.getInstance();
+        Field field = originalMisc.getClass().getDeclaredField("plugin");
+        field.setAccessible(true);
+        Object originalMiscPlugin = field.get(originalMisc);
+        try {
+            com.bencodez.advancedcore.AdvancedCorePlugin.setInstance(null);
+            assertThrows(IllegalStateException.class, () -> {
+                installGlobals(mock(VotingPluginMain.class));
+                throw new IllegalStateException("fixture setup failed");
+            });
+            cleanup();
+            assertNull(com.bencodez.advancedcore.AdvancedCorePlugin.getInstance());
+            assertSame(originalMiscPlugin, field.get(originalMisc));
+        } finally {
+            cleanup();
+            field.set(originalMisc, originalMiscPlugin);
+            com.bencodez.advancedcore.AdvancedCorePlugin.setInstance(originalInstance);
+        }
+    }
     private static final UUID UUID_VALUE = UUID.fromString("00000000-0000-0000-0000-000000000123");
 
     @Test void singleSiteCommandListUsesCapturedOfflineName() throws Exception { exercise(false, "OfflinePlayer", false, false, false, false, false); }
@@ -60,6 +118,7 @@ class CoolDownRewardIntegrationTest {
         VoteSite site = mock(VoteSite.class);
         when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
         RewardHandler rewards = new RewardHandler(plugin);
+        activeRewards = rewards;
         com.bencodez.advancedcore.api.rewards.builtin.RewardCommands.registerCommand(rewards, plugin);
         com.bencodez.advancedcore.api.rewards.builtin.RewardCommands.registerCommands(rewards, plugin);
         java.util.concurrent.atomic.AtomicInteger completed = new java.util.concurrent.atomic.AtomicInteger();
@@ -75,11 +134,7 @@ class CoolDownRewardIntegrationTest {
         when(plugin.isEnabled()).thenReturn(true);
         when(plugin.getOptions().isProcessRewards()).thenReturn(true);
         when(plugin.getOptions().getFormatRewardTimeFormat()).thenReturn("yyyy-MM-dd");
-        var oldInstance = com.bencodez.advancedcore.AdvancedCorePlugin.getInstance();
-        com.bencodez.advancedcore.AdvancedCorePlugin.setInstance(plugin);
-        var misc = com.bencodez.advancedcore.api.misc.MiscUtils.getInstance();
-        Field miscPlugin = misc.getClass().getDeclaredField("plugin"); miscPlugin.setAccessible(true);
-        Object oldMiscPlugin = miscPlugin.get(misc); miscPlugin.set(misc, plugin);
+        installGlobals(plugin);
         var scheduler = mock(com.bencodez.simpleapi.scheduler.BukkitScheduler.class);
         java.util.ArrayDeque<Runnable> queued = new java.util.ArrayDeque<>();
         when(plugin.getBukkitScheduler()).thenReturn(scheduler);
@@ -160,6 +215,7 @@ class CoolDownRewardIntegrationTest {
             data.set("CoolDownEndRewards.Commands.Player", new ArrayList<>(List.of("unrelated-action")));
         } else data.set("CoolDownEndRewards.Commands", new ArrayList<>(List.of(literal ? "say ready" : "say %player%")));
         CoolDownCheck check = new CoolDownCheck(plugin);
+        activeCheck = check;
         doAnswer(call -> {
             Event event = call.getArgument(0);
             if (event instanceof PlayerVoteCoolDownEndEvent) check.onCoolDownEnd((PlayerVoteCoolDownEndEvent) event);
@@ -219,11 +275,6 @@ class CoolDownRewardIntegrationTest {
             assertEquals(UUID_VALUE, user.getJavaUUID());
             verify(user).setCoolDownCheckSite(any());
             if (allSites) verify(user).setCoolDownCheck(false);
-        } finally {
-            check.shutdown();
-            rewards.getDelayedTimer().shutdownNow();
-            miscPlugin.set(misc, oldMiscPlugin);
-            com.bencodez.advancedcore.AdvancedCorePlugin.setInstance(oldInstance);
         }
     }
 }
