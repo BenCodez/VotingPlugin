@@ -96,6 +96,7 @@ import com.bencodez.votingplugin.proxy.presence.BackendPlayerPresenceTracker;
 import com.bencodez.votingplugin.proxy.presence.PlayerPresence;
 import com.bencodez.votingplugin.proxy.redis.VotingPluginRedisChannels;
 import com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator;
+import com.bencodez.votingplugin.proxy.security.ProxyOriginEnvelopeSignature;
 import com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.Domain;
 import com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.Mode;
 import com.bencodez.votingplugin.proxy.security.TransportEnvelopeEncryption;
@@ -161,6 +162,7 @@ public abstract class VotingPluginProxy {
 		private ArrayList<Column> totalsInput;
 		private boolean votePartyApplied;
 		private boolean totalsApplied;
+		private boolean localProxyOrigin;
 		private final Set<String> broadcastForwardedServers = new LinkedHashSet<>();
 		private final Set<String> deliveredRewardServers = new LinkedHashSet<>();
 		private final Map<String, OfflineBungeeVote> rewardStates = new LinkedHashMap<>();
@@ -261,6 +263,10 @@ public abstract class VotingPluginProxy {
 
 	private HashMap<String, ClientHandler> clientHandles;
 	private volatile Map<String, SharedTransportEnvelopeAuthenticator> socketAuthenticators = Map.of();
+	private Map<String, ProxyOriginEnvelopeSignature> proxyOriginSigners = Map.of();
+	// A shared-key ingress cannot later lend its admitted work proxy-only authority.
+	// Retain this history across soft reloads, including disabling the listener.
+	private boolean sharedMultiProxyIngressSeen;
 
 	private SocketHandler socketHandler;
 	private HttpProxyTransportServer httpTransportServer;
@@ -945,6 +951,18 @@ public abstract class VotingPluginProxy {
 		if (method == BungeeMethod.PLUGINMESSAGING) return sendPluginMessageServerNow(server, envelope);
 		GlobalMessageProxyHandler handler = globalMessageProxyHandler;
 		if (handler == null) return false;
+		boolean signedTarget;
+		synchronized (transportSecurityLock) { signedTarget = proxyOriginSigners.containsKey(server); }
+		if (signedTarget) {
+			// The legacy router has a void contract. Preserve the actual final
+			// publisher's refusal rather than retiring the only cached owner.
+			switch (method) {
+			case MYSQL: return sendMysqlEnvelopeServer(server, envelope);
+			case REDIS: return sendRedisEnvelopeServer(server, envelope);
+			case MQTT: return sendMqttEnvelopeServer(server, envelope);
+			default: break;
+			}
+		}
 		handler.sendMessage(server, delay, envelope);
 		return true;
 	}
@@ -2076,7 +2094,7 @@ public abstract class VotingPluginProxy {
 		sharedTransportAuthenticationFailureLogged.set(false);
 		sharedTransportCompatibilityWarningLogged.set(false);
 		communicationEncryptionFailureLogged.set(false);
-		installTransportSecurity(initialAuthenticator, createCommunicationEncryption());
+		installTransportSecurity(initialAuthenticator, createCommunicationEncryption(), createProxyOriginSigners(method));
 		warnUnsupportedDedicatedVotingProxyMode();
 		uuidPlayerNameCache = getProxyMySQL().getRowsUUIDNameQuery();
 
@@ -2735,6 +2753,13 @@ public abstract class VotingPluginProxy {
 	public abstract void loadTaskTimer(Runnable runnable, long delaySeconds, long repeatSeconds);
 
 	public void loadMultiProxySupport() {
+		synchronized (transportSecurityLock) {
+			if (usesSharedMultiProxyIngress()) {
+				if (!proxyOriginSigners.isEmpty())
+					throw new IllegalStateException("Proxy origin signing cannot use shared-key multi-proxy ingress");
+				sharedMultiProxyIngressSeen = true;
+			}
+		}
 		if (multiProxyHandler != null) {
 			multiProxyHandler.close();
 		}
@@ -2895,7 +2920,9 @@ public abstract class VotingPluginProxy {
 			@Override
 			public void triggerVote(String player, String service, boolean realVote, boolean timeQueue, long queueTime,
 					VoteTotalsSnapshot text, String uuid) {
-				vote(player, service, realVote, timeQueue, queueTime, text, uuid);
+				UUID id = UUID.randomUUID();
+				if (vote(player, service, realVote, timeQueue, queueTime, text, uuid, null, id,
+						false, false, false) == QueuedVoteResult.RETRY) throw new VoteRetryException();
 			}
 
 			@Override
@@ -2954,6 +2981,12 @@ public abstract class VotingPluginProxy {
 	protected synchronized void receiveMultiProxyVote(String player, String service, boolean realVote,
 			boolean timeQueue, long queueTime, VoteTotalsSnapshot totals, String uuid, UUID wireVoteId, String origin,
 			boolean delayValidated, boolean delayValidationKnown) {
+		// A shared membership key cannot assert locally admitted provenance. Clone
+		// the decoded totals so no later cache/overflow path retains a wire claim.
+		if (totals != null) {
+			totals = VoteTotalsSnapshot.parseStorage(totals.toStorageString());
+			totals.setLocalProxyOrigin(false);
+		}
 		UUID voteId = wireVoteId == null ? UUID.randomUUID() : wireVoteId;
 		if (completedMultiProxyVotes.containsKey(voteId)) {
 			acknowledgeCompletedMultiProxyVote(voteId, origin);
@@ -3003,7 +3036,8 @@ public abstract class VotingPluginProxy {
 		return getVoteCacheHandler().addTimeVoteToCache(queued);
 	}
 
-	private static String[] decodeForwardedQueueTotals(String encoded) {
+	/** Shared legacy-storage decoder for replay and cache trust-boundary normalization. */
+	public static String[] decodeForwardedQueueTotals(String encoded) {
 		if (encoded == null || !encoded.startsWith(FORWARDED_QUEUE_TOTALS_PREFIX)) {
 			return new String[] { "true", encoded == null ? "" : encoded };
 		}
@@ -4147,13 +4181,14 @@ public abstract class VotingPluginProxy {
 		SharedTransportEnvelopeAuthenticator replacementAuthenticator = createSharedTransportAuthenticator(
 				configuredMethod);
 		TransportEnvelopeEncryption replacementEncryption = createCommunicationEncryption();
+		Map<String, ProxyOriginEnvelopeSignature> replacementOriginSigners = createProxyOriginSigners(configuredMethod);
 		synchronized (this) {
 			if (method == BungeeMethod.PLUGINMESSAGING && configuredMethod != method
 					&& pluginMessageDispatcher.hasPendingEffects())
 				throw new IllegalStateException("Queued plugin-message controls must settle before changing transport");
 			method = retainHttpForPendingDeliveries(configuredMethod);
 		}
-		installTransportSecurity(replacementAuthenticator, replacementEncryption);
+		installTransportSecurity(replacementAuthenticator, replacementEncryption, replacementOriginSigners);
 		sharedTransportAuthenticationFailureLogged.set(false);
 		sharedTransportCompatibilityWarningLogged.set(false);
 		warnIfSharedTransportCompatibilityMode(replacementAuthenticator);
@@ -4183,9 +4218,143 @@ public abstract class VotingPluginProxy {
 		}
 	}
 
-	private void installTransportSecurity(SharedTransportEnvelopeAuthenticator authenticator,
-			TransportEnvelopeEncryption encryption) {
+	/** Capture optional per-target proxy-only keys before replacing active transport security. */
+	private Map<String, ProxyOriginEnvelopeSignature> createProxyOriginSigners(BungeeMethod selected) {
+		if (selected != BungeeMethod.MYSQL && selected != BungeeMethod.REDIS && selected != BungeeMethod.MQTT) return Map.of();
+		Map<String, ProxyOriginEnvelopeSignature> result = new HashMap<>();
+		Collection<String> servers = getConfig().getSpigotServers();
+		if (servers == null) return Map.of();
+		for (String server : servers) {
+			Map<String, Object> entry = getConfig().getSpigotServerConfiguration(server);
+			if (entry == null || !entry.containsKey("ProxySigningKeyFile")) continue;
+			Object setting = entry.get("ProxySigningKeyFile");
+			if (!(setting instanceof String value) || value.isBlank())
+				throw new IllegalArgumentException("Invalid ProxySigningKeyFile setting");
+			Path root = getDataFolderPlugin().toPath().toAbsolutePath().normalize();
+			Path path = root.resolve(value).normalize();
+			if (!path.startsWith(root)) throw new IllegalArgumentException("Proxy signing key outside data directory");
+			try { result.put(server, ProxyOriginEnvelopeSignature.loadSigner(path)); }
+			catch (IOException unavailable) { throw new IllegalStateException("Proxy origin signing key unavailable"); }
+		}
+		requireProxyOriginIngressPolicy(result);
+		return Map.copyOf(result);
+	}
+
+	private boolean usesSharedMultiProxyIngress() {
+		return getConfig().getMultiProxySupport();
+	}
+
+	private void requireProxyOriginIngressPolicy(Map<String, ProxyOriginEnvelopeSignature> signers) {
+		if (signers.isEmpty()) return;
+		requireProxyPrivateVoteCacheForSigning();
 		synchronized (transportSecurityLock) {
+			if (sharedMultiProxyIngressSeen || usesSharedMultiProxyIngress())
+				throw new IllegalStateException("Proxy origin signing cannot use shared-key multi-proxy ingress");
+		}
+	}
+
+	private void requireProxyPrivateVoteCacheForSigning() {
+		// A shared SQL row can be copied to a different target or resurrected
+		// after consumption. A signature over its fields cannot prove ownership.
+		// Check the actual immutable cache mode as well as prospective settings:
+		// a soft configuration edit does not replace an existing SQL owner.
+		VoteCacheHandler cache = voteCacheHandler;
+		if (getConfig().getVoteCacheUseMySQL() || cache != null && cache.usesMySQLStorage())
+			throw new IllegalStateException("Proxy origin signing requires proxy-private vote cache storage");
+	}
+
+	private static JsonEnvelope localAdmissionRecord(UUID id, String player, String uuid, String service,
+			long time, boolean real, boolean onlineKnown, boolean online, boolean delayKnown, boolean delay,
+			VoteTotalsSnapshot totals) {
+		VoteTotalsSnapshot values = VoteTotalsSnapshot.parseStorage(totals.toStorageString());
+		values.setLocalProxyOrigin(false);
+		return JsonEnvelope.builder("ProxyLocalAdmissionV1").put("id", id == null ? "" : id.toString())
+				.put("player", player == null ? "" : player).put("uuid", uuid == null ? "" : uuid)
+				.put("service", service == null ? "" : service).put("time", time).put("real", real)
+				.put("onlineKnown", onlineKnown).put("online", online)
+				// Storage normalizes unknown/unvalidated into explicit false; neither authorizes bypass.
+				.put("delay", delayKnown && delay).put("totals", values.toStorageString()).build();
+	}
+
+	private void stampLocalOriginTotals(UUID id, String player, String uuid, String service, long time,
+			boolean real, boolean onlineKnown, boolean online, boolean delayKnown, boolean delay,
+			VoteTotalsSnapshot totals, boolean locallyAdmitted) {
+		totals.setLocalProxyOrigin(false);
+		if (!locallyAdmitted) return;
+		synchronized (transportSecurityLock) {
+			// One captured proxy-only key attests local origin for this proxy. Its
+			// configured target name is an identifier, never a path to load from data.
+			var issuer = proxyOriginSigners.entrySet().stream().sorted(Map.Entry.comparingByKey()).findFirst();
+			if (issuer.isEmpty()) return;
+			var entry = issuer.get();
+			String proof = entry.getValue().admissionProof(localAdmissionRecord(id, player, uuid, service, time,
+					real, onlineKnown, online, delayKnown, delay, totals), getConfig().getProxyServerName(), entry.getKey());
+			totals.setLocalProxyOrigin(true);
+			totals.setLocalOriginProof(Base64.getUrlEncoder().withoutPadding()
+					.encodeToString(entry.getKey().getBytes(StandardCharsets.UTF_8)) + "." + proof);
+		}
+	}
+
+	private boolean hasLocalOriginProof(UUID id, String player, String uuid, String service, long time,
+			boolean real, boolean onlineKnown, boolean online, boolean delayKnown, boolean delay,
+			VoteTotalsSnapshot totals) {
+		if (id == null || !totals.isLocalProxyOrigin()) return false;
+		String proof = totals.getLocalOriginProof();
+		int separator = proof.indexOf('.');
+		if (separator <= 0 || proof.length() > 1024) return false;
+		try {
+			String issuer = new String(Base64.getUrlDecoder().decode(proof.substring(0, separator)), StandardCharsets.UTF_8);
+			synchronized (transportSecurityLock) {
+				ProxyOriginEnvelopeSignature authority = proxyOriginSigners.get(issuer);
+				return authority != null && authority.acceptsAdmissionProof(localAdmissionRecord(id, player, uuid, service,
+						time, real, onlineKnown, online, delayKnown, delay, totals), getConfig().getProxyServerName(), issuer,
+						proof.substring(separator + 1));
+			}
+		} catch (IllegalArgumentException invalid) { return false; }
+	}
+
+	private boolean hasLocalOriginProof(VoteTimeQueue vote) {
+		return hasLocalOriginProof(vote.getVoteId(), vote.getName(), vote.getUuid(), vote.getService(), vote.getTime(),
+				vote.isRealVote(), vote.isWasOnlineKnown(), vote.isWasOnline(), vote.isDelayValidationKnown(),
+				vote.isDelayValidated(), VoteTotalsSnapshot.parseStorage(vote.getTotals()));
+	}
+
+	/** Check plaintext and stored admission evidence under the same lock as signing. */
+	private void requireProxyOriginVoteAuthority(String server, JsonEnvelope envelope) {
+		if (!proxyOriginSigners.containsKey(server)
+				|| !(VotingPluginWire.SUB_VOTE.equals(envelope.getSubChannel())
+						|| VotingPluginWire.SUB_VOTE_ONLINE.equals(envelope.getSubChannel()))) return;
+		requireProxyPrivateVoteCacheForSigning();
+		var vote = VotingPluginWire.readVote(envelope);
+		if (!hasLocalOriginProof(vote.voteId, vote.player, vote.uuid, vote.service, vote.time, vote.realVote,
+				vote.wasOnlineKnown, vote.wasOnline, vote.delayValidationKnown, vote.delayValidated,
+				VoteTotalsSnapshot.parseStorage(vote.totals)))
+			throw new IllegalStateException("Retained vote lacks local proxy admission provenance");
+	}
+
+	private JsonEnvelope signProxyOrigin(JsonEnvelope envelope, ProxyOriginEnvelopeSignature.Domain domain, String server) {
+		synchronized (transportSecurityLock) {
+			requireProxyOriginVoteAuthority(server, envelope);
+			// Admission evidence belongs to trusted recovery, not the peer wire.
+			VoteTotalsSnapshot stored = VoteTotalsSnapshot.parseStorage(envelope.getFields().get(VotingPluginWire.K_TOTALS));
+			if (stored.isLocalProxyOrigin()) {
+				stored.setLocalProxyOrigin(false);
+				Map<String, String> fields = new HashMap<>(envelope.getFields());
+				fields.put(VotingPluginWire.K_TOTALS, stored.toStorageString());
+				envelope = new JsonEnvelope(envelope.getSubChannel(), envelope.getSchema(), fields);
+			}
+			JsonEnvelope prepared = encryptCommunicationEnvelope(envelope);
+			if (domain == ProxyOriginEnvelopeSignature.Domain.REDIS)
+				prepared = VotingPluginWire.withRedisDeliveryId(prepared);
+			ProxyOriginEnvelopeSignature signer = proxyOriginSigners.get(server);
+			return signer == null ? prepared : signer.sign(prepared, domain, getConfig().getProxyServerName(), server);
+		}
+	}
+
+	private void installTransportSecurity(SharedTransportEnvelopeAuthenticator authenticator,
+			TransportEnvelopeEncryption encryption, Map<String, ProxyOriginEnvelopeSignature> originSigners) {
+		synchronized (transportSecurityLock) {
+			requireProxyOriginIngressPolicy(originSigners);
 			if (sharedTransportAuthenticator == null || authenticator == null
 					|| !sharedTransportAuthenticator.hasEquivalentInboundPolicy(authenticator)) {
 				sharedTransportAuthenticator = authenticator;
@@ -4194,6 +4363,7 @@ public abstract class VotingPluginProxy {
 					|| !communicationEncryption.hasEquivalentInboundPolicy(encryption)) {
 				communicationEncryption = encryption;
 			}
+			proxyOriginSigners = originSigners;
 			communicationEncryptionFailureLogged.set(false);
 		}
 	}
@@ -4553,10 +4723,11 @@ public abstract class VotingPluginProxy {
 	private boolean sendMysqlEnvelopeServer(String server, JsonEnvelope envelope) {
 		if (proxyMysqlMessenger == null) return false;
 		try {
-			proxyMysqlMessenger.sendToBackend(server, encryptCommunicationEnvelope(envelope));
+			proxyMysqlMessenger.sendToBackend(server, signProxyOrigin(envelope,
+					ProxyOriginEnvelopeSignature.Domain.MYSQL, server));
 			return true;
-		} catch (SQLException failure) {
-			debug(failure.getMessage());
+		} catch (SQLException | RuntimeException failure) {
+			debug("MySQL envelope publication failed");
 			return false;
 		}
 	}
@@ -5299,6 +5470,7 @@ public abstract class VotingPluginProxy {
 		BungeeMethod configuredMethod = BungeeMethod.getByName(getConfig().getBungeeMethod());
 		if (configuredMethod == null) configuredMethod = BungeeMethod.PLUGINMESSAGING;
 		createSharedTransportAuthenticator(configuredMethod);
+		createProxyOriginSigners(configuredMethod);
 		try {
 			TransportEnvelopeEncryption.load(getDataFolderPlugin().toPath().resolve("secretkey.key"),
 					TransportEnvelopeEncryption.Domain.PROXY_BACKEND, getConfig().getCommunicationEncryption());
@@ -5395,8 +5567,8 @@ public abstract class VotingPluginProxy {
 			JsonEnvelope authenticated;
 			synchronized (transportSecurityLock) {
 				channel = VotingPluginRedisChannels.backend(getConfig().getRedisPrefix(), server);
-				JsonEnvelope identified = VotingPluginWire.withRedisDeliveryId(encryptCommunicationEnvelope(envelope));
-				authenticated = sharedTransportAuthenticatorLocked().sign(identified, Domain.REDIS_PROXY_BACKEND,
+				authenticated = sharedTransportAuthenticatorLocked().sign(signProxyOrigin(envelope,
+						ProxyOriginEnvelopeSignature.Domain.REDIS, server), Domain.REDIS_PROXY_BACKEND,
 						getConfig().getProxyServerName(), channel);
 			}
 			long subscribers = jedis.publish(channel, JsonEnvelopeCodec.encode(authenticated));
@@ -5420,8 +5592,8 @@ public abstract class VotingPluginProxy {
 			String topic = getConfig().getMqttPrefix() + "votingplugin/servers/" + server;
 			JsonEnvelope authenticated;
 			synchronized (transportSecurityLock) {
-				authenticated = sharedTransportAuthenticatorLocked().sign(encryptCommunicationEnvelope(envelope),
-						Domain.MQTT_PROXY_BACKEND, getConfig().getProxyServerName(), topic);
+				authenticated = sharedTransportAuthenticatorLocked().sign(signProxyOrigin(envelope,
+						ProxyOriginEnvelopeSignature.Domain.MQTT, server), Domain.MQTT_PROXY_BACKEND, getConfig().getProxyServerName(), topic);
 			}
 			mqttHandler.publishEnvelope(topic, authenticated);
 			return true;
@@ -6245,6 +6417,10 @@ public abstract class VotingPluginProxy {
 	public synchronized VoteTimeQueue snapshotIncomingVoteForRestart(PendingIncomingVote pending) {
 		VoteTimeQueue queued = new VoteTimeQueue(pending.getVoteId(), pending.getPlayer(), pending.getService(),
 				pending.getAcceptedAt());
+		VoteTotalsSnapshot admitted = new VoteTotalsSnapshot();
+		stampLocalOriginTotals(pending.getVoteId(), pending.getPlayer(), "", pending.getService(),
+				pending.getAcceptedAt(), true, false, false, false, false, admitted, true);
+		if (!admitted.getLocalOriginProof().isEmpty()) queued.setTotals(admitted.toStorageString());
 		LiveVoteRetryState retry = liveVoteRetries.get(pending.getVoteId());
 		if (retry != null) {
 			queued.setUuid(retry.uuid == null ? "" : retry.uuid);
@@ -6274,7 +6450,16 @@ public abstract class VotingPluginProxy {
 			}
 			queued.setMultiProxyForwardingHandled(retry.multiProxyForwardingHandled);
 			if (retry.delayValidationKnown) queued.setDelayValidated(retry.delayValidated);
-			if (retry.totals != null) queued.setTotals(retry.totals.toString());
+			// Finalize identity and classification before attesting the snapshot,
+			// including retries that failed before a totals snapshot was assigned.
+			{
+				VoteTotalsSnapshot retained = retry.totals == null ? new VoteTotalsSnapshot()
+						: VoteTotalsSnapshot.parseStorage(retry.totals.toStorageString());
+				stampLocalOriginTotals(queued.getVoteId(), queued.getName(), queued.getUuid(), queued.getService(),
+						queued.getTime(), queued.isRealVote(), queued.isWasOnlineKnown(), queued.isWasOnline(),
+						queued.isDelayValidationKnown(), queued.isDelayValidated(), retained, retry.localProxyOrigin);
+				queued.setTotals(retained.toStorageString());
+			}
 		}
 		return queued;
 	}
@@ -6299,7 +6484,7 @@ public abstract class VotingPluginProxy {
 		if (retry == null && !recovery.isVotePartyApplied() && !recovery.isTotalsApplied()
 				&& recovery.isRealVote() && !recovery.isWasOnlineKnown()
 				&& (recovery.getUuid() == null || recovery.getUuid().isEmpty())
-				&& (recovery.getTotals() == null || recovery.getTotals().isEmpty())) return true;
+				&& isAdmissionOnlyRecoveryTotals(recovery.getTotals())) return true;
 		VoteTimeQueue state = retry == null ? recovery
 				: snapshotIncomingVoteForRestart(new PendingIncomingVote(recovery.getVoteId(), recovery.getName(),
 						recovery.getService(), recovery.getTime()));
@@ -6329,6 +6514,20 @@ public abstract class VotingPluginProxy {
 		SUCCESS, RETRY, RETRY_NONBLOCKING, TERMINAL
 	}
 
+	private static boolean isAdmissionOnlyRecoveryTotals(String stored) {
+		if (stored == null || stored.isEmpty()) return true;
+		VoteTotalsSnapshot parsed = VoteTotalsSnapshot.parseStorage(stored);
+		if (!parsed.isLocalProxyOrigin()
+				|| !parsed.getLocalOriginProof().matches("[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]{86}")) return false;
+		VoteTotalsSnapshot admission = new VoteTotalsSnapshot();
+		admission.setLocalProxyOrigin(true);
+		admission.setLocalOriginProof(parsed.getLocalOriginProof());
+		// Match only the exact zero snapshot emitted before any effects. The storage
+		// parser is deliberately lenient, so parsed zeros alone are not sufficient.
+		// This preserves an existing owner; it does not authenticate incoming data.
+		return stored.equals(admission.toStorageString());
+	}
+
 	protected QueuedVoteResult replayQueuedVote(VoteTimeQueue vote, VoteTotalsSnapshot totals, boolean realVote) {
 		return vote(vote.getName(), vote.getService(), realVote, false, vote.getTime(), totals, vote.getUuid(), vote);
 	}
@@ -6341,12 +6540,19 @@ public abstract class VotingPluginProxy {
 	private synchronized QueuedVoteResult vote(String player, String service, boolean realVote, boolean timeQueue,
 			long queueTime, VoteTotalsSnapshot text, String uuid, VoteTimeQueue queuedVote, UUID requestedVoteId) {
 		return vote(player, service, realVote, timeQueue, queueTime, text, uuid, queuedVote, requestedVoteId, false,
-				false);
+				false, queuedVote == null);
 	}
 
 	private synchronized QueuedVoteResult vote(String player, String service, boolean realVote, boolean timeQueue,
 			long queueTime, VoteTotalsSnapshot text, String uuid, VoteTimeQueue queuedVote, UUID requestedVoteId,
 			boolean upstreamDelayValidated, boolean upstreamDelayValidationKnown) {
+		return vote(player, service, realVote, timeQueue, queueTime, text, uuid, queuedVote, requestedVoteId,
+				upstreamDelayValidated, upstreamDelayValidationKnown, false);
+	}
+
+	private synchronized QueuedVoteResult vote(String player, String service, boolean realVote, boolean timeQueue,
+			long queueTime, VoteTotalsSnapshot text, String uuid, VoteTimeQueue queuedVote, UUID requestedVoteId,
+			boolean upstreamDelayValidated, boolean upstreamDelayValidationKnown, boolean locallyAdmitted) {
 		try {
 			String requestPlayer = player;
 			if (!ServiceSiteValidator.isValid(service)) {
@@ -6377,6 +6583,9 @@ public abstract class VotingPluginProxy {
 				}
 			}
 			LiveVoteRetryState retryState = liveVoteRetries.get(voteId);
+			boolean localProxyOrigin = retryState != null ? retryState.localProxyOrigin
+					: queuedVote != null ? hasLocalOriginProof(queuedVote)
+					: locallyAdmitted;
 			if (retryState != null && !requestIdentity.equals(retryState.requestIdentity)) {
 				throw new IllegalArgumentException("Retry ID does not match the original vote");
 			}
@@ -6532,6 +6741,9 @@ public abstract class VotingPluginProxy {
 			// replaying broadcasts that already reached a backend.
 			if (queueForTimeChange) {
 				VoteTotalsSnapshot projectedTotals = managesTotals ? getProjectedRolloverTotals(data, player) : text;
+				if (projectedTotals == null) projectedTotals = new VoteTotalsSnapshot();
+				stampLocalOriginTotals(voteId, player, uuid, service, time, realVote, true, playerOnline,
+						authoritativeDelayValidationKnown, authoritativeDelayValidated, projectedTotals, localProxyOrigin);
 				if (canValidateStandaloneBroadcast && proxyBroadcastDecider.usesImmediateForwarding(playerOnline)) {
 					broadcastTargets.addAll(proxyBroadcastDecider.resolveTargets(false, null));
 					proxyBroadcastHandled = true;
@@ -6581,6 +6793,7 @@ public abstract class VotingPluginProxy {
 				if (queuedVote != null && queuedVote.isTotalsApplied()) {
 					retryState.totals = text != null ? text : VoteTotalsSnapshot.parseStorage(queuedVote.getTotals());
 				}
+				retryState.localProxyOrigin = localProxyOrigin;
 				retryState.player = requestPlayer;
 				retryState.service = service;
 				retryState.uuid = uuid;
@@ -6674,6 +6887,8 @@ public abstract class VotingPluginProxy {
 
 					debug("Setting totals " + text.toString() + ", voteId=" + voteId + " for " + player + "/"
 							+ service);
+					stampLocalOriginTotals(voteId, player, uuid, service, time, realVote, true, playerOnline,
+					authoritativeDelayValidationKnown, authoritativeDelayValidated, text, localProxyOrigin);
 					retryState.totals = text;
 					retryState.totalsApplied = true;
 					getProxyMySQL().update(uuid, update);
@@ -6684,7 +6899,9 @@ public abstract class VotingPluginProxy {
 				if (text == null) {
 					text = new VoteTotalsSnapshot(0, 0, 0, 0, 0, votePartyVotes, currentVotePartyVotesRequired, 0);
 				}
-				retryState.totals = text;
+				stampLocalOriginTotals(voteId, player, uuid, service, time, realVote, true, playerOnline,
+					authoritativeDelayValidationKnown, authoritativeDelayValidated, text, localProxyOrigin);
+					retryState.totals = text;
 				retryState.totalsApplied = true;
 			} else {
 				text = retryState.totals;
@@ -6692,6 +6909,9 @@ public abstract class VotingPluginProxy {
 			if (text == null) {
 				text = new VoteTotalsSnapshot(0, 0, 0, 0, 0, votePartyVotes, currentVotePartyVotesRequired, 0);
 			}
+
+			stampLocalOriginTotals(voteId, player, uuid, service, time, realVote, true, playerOnline,
+					authoritativeDelayValidationKnown, authoritativeDelayValidated, text, localProxyOrigin);
 
 			VoteLogStatus voteStatus = VoteLogStatus.IMMEDIATE;
 			boolean standaloneProxyBroadcast = canValidateStandaloneBroadcast && (proxyBroadcastHandled

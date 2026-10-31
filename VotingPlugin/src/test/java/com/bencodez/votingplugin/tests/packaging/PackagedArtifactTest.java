@@ -13,6 +13,7 @@ import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ServiceLoader;
 import java.util.jar.JarFile;
 
 import org.junit.jupiter.api.Test;
@@ -21,6 +22,12 @@ import org.junit.jupiter.api.io.TempDir;
 /** Package-phase checks for the actual downloadable plugin artifact. */
 public class PackagedArtifactTest {
     private static final long ARTIFACT_SIZE_TARGET_BYTES = 10L * 1024L * 1024L;
+
+    @Test
+    void nativeBrokerIngressLinksAgainstMinecraftProvidedGson() throws Exception {
+        com.bencodez.votingplugin.tests.neoforge.NeoForgePlatformGsonTest.verify(
+                packagedJar().toUri().toURL(), true);
+    }
 
     @Test
     void containsOneRelocatedRuntimeWithoutUnusedHttpCrypto() throws Exception {
@@ -115,6 +122,70 @@ public class PackagedArtifactTest {
             Class<?> redisClient = Class.forName("redis.clients.jedis.RedisClient", true, loader);
             try (AutoCloseable client = (AutoCloseable) redisClient.getMethod("create").invoke(null)) {
                 assertTrue(Class.forName("redis.clients.jedis.UnifiedJedis", true, loader).isInstance(client));
+            }
+        }
+    }
+
+    @Test
+    void packagedMysqlDriverAndPrivateServiceProvidersLinkWithoutExternalJdbcLibraries() throws Exception {
+        String prefix = "com.bencodez.votingplugin.neoforge.mariadb.jdbc.";
+        try (JarFile artifact = new JarFile(packagedJar().toFile())) {
+            assertNotNull(artifact.getEntry(prefix.replace('.', '/') + "Driver.class"));
+            assertNull(artifact.getEntry("org/mariadb/jdbc/Driver.class"));
+            var drivers = artifact.getEntry("META-INF/services/java.sql.Driver");
+            if (drivers != null) {
+                String providers = new String(artifact.getInputStream(drivers).readAllBytes(), StandardCharsets.UTF_8);
+                assertFalse(providers.contains("mariadb"), "The private driver must not claim global JDBC URLs");
+            }
+        }
+        URL platformSlf4j = org.slf4j.Logger.class.getProtectionDomain().getCodeSource().getLocation();
+        try (URLClassLoader loader = new URLClassLoader(new URL[] {packagedJar().toUri().toURL(), platformSlf4j},
+                ClassLoader.getPlatformClassLoader())) {
+            assertNotNull(Class.forName(prefix + "Driver", false, loader));
+            for (String name : new String[] {"AuthenticationPluginFactory", "TlsSocketPlugin", "Codec", "CredentialPlugin"}) {
+                Class<?> service = Class.forName(prefix + "plugin." + name, true, loader);
+                var providers = ServiceLoader.load(service, loader).iterator();
+                assertTrue(providers.hasNext(), "Missing relocated " + name + " providers");
+                while (providers.hasNext()) assertTrue(service.isInstance(providers.next()));
+            }
+            Class<?> settings = Class.forName(
+                    "com.bencodez.votingplugin.neoforge.NeoForgeProxyTransportConfiguration$Mysql", true, loader);
+            var constructor = settings.getDeclaredConstructors()[0];
+            constructor.setAccessible(true);
+            Object configuration = constructor.newInstance("db.example", 3306, "fixture", "", "", false, false, 1);
+            Class<?> source = Class.forName("com.bencodez.votingplugin.neoforge.NeoForgeMysqlDataSource", true, loader);
+            var open = source.getDeclaredMethod("open", settings);
+            open.setAccessible(true);
+            try (AutoCloseable pool = (AutoCloseable) open.invoke(null, configuration)) {
+                assertNotNull(pool);
+            }
+        }
+    }
+
+    @Test
+    void packagedProxySqlDriverSelectionKeepsExternalMariaDbIdentity() throws Exception {
+        // The private NeoForge transport driver must not become the default proxy SQL driver.
+        // Shade can otherwise rewrite string constants in both plugin and shaded SDK classes.
+        try (URLClassLoader loader = new URLClassLoader(new URL[] {packagedJar().toUri().toURL()},
+                ClassLoader.getPlatformClassLoader())) {
+            Class<?> installer = Class.forName(
+                    "com.bencodez.votingplugin.proxy.velocity.VelocityDatabaseDriverInstaller", true, loader);
+            var field = installer.getDeclaredField("MARIADB");
+            field.setAccessible(true);
+            assertTrue("org.mariadb.jdbc.Driver".equals(field.get(null)),
+                    "Velocity must probe the external MariaDB driver, not the NeoForge-private driver");
+        }
+        try (JarFile artifact = new JarFile(packagedJar().toFile())) {
+            for (String path : new String[] {
+                    "com/bencodez/votingplugin/simpleapi/sql/mysql/ConnectionManager.class",
+                    "com/bencodez/votingplugin/control/NetworkHealthStorageFacts.class"}) {
+                var entry = artifact.getEntry(path);
+                assertNotNull(entry, "Missing packaged driver-selection class: " + path);
+                String bytes = new String(artifact.getInputStream(entry).readAllBytes(), StandardCharsets.ISO_8859_1);
+                assertTrue(bytes.contains("org.mariadb.jdbc.Driver"),
+                        "Proxy SQL must retain the external MariaDB driver identity: " + path);
+                assertFalse(bytes.contains("com.bencodez.votingplugin.neoforge.mariadb.jdbc.Driver"),
+                        "NeoForge's private driver must not replace the proxy SQL default: " + path);
             }
         }
     }
