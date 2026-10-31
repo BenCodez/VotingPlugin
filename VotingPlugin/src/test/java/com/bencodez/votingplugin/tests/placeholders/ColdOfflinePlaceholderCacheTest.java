@@ -83,6 +83,347 @@ class ColdOfflinePlaceholderCacheTest {
         assertEquals("4", f.request("points_nocache"));
     }
 
+    @Test void publishedAbsentPerServerPointFieldUsesZeroWithoutStorageRecovery() {
+        Fixture f = new Fixture(PlaceholderCacheLevel.NONE);
+        when(f.plugin.getStorageType()).thenReturn(com.bencodez.advancedcore.api.user.UserStorage.MYSQL);
+        when(f.plugin.getBungeeSettings().isPerServerPoints()).thenReturn(true);
+        when(f.plugin.getBungeeSettings().getServerNameStorage()).thenReturn("serverA");
+        when(f.user.getPointsPath()).thenReturn("serverA_Points");
+        var cache = new com.bencodez.advancedcore.api.user.usercache.UserDataCache(null, f.uuid);
+        cache.updateCache(new java.util.HashMap<>(java.util.Map.of("Other", new com.bencodez.simpleapi.sql.data.DataValueInt(7))));
+        when(f.plugin.getUserManager().getDataManager().getUserDataCache())
+                .thenReturn(new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(f.uuid, cache)));
+        assertEquals("0", f.request("points_nocache"));
+        assertEquals("0", f.request("points_format_nocache"));
+        assertEquals("false", f.request("enoughpoints_16_nocache"));
+        assertTrue(f.pending.isEmpty());
+        verify(f.user, never()).getPoints();
+        verify(f.plugin.getUserManager().getDataManager(), never()).cacheUser(any(), any());
+    }
+
+    @Test void commonOfflineMonthlyWorkerDoesNotReloadPublishedMalformedPointsAUTO() {
+        assertCommonOfflineInvalidPoints(PlaceholderCacheLevel.AUTO, new com.bencodez.simpleapi.sql.data.DataValueString("invalid"));
+    }
+
+    @Test void commonOfflineMonthlyWorkerDoesNotReloadPublishedUnsupportedPointsAUTO() {
+        assertCommonOfflineInvalidPoints(PlaceholderCacheLevel.AUTO, new com.bencodez.simpleapi.sql.data.DataValueBoolean(true));
+    }
+
+    @Test void commonOfflineMonthlyWorkerDoesNotReloadPublishedNullPointsAUTO() {
+        assertCommonOfflineInvalidPoints(PlaceholderCacheLevel.AUTO, null);
+    }
+
+    @Test void commonOfflineMonthlyWorkerDoesNotReloadPublishedMalformedPointsSPECIFIC() {
+        assertCommonOfflineInvalidPoints(PlaceholderCacheLevel.SPECIFIC, new com.bencodez.simpleapi.sql.data.DataValueString("invalid"));
+    }
+
+    @Test void commonOfflineMonthlyWorkerDoesNotReloadPublishedUnsupportedPointsSPECIFIC() {
+        assertCommonOfflineInvalidPoints(PlaceholderCacheLevel.SPECIFIC, new com.bencodez.simpleapi.sql.data.DataValueBoolean(true));
+    }
+
+    @Test void commonOfflineMonthlyWorkerDoesNotReloadPublishedNullPointsSPECIFIC() {
+        assertCommonOfflineInvalidPoints(PlaceholderCacheLevel.SPECIFIC, null);
+    }
+
+    private void assertCommonOfflineInvalidPoints(PlaceholderCacheLevel level, com.bencodez.simpleapi.sql.data.DataValue invalid) {
+        Fixture f = new Fixture(level, "total_monthly");
+        when(f.plugin.getStorageType()).thenReturn(com.bencodez.advancedcore.api.user.UserStorage.MYSQL);
+        var cache = new com.bencodez.advancedcore.api.user.usercache.UserDataCache(null, f.uuid);
+        var row = new java.util.HashMap<String,com.bencodez.simpleapi.sql.data.DataValue>();
+        row.put("Points", invalid);
+        cache.updateCache(row);
+        var manager = f.plugin.getUserManager().getDataManager();
+        when(manager.getUserDataCache()).thenReturn(new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(f.uuid, cache)));
+        doAnswer(call -> { cache.updateCache(new java.util.HashMap<>(row)); return null; })
+                .when(manager).cacheUser(f.uuid, null);
+        for (int n = 0; n < 3; n++) {
+            assertEquals("...", f.request("total_monthly"));
+            assertEquals(1, f.pending.size());
+            f.pending.removeFirst().run();
+            assertTrue(f.pending.isEmpty());
+            assertFalse(f.placeholder("total_monthly").getCache().get("total_monthly").containsKey(f.uuid));
+            assertEquals("...", f.request("points_nocache"));
+            assertTrue(f.pending.isEmpty());
+        }
+        verify(manager, never()).cacheUser(any(), any());
+        verify(f.user, never()).getTotal(TopVoter.Monthly);
+        verify(f.user, never()).getPoints();
+    }
+
+    @Test void commonThenDirectColdRequestsShareQueuedAndExecutingRecovery() {
+        assertCommonAndDirectColdRecovery(false);
+    }
+
+    @Test void directThenCommonColdRequestsShareQueuedAndExecutingRecovery() {
+        assertCommonAndDirectColdRecovery(true);
+    }
+
+    private void assertCommonAndDirectColdRecovery(boolean directFirst) {
+        Fixture f = new Fixture(PlaceholderCacheLevel.AUTOALL, "points", "total_monthly");
+        when(f.plugin.getStorageType()).thenReturn(com.bencodez.advancedcore.api.user.UserStorage.MYSQL);
+        var cache = new com.bencodez.advancedcore.api.user.usercache.UserDataCache(null, f.uuid);
+        var manager = f.plugin.getUserManager().getDataManager();
+        when(manager.getUserDataCache()).thenReturn(new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(f.uuid, cache)));
+        doAnswer(call -> {
+            // Reentrant public requests model admission while the worker owns its token/refill.
+            assertEquals("...", f.request("total_monthly"));
+            assertEquals("...", f.request("points_nocache"));
+            assertTrue(f.pending.isEmpty(), "executing common/direct recovery must not queue nested work");
+            cache.updateCache(new java.util.HashMap<>(java.util.Map.of("Points", new com.bencodez.simpleapi.sql.data.DataValueInt(4))));
+            return null;
+        }).when(manager).cacheUser(f.uuid, null);
+        assertEquals("...", f.request(directFirst ? "points_nocache" : "total_monthly"));
+        assertEquals("...", f.request(directFirst ? "total_monthly" : "points_nocache"));
+        assertEquals("...", f.request("total_monthly"));
+        assertEquals(1, f.pending.size(), "queued common/direct requests must share admission");
+        f.pending.removeFirst().run();
+        assertTrue(f.pending.isEmpty());
+        assertEquals("4", f.request("points_nocache"));
+        assertEquals("42", f.request("total_monthly"), "ordinary nonpoint warming must still complete");
+        verify(manager, times(1)).cacheUser(f.uuid, null);
+        verify(f.user, never()).getPoints();
+    }
+
+    @Test void commonWorkerRepairsKnownTransientSnapshotWithoutNestedTask() {
+        Fixture f = new Fixture(PlaceholderCacheLevel.AUTOALL, "total_monthly");
+        when(f.plugin.getStorageType()).thenReturn(com.bencodez.advancedcore.api.user.UserStorage.MYSQL);
+        var cache = new com.bencodez.advancedcore.api.user.usercache.UserDataCache(null, f.uuid);
+        cache.updateCache(new java.util.HashMap<>(java.util.Map.of("Points", new com.bencodez.simpleapi.sql.data.DataValueInt(20))));
+        var manager = f.plugin.getUserManager().getDataManager();
+        when(manager.getUserDataCache()).thenReturn(new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(f.uuid, cache)));
+        doAnswer(call -> {
+            cache.updateCache(new java.util.HashMap<>(java.util.Map.of("Points", new com.bencodez.simpleapi.sql.data.DataValueInt(4))));
+            return null;
+        }).when(manager).cacheUser(f.uuid, null);
+        f.placeholders.beginSharedPointDebit(f.uuid);
+        f.placeholders.finishSharedPointDebit(f.uuid, true, false);
+        assertEquals("...", f.request("total_monthly"));
+        f.pending.removeFirst().run();
+        assertTrue(f.pending.isEmpty());
+        assertEquals("4", f.request("points_nocache"));
+        assertEquals("42", f.request("total_monthly"));
+        verify(manager, times(1)).cacheUser(f.uuid, null);
+    }
+
+    @Test void commonWorkerWarmsNonPointsWithoutRefillingPendingOrUnknownPoints() {
+        for (boolean unknown : List.of(false, true)) {
+            Fixture f = new Fixture(PlaceholderCacheLevel.AUTOALL, "total_monthly");
+            when(f.plugin.getStorageType()).thenReturn(com.bencodez.advancedcore.api.user.UserStorage.MYSQL);
+            var cache = new com.bencodez.advancedcore.api.user.usercache.UserDataCache(null, f.uuid);
+            var manager = f.plugin.getUserManager().getDataManager();
+            when(manager.getUserDataCache()).thenReturn(new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(f.uuid, cache)));
+            f.placeholders.beginSharedPointDebit(f.uuid);
+            if (unknown) f.placeholders.finishSharedPointDebit(f.uuid, false, false);
+            try {
+                assertEquals("...", f.request("total_monthly"));
+                f.pending.removeFirst().run();
+                assertEquals("42", f.request("total_monthly"));
+                assertEquals("...", f.request("points_nocache"));
+                assertTrue(f.pending.isEmpty());
+                verify(manager, never()).cacheUser(any(), any());
+            } finally {
+                if (!unknown) f.placeholders.finishSharedPointDebit(f.uuid, true, false);
+            }
+        }
+    }
+
+    @Test void staleCommonWorkersDoNotReadStorageOrWarmAfterDisableOrReplacement() {
+        for (boolean disabled : List.of(false, true)) {
+            Fixture f = new Fixture(PlaceholderCacheLevel.AUTOALL, "total_monthly");
+            when(f.plugin.getStorageType()).thenReturn(com.bencodez.advancedcore.api.user.UserStorage.MYSQL);
+            assertEquals("...", f.request("total_monthly"));
+            if (disabled) when(f.plugin.isEnabled()).thenReturn(false);
+            else when(f.plugin.getPlaceholders()).thenReturn(mock(PlaceHolders.class));
+            f.pending.removeFirst().run();
+            assertTrue(f.pending.isEmpty());
+            verify(f.plugin.getUserManager().getDataManager(), never()).cacheUser(any(), any());
+            verify(f.user, never()).getTotal(TopVoter.Monthly);
+        }
+    }
+
+    @Test void staleReloadedCommonWorkerCannotRemoveNewRecoveryAdmission() {
+        Fixture f = new Fixture(PlaceholderCacheLevel.AUTOALL, "total_monthly");
+        when(f.plugin.getStorageType()).thenReturn(com.bencodez.advancedcore.api.user.UserStorage.MYSQL);
+        var cache = new com.bencodez.advancedcore.api.user.usercache.UserDataCache(null, f.uuid);
+        var manager = f.plugin.getUserManager().getDataManager();
+        when(manager.getUserDataCache()).thenReturn(new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(f.uuid, cache)));
+        doAnswer(call -> {
+            cache.updateCache(new java.util.HashMap<>(java.util.Map.of("Points", new com.bencodez.simpleapi.sql.data.DataValueInt(4))));
+            return null;
+        }).when(manager).cacheUser(f.uuid, null);
+        assertEquals("...", f.request("total_monthly"));
+        Runnable retired = f.pending.removeFirst();
+        try (var bukkit = mockStatic(Bukkit.class)) {
+            bukkit.when(Bukkit::getOnlinePlayers).thenReturn(List.of());
+            f.placeholders.reload();
+        }
+        assertEquals("...", f.request("total_monthly"));
+        assertEquals(1, f.pending.size());
+        retired.run();
+        verify(manager, never()).cacheUser(any(), any());
+        assertEquals("...", f.request("points_nocache"));
+        assertEquals(1, f.pending.size(), "stale token retirement must preserve new worker admission");
+        f.pending.removeFirst().run();
+        assertEquals("4", f.request("points_nocache"));
+        assertEquals("42", f.request("total_monthly"));
+        assertTrue(f.pending.isEmpty());
+        verify(manager, times(1)).cacheUser(f.uuid, null);
+    }
+
+    @Test void rejectedCommonWorkerAdmissionAllowsLaterDirectRecovery() {
+        Fixture f = new Fixture(PlaceholderCacheLevel.AUTOALL, "total_monthly");
+        when(f.plugin.getStorageType()).thenReturn(com.bencodez.advancedcore.api.user.UserStorage.MYSQL);
+        var cache = new com.bencodez.advancedcore.api.user.usercache.UserDataCache(null, f.uuid);
+        var manager = f.plugin.getUserManager().getDataManager();
+        when(manager.getUserDataCache()).thenReturn(new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(f.uuid, cache)));
+        doAnswer(call -> {
+            cache.updateCache(new java.util.HashMap<>(java.util.Map.of("Points", new com.bencodez.simpleapi.sql.data.DataValueInt(4))));
+            return null;
+        }).when(manager).cacheUser(f.uuid, null);
+        doThrow(new java.util.concurrent.RejectedExecutionException("closed"))
+                .doAnswer(call -> { f.pending.addLast(call.getArgument(0)); return null; })
+                .when(f.timer).execute(any(Runnable.class));
+        assertEquals("...", f.request("total_monthly"));
+        assertTrue(f.pending.isEmpty());
+        assertEquals("...", f.request("points_nocache"));
+        assertEquals(1, f.pending.size());
+        f.pending.removeFirst().run();
+        assertEquals("4", f.request("points_nocache"));
+        assertEquals("42", f.request("total_monthly"));
+        assertTrue(f.pending.isEmpty());
+        verify(manager, times(1)).cacheUser(f.uuid, null);
+    }
+
+    @Test void lateAutomaticNonPointAdmissionIsNotLostWhileCommonWorkerWarms() {
+        Fixture f = new Fixture(PlaceholderCacheLevel.AUTOALL, "total_monthly");
+        when(f.user.getLastMonthTotal()).thenReturn(7);
+        doAnswer(call -> {
+            assertEquals("..", f.request("lastmonthtotal"));
+            return 42;
+        }).doReturn(42).when(f.user).getTotal(TopVoter.Monthly);
+        assertEquals("...", f.request("total_monthly"));
+        f.pending.removeFirst().run();
+        assertEquals(1, f.pending.size(), "late new identifier needs a retained warming continuation");
+        f.drain();
+        assertEquals("7", f.request("lastmonthtotal"));
+        assertEquals("42", f.request("total_monthly"));
+        assertTrue(f.pending.isEmpty());
+    }
+
+    @Test void disableDuringCommonStorageRecoveryPreventsNonPointWarming() {
+        Fixture f = new Fixture(PlaceholderCacheLevel.AUTOALL, "total_monthly");
+        when(f.plugin.getStorageType()).thenReturn(com.bencodez.advancedcore.api.user.UserStorage.MYSQL);
+        var cache = new com.bencodez.advancedcore.api.user.usercache.UserDataCache(null, f.uuid);
+        var manager = f.plugin.getUserManager().getDataManager();
+        when(manager.getUserDataCache()).thenReturn(new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(f.uuid, cache)));
+        doAnswer(call -> {
+            cache.updateCache(new java.util.HashMap<>(java.util.Map.of("Points", new com.bencodez.simpleapi.sql.data.DataValueInt(4))));
+            when(f.plugin.isEnabled()).thenReturn(false);
+            return null;
+        }).when(manager).cacheUser(f.uuid, null);
+        assertEquals("...", f.request("total_monthly"));
+        f.pending.removeFirst().run();
+        assertTrue(f.pending.isEmpty());
+        verify(manager, times(1)).cacheUser(f.uuid, null);
+        verify(f.user, never()).getTotal(TopVoter.Monthly);
+    }
+
+    @Test void completedWorkerPublishedMalformedPointsDoNotLoopRecovery() throws Exception {
+        assertCompletedInvalidSnapshot(new com.bencodez.simpleapi.sql.data.DataValueString("invalid"));
+    }
+    @Test void completedWorkerPublishedUnsupportedPointsDoNotLoopRecovery() throws Exception {
+        assertCompletedInvalidSnapshot(new com.bencodez.simpleapi.sql.data.DataValueBoolean(true));
+    }
+    @Test void completedWorkerPublishedNullPointsDoNotBecomeZeroOrLoopRecovery() throws Exception {
+        assertCompletedInvalidSnapshot(null);
+    }
+
+    private void assertCompletedInvalidSnapshot(com.bencodez.simpleapi.sql.data.DataValue invalid) {
+        Fixture f = new Fixture(PlaceholderCacheLevel.NONE);
+        when(f.plugin.getStorageType()).thenReturn(com.bencodez.advancedcore.api.user.UserStorage.MYSQL);
+        var cache = new com.bencodez.advancedcore.api.user.usercache.UserDataCache(null, f.uuid);
+        var manager = f.plugin.getUserManager().getDataManager();
+        when(manager.getUserDataCache()).thenReturn(new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(f.uuid, cache)));
+        doAnswer(call -> {
+            var values = new java.util.HashMap<String,com.bencodez.simpleapi.sql.data.DataValue>();
+            values.put("Points", invalid); cache.updateCache(values); return null;
+        }).when(manager).cacheUser(f.uuid, null);
+        assertEquals("...", f.request("points_nocache"));
+        assertEquals(1, f.pending.size());
+        f.pending.removeFirst().run();
+        assertTrue(f.pending.isEmpty());
+        for (int n = 0; n < 5; n++) {
+            assertEquals("...", f.request("points_nocache"));
+            assertTrue(f.pending.isEmpty(), "a completed invalid published row must not be reloaded per request");
+        }
+        verify(manager, times(1)).cacheUser(f.uuid, null);
+        cache.updateCache(new java.util.HashMap<>(java.util.Map.of("Points", new com.bencodez.simpleapi.sql.data.DataValueInt(4))));
+        assertEquals("4", f.request("points_nocache"));
+        assertTrue(f.pending.isEmpty(), "new valid published data needs no extra storage query");
+        verify(f.user, never()).getPoints();
+    }
+
+    @Test void publicKnownUnstartedSetAcceptsCompletePublishedAbsentPointField() throws Exception {
+        Fixture f = mysqlPublicFixture();
+        when(f.plugin.getBungeeSettings().isPerServerPoints()).thenReturn(true);
+        when(f.plugin.getBungeeSettings().getServerNameStorage()).thenReturn("serverA");
+        when(f.user.getPointsPath()).thenReturn("serverA_Points");
+        when(f.plugin.getMysql().getMysql().getConnectionManager().getConnection()).thenReturn(null);
+        var manager = f.plugin.getUserManager().getDataManager();
+        doAnswer(call -> {
+            var complete = new com.bencodez.advancedcore.api.user.usercache.UserDataCache(null, f.uuid);
+            complete.updateCache(new java.util.HashMap<>());
+            manager.getUserDataCache().put(f.uuid, complete); return null;
+        }).when(manager).cacheUser(f.uuid, null);
+        org.mockito.Mockito.doCallRealMethod().when(f.user).setPointsStorageAware(eq(4), any());
+        var results = new java.util.ArrayList<Boolean>();
+        f.user.setPointsStorageAware(4, results::add);
+        f.pending.removeFirst().run();
+        assertEquals(List.of(false), results);
+        assertEquals("0", f.request("points_nocache"));
+        assertTrue(f.pending.isEmpty(), "published absence after known completion must not start another recovery");
+        verify(manager, times(1)).cacheUser(f.uuid, null);
+        verify(f.user, never()).getPoints();
+    }
+
+    @Test void publishedInvalidThenValidSnapshotUpdatesCachedPointRendering() throws Exception {
+        Fixture f = mysqlPublicFixture();
+        var cache = new com.bencodez.advancedcore.api.user.usercache.UserDataCache(null, f.uuid);
+        cache.updateCache(new java.util.HashMap<>(java.util.Map.of("Points", new com.bencodez.simpleapi.sql.data.DataValueString("invalid"))));
+        when(f.plugin.getUserManager().getDataManager().getUserDataCache())
+                .thenReturn(new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(f.uuid, cache)));
+        assertEquals("...", f.request("points"));
+        assertTrue(f.pending.isEmpty());
+        cache.updateCache(new java.util.HashMap<>(java.util.Map.of("Points", new com.bencodez.simpleapi.sql.data.DataValueInt(4))));
+        f.placeholders.onUpdate(f.user, true);
+        assertEquals("4", f.request("points"));
+        assertTrue(f.pending.isEmpty());
+        verify(f.plugin.getUserManager().getDataManager(), never()).cacheUser(any(), any());
+        verify(f.user, never()).getPoints();
+    }
+
+    @Test void unpublishedAbsenceAndGenuineUncertaintyNeverDefaultToZero() {
+        Fixture f = new Fixture(PlaceholderCacheLevel.NONE);
+        when(f.plugin.getStorageType()).thenReturn(com.bencodez.advancedcore.api.user.UserStorage.MYSQL);
+        var cache = new com.bencodez.advancedcore.api.user.usercache.UserDataCache(null, f.uuid);
+        when(f.plugin.getUserManager().getDataManager().getUserDataCache())
+                .thenReturn(new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(f.uuid, cache)));
+        assertEquals("...", f.request("points_nocache"));
+        assertEquals(1, f.pending.size());
+        f.placeholders.beginSharedPointDebit(f.uuid);
+        cache.updateCache(new java.util.HashMap<>());
+        assertEquals("...", f.request("points_nocache"), "an active mutation cannot publish default zero");
+        f.placeholders.finishSharedPointDebit(f.uuid, false, true);
+        f.placeholders.sharedPointRefillCompletion(f.uuid).accept(true);
+        assertEquals("...", f.request("points_nocache"), "published absence cannot clear transaction uncertainty");
+        try (var bukkit = mockStatic(Bukkit.class)) {
+            bukkit.when(Bukkit::getOnlinePlayers).thenReturn(List.of()); f.placeholders.reload();
+        }
+        assertEquals("...", f.request("points_nocache"));
+        assertEquals(1, f.pending.size(), "unknown state must not add recovery work");
+        verify(f.user, never()).getPoints();
+    }
+
     @Test void perServerNumericStringSnapshotPreservesPointValue() {
         Fixture f = new Fixture(PlaceholderCacheLevel.NONE);
         when(f.plugin.getStorageType()).thenReturn(com.bencodez.advancedcore.api.user.UserStorage.MYSQL);
@@ -152,7 +493,7 @@ class ColdOfflinePlaceholderCacheTest {
             when(f.plugin.getUserManager().getDataManager().getUserDataCache())
                     .thenReturn(new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(f.uuid, cache)));
             assertEquals("...", f.request("points_nocache"));
-            assertEquals(1, f.pending.size());
+            assertTrue(f.pending.isEmpty(), "published invalid data must not schedule storage recovery");
             verify(f.user, never()).getPoints();
             verify(f.plugin.getUserManager().getDataManager(), never()).cacheUser(any(), any());
         }

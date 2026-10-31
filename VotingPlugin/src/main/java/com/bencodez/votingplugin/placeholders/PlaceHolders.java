@@ -199,10 +199,14 @@ public class PlaceHolders {
 				if (pointFence.recoverable(uuid)) schedulePointRecovery(pointUser);
 				return "...";
 			}
-			if (com.bencodez.advancedcore.api.user.UserStorage.MYSQL.equals(plugin.getStorageType())
-					&& pointBalance(pointUser) == null) {
-				schedulePointRecovery(pointUser);
-				return "...";
+			if (com.bencodez.advancedcore.api.user.UserStorage.MYSQL.equals(plugin.getStorageType())) {
+				var snapshot = publishedPointSnapshot(pointUser);
+				if (snapshot == null) {
+					schedulePointRecovery(pointUser);
+					return "...";
+				}
+				// A complete row with invalid data is unavailable, not a missing snapshot to reload.
+				if (pointBalance(snapshot, pointUser.getPointsPath()) == null) return "...";
 			}
 			String value = getPlaceholderValueUnfenced(p, identifier, javascript, forceProcess, useCache);
 			return pointFence.readable(uuid, generation) ? value : "...";
@@ -211,13 +215,21 @@ public class PlaceHolders {
 		}
 	}
 
+	private java.util.Map<String, com.bencodez.simpleapi.sql.data.DataValue> publishedPointSnapshot(VotingPluginUser user) {
+		var cache = plugin.getUserManager().getDataManager().getUserDataCache().get(user.getJavaUUID());
+		return cache == null ? null : cache.snapshotIfPublished();
+	}
+
 	private Integer pointBalance(VotingPluginUser user) {
 		if (!com.bencodez.advancedcore.api.user.UserStorage.MYSQL.equals(plugin.getStorageType())) return user.getPoints();
-		var cache = plugin.getUserManager().getDataManager().getUserDataCache().get(user.getJavaUUID());
-		if (cache == null) return null;
-		var snapshot = cache.snapshotIfPublished();
+		return pointBalance(publishedPointSnapshot(user), user.getPointsPath());
+	}
+
+	private Integer pointBalance(java.util.Map<String, com.bencodez.simpleapi.sql.data.DataValue> snapshot, String column) {
 		if (snapshot == null) return null;
-		var value = snapshot.get(user.getPointsPath());
+		// AC publishes a complete row; absence has the historical integer default.
+		if (!snapshot.containsKey(column)) return 0;
+		var value = snapshot.get(column);
 		if (value == null) return null;
 		try {
 			if (value.isInt()) return value.getInt();
@@ -229,24 +241,7 @@ public class PlaceHolders {
 	}
 
 	private void schedulePointRecovery(VotingPluginUser user) {
-		if (!plugin.isEnabled() || plugin.getPlaceholders() != this) return;
-		UUID uuid = user.getJavaUUID();
-		Object token = new Object();
-		long lifecycle = pointFence.lifecycle();
-		if (pointRecoveryWorkers.putIfAbsent(uuid, token) != null) return;
-		try {
-			plugin.getTimer().execute(() -> {
-				try {
-					if (!plugin.isEnabled() || plugin.getPlaceholders() != this || lifecycle != pointFence.lifecycle()) return;
-					com.bencodez.votingplugin.user.SharedMysqlCacheReconciler.invalidateAndRefreshOnWorker(plugin, user.getUUID(), user.getPointsPath());
-					checkNonCachedPlaceholders();
-					onUpdate(user, !getCacheLevel().onlineOnly() || plugin.getPlaceholderPlayerPresence().isOnline(uuid));
-				} finally { pointRecoveryWorkers.remove(uuid, token); }
-			});
-		} catch (RuntimeException rejected) {
-			pointRecoveryWorkers.remove(uuid, token);
-			plugin.debug(rejected);
-		}
+		schedulePlaceholderCheck(user);
 	}
 
 	private static boolean isPointIdentifier(String identifier) {
@@ -1730,19 +1725,45 @@ public class PlaceHolders {
 	 * @param user the voting plugin user
 	 */
 	public void schedulePlaceholderCheck(VotingPluginUser user) {
+		if (!plugin.isEnabled() || plugin.getPlaceholders() != this) return;
+		UUID uuid = user.getJavaUUID();
+		Object token = new Object();
+		long lifecycle = pointFence.lifecycle();
+		// Common warming and direct point recovery share queued and executing admission.
+		if (pointRecoveryWorkers.putIfAbsent(uuid, token) != null) return;
 		try {
 			plugin.getTimer().execute(() -> {
-				if (com.bencodez.advancedcore.api.user.UserStorage.MYSQL.equals(plugin.getStorageType())
-						&& pointBalance(user) == null) {
-					com.bencodez.votingplugin.user.SharedMysqlCacheReconciler.invalidateAndRefreshOnWorker(
-							plugin, user.getUUID(), user.getPointsPath());
+				boolean warmed = false;
+				try {
+					if (!plugin.isEnabled() || plugin.getPlaceholders() != this || lifecycle != pointFence.lifecycle()) return;
+					var observed = pointFence.generation(uuid);
+					try {
+						// Invalid data in a complete published row is not a missing snapshot.
+						// Pending/unknown writes cannot authorize a competing point refill.
+						if (pointFence.recoverable(uuid)
+								|| (pointFence.readable(uuid, observed)
+										&& com.bencodez.advancedcore.api.user.UserStorage.MYSQL.equals(plugin.getStorageType())
+										&& publishedPointSnapshot(user) == null)) {
+							com.bencodez.votingplugin.user.SharedMysqlCacheReconciler.invalidateAndRefreshOnWorker(
+									plugin, user.getUUID(), user.getPointsPath());
+						}
+					} finally { pointFence.release(uuid); }
+					if (!plugin.isEnabled() || plugin.getPlaceholders() != this || lifecycle != pointFence.lifecycle()) return;
+					checkNonCachedPlaceholders();
+					// Preserve each cache level's existing offline-entry admission policy.
+					onUpdate(user, !getCacheLevel().onlineOnly() || plugin.getPlaceholderPlayerPresence().isOnline(uuid));
+					warmed = true;
+				} finally {
+					boolean retired = pointRecoveryWorkers.remove(uuid, token);
+					// A new identifier may have arrived after this worker's discovery pass.
+					if (retired && warmed && !placeholdersToSetCacheOn.isEmpty() && plugin.isEnabled()
+							&& plugin.getPlaceholders() == this && lifecycle == pointFence.lifecycle()) {
+						schedulePlaceholderCheck(user);
+					}
 				}
-				checkNonCachedPlaceholders();
-				// Admit cold offline entries only from this worker callback.
-				onUpdate(user, !getCacheLevel().onlineOnly()
-						|| plugin.getPlaceholderPlayerPresence().isOnline(user.getJavaUUID()));
 			});
-		} catch (RejectedExecutionException rejected) {
+		} catch (RuntimeException rejected) {
+			pointRecoveryWorkers.remove(uuid, token);
 			plugin.debug(rejected);
 		}
 	}

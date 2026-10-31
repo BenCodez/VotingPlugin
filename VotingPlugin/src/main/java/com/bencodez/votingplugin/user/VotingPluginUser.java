@@ -333,7 +333,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			boolean available = false;
 			if (cache != null) synchronized (cache) {
 				available = failure == null && caches.get(uuid) == cache && cache.hasPublishedStorageSnapshot()
-						&& cache.isCached(column) && column.equals(getPointsPath()) && plugin.isEnabled()
+						&& column.equals(getPointsPath()) && plugin.isEnabled()
 						&& plugin.getPlaceholders() == placeholders;
 			}
 			placeholders.finishSharedPointDebit(uuid, known, available);
@@ -2479,8 +2479,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 								&& outcome != SharedMysqlPointMutator.MutationOutcome.INDETERMINATE
 								&& plugin.getPlaceholders() == pointPlaceholders && plugin.isEnabled()
 								&& pointsColumn.equals(getPointsPath())
-								&& caches.get(pointUuid) == cache && cache.hasPublishedStorageSnapshot()
-								&& cache.isCached(pointsColumn);
+								&& caches.get(pointUuid) == cache && cache.hasPublishedStorageSnapshot();
 					}
 				} catch (RuntimeException failure) {
 					outcome = SharedMysqlPointMutator.MutationOutcome.INDETERMINATE;

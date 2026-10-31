@@ -135,8 +135,10 @@ public final class SharedMysqlCacheReconciler {
 			manager.cacheUser(playerUuid, null);
 			var cache = manager.getUserDataCache().get(playerUuid);
 			if (cache != null) synchronized (cache) {
+				// A complete published row may legitimately omit the selected points key.
+				// Rendering separately rejects present malformed/unsupported values.
 				verified = manager.getUserDataCache().get(playerUuid) == cache
-						&& cache.hasPublishedStorageSnapshot() && cache.isCached(pointColumn);
+						&& cache.hasPublishedStorageSnapshot();
 			}
 			return true;
 		} catch (RuntimeException refreshFailure) {

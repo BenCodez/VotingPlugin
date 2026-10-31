@@ -204,7 +204,7 @@ final class SharedMysqlPointMutator {
 				var cache = plugin.getUserManager().getDataManager().getUserDataCache().get(uuid);
 				boolean available = false;
 				if (cache != null) synchronized (cache) {
-					available = refreshed && confirmed && cache.hasPublishedStorageSnapshot() && cache.isCached(pointsColumn);
+					available = refreshed && confirmed && cache.hasPublishedStorageSnapshot();
 				}
 				placeholders.finishSharedPointDebit(uuid, confirmed, available);
 			}
@@ -246,7 +246,7 @@ final class SharedMysqlPointMutator {
 				boolean available = false;
 				if (cache != null) synchronized (cache) {
 					available = refreshed && outcome.outcome() != MutationOutcome.INDETERMINATE
-							&& cache.hasPublishedStorageSnapshot() && cache.isCached(pointsColumn);
+							&& cache.hasPublishedStorageSnapshot();
 				}
 				placeholders.finishSharedPointDebit(uuid, outcome.outcome() != MutationOutcome.INDETERMINATE, available);
 			}
@@ -1201,7 +1201,7 @@ final class SharedMysqlPointMutator {
 		boolean available = false;
 		if (cache != null) synchronized (cache) {
 			available = known && refreshed && caches.get(uuid) == cache && cache.hasPublishedStorageSnapshot()
-					&& cache.isCached(column) && column.equals(user.getPointsPath())
+					&& column.equals(user.getPointsPath())
 					&& plugin.isEnabled() && plugin.getPlaceholders() == placeholders;
 		}
 		placeholders.finishSharedPointDebit(uuid, known, available);
