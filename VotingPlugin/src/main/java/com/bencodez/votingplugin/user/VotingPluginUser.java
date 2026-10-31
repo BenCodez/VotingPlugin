@@ -317,6 +317,38 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @return committed point total, or an exceptional stage when persistence fails
 	 */
 	public synchronized CompletionStage<Integer> addPointsStorageAwareAsync(int value, String operationId) {
+		if (!new SharedMysqlPointMutator(plugin).usesMysqlPointMutations()) return addPointsStorageAwareAsyncUnfenced(value, operationId);
+		var placeholders = plugin.getPlaceholders();
+		if (placeholders == null) return addPointsStorageAwareAsyncUnfenced(value, operationId);
+		UUID uuid = UUID.fromString(getUUID());
+		String column = getPointsPath();
+		placeholders.beginSharedPointDebit(uuid);
+		var finished = new java.util.concurrent.atomic.AtomicBoolean();
+		java.util.function.BiConsumer<Integer, Throwable> finish = (total, failure) -> {
+			if (!finished.compareAndSet(false, true)) return;
+			boolean known = failure == null || failure instanceof java.util.concurrent.RejectedExecutionException
+					|| failure instanceof PointAdditionNotStartedException;
+			var caches = plugin.getUserManager().getDataManager().getUserDataCache();
+			var cache = caches.get(uuid);
+			boolean available = false;
+			if (cache != null) synchronized (cache) {
+				available = failure == null && caches.get(uuid) == cache && cache.hasPublishedStorageSnapshot()
+						&& cache.isCached(column) && column.equals(getPointsPath()) && plugin.isEnabled()
+						&& plugin.getPlaceholders() == placeholders;
+			}
+			placeholders.finishSharedPointDebit(uuid, known, available);
+		};
+		try {
+			CompletionStage<Integer> completion = addPointsStorageAwareAsyncUnfenced(value, operationId);
+			completion.whenComplete(finish);
+			return completion;
+		} catch (RuntimeException | Error failure) {
+			finish.accept(null, failure);
+			throw failure;
+		}
+	}
+
+	private CompletionStage<Integer> addPointsStorageAwareAsyncUnfenced(int value, String operationId) {
 		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
 		if (!sharedPoints.applies() && operationId != null && !operationId.isEmpty()
 				&& SharedMysqlPointMutator.canRecoverSharedMysqlPointJournals(plugin)) {
@@ -381,6 +413,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 					SharedPointAdditionJournal.HookClaim claim = sharedPoints.claimPointAdditionHook(operationId, uuid,
 							journalPointsPath, value, claimOwner);
 					if (claim.completed()) {
+						SharedMysqlCacheReconciler.invalidateAndRefreshOnWorker(plugin, getUUID(), getPointsPath());
 						completion.complete(claim.total());
 						return;
 					}
@@ -499,6 +532,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 					SharedPointAdditionJournal.HookClaim claim = sharedPoints.claimPointAdditionHook(operationId, uuid,
 							pointsPath, value, claimOwner);
 					if (claim.completed()) {
+						SharedMysqlCacheReconciler.invalidateAndRefreshOnWorker(plugin, getUUID(), getPointsPath());
 						completion.complete(claim.total());
 						return;
 					}
@@ -579,13 +613,18 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * deliberately retained for reconciliation instead of making a retry unsafe.
 	 * Started hooks still use the indeterminate path above.
 	 */
+	private static final class PointAdditionNotStartedException extends IllegalStateException {
+		private static final long serialVersionUID = 1L;
+		PointAdditionNotStartedException() { super("Shared MySQL point addition was not started; retry is safe"); }
+	}
+
 	private void releaseUnstartedSharedPointAddition(SharedMysqlPointMutator sharedPoints, String operationId,
 			String uuid, String pointsPath, int requestedAmount, String claimOwner, CompletableFuture<Integer> completion) {
 		Runnable release = () -> {
 			try {
 				sharedPoints.releaseUnstartedPointAdditionHook(operationId, uuid, pointsPath, requestedAmount, claimOwner);
 				completion.completeExceptionally(
-						new IllegalStateException("Shared MySQL point addition was not started; retry is safe"));
+						new PointAdditionNotStartedException());
 			} catch (SQLException failure) {
 				plugin.getLogger().severe("Unable to release unstarted shared MySQL point addition " + operationId
 						+ "; retaining its claim for manual reconciliation");
@@ -751,12 +790,23 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		}
 		Player player = getPlayer();
 		String pointsColumn = getPointsPath();
+		var placeholders = plugin.getPlaceholders();
+		Consumer<Boolean> admission = placeholders == null ? null
+				: placeholders.sharedPointAdmissionCompletion(UUID.fromString(getUUID()));
 		try {
 			plugin.getTimer().execute(() -> {
-				boolean updated = sharedPoints.setCommittedInColumn(this, value, pointsColumn);
+				boolean updated;
+				boolean settled = false;
+				try {
+					updated = sharedPoints.setCommittedInColumn(this, value, pointsColumn);
+					settled = true;
+				} finally {
+					if (admission != null) admission.accept(settled);
+				}
 				BukkitCompletionScheduler.run(plugin, player, () -> completion.accept(updated));
 			});
 		} catch (RuntimeException rejected) {
+			if (admission != null) admission.accept(false);
 			plugin.debug(rejected);
 			BukkitCompletionScheduler.run(plugin, player, () -> completion.accept(false));
 		}
@@ -847,12 +897,39 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		}
 		List<Player> players = new ArrayList<>(users.size());
 		for (VotingPluginUser user : users) players.add(capturedPlayers.get(user));
-		submitSharedMysqlChunk(plugin, users, players, 0, completion, sharedMutation);
+		java.util.IdentityHashMap<VotingPluginUser, java.util.ArrayDeque<Consumer<Boolean>>> admissions = new java.util.IdentityHashMap<>();
+		for (VotingPluginUser user : users) {
+			var placeholders = plugin.getPlaceholders();
+			if (placeholders != null) {
+				Consumer<Boolean> admission = placeholders.sharedPointAdmissionCompletion(UUID.fromString(user.getUUID()));
+				if (admission != null) admissions.computeIfAbsent(user, ignored -> new java.util.ArrayDeque<>()).addLast(admission);
+			}
+		}
+		Consumer<VotingPluginUser> abandon = user -> {
+			var queue = admissions.get(user);
+			Consumer<Boolean> admission = null;
+			if (queue != null) synchronized (queue) { admission = queue.pollFirst(); }
+			if (admission != null) admission.accept(false);
+		};
+		SharedPointMutation guarded = (mutator, user) -> {
+			var queue = admissions.get(user);
+			Consumer<Boolean> admission = null;
+			if (queue != null) synchronized (queue) { admission = queue.pollFirst(); }
+			boolean settled = false;
+			try {
+				boolean result = sharedMutation.apply(mutator, user);
+				settled = true;
+				return result;
+			} finally {
+				if (admission != null) admission.accept(settled);
+			}
+		};
+		submitSharedMysqlChunk(plugin, users, players, 0, completion, guarded, abandon);
 	}
 
 	private static void submitSharedMysqlChunk(VotingPluginMain plugin, List<VotingPluginUser> users, List<Player> players,
 			int start,
-			BiConsumer<VotingPluginUser, Boolean> completion, SharedPointMutation sharedMutation) {
+			BiConsumer<VotingPluginUser, Boolean> completion, SharedPointMutation sharedMutation, Consumer<VotingPluginUser> abandon) {
 		int end = Math.min(start + BULK_POINT_BATCH_SIZE, users.size());
 		Runnable persistenceWork = () -> {
 			boolean[] results = new boolean[end - start];
@@ -866,13 +943,14 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			}
 			scheduleBulkCompletions(plugin, users, players, start, end, results, completion);
 			if (end < users.size()) {
-				submitSharedMysqlChunk(plugin, users, players, end, completion, sharedMutation);
+				submitSharedMysqlChunk(plugin, users, players, end, completion, sharedMutation, abandon);
 			}
 		};
 		try {
 			plugin.getTimer().execute(persistenceWork);
 		} catch (RuntimeException rejected) {
 			plugin.debug(rejected);
+			for (int index = start; index < users.size(); index++) abandon.accept(users.get(index));
 			scheduleBulkCompletions(plugin, users, players, start, users.size(), null, completion);
 		}
 	}
@@ -2373,20 +2451,56 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		}
 		Player player = getPlayer();
 		String pointsColumn = getPointsPath();
+		UUID pointUuid = getJavaUUID();
+		var pointPlaceholders = plugin.getPlaceholders();
+		pointPlaceholders.beginSharedPointDebit(pointUuid);
+		java.util.concurrent.atomic.AtomicBoolean fenceFinished = new java.util.concurrent.atomic.AtomicBoolean();
+		java.util.function.BiConsumer<Boolean, Boolean> finishFence = (known, trustworthy) -> {
+			if (fenceFinished.compareAndSet(false, true)) {
+				pointPlaceholders.finishSharedPointDebit(pointUuid, known, trustworthy);
+			}
+		};
 		try {
 			String operationId = "remove-points/" + UUID.randomUUID();
 			plugin.getTimer().execute(() -> {
-				SharedMysqlPointMutator.AddResult result = sharedPoints.removeCommittedFromColumn(this,
-						points, operationId, pointsColumn);
-				if (result.outcome() == SharedMysqlPointMutator.MutationOutcome.CONFIRMED) {
-					sharedPoints.acknowledgePointAdditionNow(operationId);
+				SharedMysqlPointMutator.MutationOutcome outcome = SharedMysqlPointMutator.MutationOutcome.INDETERMINATE;
+				boolean trustworthy = false;
+				try {
+					SharedMysqlPointMutator.AddResult result = sharedPoints.removeCommittedFromColumn(this,
+							points, operationId, pointsColumn);
+					outcome = result.outcome();
+					if (outcome == SharedMysqlPointMutator.MutationOutcome.CONFIRMED) {
+						sharedPoints.acknowledgePointAdditionNow(operationId);
+					}
+					var caches = plugin.getUserManager().getDataManager().getUserDataCache();
+					var cache = caches.get(pointUuid);
+					if (cache != null) synchronized (cache) {
+						trustworthy = result.sourceRefreshed()
+								&& outcome != SharedMysqlPointMutator.MutationOutcome.INDETERMINATE
+								&& plugin.getPlaceholders() == pointPlaceholders && plugin.isEnabled()
+								&& pointsColumn.equals(getPointsPath())
+								&& caches.get(pointUuid) == cache && cache.hasPublishedStorageSnapshot()
+								&& cache.isCached(pointsColumn);
+					}
+				} catch (RuntimeException failure) {
+					outcome = SharedMysqlPointMutator.MutationOutcome.INDETERMINATE;
+					plugin.debug(failure);
+				} finally {
+					finishFence.accept(outcome != SharedMysqlPointMutator.MutationOutcome.INDETERMINATE, trustworthy);
 				}
-				BukkitCompletionScheduler.run(plugin, player, () -> completion.accept(result.outcome()));
+				SharedMysqlPointMutator.MutationOutcome completed = outcome;
+				BukkitCompletionScheduler.run(plugin, player, () -> {
+					if (plugin.isEnabled() && plugin.getPlaceholders() == pointPlaceholders) completion.accept(completed);
+				});
 			});
 		} catch (RuntimeException rejected) {
+			finishFence.accept(true, false);
 			plugin.debug(rejected);
 			BukkitCompletionScheduler.run(plugin, player,
-					() -> completion.accept(SharedMysqlPointMutator.MutationOutcome.INDETERMINATE));
+					() -> {
+						if (plugin.isEnabled() && plugin.getPlaceholders() == pointPlaceholders)
+							completion.accept(SharedMysqlPointMutator.MutationOutcome.INDETERMINATE);
+					});
 		}
 	}
 

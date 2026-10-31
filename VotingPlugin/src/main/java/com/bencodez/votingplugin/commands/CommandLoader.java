@@ -865,7 +865,7 @@ public class CommandLoader {
 					@Override
 					public void executeSinglePlayer(CommandSender sender, String[] args) {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
-						user.cache();
+						if (!UserStorage.MYSQL.equals(plugin.getStorageType())) user.cache();
 						user.removePoints(Integer.parseInt(args[3]), removed -> {
 							if (!removed) {
 								runForCommandSender(sender, () -> sender.sendMessage(MessageAPI.colorize(
