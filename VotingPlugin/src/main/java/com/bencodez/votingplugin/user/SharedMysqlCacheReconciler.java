@@ -93,10 +93,20 @@ public final class SharedMysqlCacheReconciler {
 	public static void invalidateAndRefresh(VotingPluginMain plugin, String uuid, String... columns) {
 		invalidate(plugin, uuid, columns);
 		if (plugin == null || uuid == null) return;
+		String pointColumn = plugin.getBungeeSettings().isPerServerPoints()
+				? plugin.getBungeeSettings().getServerNameStorage() + "_Points" : "Points";
+		boolean affectsPoints = columns != null && java.util.Arrays.asList(columns).contains(pointColumn);
+		var placeholders = plugin.getPlaceholders();
+		java.util.function.Consumer<Boolean> completion = affectsPoints && placeholders != null
+				? placeholders.sharedPointRefillCompletion(UUID.fromString(uuid)) : null;
 		try {
-			plugin.getVotingPluginUserManager().getVotingPluginUser(UUID.fromString(uuid), false).cacheAsync();
+			plugin.getBukkitScheduler().runTaskAsynchronously(plugin,
+					() -> tryInvalidateAndRefreshOnWorker(plugin, uuid, columns));
 		} catch (RuntimeException refreshFailure) {
 			plugin.debug(refreshFailure);
+		} finally {
+			// This admission is not storage evidence. Only the actual worker can recover rendering.
+			if (completion != null) completion.accept(false);
 		}
 	}
 
@@ -106,13 +116,37 @@ public final class SharedMysqlCacheReconciler {
 	 * A failed refill leaves the snapshot explicitly unavailable, not false zero.
 	 */
 	public static void invalidateAndRefreshOnWorker(VotingPluginMain plugin, String uuid, String... columns) {
-		invalidate(plugin, uuid, columns);
-		if (plugin == null || uuid == null) return;
+		tryInvalidateAndRefreshOnWorker(plugin, uuid, columns);
+	}
+
+	static boolean tryInvalidateAndRefreshOnWorker(VotingPluginMain plugin, String uuid, String... columns) {
+		if (plugin == null || uuid == null) return false;
+		UUID playerUuid = UUID.fromString(uuid);
+		String pointColumn = plugin.getBungeeSettings().isPerServerPoints()
+				? plugin.getBungeeSettings().getServerNameStorage() + "_Points" : "Points";
+		boolean affectsPoints = columns != null && java.util.Arrays.asList(columns).contains(pointColumn);
+		var placeholders = plugin.getPlaceholders();
+		java.util.function.Consumer<Boolean> completion = affectsPoints && placeholders != null
+				? placeholders.sharedPointRefillCompletion(playerUuid) : null;
+		boolean verified = false;
 		try {
-			plugin.getUserManager().getDataManager().cacheUser(UUID.fromString(uuid), null);
+			invalidate(plugin, uuid, columns);
+			var manager = plugin.getUserManager().getDataManager();
+			manager.cacheUser(playerUuid, null);
+			var cache = manager.getUserDataCache().get(playerUuid);
+			if (cache != null) synchronized (cache) {
+				// A complete published row may legitimately omit the selected points key.
+				// Rendering separately rejects present malformed/unsupported values.
+				verified = manager.getUserDataCache().get(playerUuid) == cache
+						&& cache.hasPublishedStorageSnapshot();
+			}
+			return true;
 		} catch (RuntimeException refreshFailure) {
 			plugin.getLogger().warning("Shared MySQL cache refresh is unavailable after mutation; stale data was not published.");
 			plugin.debug(refreshFailure);
+			return false;
+		} finally {
+			if (completion != null) completion.accept(verified);
 		}
 	}
 

@@ -29,6 +29,14 @@ import com.bencodez.simpleapi.sql.mysql.DbType;
  * arbitrary, non-idempotent side effects.</p>
  */
 final class SharedMysqlPurchaseJournal {
+	/** Positive proof that this invocation did not attempt a points write. */
+	static final class PreparationFailure extends SQLException {
+		private static final long serialVersionUID = 1L;
+		PreparationFailure(SQLException cause) {
+			super(cause.getMessage(), cause.getSQLState(), cause.getErrorCode(), cause);
+		}
+	}
+
 	private static final String PENDING = "PENDING";
 	private static final String HOOK_STARTED = "HOOK_STARTED";
 	private static final String COMPENSATING = "COMPENSATING";
@@ -119,60 +127,68 @@ final class SharedMysqlPurchaseJournal {
 	/** Atomically records a pending purchase and conditionally charges it. */
 	boolean reserve(String purchaseId, String uuid, String pointsColumn, String limitColumn, int cost, int limit,
 			String limitGeneration, long limitGenerationExpiresAt, long now) throws SQLException {
-		String insert = "INSERT INTO " + qiJournal() + " (" + qi("purchase_id") + ", " + qi("player_uuid")
-				+ ", " + qi("points_column") + ", " + qi("limit_column") + ", " + qi("cost") + ", "
-				+ qi("limit_value") + ", " + qi("limit_generation") + ", "
-				+ qi("limit_generation_expires_at") + ", " + qi("limit_epoch") + ", " + qi("state")
-				+ ", " + qi("created_at") + ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-		String points = qi(pointsColumn);
-		StringBuilder debit = new StringBuilder("UPDATE ").append(qi(table.getTableName())).append(" SET ")
-				.append(points).append(" = COALESCE(").append(points).append(", 0) - ?");
-		if (limitColumn != null) {
-			debit.append(", ").append(qi(limitColumn)).append(" = COALESCE(").append(qi(limitColumn))
-					.append(", 0) + 1");
-		}
-		debit.append(" WHERE ").append(qi("uuid")).append(uuidCast()).append(" AND COALESCE(").append(points)
-				.append(", 0) >= ?");
-		if (limitColumn != null) {
-			debit.append(" AND COALESCE(").append(qi(limitColumn)).append(", 0) < ?");
-		}
-		try (Connection connection = connection()) {
-			connection.setAutoCommit(false);
-			try {
-				Long limitEpoch = limitColumn == null ? null : lockLimitEpoch(connection, limitColumn);
-				try (PreparedStatement insertStatement = connection.prepareStatement(insert);
-						PreparedStatement debitStatement = connection.prepareStatement(debit.toString())) {
-					insertStatement.setString(1, purchaseId);
-					insertStatement.setString(2, uuid);
-					insertStatement.setString(3, pointsColumn);
-					insertStatement.setString(4, limitColumn);
-					insertStatement.setInt(5, cost);
-					if (limitColumn == null) insertStatement.setNull(6, java.sql.Types.INTEGER);
-					else insertStatement.setInt(6, limit);
-					if (limitGeneration == null) insertStatement.setNull(7, java.sql.Types.VARCHAR);
-					else insertStatement.setString(7, limitGeneration);
-					if (limitGenerationExpiresAt <= 0L) insertStatement.setNull(8, java.sql.Types.BIGINT);
-					else insertStatement.setLong(8, limitGenerationExpiresAt);
-					if (limitEpoch == null) insertStatement.setNull(9, java.sql.Types.BIGINT);
-					else insertStatement.setLong(9, limitEpoch.longValue());
-					insertStatement.setString(10, PENDING);
-					insertStatement.setLong(11, now);
-					insertStatement.executeUpdate();
-
-					debitStatement.setInt(1, cost);
-					debitStatement.setString(2, uuid);
-					debitStatement.setInt(3, cost);
-					if (limitColumn != null) debitStatement.setInt(4, limit);
-					if (debitStatement.executeUpdate() != 1) {
-						rollback(connection);
-						return false;
-					}
-					return commitAndConfirm(connection, purchaseId, PENDING);
-				}
-			} catch (SQLException failure) {
-				rollback(connection);
-				throw failure;
+		boolean pointWriteAttempted = false;
+		try {
+			String insert = "INSERT INTO " + qiJournal() + " (" + qi("purchase_id") + ", " + qi("player_uuid")
+					+ ", " + qi("points_column") + ", " + qi("limit_column") + ", " + qi("cost") + ", "
+					+ qi("limit_value") + ", " + qi("limit_generation") + ", "
+					+ qi("limit_generation_expires_at") + ", " + qi("limit_epoch") + ", " + qi("state")
+					+ ", " + qi("created_at") + ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+			String points = qi(pointsColumn);
+			StringBuilder debit = new StringBuilder("UPDATE ").append(qi(table.getTableName())).append(" SET ")
+					.append(points).append(" = COALESCE(").append(points).append(", 0) - ?");
+			if (limitColumn != null) {
+				debit.append(", ").append(qi(limitColumn)).append(" = COALESCE(").append(qi(limitColumn))
+						.append(", 0) + 1");
 			}
+			debit.append(" WHERE ").append(qi("uuid")).append(uuidCast()).append(" AND COALESCE(").append(points)
+					.append(", 0) >= ?");
+			if (limitColumn != null) {
+				debit.append(" AND COALESCE(").append(qi(limitColumn)).append(", 0) < ?");
+			}
+			try (Connection connection = connection()) {
+				connection.setAutoCommit(false);
+				try {
+					Long limitEpoch = limitColumn == null ? null : lockLimitEpoch(connection, limitColumn);
+					try (PreparedStatement insertStatement = connection.prepareStatement(insert);
+							PreparedStatement debitStatement = connection.prepareStatement(debit.toString())) {
+						insertStatement.setString(1, purchaseId);
+						insertStatement.setString(2, uuid);
+						insertStatement.setString(3, pointsColumn);
+						insertStatement.setString(4, limitColumn);
+						insertStatement.setInt(5, cost);
+						if (limitColumn == null) insertStatement.setNull(6, java.sql.Types.INTEGER);
+						else insertStatement.setInt(6, limit);
+						if (limitGeneration == null) insertStatement.setNull(7, java.sql.Types.VARCHAR);
+						else insertStatement.setString(7, limitGeneration);
+						if (limitGenerationExpiresAt <= 0L) insertStatement.setNull(8, java.sql.Types.BIGINT);
+						else insertStatement.setLong(8, limitGenerationExpiresAt);
+						if (limitEpoch == null) insertStatement.setNull(9, java.sql.Types.BIGINT);
+						else insertStatement.setLong(9, limitEpoch.longValue());
+						insertStatement.setString(10, PENDING);
+						insertStatement.setLong(11, now);
+						insertStatement.executeUpdate();
+
+						debitStatement.setInt(1, cost);
+						debitStatement.setString(2, uuid);
+						debitStatement.setInt(3, cost);
+						if (limitColumn != null) debitStatement.setInt(4, limit);
+						pointWriteAttempted = true;
+						if (debitStatement.executeUpdate() != 1) {
+							rollback(connection);
+							return false;
+						}
+						return commitAndConfirm(connection, purchaseId, PENDING);
+					}
+				} catch (SQLException failure) {
+					rollback(connection);
+					throw failure;
+				}
+			}
+		} catch (SQLException failure) {
+			if (failure instanceof PreparationFailure) throw failure;
+			if (!pointWriteAttempted) throw new PreparationFailure(failure);
+			throw failure;
 		}
 	}
 
@@ -370,65 +386,73 @@ final class SharedMysqlPurchaseJournal {
 	private RefundedPurchase setTerminalDetails(String purchaseId, String terminalState, long now,
 			String... refundableStates)
 			throws SQLException {
-		boolean refund = REFUNDED.equals(terminalState);
-		String refundedUuid = null;
-		String refundedPointsColumn = null;
-		String refundedLimitColumn = null;
-		String select = "SELECT " + qi("state") + ", " + qi("player_uuid") + ", " + qi("points_column")
-				+ ", " + qi("limit_column") + ", " + qi("cost") + ", " + qi("limit_generation") + ", "
-				+ qi("limit_generation_expires_at") + ", " + qi("limit_epoch") + " FROM " + qiJournal() + " WHERE "
-				+ qi("purchase_id") + " = ? FOR UPDATE";
-		try (Connection connection = connection()) {
-			connection.setAutoCommit(false);
-			try (PreparedStatement selectStatement = connection.prepareStatement(select)) {
-				selectStatement.setString(1, purchaseId);
-				try (ResultSet result = selectStatement.executeQuery()) {
-					if (!result.next()) {
-						rollback(connection);
-						return null;
-					}
-					String state = result.getString(1);
-					if (COMPLETED.equals(state) || REFUNDED.equals(state)) {
-						rollback(connection);
-						return terminalState.equals(state) ? new RefundedPurchase(null, null, null) : null;
-					}
-					if (refund && !isRefundableState(state, refundableStates)) {
-						rollback(connection);
-						return null;
-					}
-					if (!refund && !HOOK_STARTED.equals(state)) {
-						rollback(connection);
-						return null;
-					}
-					String uuid = result.getString(2);
-					String pointsColumn = result.getString(3);
-					String limitColumn = result.getString(4);
-					refundedUuid = uuid;
-					refundedPointsColumn = pointsColumn;
-					refundedLimitColumn = limitColumn;
-					int cost = result.getInt(5);
-					String limitGeneration = result.getString(6);
-					Long limitEpoch = nullableLong(result, 8);
-					if (refund) {
-						refund(connection, uuid, pointsColumn, limitColumn, cost,
-								shouldRefundLimit(connection, limitColumn, limitGeneration, limitEpoch));
+		boolean pointWriteAttempted = false;
+		try {
+			boolean refund = REFUNDED.equals(terminalState);
+			String refundedUuid = null;
+			String refundedPointsColumn = null;
+			String refundedLimitColumn = null;
+			String select = "SELECT " + qi("state") + ", " + qi("player_uuid") + ", " + qi("points_column")
+					+ ", " + qi("limit_column") + ", " + qi("cost") + ", " + qi("limit_generation") + ", "
+					+ qi("limit_generation_expires_at") + ", " + qi("limit_epoch") + " FROM " + qiJournal() + " WHERE "
+					+ qi("purchase_id") + " = ? FOR UPDATE";
+			try (Connection connection = connection()) {
+				connection.setAutoCommit(false);
+				try (PreparedStatement selectStatement = connection.prepareStatement(select)) {
+					selectStatement.setString(1, purchaseId);
+					try (ResultSet result = selectStatement.executeQuery()) {
+						if (!result.next()) {
+							rollback(connection);
+							return null;
+						}
+						String state = result.getString(1);
+						if (COMPLETED.equals(state) || REFUNDED.equals(state)) {
+							rollback(connection);
+							return terminalState.equals(state) ? new RefundedPurchase(null, null, null) : null;
+						}
+						if (refund && !isRefundableState(state, refundableStates)) {
+							rollback(connection);
+							return null;
+						}
+						if (!refund && !HOOK_STARTED.equals(state)) {
+							rollback(connection);
+							return null;
+						}
+						String uuid = result.getString(2);
+						String pointsColumn = result.getString(3);
+						String limitColumn = result.getString(4);
+						refundedUuid = uuid;
+						refundedPointsColumn = pointsColumn;
+						refundedLimitColumn = limitColumn;
+						int cost = result.getInt(5);
+						String limitGeneration = result.getString(6);
+						Long limitEpoch = nullableLong(result, 8);
+						if (refund) {
+							boolean refundLimit = shouldRefundLimit(connection, limitColumn, limitGeneration, limitEpoch);
+							pointWriteAttempted = true;
+							refund(connection, uuid, pointsColumn, limitColumn, cost, refundLimit);
+						}
 					}
 				}
-			}
-			String update = "UPDATE " + qiJournal() + " SET " + qi("state") + " = ? WHERE " + qi("purchase_id")
-					+ " = ?";
-			try (PreparedStatement updateStatement = connection.prepareStatement(update)) {
-				updateStatement.setString(1, terminalState);
-				updateStatement.setString(2, purchaseId);
-				if (updateStatement.executeUpdate() != 1) {
-					rollback(connection);
-					return null;
+				String update = "UPDATE " + qiJournal() + " SET " + qi("state") + " = ? WHERE " + qi("purchase_id")
+						+ " = ?";
+				try (PreparedStatement updateStatement = connection.prepareStatement(update)) {
+					updateStatement.setString(1, terminalState);
+					updateStatement.setString(2, purchaseId);
+					if (updateStatement.executeUpdate() != 1) {
+						rollback(connection);
+						return null;
+					}
 				}
+				if (!commitAndConfirm(connection, purchaseId, terminalState)) return null;
+				return refund ? new RefundedPurchase(refundedUuid, refundedPointsColumn, refundedLimitColumn)
+						: new RefundedPurchase(null, null, null);
+			} catch (SQLException failure) {
+				throw failure;
 			}
-			if (!commitAndConfirm(connection, purchaseId, terminalState)) return null;
-			return refund ? new RefundedPurchase(refundedUuid, refundedPointsColumn, refundedLimitColumn)
-					: new RefundedPurchase(null, null, null);
 		} catch (SQLException failure) {
+			if (failure instanceof PreparationFailure) throw failure;
+			if (!pointWriteAttempted) throw new PreparationFailure(failure);
 			throw failure;
 		}
 	}
@@ -442,20 +466,28 @@ final class SharedMysqlPurchaseJournal {
 
 	private void refund(Connection connection, String uuid, String pointsColumn, String limitColumn, int cost,
 			boolean refundLimit) throws SQLException {
-		if (!isSafeColumn(pointsColumn) || (limitColumn != null && !isSafeColumn(limitColumn))) {
-			throw new SQLException("Unsafe durable purchase column");
-		}
-		StringBuilder refund = new StringBuilder("UPDATE ").append(qi(table.getTableName())).append(" SET ")
-				.append(qi(pointsColumn)).append(" = ").append(qi(pointsColumn)).append(" + ?");
-		if (refundLimit) {
-			refund.append(", ").append(qi(limitColumn)).append(" = GREATEST(COALESCE(").append(qi(limitColumn))
-					.append(", 0) - 1, 0)");
-		}
-		refund.append(" WHERE ").append(qi("uuid")).append(uuidCast());
-		try (PreparedStatement statement = connection.prepareStatement(refund.toString())) {
-			statement.setInt(1, cost);
-			statement.setString(2, uuid);
-			if (statement.executeUpdate() != 1) throw new SQLException("Purchase refund player missing");
+		boolean pointWriteAttempted = false;
+		try {
+			if (!isSafeColumn(pointsColumn) || (limitColumn != null && !isSafeColumn(limitColumn))) {
+				throw new SQLException("Unsafe durable purchase column");
+			}
+			StringBuilder refund = new StringBuilder("UPDATE ").append(qi(table.getTableName())).append(" SET ")
+					.append(qi(pointsColumn)).append(" = ").append(qi(pointsColumn)).append(" + ?");
+			if (refundLimit) {
+				refund.append(", ").append(qi(limitColumn)).append(" = GREATEST(COALESCE(").append(qi(limitColumn))
+						.append(", 0) - 1, 0)");
+			}
+			refund.append(" WHERE ").append(qi("uuid")).append(uuidCast());
+			try (PreparedStatement statement = connection.prepareStatement(refund.toString())) {
+				statement.setInt(1, cost);
+				statement.setString(2, uuid);
+				pointWriteAttempted = true;
+				if (statement.executeUpdate() != 1) throw new SQLException("Purchase refund player missing");
+			}
+		} catch (SQLException failure) {
+			if (failure instanceof PreparationFailure) throw failure;
+			if (!pointWriteAttempted) throw new PreparationFailure(failure);
+			throw failure;
 		}
 	}
 
