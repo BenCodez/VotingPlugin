@@ -15,6 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -1737,10 +1738,40 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	/**
 	 * Gets the points of the user.
 	 *
-	 * @return the points of the user
+	 * <p>On a Bukkit/Folia-owned thread with MySQL storage, this never waits for
+	 * a shared-storage read. An unpublished or invalidated balance is reported as
+	 * zero to legacy callers instead of throwing while the snapshot loads.
+	 * This is a fail-closed compatibility fallback, not an authoritative balance:
+	 * consumers that need to distinguish loading from a real zero should use
+	 * {@link #getPointsIfLoaded()} and authorize spending only after a confirmed
+	 * point mutation.</p>
+	 *
+	 * @return the published points, or zero while shared MySQL data is unavailable
 	 */
 	public int getPoints() {
+		if (UserStorage.MYSQL.equals(plugin.getStorageType())
+				&& plugin.getUserManager().getDataManager().mustDeferSharedStorageAccess()) {
+			return getPointsIfLoaded().orElse(0);
+		}
 		return getUserData().getInt(getPointsPath());
+	}
+
+	/**
+	 * Reads a point balance without performing MySQL I/O while the shared
+	 * snapshot is unavailable. Unlike {@link #getPoints()}, a missing result
+	 * is distinguishable from a genuinely zero balance. In MySQL mode this
+	 * method uses only a published snapshot and honors pending point-debit
+	 * fences; ordinary storage modes retain their existing read behavior.
+	 *
+	 * @return the available point balance, or empty while shared MySQL points
+	 *         are loading, invalidated, or awaiting a confirmed mutation outcome
+	 */
+	public OptionalInt getPointsIfLoaded() {
+		if (!UserStorage.MYSQL.equals(plugin.getStorageType())) {
+			return OptionalInt.of(getUserData().getInt(getPointsPath()));
+		}
+		var placeholders = plugin.getPlaceholders();
+		return placeholders == null ? OptionalInt.empty() : placeholders.getPointBalanceIfReady(this);
 	}
 
 	/**
