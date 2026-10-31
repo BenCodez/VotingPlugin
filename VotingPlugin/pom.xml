@@ -15,7 +15,7 @@
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <maven.compiler.release>21</maven.compiler.release>
-        <velocity.version>3.4.0</velocity.version>
+        <velocity.version>4.2.0</velocity.version>
         <neoforge.version>21.1.211</neoforge.version>
     </properties>
     <build>
