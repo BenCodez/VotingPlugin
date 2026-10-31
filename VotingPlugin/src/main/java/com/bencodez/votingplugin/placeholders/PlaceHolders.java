@@ -215,6 +215,40 @@ public class PlaceHolders {
 		}
 	}
 
+	/**
+	 * Snapshot-only point balance for direct API users on Bukkit/Folia threads.
+	 * A pending/uncertain debit or incomplete publication is unavailable, not
+	 * a genuine zero. This shares the same mutation fence as point placeholders.
+	 *
+	 * @param user the requested user
+	 * @return a published point balance, or empty until it is safe to read
+	 */
+	public java.util.OptionalInt getPointBalanceIfReady(VotingPluginUser user) {
+		if (user == null || !plugin.isEnabled() || plugin.getPlaceholders() != this) {
+			return java.util.OptionalInt.empty();
+		}
+		UUID uuid = user.getJavaUUID();
+		var generation = pointFence.generation(uuid);
+		try {
+			if (!pointFence.readable(uuid, generation)) {
+				if (pointFence.recoverable(uuid)) schedulePointRecovery(user);
+				return java.util.OptionalInt.empty();
+			}
+			var snapshot = publishedPointSnapshot(user);
+			if (snapshot == null) {
+				schedulePointRecovery(user);
+				return java.util.OptionalInt.empty();
+			}
+			Integer amount = pointBalance(snapshot, user.getPointsPath());
+			if (amount == null || !pointFence.readable(uuid, generation)) {
+				return java.util.OptionalInt.empty();
+			}
+			return java.util.OptionalInt.of(amount);
+		} finally {
+			pointFence.release(uuid);
+		}
+	}
+
 	private java.util.Map<String, com.bencodez.simpleapi.sql.data.DataValue> publishedPointSnapshot(VotingPluginUser user) {
 		var cache = plugin.getUserManager().getDataManager().getUserDataCache().get(user.getJavaUUID());
 		return cache == null ? null : cache.snapshotIfPublished();
