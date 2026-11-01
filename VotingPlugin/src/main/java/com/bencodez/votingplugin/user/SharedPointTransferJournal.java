@@ -28,6 +28,14 @@ import com.bencodez.simpleapi.sql.mysql.DbType;
  * settlement is a second short, idempotent transaction.</p>
  */
 final class SharedPointTransferJournal {
+	/** Positive proof that this invocation did not attempt a points write. */
+	static final class PreparationFailure extends SQLException {
+		private static final long serialVersionUID = 1L;
+		PreparationFailure(SQLException cause) {
+			super(cause.getMessage(), cause.getSQLState(), cause.getErrorCode(), cause);
+		}
+	}
+
 	private static final String RESERVED = "RESERVED";
 	private static final String HOOK_STARTED = "HOOK_STARTED";
 	/*
@@ -144,51 +152,59 @@ final class SharedPointTransferJournal {
 	 */
 	boolean reserve(String transferId, String sourceUuid, String sourcePointsColumn, int debitPoints, String targetUuid,
 			int requestedCreditPoints, long now) throws SQLException {
-		TransferRow existing = find(transferId);
-		if (existing != null) {
-			return existing.matches(sourceUuid, targetUuid, debitPoints, requestedCreditPoints)
-					&& !REFUNDED.equals(existing.state);
-		}
-
-		String insert = "INSERT INTO " + qiJournal() + " (" + qi("transfer_id") + ", " + qi("source_uuid")
-				+ ", " + qi("source_points_column") + ", " + qi("target_uuid") + ", " + qi("debit_points")
-				+ ", " + qi("requested_credit_points") + ", " + qi("state") + ", " + qi("created_at")
-				+ ") VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-		String points = qi(sourcePointsColumn);
-		String debit = "UPDATE " + qi(table.getTableName()) + " SET " + points + " = " + points
-				+ " - ? WHERE " + qi("uuid") + uuidCast() + " AND " + points + " >= ?";
-		try (Connection connection = connection()) {
-			connection.setAutoCommit(false);
-			try (PreparedStatement insertStatement = connection.prepareStatement(insert);
-					PreparedStatement debitStatement = connection.prepareStatement(debit)) {
-					insertStatement.setString(1, transferId);
-					insertStatement.setString(2, sourceUuid);
-					insertStatement.setString(3, sourcePointsColumn);
-					insertStatement.setString(4, targetUuid);
-					insertStatement.setInt(5, debitPoints);
-					insertStatement.setInt(6, requestedCreditPoints);
-					insertStatement.setString(7, RESERVED);
-					insertStatement.setLong(8, now);
-				insertStatement.executeUpdate();
-
-				debitStatement.setInt(1, debitPoints);
-				debitStatement.setString(2, sourceUuid);
-				debitStatement.setInt(3, debitPoints);
-				if (debitStatement.executeUpdate() != 1) {
-					connection.rollback();
-					return false;
-				}
-				return commitAndConfirm(connection, transferId, RESERVED);
-			} catch (SQLException failure) {
-				rollback(connection);
-				if (isDuplicate(failure)) {
-					closeQuietly(connection);
-					TransferRow duplicate = find(transferId);
-					return duplicate != null && duplicate.matches(sourceUuid, targetUuid, debitPoints,
-							requestedCreditPoints) && !REFUNDED.equals(duplicate.state);
-				}
-				throw failure;
+		boolean pointWriteAttempted = false;
+		try {
+			TransferRow existing = find(transferId);
+			if (existing != null) {
+				return existing.matches(sourceUuid, targetUuid, debitPoints, requestedCreditPoints)
+						&& !REFUNDED.equals(existing.state);
 			}
+
+			String insert = "INSERT INTO " + qiJournal() + " (" + qi("transfer_id") + ", " + qi("source_uuid")
+					+ ", " + qi("source_points_column") + ", " + qi("target_uuid") + ", " + qi("debit_points")
+					+ ", " + qi("requested_credit_points") + ", " + qi("state") + ", " + qi("created_at")
+					+ ") VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+			String points = qi(sourcePointsColumn);
+			String debit = "UPDATE " + qi(table.getTableName()) + " SET " + points + " = " + points
+					+ " - ? WHERE " + qi("uuid") + uuidCast() + " AND " + points + " >= ?";
+			try (Connection connection = connection()) {
+				connection.setAutoCommit(false);
+				try (PreparedStatement insertStatement = connection.prepareStatement(insert);
+						PreparedStatement debitStatement = connection.prepareStatement(debit)) {
+						insertStatement.setString(1, transferId);
+						insertStatement.setString(2, sourceUuid);
+						insertStatement.setString(3, sourcePointsColumn);
+						insertStatement.setString(4, targetUuid);
+						insertStatement.setInt(5, debitPoints);
+						insertStatement.setInt(6, requestedCreditPoints);
+						insertStatement.setString(7, RESERVED);
+						insertStatement.setLong(8, now);
+					insertStatement.executeUpdate();
+
+					debitStatement.setInt(1, debitPoints);
+					debitStatement.setString(2, sourceUuid);
+					debitStatement.setInt(3, debitPoints);
+					pointWriteAttempted = true;
+					if (debitStatement.executeUpdate() != 1) {
+						connection.rollback();
+						return false;
+					}
+					return commitAndConfirm(connection, transferId, RESERVED);
+				} catch (SQLException failure) {
+					rollback(connection);
+					if (isDuplicate(failure)) {
+						closeQuietly(connection);
+						TransferRow duplicate = find(transferId);
+						return duplicate != null && duplicate.matches(sourceUuid, targetUuid, debitPoints,
+								requestedCreditPoints) && !REFUNDED.equals(duplicate.state);
+					}
+					throw failure;
+				}
+			}
+		} catch (SQLException failure) {
+			if (failure instanceof PreparationFailure) throw failure;
+			if (!pointWriteAttempted) throw new PreparationFailure(failure);
+			throw failure;
 		}
 	}
 
@@ -286,42 +302,50 @@ final class SharedPointTransferJournal {
 	 */
 	boolean refundReserved(String transferId, String sourceUuid, String sourcePointsColumn, int debitPoints)
 			throws SQLException {
-		if (!isSafeColumn(sourcePointsColumn)) return false;
-		String select = "SELECT " + qi("state") + " FROM " + qiJournal() + " WHERE " + qi("transfer_id")
-				+ " = ? FOR UPDATE";
-		String points = qi(sourcePointsColumn);
-		String refund = "UPDATE " + qi(table.getTableName()) + " SET " + points + " = " + points
-				+ " + ? WHERE " + qi("uuid") + uuidCast();
-		String update = "UPDATE " + qiJournal() + " SET " + qi("state") + " = ? WHERE " + qi("transfer_id")
-				+ " = ?";
-		try (Connection connection = connection()) {
-			connection.setAutoCommit(false);
-			try (PreparedStatement selectStatement = connection.prepareStatement(select)) {
-				selectStatement.setString(1, transferId);
-				try (ResultSet result = selectStatement.executeQuery()) {
-					if (!result.next() || !RESERVED.equals(result.getString(1))) {
+		boolean pointWriteAttempted = false;
+		try {
+			if (!isSafeColumn(sourcePointsColumn)) return false;
+			String select = "SELECT " + qi("state") + " FROM " + qiJournal() + " WHERE " + qi("transfer_id")
+					+ " = ? FOR UPDATE";
+			String points = qi(sourcePointsColumn);
+			String refund = "UPDATE " + qi(table.getTableName()) + " SET " + points + " = " + points
+					+ " + ? WHERE " + qi("uuid") + uuidCast();
+			String update = "UPDATE " + qiJournal() + " SET " + qi("state") + " = ? WHERE " + qi("transfer_id")
+					+ " = ?";
+			try (Connection connection = connection()) {
+				connection.setAutoCommit(false);
+				try (PreparedStatement selectStatement = connection.prepareStatement(select)) {
+					selectStatement.setString(1, transferId);
+					try (ResultSet result = selectStatement.executeQuery()) {
+						if (!result.next() || !RESERVED.equals(result.getString(1))) {
+							connection.rollback();
+							return false;
+						}
+					}
+				}
+				try (PreparedStatement refundStatement = connection.prepareStatement(refund)) {
+					refundStatement.setInt(1, debitPoints);
+					refundStatement.setString(2, sourceUuid);
+					pointWriteAttempted = true;
+					if (refundStatement.executeUpdate() != 1) {
 						connection.rollback();
 						return false;
 					}
 				}
-			}
-			try (PreparedStatement refundStatement = connection.prepareStatement(refund)) {
-				refundStatement.setInt(1, debitPoints);
-				refundStatement.setString(2, sourceUuid);
-				if (refundStatement.executeUpdate() != 1) {
-					connection.rollback();
-					return false;
+				try (PreparedStatement updateStatement = connection.prepareStatement(update)) {
+					updateStatement.setString(1, REFUNDED);
+					updateStatement.setString(2, transferId);
+					if (updateStatement.executeUpdate() != 1) {
+						connection.rollback();
+						return false;
+					}
 				}
+				return commitAndConfirm(connection, transferId, REFUNDED);
 			}
-			try (PreparedStatement updateStatement = connection.prepareStatement(update)) {
-				updateStatement.setString(1, REFUNDED);
-				updateStatement.setString(2, transferId);
-				if (updateStatement.executeUpdate() != 1) {
-					connection.rollback();
-					return false;
-				}
-			}
-			return commitAndConfirm(connection, transferId, REFUNDED);
+		} catch (SQLException failure) {
+			if (failure instanceof PreparationFailure) throw failure;
+			if (!pointWriteAttempted) throw new PreparationFailure(failure);
+			throw failure;
 		}
 	}
 
@@ -340,6 +364,7 @@ final class SharedPointTransferJournal {
 				+ " + ? WHERE " + qi("uuid") + uuidCast();
 		String update = "UPDATE " + qiJournal() + " SET " + qi("state") + " = ? WHERE " + qi("transfer_id")
 				+ " = ?";
+		boolean pointWriteAttempted = false;
 		try (Connection connection = connection()) {
 			connection.setAutoCommit(false);
 			try (PreparedStatement selectStatement = connection.prepareStatement(select)) {
@@ -363,6 +388,7 @@ final class SharedPointTransferJournal {
 			try (PreparedStatement refundStatement = connection.prepareStatement(refund)) {
 				refundStatement.setInt(1, debitPoints);
 				refundStatement.setString(2, sourceUuid);
+				pointWriteAttempted = true;
 				if (refundStatement.executeUpdate() != 1) {
 					connection.rollback();
 					return false;
@@ -378,6 +404,7 @@ final class SharedPointTransferJournal {
 			}
 			return commitAndConfirm(connection, transferId, REFUNDED);
 		} catch (SQLException failure) {
+			if (!pointWriteAttempted) throw new PreparationFailure(failure);
 			throw failure;
 		}
 	}

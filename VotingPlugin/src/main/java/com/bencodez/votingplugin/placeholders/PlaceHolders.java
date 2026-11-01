@@ -67,6 +67,8 @@ public class PlaceHolders {
 	private record PlatformUpdateKey(UUID uuid, PlaceHolder<VotingPluginUser> placeholder) { }
 	private final ConcurrentHashMap<PlatformUpdateKey, Long> platformUpdateGenerations = new ConcurrentHashMap<>();
 	private boolean userDataChangeListenerRegistered;
+	private final PointPlaceholderFence pointFence = new PointPlaceholderFence();
+	private final ConcurrentHashMap<UUID, Object> pointRecoveryWorkers = new ConcurrentHashMap<>();
 
 	@Getter
 	private PlaceholderCacheLevel cacheLevel;
@@ -185,6 +187,103 @@ public class PlaceHolders {
 	 * @return the placeholder value
 	 */
 	public String getPlaceholderValue(OfflinePlayer p, String identifier, boolean javascript, boolean forceProcess,
+			boolean useCache) {
+		if (p == null || !isPointIdentifier(identifier)) {
+			return getPlaceholderValueUnfenced(p, identifier, javascript, forceProcess, useCache);
+		}
+		VotingPluginUser pointUser = resolvePlaceholderUser(p);
+		UUID uuid = pointUser.getJavaUUID();
+		var generation = pointFence.generation(uuid);
+		try {
+			if (!pointFence.readable(uuid, generation)) {
+				if (pointFence.recoverable(uuid)) schedulePointRecovery(pointUser);
+				return "...";
+			}
+			if (com.bencodez.advancedcore.api.user.UserStorage.MYSQL.equals(plugin.getStorageType())) {
+				var snapshot = publishedPointSnapshot(pointUser);
+				if (snapshot == null) {
+					schedulePointRecovery(pointUser);
+					return "...";
+				}
+				// A complete row with invalid data is unavailable, not a missing snapshot to reload.
+				if (pointBalance(snapshot, pointUser.getPointsPath()) == null) return "...";
+			}
+			String value = getPlaceholderValueUnfenced(p, identifier, javascript, forceProcess, useCache);
+			return pointFence.readable(uuid, generation) ? value : "...";
+		} finally {
+			pointFence.release(uuid);
+		}
+	}
+
+	/**
+	 * Snapshot-only point balance for direct API users on Bukkit/Folia threads.
+	 * A pending/uncertain debit or incomplete publication is unavailable, not
+	 * a genuine zero. This shares the same mutation fence as point placeholders.
+	 *
+	 * @param user the requested user
+	 * @return a published point balance, or empty until it is safe to read
+	 */
+	public java.util.OptionalInt getPointBalanceIfReady(VotingPluginUser user) {
+		if (user == null || !plugin.isEnabled() || plugin.getPlaceholders() != this) {
+			return java.util.OptionalInt.empty();
+		}
+		UUID uuid = user.getJavaUUID();
+		var generation = pointFence.generation(uuid);
+		try {
+			if (!pointFence.readable(uuid, generation)) {
+				if (pointFence.recoverable(uuid)) schedulePointRecovery(user);
+				return java.util.OptionalInt.empty();
+			}
+			var snapshot = publishedPointSnapshot(user);
+			if (snapshot == null) {
+				schedulePointRecovery(user);
+				return java.util.OptionalInt.empty();
+			}
+			Integer amount = pointBalance(snapshot, user.getPointsPath());
+			if (amount == null || !pointFence.readable(uuid, generation)) {
+				return java.util.OptionalInt.empty();
+			}
+			return java.util.OptionalInt.of(amount);
+		} finally {
+			pointFence.release(uuid);
+		}
+	}
+
+	private java.util.Map<String, com.bencodez.simpleapi.sql.data.DataValue> publishedPointSnapshot(VotingPluginUser user) {
+		var cache = plugin.getUserManager().getDataManager().getUserDataCache().get(user.getJavaUUID());
+		return cache == null ? null : cache.snapshotIfPublished();
+	}
+
+	private Integer pointBalance(VotingPluginUser user) {
+		if (!com.bencodez.advancedcore.api.user.UserStorage.MYSQL.equals(plugin.getStorageType())) return user.getPoints();
+		return pointBalance(publishedPointSnapshot(user), user.getPointsPath());
+	}
+
+	private Integer pointBalance(java.util.Map<String, com.bencodez.simpleapi.sql.data.DataValue> snapshot, String column) {
+		if (snapshot == null) return null;
+		// AC publishes a complete row; absence has the historical integer default.
+		if (!snapshot.containsKey(column)) return 0;
+		var value = snapshot.get(column);
+		if (value == null) return null;
+		try {
+			if (value.isInt()) return value.getInt();
+			if (value.isString()) return Integer.valueOf(value.getString());
+		} catch (NumberFormatException malformed) {
+			return null;
+		}
+		return null;
+	}
+
+	private void schedulePointRecovery(VotingPluginUser user) {
+		schedulePlaceholderCheck(user);
+	}
+
+	private static boolean isPointIdentifier(String identifier) {
+		String key = identifier.toLowerCase(Locale.ROOT);
+		return key.equals("points") || key.equals("points_format") || key.startsWith("enoughpoints_");
+	}
+
+	private String getPlaceholderValueUnfenced(OfflinePlayer p, String identifier, boolean javascript, boolean forceProcess,
 			boolean useCache) {
 		if (plugin.getConfigFile().isUseJavascriptPlaceholders() && javascript && p != null) {
 			identifier = PlaceholderUtils.replaceJavascript(p, identifier);
@@ -498,7 +597,8 @@ public class PlaceHolders {
 
 			@Override
 			public String placeholderRequest(VotingPluginUser user, String identifier) {
-				return Integer.toString(user.getPoints());
+				Integer points = pointBalance(user);
+				return points == null ? "..." : Integer.toString(points);
 			}
 		}.withDescription("User points").updateDataKey("Points"));
 
@@ -507,7 +607,8 @@ public class PlaceHolders {
 			@Override
 			public String placeholderRequest(VotingPluginUser user, String identifier) {
 				NumberFormat numberFormat = NumberFormat.getNumberInstance(Locale.US);
-				return numberFormat.format(user.getPoints());
+				Integer points = pointBalance(user);
+				return points == null ? "..." : numberFormat.format(points);
 			}
 		}.withDescription("User points").updateDataKey("Points"));
 
@@ -633,7 +734,9 @@ public class PlaceHolders {
 					return "invalid";
 				}
 				int number = Integer.parseInt(identifier.split("_")[1]);
-				if (user.getPoints() >= number) {
+				Integer points = pointBalance(user);
+				if (points == null) return "...";
+				if (points >= number) {
 					return "true";
 				}
 				return "false";
@@ -1415,6 +1518,13 @@ public class PlaceHolders {
 	@SuppressWarnings("unchecked")
 	private void updateCachedPlaceholder(PlaceHolder<VotingPluginUser> placeholder, VotingPluginUser user,
 			UUID uuid, String... keys) {
+		var pointGeneration = pointFence.generation(uuid);
+		try {
+		if ("Points".equalsIgnoreCase(placeholder.getUpdateDataKey())
+				&& !pointFence.readable(uuid, pointGeneration)) {
+			if (pointFence.recoverable(uuid)) schedulePointRecovery(user);
+			return;
+		}
 		for (String ident : Set.copyOf(placeholder.getCache().keySet())) {
 			ConcurrentHashMap<UUID, String> values = placeholder.getCache().get(ident);
 			if (values == null) continue;
@@ -1435,7 +1545,11 @@ public class PlaceHolders {
 				}
 			} else {
 				String value = placeholder.placeholderRequest(user, ident);
-				values.put(uuid, value);
+				if ("Points".equalsIgnoreCase(placeholder.getUpdateDataKey())) {
+					pointFence.publish(uuid, pointGeneration, () -> {
+						if (plugin.isEnabled()) values.put(uuid, value);
+					});
+				} else values.put(uuid, value);
 				if (getCacheLevel().onlineOnly() && !plugin.getPlaceholderPlayerPresence().isOnline(uuid)) {
 					values.remove(uuid);
 					continue;
@@ -1443,6 +1557,9 @@ public class PlaceHolders {
 				plugin.devDebug("Updated placeholder cache for " + user.getUUID() + " on "
 						+ matchingKey(placeholder, keys) + " with " + value);
 			}
+		}
+		} finally {
+			pointFence.release(uuid);
 		}
 	}
 
@@ -1468,6 +1585,52 @@ public class PlaceHolders {
 		return placeholder.getUpdateDataKey();
 	}
 	
+	/** Blocks stale point results before a shared debit enters its worker. */
+	public void beginSharedPointDebit(UUID uuid) {
+		pointFence.begin(uuid, () -> clearPointResults(uuid));
+	}
+
+	/** Owns a queued batch without replacing its worker's mutation outcome. */
+	public java.util.function.Consumer<Boolean> sharedPointAdmissionCompletion(UUID uuid) {
+		beginSharedPointDebit(uuid);
+		var completed = new java.util.concurrent.atomic.AtomicBoolean();
+		return settled -> {
+			if (completed.compareAndSet(false, true)) pointFence.finishAdmission(uuid,
+					settled && plugin.isEnabled() && plugin.getPlaceholders() == this);
+		};
+	}
+
+	private void clearPointResults(UUID uuid) {
+		for (PlaceHolder<VotingPluginUser> placeholder : userDataChangeClassification.all()) {
+			if ("Points".equalsIgnoreCase(placeholder.getUpdateDataKey()) && placeholder.isUsesCache()) {
+				placeholder.clearCachePlayer(uuid);
+			}
+		}
+	}
+
+	/** Completes the fence only after the storage worker has reconciled its snapshot. */
+	public void finishSharedPointDebit(UUID uuid, boolean trustworthySnapshot) {
+		finishSharedPointDebit(uuid, trustworthySnapshot, trustworthySnapshot);
+	}
+
+	public void finishSharedPointDebit(UUID uuid, boolean knownOutcome, boolean trustworthySnapshot) {
+		pointFence.finish(uuid, knownOutcome, trustworthySnapshot);
+	}
+
+	/** Captures a worker refill generation without granting permission to retry a mutation. */
+	public java.util.function.Consumer<Boolean> sharedPointRefillCompletion(UUID uuid) {
+		var stamp = pointFence.beginRefill(uuid, () -> clearPointResults(uuid));
+		var completed = new java.util.concurrent.atomic.AtomicBoolean();
+		return verified -> {
+			if (!completed.compareAndSet(false, true)) return;
+			try {
+				pointFence.finishRefill(uuid, stamp, verified && plugin.isEnabled() && plugin.getPlaceholders() == this);
+			} finally {
+				pointFence.release(uuid);
+			}
+		};
+	}
+
 	/**
 	 * Handle player logout.
 	 * @param user the voting plugin user
@@ -1518,6 +1681,7 @@ public class PlaceHolders {
 	public void onUpdate(VotingPluginUser user, boolean login) {
 		if (user == null) return;
 		UUID uuid = user.getJavaUUID();
+		if (pointFence.recoverable(uuid)) schedulePointRecovery(user);
 		Player owner = plugin.getPlaceholderPlayerPresence().schedulerOwner(uuid);
 		PlaceholderClassification classification = userDataChangeClassification;
 		List<PlaceHolder<VotingPluginUser>> platformUpdates = new ArrayList<>();
@@ -1559,6 +1723,8 @@ public class PlaceHolders {
 	 * Reload placeholders.
 	 */
 	public void reload() {
+		pointFence.invalidateLifecycle();
+		pointRecoveryWorkers.clear();
 		platformUpdateGenerations.clear();
 		plugin.refreshPlaceholderPlayerPresence();
 		cacheLevel = plugin.getConfigFile().getPlaceholderCacheLevel();
@@ -1593,15 +1759,46 @@ public class PlaceHolders {
 	 * @param user the voting plugin user
 	 */
 	public void schedulePlaceholderCheck(VotingPluginUser user) {
-		plugin.getTimer().execute(new Runnable() {
-
-			@Override
-			public void run() {
-				checkNonCachedPlaceholders();
-				// Admit cold offline entries only from this worker callback.
-				onUpdate(user, !getCacheLevel().onlineOnly()
-						|| plugin.getPlaceholderPlayerPresence().isOnline(user.getJavaUUID()));
-			}
-		});
+		if (!plugin.isEnabled() || plugin.getPlaceholders() != this) return;
+		UUID uuid = user.getJavaUUID();
+		Object token = new Object();
+		long lifecycle = pointFence.lifecycle();
+		// Common warming and direct point recovery share queued and executing admission.
+		if (pointRecoveryWorkers.putIfAbsent(uuid, token) != null) return;
+		try {
+			plugin.getTimer().execute(() -> {
+				boolean warmed = false;
+				try {
+					if (!plugin.isEnabled() || plugin.getPlaceholders() != this || lifecycle != pointFence.lifecycle()) return;
+					var observed = pointFence.generation(uuid);
+					try {
+						// Invalid data in a complete published row is not a missing snapshot.
+						// Pending/unknown writes cannot authorize a competing point refill.
+						if (pointFence.recoverable(uuid)
+								|| (pointFence.readable(uuid, observed)
+										&& com.bencodez.advancedcore.api.user.UserStorage.MYSQL.equals(plugin.getStorageType())
+										&& publishedPointSnapshot(user) == null)) {
+							com.bencodez.votingplugin.user.SharedMysqlCacheReconciler.invalidateAndRefreshOnWorker(
+									plugin, user.getUUID(), user.getPointsPath());
+						}
+					} finally { pointFence.release(uuid); }
+					if (!plugin.isEnabled() || plugin.getPlaceholders() != this || lifecycle != pointFence.lifecycle()) return;
+					checkNonCachedPlaceholders();
+					// Preserve each cache level's existing offline-entry admission policy.
+					onUpdate(user, !getCacheLevel().onlineOnly() || plugin.getPlaceholderPlayerPresence().isOnline(uuid));
+					warmed = true;
+				} finally {
+					boolean retired = pointRecoveryWorkers.remove(uuid, token);
+					// A new identifier may have arrived after this worker's discovery pass.
+					if (retired && warmed && !placeholdersToSetCacheOn.isEmpty() && plugin.isEnabled()
+							&& plugin.getPlaceholders() == this && lifecycle == pointFence.lifecycle()) {
+						schedulePlaceholderCheck(user);
+					}
+				}
+			});
+		} catch (RuntimeException rejected) {
+			pointRecoveryWorkers.remove(uuid, token);
+			plugin.debug(rejected);
+		}
 	}
 }

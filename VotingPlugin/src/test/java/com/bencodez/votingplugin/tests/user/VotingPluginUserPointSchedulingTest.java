@@ -58,6 +58,7 @@ import com.bencodez.advancedcore.api.user.UserData;
 import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.advancedcore.api.user.userstorage.mysql.MySQL;
 import com.bencodez.advancedcore.api.user.usercache.UserDataCache;
+import com.bencodez.simpleapi.sql.data.DataValueInt;
 import com.bencodez.simpleapi.sql.mysql.ConnectionManager;
 import com.bencodez.simpleapi.scheduler.BukkitScheduler;
 import com.bencodez.simpleapi.folialib.FoliaLib;
@@ -108,6 +109,7 @@ class VotingPluginUserPointSchedulingTest {
 	void sharedBulkPointMutationsUseOnePersistenceSubmission() throws Exception {
 		PointFixture fixture = pointFixture();
 		VotingPluginUser second = mock(VotingPluginUser.class);
+		when(second.getUUID()).thenReturn("00000000-0000-0000-0000-000000000002");
 		java.util.List<VotingPluginUser> users = java.util.List.of(fixture.user, second);
 
 		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
@@ -137,6 +139,7 @@ class VotingPluginUserPointSchedulingTest {
 	void rejectedSharedBulkMutationCompletesEveryUserAsFailed() throws Exception {
 		PointFixture fixture = pointFixture();
 		VotingPluginUser second = mock(VotingPluginUser.class);
+		when(second.getUUID()).thenReturn("00000000-0000-0000-0000-000000000002");
 		Player secondPlayer = mock(Player.class);
 		when(second.getPlayer()).thenReturn(secondPlayer);
 		java.util.List<Boolean> results = new java.util.ArrayList<>();
@@ -161,6 +164,7 @@ class VotingPluginUserPointSchedulingTest {
 	void sharedBulkMutationCapturesPlayersBeforePersistenceWork() throws Exception {
 		PointFixture fixture = pointFixture();
 		VotingPluginUser second = mock(VotingPluginUser.class);
+		when(second.getUUID()).thenReturn("00000000-0000-0000-0000-000000000002");
 		Player secondPlayer = mock(Player.class);
 		when(second.getPlayer()).thenReturn(secondPlayer);
 		PluginManager pluginManager = mock(PluginManager.class);
@@ -1059,6 +1063,21 @@ class VotingPluginUserPointSchedulingTest {
 	}
 
 	@Test
+	void rejectedDebitCallbackDoesNotRunAfterDisable() throws Exception {
+		PointFixture fixture = pointFixture();
+		AtomicReference<Boolean> result = new AtomicReference<>();
+		doThrow(new RejectedExecutionException("stopped")).when(fixture.persistence).execute(any(Runnable.class));
+		fixture.user.removePoints(5, result::set);
+		verify(fixture.plugin.getPlaceholders()).finishSharedPointDebit(fixture.user.getJavaUUID(), true, false);
+		ArgumentCaptor<Runnable> entity = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.scheduler).runTask(eq(fixture.plugin), entity.capture(), eq(fixture.player));
+		when(fixture.plugin.isEnabled()).thenReturn(false);
+		entity.getValue().run();
+		assertEquals(null, result.get());
+		verify(fixture.sql.getConnectionManager(), never()).getConnection();
+	}
+
+	@Test
 	void sharedRemoveSkipsStaleCachedPointPrecheck() throws Exception {
 		PointFixture fixture = pointFixture();
 		doReturn(0).when(fixture.user).getPoints();
@@ -1359,6 +1378,42 @@ class VotingPluginUserPointSchedulingTest {
 		assertTrue(result.get());
 		verify(complete, org.mockito.Mockito.times(2)).executeUpdate();
 		verify(fixture.sql.getConnectionManager(), org.mockito.Mockito.atLeastOnce()).getConnection();
+	}
+
+	@Test
+	void rejectedDebitRefreshesPublishedSnapshotBeforeCompletionAndDoesNotLogDatabaseFailure() throws Exception {
+		PointFixture fixture = pointFixture();
+		var uuid = fixture.user.getJavaUUID();
+		var cache = new UserDataCache(null, uuid);
+		cache.updateCache(new java.util.HashMap<>(java.util.Map.of("Points", new DataValueInt(20))));
+		var manager = fixture.plugin.getUserManager().getDataManager();
+		when(manager.getUserDataCache()).thenReturn(new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(uuid, cache)));
+		doAnswer(call -> {
+			assertFalse(cache.hasPublishedStorageSnapshot());
+			cache.updateSharedSnapshot(new java.util.HashMap<>(java.util.Map.of("Points", new DataValueInt(4))),
+					cache.getSharedSnapshotVersion());
+			return null;
+		}).when(manager).cacheUser(uuid, null);
+		PreparedStatement lookup = mock(PreparedStatement.class);
+		ResultSet missing = mock(ResultSet.class);
+		when(lookup.executeQuery()).thenReturn(missing);
+		when(fixture.connection.prepareStatement(anyString())).thenAnswer(call ->
+				call.<String>getArgument(0).startsWith("SELECT `player_uuid`") ? lookup : fixture.statement);
+		AtomicReference<Boolean> result = new AtomicReference<>();
+		fixture.user.removePoints(16, result::set);
+		verify(fixture.plugin.getPlaceholders()).beginSharedPointDebit(uuid);
+		verify(fixture.sql.getConnectionManager(), never()).getConnection();
+		ArgumentCaptor<Runnable> worker = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.persistence).execute(worker.capture());
+		worker.getValue().run();
+		assertEquals(4, cache.snapshotIfPublished().get("Points").getInt());
+		verify(fixture.plugin.getPlaceholders(), org.mockito.Mockito.times(2)).finishSharedPointDebit(uuid, true, true);
+		verify(fixture.plugin.getLogger(), never()).severe(anyString());
+		assertEquals(null, result.get());
+		ArgumentCaptor<Runnable> entity = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.scheduler).runTask(eq(fixture.plugin), entity.capture(), eq(fixture.player));
+		entity.getValue().run();
+		assertEquals(Boolean.FALSE, result.get());
 	}
 
 	@Test
@@ -1985,6 +2040,7 @@ class VotingPluginUserPointSchedulingTest {
 	private static PointFixture pointFixture() throws Exception {
 		PointFixture fixture = new PointFixture();
 		fixture.plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		when(fixture.plugin.isEnabled()).thenReturn(true);
 		fixture.persistence = mock(ScheduledExecutorService.class);
 		fixture.scheduler = mock(BukkitScheduler.class);
 		fixture.entityScheduler = configureEntityScheduler(fixture.plugin, fixture.scheduler);
@@ -2010,6 +2066,8 @@ class VotingPluginUserPointSchedulingTest {
 		pluginField.setAccessible(true);
 		ReflectiveAccess.set(pluginField, fixture.user, fixture.plugin);
 		doReturn("00000000-0000-0000-0000-000000000001").when(fixture.user).getUUID();
+		doReturn(java.util.UUID.fromString("00000000-0000-0000-0000-000000000001"))
+				.when(fixture.user).getJavaUUID();
 		doReturn("Points").when(fixture.user).getPointsPath();
 		doReturn(fixture.player).when(fixture.user).getPlayer();
 		doReturn(false).when(fixture.user).isCached();

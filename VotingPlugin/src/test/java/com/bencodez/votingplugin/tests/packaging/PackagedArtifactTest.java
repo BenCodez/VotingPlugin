@@ -1,6 +1,8 @@
 package com.bencodez.votingplugin.tests.packaging;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -8,12 +10,14 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
+import java.io.StringWriter;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.jar.JarFile;
+import javax.tools.ToolProvider;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -115,6 +119,125 @@ public class PackagedArtifactTest {
             Class<?> redisClient = Class.forName("redis.clients.jedis.RedisClient", true, loader);
             try (AutoCloseable client = (AutoCloseable) redisClient.getMethod("create").invoke(null)) {
                 assertTrue(Class.forName("redis.clients.jedis.UnifiedJedis", true, loader).isInstance(client));
+            }
+        }
+    }
+
+    @Test
+    void packagedJedisUsesTheResolvedClientRatherThanAnEmbeddedProducerCopy() throws Exception {
+        Path selected = Path.of(redis.clients.jedis.Jedis.class.getProtectionDomain()
+                .getCodeSource().getLocation().toURI());
+        try (JarFile dependency = new JarFile(selected.toFile());
+                JarFile artifact = new JarFile(packagedJar().toFile())) {
+            // MultiDbClient differs across the 8.0.1/8.0.2 patch boundary; Jedis alone does not.
+            for (String name : java.util.List.of("redis/clients/jedis/Jedis.class",
+                    "redis/clients/jedis/JedisPool.class", "redis/clients/jedis/MultiDbClient.class")) {
+                assertNotNull(dependency.getEntry(name), "Missing resolved client API: " + name);
+                assertNotNull(artifact.getEntry(name), "Missing packaged client API: " + name);
+                assertEquals(1L, artifact.stream().filter(entry -> entry.getName().equals(name)).count(),
+                        "Duplicate packaged client: " + name);
+                try (var expected = dependency.getInputStream(dependency.getEntry(name));
+                        var actual = artifact.getInputStream(artifact.getEntry(name))) {
+                    assertArrayEquals(expected.readAllBytes(), actual.readAllBytes(),
+                            "A producer's embedded client must not shadow the resolved dependency: " + name);
+                }
+            }
+        }
+    }
+
+    @Test
+    void packagedSimpleApiRedisHandlerUsesTheSelectedClientWithoutMavenDependencies(@TempDir Path directory)
+            throws Exception {
+        assertRedisHandlerLinks(packagedJar(),
+                "com.bencodez.votingplugin.simpleapi.servercomm.redis.RedisHandler", directory);
+    }
+
+    @Test
+    void publishedProducerArtifactsRetainLegacyRedisApisAndLinkTheirHandlers(@TempDir Path directory) throws Exception {
+        var resources = PackagedArtifactTest.class.getClassLoader()
+                .getResources("com/bencodez/simpleapi/servercomm/redis/RedisHandler.class");
+        java.util.Set<URL> producers = new java.util.LinkedHashSet<>();
+        while (resources.hasMoreElements()) {
+            URL resource = resources.nextElement();
+            assertEquals("jar", resource.getProtocol(), "Producer verification requires actual dependency JARs");
+            var connection = (java.net.JarURLConnection) resource.openConnection();
+            connection.setUseCaches(false);
+            producers.add(connection.getJarFileURL());
+        }
+        assertEquals(2, producers.size(), "Verify both the normal AdvancedCore and direct SimpleAPI artifacts");
+        int index = 0;
+        URL platformSlf4j = org.slf4j.Logger.class.getProtectionDomain().getCodeSource().getLocation();
+        for (URL producer : producers) {
+            try (URLClassLoader loader = new URLClassLoader(new URL[] { producer, platformSlf4j },
+                    ClassLoader.getPlatformClassLoader())) {
+                Class<?> endpoint = Class.forName("redis.clients.jedis.HostAndPort", true, loader);
+                Class<?> config = Class.forName("redis.clients.jedis.JedisClientConfig", true, loader);
+                Class.forName("redis.clients.jedis.JedisPooled", true, loader).getConstructor(endpoint, config);
+                Class.forName("redis.clients.jedis.JedisSentineled", true, loader)
+                        .getConstructor(String.class, config, java.util.Set.class, config);
+                Class.forName("redis.clients.jedis.UnifiedJedis", true, loader).getConstructor(endpoint, config);
+            }
+            assertRedisHandlerLinks(Path.of(producer.toURI()), "com.bencodez.simpleapi.servercomm.redis.RedisHandler",
+                    Files.createDirectory(directory.resolve("producer-" + index++)));
+        }
+    }
+
+    private static void assertRedisHandlerLinks(Path artifact, String handlerName, Path directory) throws Exception {
+        Path source = directory.resolve("PackagedRedisHandlerProbe.java");
+        Files.writeString(source, """
+                public final class PackagedRedisHandlerProbe
+                        extends %s {
+                    public PackagedRedisHandlerProbe(boolean tls) {
+                        super("localhost", 0, "", "", 3, tls);
+                    }
+                    @Override public void debug(String message) { }
+                    public Object listener() {
+                        return createEnvelopeListener("synthetic", (channel, envelope) -> { });
+                    }
+                }
+                """.formatted(handlerName));
+        var compiler = ToolProvider.getSystemJavaCompiler();
+        assertNotNull(compiler);
+        StringWriter diagnostics = new StringWriter();
+        try (var files = compiler.getStandardFileManager(null, null, StandardCharsets.UTF_8)) {
+            assertTrue(compiler.getTask(diagnostics, files, null,
+                    java.util.List.of("--release", "21", "-proc:none", "-classpath", artifact.toString(),
+                            "-d", directory.toString()), null,
+                    files.getJavaFileObjects(source.toFile())).call(), diagnostics.toString());
+        }
+        URL platformSlf4j = org.slf4j.Logger.class.getProtectionDomain().getCodeSource().getLocation();
+        try (URLClassLoader loader = new URLClassLoader(new URL[] {
+                directory.toUri().toURL(), artifact.toUri().toURL(), platformSlf4j },
+                ClassLoader.getPlatformClassLoader())) {
+            Class<?> probe = Class.forName("PackagedRedisHandlerProbe", true, loader);
+            Class<?> handler = probe.getSuperclass();
+            Class<?> configApi = Class.forName("redis.clients.jedis.JedisClientConfig", true, loader);
+            Class<?> subscriber = Class.forName("redis.clients.jedis.JedisPubSub", true, loader);
+            Class<?> jedis = Class.forName("redis.clients.jedis.Jedis", true, loader);
+            jedis.getMethod("publish", String.class, String.class);
+            jedis.getMethod("subscribe", subscriber, String[].class);
+            var configField = handler.getDeclaredField("clientConfig");
+            configField.setAccessible(true);
+            var poolField = handler.getDeclaredField("publisherPool");
+            poolField.setAccessible(true);
+            for (boolean tls : new boolean[] { false, true }) {
+                Object instance = probe.getConstructor(boolean.class).newInstance(tls);
+                Object pool = poolField.get(instance);
+                try {
+                    Object config = configField.get(instance);
+                    assertEquals(tls, configApi.getMethod("isSsl").invoke(config));
+                    assertEquals(3, configApi.getMethod("getDatabase").invoke(config));
+                    if (tls) {
+                        var parameters = (javax.net.ssl.SSLParameters) configApi.getMethod("getSslParameters").invoke(config);
+                        assertEquals("HTTPS", parameters.getEndpointIdentificationAlgorithm());
+                    }
+                    assertTrue(subscriber.isInstance(probe.getMethod("listener").invoke(instance)));
+                    assertEquals(false, pool.getClass().getMethod("isClosed").invoke(pool));
+                } finally {
+                    // Constructors are lazy: no publish, subscribe or connection borrow is performed.
+                    handler.getMethod("close").invoke(instance);
+                }
+                assertEquals(true, pool.getClass().getMethod("isClosed").invoke(pool));
             }
         }
     }
