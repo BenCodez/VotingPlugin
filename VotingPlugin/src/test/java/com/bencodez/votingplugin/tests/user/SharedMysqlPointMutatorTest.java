@@ -503,6 +503,7 @@ class SharedMysqlPointMutatorTest {
 		ScheduledExecutorService persistence = mock(ScheduledExecutorService.class);
 		when(plugin.getTimer()).thenReturn(persistence);
 		VotingPluginUser user = mock(VotingPluginUser.class);
+		when(user.getUUID()).thenReturn("00000000-0000-0000-0000-000000000001");
 		UserDataCache cache = mock(UserDataCache.class);
 		DataValue points = mock(DataValue.class);
 		java.util.HashMap<String, DataValue> values = new java.util.HashMap<>();
