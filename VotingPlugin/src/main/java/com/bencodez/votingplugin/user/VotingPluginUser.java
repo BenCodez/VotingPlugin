@@ -21,6 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -42,6 +43,7 @@ import com.bencodez.simpleapi.sql.data.DataValueInt;
 import com.bencodez.simpleapi.sql.data.DataValueString;
 import com.bencodez.simpleapi.time.ParsedDuration;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.placeholders.PlaceHolders;
 import com.bencodez.votingplugin.events.PlayerReceivePointsEvent;
 import com.bencodez.votingplugin.events.PlayerSpecialRewardEvent;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
@@ -996,10 +998,10 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		}
 		Player player = getPlayer();
 		String pointsColumn = getPointsPath();
-		var placeholders = plugin.getPlaceholders();
+		PlaceHolders placeholders = plugin.getPlaceholders();
 		Consumer<Boolean> admission = placeholders == null ? null
 				: placeholders.sharedPointAdmissionCompletion(UUID.fromString(getUUID()));
-		var completed = new java.util.concurrent.atomic.AtomicBoolean();
+		AtomicBoolean completed = new AtomicBoolean();
 		BiConsumer<Boolean, Integer> completeOnce = (success, total) -> {
 			if (completed.compareAndSet(false, true)) completion.accept(success, total);
 		};
@@ -1016,7 +1018,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 				} finally {
 					if (admission != null) admission.accept(settled);
 				}
-				var outcome = result;
+				SharedMysqlPointMutator.AddResult outcome = result;
 				BukkitCompletionScheduler.run(plugin, player,
 						() -> completeOnce.accept(outcome.success(), outcome.total()));
 			});

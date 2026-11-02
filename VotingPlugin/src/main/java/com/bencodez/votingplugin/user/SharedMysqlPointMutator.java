@@ -21,6 +21,7 @@ import com.bencodez.simpleapi.sql.DataType;
 import com.bencodez.simpleapi.sql.data.DataValue;
 import com.bencodez.simpleapi.sql.data.DataValueInt;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.placeholders.PlaceHolders;
 import com.bencodez.votingplugin.util.BukkitCompletionScheduler;
 
 /** Performs point writes that must remain atomic across shared MySQL servers. */
@@ -965,7 +966,7 @@ final class SharedMysqlPointMutator {
 	}
 
 	private boolean runPointMutation(VotingPluginUser user, Runnable operation, boolean async) {
-		var placeholders = plugin.getPlaceholders();
+		PlaceHolders placeholders = plugin.getPlaceholders();
 		Consumer<Boolean> admission = placeholders == null ? null
 				: placeholders.sharedPointAdmissionCompletion(UUID.fromString(user.getUUID()));
 		boolean accepted = run(() -> {
@@ -1001,7 +1002,7 @@ final class SharedMysqlPointMutator {
 	}
 
 	private boolean update(VotingPluginUser user, int delta, boolean requireNonnegative, String points) {
-		var publication = beginPointPublication(user);
+		PlaceHolders publication = beginPointPublication(user);
 		// Classify this arithmetic statement; an earlier uncertain operation stays fenced.
 		boolean known = true;
 		try {
@@ -1046,7 +1047,7 @@ final class SharedMysqlPointMutator {
 	}
 
 	private AddResult addAndReadCommittedResult(VotingPluginUser user, int amount, String points) {
-		var publication = beginPointPublication(user);
+		PlaceHolders publication = beginPointPublication(user);
 		// Classify this arithmetic statement; an earlier uncertain operation stays fenced.
 		boolean known = true;
 		boolean refreshed = false;
@@ -1154,7 +1155,7 @@ final class SharedMysqlPointMutator {
 	}
 
 	private void capAt(VotingPluginUser user, int maximum, String points) {
-		var publication = beginPointPublication(user);
+		PlaceHolders publication = beginPointPublication(user);
 		// Classify this arithmetic statement; an earlier uncertain operation stays fenced.
 		boolean known = true;
 		try {
@@ -1184,7 +1185,7 @@ final class SharedMysqlPointMutator {
 	}
 
 	private void addAndCapAt(VotingPluginUser user, int amount, int maximum, String points) {
-		var publication = beginPointPublication(user);
+		PlaceHolders publication = beginPointPublication(user);
 		// Classify this arithmetic statement; an earlier uncertain operation stays fenced.
 		boolean known = true;
 		try {
