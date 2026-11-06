@@ -273,7 +273,7 @@ class VotePartySharedMysqlRewardTest {
         org.mockito.ArgumentCaptor<Runnable> completion =
                 org.mockito.ArgumentCaptor.forClass(Runnable.class);
         verify(scheduler).runTask(eq(plugin), completion.capture());
-        verify(dataManager).getPublishedCache(USER_UUID);
+        verify(dataManager, times(2)).getPublishedCache(USER_UUID);
         verify(apiRewards, never()).giveReward(eq(user), eq(rewardData),
                 eq(REWARD_PATH), any(RewardOptions.class));
 
