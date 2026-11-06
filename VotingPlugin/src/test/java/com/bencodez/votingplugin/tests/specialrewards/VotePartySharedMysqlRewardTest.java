@@ -30,6 +30,7 @@ import java.util.logging.Logger;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import com.bencodez.simpleapi.scheduler.BukkitScheduler;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -140,30 +141,38 @@ class VotePartySharedMysqlRewardTest {
     }
 
     @Test
-    void publishedSharedSnapshotDoesNotNeedWorkerReload() throws Exception {
+    void publishedSharedSnapshotIsStillReadOnStorageWorker() throws Exception {
         when(dataManager.hasSharedSqlBackend()).thenReturn(true);
         when(dataManager.getPublishedCache(USER_UUID)).thenReturn(mock(UserDataCache.class));
+        Deferred deferred = deferSharedRead();
 
         dispatch("giveVotedPlayers", null);
 
         verify(user).userDataFetechMode(UserDataFetchMode.DEFAULT);
-        verify(voteParty).giveReward(user, false);
+        verify(dataManager, never()).getPublishedCache(USER_UUID);
+        verify(voteParty, never()).giveReward(user, false);
+        assertEquals(Integer.valueOf(0), deferred.work.get());
         verify(dataManager, never()).cacheUser(eq(USER_UUID), isNull());
-        verify(dataManager, never()).deferSharedStorageResult(any(), any(), any(),
-                nullable(Entity.class));
+        deferred.success.accept(0);
+        verify(apiRewards).giveReward(eq(user), eq(rewardData), eq(REWARD_PATH), any(RewardOptions.class));
     }
 
     @Test
     void triggeringUserIsAlsoSwitchedFromNoCacheMode() throws Exception {
         when(dataManager.hasSharedSqlBackend()).thenReturn(true);
         when(dataManager.getPublishedCache(USER_UUID)).thenReturn(mock(UserDataCache.class));
+        Deferred deferred = deferSharedRead();
 
         dispatch("giveVotedPlayers", user);
 
         verify(user).userDataFetechMode(UserDataFetchMode.DEFAULT);
         verify(user, never()).userDataFetechMode(UserDataFetchMode.NO_CACHE);
         verify(votingUsers, never()).getVotingPluginUser(USER_UUID, true);
-        verify(voteParty).giveReward(user, false);
+        verify(dataManager, never()).getPublishedCache(USER_UUID);
+        assertEquals(Integer.valueOf(0), deferred.work.get());
+        deferred.success.accept(0);
+        verify(apiRewards).giveReward(eq(user), eq(rewardData), eq(REWARD_PATH), any(RewardOptions.class));
+        verify(voteParty, never()).giveReward(user, false);
     }
 
     @Test
@@ -233,6 +242,91 @@ class VotePartySharedMysqlRewardTest {
         deferred.success.accept(1);
 
         verify(apiRewards, never()).giveReward(eq(user), eq(rewardData),
+                eq(REWARD_PATH), any(RewardOptions.class));
+    }
+
+    @Test
+    void publishedCacheInvalidatedDuringWorkerCheckDoesNotDeliver() throws Exception {
+        when(dataManager.hasSharedSqlBackend()).thenReturn(true);
+        UserDataCache published = mock(UserDataCache.class);
+        when(dataManager.getPublishedCache(USER_UUID)).thenReturn(published, null);
+        Deferred deferred = deferSharedRead();
+
+        dispatch("giveVotedPlayers", null);
+        assertNull(deferred.work.get());
+        deferred.success.accept(null);
+
+        verify(apiRewards, never()).giveReward(eq(user), eq(rewardData),
+                eq(REWARD_PATH), any(RewardOptions.class));
+        verify(logger).warning(contains("shared user data is unavailable"));
+    }
+
+    @Test
+    void inlineFallbackWithoutOwnerSchedulesGlobalCompletion() throws Exception {
+        when(dataManager.hasSharedSqlBackend()).thenReturn(true);
+        when(dataManager.getPublishedCache(USER_UUID)).thenReturn(mock(UserDataCache.class));
+        BukkitScheduler scheduler = mock(BukkitScheduler.class);
+        when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+
+        // AdvancedCore returns false for a caller already on a storage worker.
+        dispatch("giveVotedPlayers", null);
+        org.mockito.ArgumentCaptor<Runnable> completion =
+                org.mockito.ArgumentCaptor.forClass(Runnable.class);
+        verify(scheduler).runTask(eq(plugin), completion.capture());
+        verify(dataManager).getPublishedCache(USER_UUID);
+        verify(apiRewards, never()).giveReward(eq(user), eq(rewardData),
+                eq(REWARD_PATH), any(RewardOptions.class));
+
+        completion.getValue().run();
+        verify(apiRewards).giveReward(eq(user), eq(rewardData),
+                eq(REWARD_PATH), any(RewardOptions.class));
+    }
+
+    @Test
+    void inlineFallbackWithOwnerSchedulesEntityCompletion() throws Exception {
+        when(dataManager.hasSharedSqlBackend()).thenReturn(true);
+        when(dataManager.getPublishedCache(USER_UUID)).thenReturn(mock(UserDataCache.class));
+        Player owner = mock(Player.class);
+        when(owner.getUniqueId()).thenReturn(USER_UUID);
+        when(votingUsers.getVotingPluginUser(owner)).thenReturn(user);
+        when(votingUsers.getAllUUIDs()).thenReturn(new ArrayList<>());
+        bukkit.when(Bukkit::getOnlinePlayers).thenReturn(Collections.singletonList(owner));
+        BukkitScheduler scheduler = mock(BukkitScheduler.class);
+        when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+
+        dispatch("giveAllPlayers", null);
+        org.mockito.ArgumentCaptor<Runnable> completion =
+                org.mockito.ArgumentCaptor.forClass(Runnable.class);
+        verify(scheduler).runTask(eq(plugin), completion.capture(), eq(owner));
+        verify(apiRewards, never()).giveReward(eq(user), eq(rewardData),
+                eq(REWARD_PATH), any(RewardOptions.class));
+
+        completion.getValue().run();
+        verify(apiRewards).giveReward(eq(user), eq(rewardData),
+                eq(REWARD_PATH), any(RewardOptions.class));
+    }
+
+    @Test
+    void deferredCompletionWithUnknownOwnerReschedulesToOnlineEntity() throws Exception {
+        when(dataManager.hasSharedSqlBackend()).thenReturn(true);
+        when(dataManager.getPublishedCache(USER_UUID)).thenReturn(mock(UserDataCache.class));
+        Deferred deferred = deferSharedRead();
+        Player online = mock(Player.class);
+        BukkitScheduler scheduler = mock(BukkitScheduler.class);
+        when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+
+        dispatch("giveVotedPlayers", null);
+        assertEquals(Integer.valueOf(0), deferred.work.get());
+        bukkit.when(() -> Bukkit.getPlayer(USER_UUID)).thenReturn(online);
+        deferred.success.accept(0);
+
+        org.mockito.ArgumentCaptor<Runnable> ownerTask =
+                org.mockito.ArgumentCaptor.forClass(Runnable.class);
+        verify(scheduler).runTask(eq(plugin), ownerTask.capture(), eq(online));
+        verify(apiRewards, never()).giveReward(eq(user), eq(rewardData),
+                eq(REWARD_PATH), any(RewardOptions.class));
+        ownerTask.getValue().run();
+        verify(apiRewards).giveReward(eq(user), eq(rewardData),
                 eq(REWARD_PATH), any(RewardOptions.class));
     }
 
