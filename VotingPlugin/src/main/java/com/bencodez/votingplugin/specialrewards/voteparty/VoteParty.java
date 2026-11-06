@@ -244,6 +244,12 @@ public class VoteParty implements Listener {
 	 */
 	public void giveRewards(VotingPluginUser orgUser, boolean forceBungee) {
 		rewardHandler.giveRewards(orgUser, forceBungee);
+		// Shared-MySQL recipients capture their vote eligibility on AdvancedCore's
+		// ordered storage worker. Queue the counter wipe behind those reads so a
+		// deferred reward cannot see the already-reset VotePartyVotes column.
+		com.bencodez.advancedcore.api.user.usercache.UserDataManager manager =
+				plugin.getUserManager().getDataManager();
+		if (manager != null && manager.deferSharedStorageWork(() -> reset(false))) return;
 		reset(false);
 	}
 
