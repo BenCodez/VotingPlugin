@@ -90,6 +90,7 @@ public final class VotePartyRewardHandler {
 		}
 	}
 
+	/** Dispatch to every eligible user, preserving each online player's scheduler owner. */
 	private void giveAllPlayers(VotingPluginUser triggeringUser, boolean forceBungee) {
 		plugin.debug("Trying to give all players vote party");
 		ArrayList<String> alreadyGiven = new ArrayList<>();
@@ -112,6 +113,7 @@ public final class VotePartyRewardHandler {
 		}
 	}
 
+	/** Dispatch to users recorded for this party before its voter list is reset. */
 	private void giveVotedPlayers(VotingPluginUser triggeringUser, boolean forceBungee) {
 		plugin.debug("Trying to give all voted players vote party");
 		plugin.debug(ArrayUtils.makeStringList(voteParty.getVotedUsers()));
@@ -128,6 +130,7 @@ public final class VotePartyRewardHandler {
 		}
 	}
 
+	/** Resolve a recipient without forcing an uncached SQL read for shared storage. */
 	private VotingPluginUser resolveUser(VotingPluginUser triggeringUser, UUID uuid, Player onlinePlayer) {
 		VotingPluginUser user = triggeringUser != null && triggeringUser.getJavaUUID().equals(uuid)
 				? triggeringUser
@@ -144,11 +147,18 @@ public final class VotePartyRewardHandler {
 		return user;
 	}
 
+	/** Returns the active shared SQL manager or null for nonshared storage. */
 	private UserDataManager sharedDataManager() {
 		UserDataManager manager = plugin.getUserManager().getDataManager();
 		return manager != null && manager.hasSharedSqlBackend() ? manager : null;
 	}
 
+	/**
+	 * Capture shared SQL reward eligibility on AdvancedCore's storage worker.
+	 * This must finish before the VoteParty counter wipe is enqueued on that worker.
+	 * A caller running on a platform thread must not check even a published cache
+	 * directly because checking publication takes the cache's synchronized monitor.
+	 */
 	private void giveRewardWhenLoaded(VotingPluginUser user, boolean forceBungee, Player callbackOwner) {
 		UserDataManager manager = sharedDataManager();
 		if (manager == null) {
@@ -156,10 +166,6 @@ public final class VotePartyRewardHandler {
 			return;
 		}
 		UUID uuid = user.getJavaUUID();
-		if (manager.getPublishedCache(uuid) != null) {
-			voteParty.giveReward(user, forceBungee);
-			return;
-		}
 
 		// VoteParty clears per-user counters and updates the last-party timestamp
 		// after dispatch. Capture these decisions before that reset, not when the
@@ -176,13 +182,23 @@ public final class VotePartyRewardHandler {
 			return userVotesRequired > 0 ? user.getVotePartyVotes() : 0;
 		};
 		Consumer<Integer> success = votes -> {
-			if (votes == null || manager.getPublishedCache(uuid) == null) {
+			if (votes == null) {
 				plugin.getLogger().warning("VoteParty reward not sent: shared user data is unavailable for " + uuid);
 				return;
 			}
-			if (votes >= userVotesRequired) {
-				// This eligibility was checked before reset; don't re-read reset counters.
-				givePreparedReward(user, user.isOnline(), forceBungee, firstPartyToday);
+			if (votes < userVotesRequired) return;
+
+			// Eligibility was captured on the storage worker before reset. Do not
+			// re-read the cache on a platform thread or re-check reset counters.
+			Runnable deliver = () -> givePreparedReward(user, user.isOnline(), forceBungee, firstPartyToday);
+			if (callbackOwner != null) {
+				deliver.run();
+			} else {
+				// A worker-originated vote has no captured Player. Its completion is
+				// on the global platform scheduler; discover a live owner there.
+				Player online = Bukkit.getPlayer(uuid);
+				if (online == null) deliver.run();
+				else plugin.getBukkitScheduler().runTask(plugin, deliver, online);
 			}
 		};
 		Consumer<Throwable> failure = error -> plugin.getLogger()
