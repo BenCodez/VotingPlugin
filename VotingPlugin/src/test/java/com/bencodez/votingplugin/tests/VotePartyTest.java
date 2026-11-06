@@ -211,6 +211,8 @@ public class VotePartyTest {
 		voteParty.giveRewards(user, false);
 
 		verify(handler).giveRewards(user, false);
+		// Voter-list state clears immediately; only the SQL counter wipe is deferred.
+		verify(plugin.getServerData()).setStringList(eq("VoteParty.Voted"), any());
 		org.junit.jupiter.api.Assertions.assertNotNull(queuedReset.get());
 		verify(plugin.getUserManager(), never()).removeAllKeyValues("VotePartyVotes", DataType.INTEGER);
 
