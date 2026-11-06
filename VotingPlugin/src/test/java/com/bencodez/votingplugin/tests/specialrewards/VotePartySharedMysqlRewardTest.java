@@ -1,14 +1,15 @@
 package com.bencodez.votingplugin.tests.specialrewards;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -29,16 +30,21 @@ import java.util.logging.Logger;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
+import org.mockito.ArgumentCaptor;
 
 import com.bencodez.advancedcore.api.user.UserDataFetchMode;
+import com.bencodez.advancedcore.api.rewards.RewardHandler;
+import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.advancedcore.api.user.usercache.UserDataCache;
 import com.bencodez.advancedcore.api.user.usercache.UserDataManager;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.config.SpecialRewardsConfig;
+import com.bencodez.votingplugin.data.ServerData;
 import com.bencodez.votingplugin.specialrewards.voteparty.VoteParty;
 import com.bencodez.votingplugin.specialrewards.voteparty.VotePartyRewardHandler;
 import com.bencodez.votingplugin.user.UserManager;
@@ -46,6 +52,7 @@ import com.bencodez.votingplugin.user.VotingPluginUser;
 
 class VotePartySharedMysqlRewardTest {
     private static final UUID USER_UUID = UUID.fromString("76b1476f-c0a1-4ab6-b44a-92908a9c7ccb");
+    private static final String REWARD_PATH = "VoteParty.Rewards";
 
     private VotingPluginMain plugin;
     private UserDataManager dataManager;
@@ -54,6 +61,10 @@ class VotePartySharedMysqlRewardTest {
     private VoteParty voteParty;
     private VotePartyRewardHandler rewardHandler;
     private Logger logger;
+    private ServerData serverData;
+    private RewardHandler apiRewards;
+    private YamlConfiguration rewardData;
+    private SpecialRewardsConfig config;
     private MockedStatic<Bukkit> bukkit;
 
     @BeforeEach
@@ -66,17 +77,25 @@ class VotePartySharedMysqlRewardTest {
         user = mock(VotingPluginUser.class);
         voteParty = mock(VoteParty.class);
         logger = mock(Logger.class);
-        SpecialRewardsConfig config = mock(SpecialRewardsConfig.class);
+        serverData = mock(ServerData.class);
+        apiRewards = mock(RewardHandler.class);
+        rewardData = new YamlConfiguration();
+        config = mock(SpecialRewardsConfig.class);
 
         when(plugin.getUserManager()).thenReturn(coreUsers);
         when(coreUsers.getDataManager()).thenReturn(dataManager);
         when(plugin.getVotingPluginUserManager()).thenReturn(votingUsers);
         when(plugin.getSpecialRewardsConfig()).thenReturn(config);
         when(plugin.getLogger()).thenReturn(logger);
+        when(plugin.getServerData()).thenReturn(serverData);
+        when(plugin.getRewardHandler()).thenReturn(apiRewards);
+        when(config.getData()).thenReturn(rewardData);
+        when(config.getVotePartyRewardsPath()).thenReturn(REWARD_PATH);
         when(config.isVotePartyGiveOnlinePlayersOnly()).thenReturn(true);
         when(voteParty.getVotedUsers()).thenReturn(Collections.singletonList(USER_UUID.toString()));
         when(votingUsers.getVotingPluginUser(USER_UUID, true)).thenReturn(user);
         when(user.getJavaUUID()).thenReturn(USER_UUID);
+        when(user.getPlugin()).thenReturn(plugin);
         when(user.isOnline()).thenReturn(true);
 
         bukkit = mockStatic(Bukkit.class);
@@ -106,13 +125,18 @@ class VotePartySharedMysqlRewardTest {
         verify(user, never()).userDataFetechMode(UserDataFetchMode.NO_CACHE);
         verify(voteParty, never()).giveReward(user, false);
 
-        assertTrue(deferred.work.get());
+        assertEquals(Integer.valueOf(0), deferred.work.get());
         verify(dataManager).cacheUser(USER_UUID, null);
         verify(dataManager, never()).cacheUserIfNeeded(USER_UUID);
         verify(voteParty, never()).giveReward(user, false);
 
-        deferred.success.accept(true);
-        verify(voteParty).giveReward(user, false);
+        // The party timestamp changes after handler dispatch, before a queued callback.
+        when(serverData.isLastVotePartySameDay()).thenReturn(true);
+        deferred.success.accept(0);
+        ArgumentCaptor<RewardOptions> options = ArgumentCaptor.forClass(RewardOptions.class);
+        verify(apiRewards).giveReward(eq(user), eq(rewardData), eq(REWARD_PATH), options.capture());
+        assertEquals("true", options.getValue().getPlaceholders().get("FirstVotePartyToday"));
+        verify(voteParty, never()).giveReward(user, false);
     }
 
     @Test
@@ -160,12 +184,56 @@ class VotePartySharedMysqlRewardTest {
 
         dispatch("giveVotedPlayers", null);
 
-        assertFalse(deferred.work.get());
+        assertNull(deferred.work.get());
         verify(dataManager).cacheUser(USER_UUID, null);
-        deferred.success.accept(false);
+        deferred.success.accept(null);
 
         verify(voteParty, never()).giveReward(user, false);
         verify(logger).warning(contains("VoteParty reward not sent"));
+    }
+
+    @Test
+    void perUserVoteThresholdIsEvaluatedBeforeCountersReset() throws Exception {
+        when(dataManager.hasSharedSqlBackend()).thenReturn(true);
+        when(config.getVotePartyUserVotesRequired()).thenReturn(2);
+        when(user.getVotePartyVotes()).thenReturn(2);
+        AtomicReference<UserDataCache> published = new AtomicReference<>();
+        when(dataManager.getPublishedCache(USER_UUID)).thenAnswer(call -> published.get());
+        doAnswer(call -> {
+            published.set(mock(UserDataCache.class));
+            return null;
+        }).when(dataManager).cacheUser(eq(USER_UUID), isNull());
+        Deferred deferred = deferSharedRead();
+
+        dispatch("giveVotedPlayers", null);
+        assertEquals(Integer.valueOf(2), deferred.work.get());
+        when(user.getVotePartyVotes()).thenReturn(0); // VoteParty.resetUserCounts ran
+        deferred.success.accept(2);
+
+        verify(user, times(1)).getVotePartyVotes();
+        verify(apiRewards).giveReward(eq(user), eq(rewardData), eq(REWARD_PATH), any(RewardOptions.class));
+        verify(voteParty, never()).giveReward(user, false);
+    }
+
+    @Test
+    void ineligibleVoterIsNotRewardedAfterDeferredLoad() throws Exception {
+        when(dataManager.hasSharedSqlBackend()).thenReturn(true);
+        when(config.getVotePartyUserVotesRequired()).thenReturn(2);
+        when(user.getVotePartyVotes()).thenReturn(1);
+        AtomicReference<UserDataCache> published = new AtomicReference<>();
+        when(dataManager.getPublishedCache(USER_UUID)).thenAnswer(call -> published.get());
+        doAnswer(call -> {
+            published.set(mock(UserDataCache.class));
+            return null;
+        }).when(dataManager).cacheUser(eq(USER_UUID), isNull());
+        Deferred deferred = deferSharedRead();
+
+        dispatch("giveVotedPlayers", null);
+        assertEquals(Integer.valueOf(1), deferred.work.get());
+        deferred.success.accept(1);
+
+        verify(apiRewards, never()).giveReward(eq(user), eq(rewardData),
+                eq(REWARD_PATH), any(RewardOptions.class));
     }
 
     @Test
@@ -244,8 +312,8 @@ class VotePartySharedMysqlRewardTest {
     }
 
     private static final class Deferred {
-        private Supplier<Boolean> work;
-        private Consumer<Boolean> success;
+        private Supplier<Integer> work;
+        private Consumer<Integer> success;
         private Consumer<Throwable> failure;
     }
 }
