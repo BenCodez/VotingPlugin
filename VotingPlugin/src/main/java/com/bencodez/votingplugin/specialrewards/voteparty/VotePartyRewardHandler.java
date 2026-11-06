@@ -40,10 +40,15 @@ public final class VotePartyRewardHandler {
 	}
 
 	public void giveReward(VotingPluginUser user, boolean online, boolean useBungee) {
+		givePreparedReward(user, online, useBungee, !plugin.getServerData().isLastVotePartySameDay());
+	}
+
+	private void givePreparedReward(VotingPluginUser user, boolean online, boolean useBungee,
+			boolean firstVotePartyToday) {
 		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
 				plugin.getSpecialRewardsConfig().getVotePartyRewardsPath()).setOnline(online)
 				.withPlaceHolder("VotesRequired", "" + plugin.getSpecialRewardsConfig().getVotePartyVotesRequired())
-				.withPlaceHolder("FirstVotePartyToday", "" + !plugin.getServerData().isLastVotePartySameDay())
+				.withPlaceHolder("FirstVotePartyToday", "" + firstVotePartyToday)
 				.setServer(useBungee).send(user);
 	}
 
@@ -151,18 +156,29 @@ public final class VotePartyRewardHandler {
 			return;
 		}
 
-		// A cache entry may be an *unpublished* placeholder. cacheUserIfNeeded() only
-		// checks map membership and would incorrectly treat that placeholder as ready.
-		Supplier<Boolean> populate = () -> {
+		// VoteParty clears per-user counters and updates the last-party timestamp
+		// after dispatch. Capture these decisions before that reset, not when the
+		// deferred reward finally runs on the player scheduler.
+		final boolean firstPartyToday = !plugin.getServerData().isLastVotePartySameDay();
+		final int userVotesRequired = plugin.getSpecialRewardsConfig().getVotePartyUserVotesRequired();
+
+		// A mapped cache entry can still be an *unpublished* placeholder, so
+		// cacheUserIfNeeded() alone would not make reward placeholders safe to read.
+		Supplier<Integer> populate = () -> {
 			if (manager.getPublishedCache(uuid) == null) manager.cacheUser(uuid, null);
-			return manager.getPublishedCache(uuid) != null;
+			if (manager.getPublishedCache(uuid) == null) return null;
+			// Read eligibility on the storage worker, before VoteParty resets counters.
+			return userVotesRequired > 0 ? user.getVotePartyVotes() : 0;
 		};
-		Consumer<Boolean> success = ready -> {
-			if (!Boolean.TRUE.equals(ready) || manager.getPublishedCache(uuid) == null) {
+		Consumer<Integer> success = votes -> {
+			if (votes == null || manager.getPublishedCache(uuid) == null) {
 				plugin.getLogger().warning("VoteParty reward not sent: shared user data is unavailable for " + uuid);
 				return;
 			}
-			voteParty.giveReward(user, forceBungee);
+			if (votes >= userVotesRequired) {
+				// This eligibility was checked before reset; don't re-read reset counters.
+				givePreparedReward(user, user.isOnline(), forceBungee, firstPartyToday);
+			}
 		};
 		Consumer<Throwable> failure = error -> plugin.getLogger()
 				.warning("Failed to load shared user data for VoteParty reward " + uuid + ": " + error);
@@ -172,7 +188,7 @@ public final class VotePartyRewardHandler {
 
 			// Called from a non-platform worker: storage reads are safe here, but reward
 			// effects still need the Bukkit/Folia scheduler.
-			Boolean ready = populate.get();
+			Integer ready = populate.get();
 			if (callbackOwner != null) {
 				plugin.getBukkitScheduler().runTask(plugin, () -> success.accept(ready), callbackOwner);
 			} else {
