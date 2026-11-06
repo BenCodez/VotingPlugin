@@ -118,7 +118,12 @@ public final class VotePartyRewardHandler {
 		for (String uuid : voteParty.getVotedUsers()) {
 			VotingPluginUser user = resolveUser(triggeringUser, UUID.fromString(uuid), null);
 			if (!plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayersOnly() || user.isOnline()) {
-				giveRewardWhenLoaded(user, forceBungee, Bukkit.getPlayer(user.getJavaUUID()));
+				// Capture a live player only on a platform-owned thread. The vote path
+				// can also originate from a storage worker, where Bukkit lookups are unsafe.
+				UserDataManager manager = sharedDataManager();
+				Player owner = manager != null && manager.isPlatformOwnedThread()
+						? Bukkit.getPlayer(user.getJavaUUID()) : null;
+				giveRewardWhenLoaded(user, forceBungee, owner);
 			}
 		}
 	}
