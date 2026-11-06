@@ -265,6 +265,7 @@ class VotePartySharedMysqlRewardTest {
     @Test
     void votedOnlinePlayerUsesOwnerSchedulerForCompletion() throws Exception {
         when(dataManager.hasSharedSqlBackend()).thenReturn(true);
+        when(dataManager.isPlatformOwnedThread()).thenReturn(true);
         Player owner = mock(Player.class);
         bukkit.when(() -> Bukkit.getPlayer(USER_UUID)).thenReturn(owner);
         deferSharedRead();
@@ -272,6 +273,19 @@ class VotePartySharedMysqlRewardTest {
         dispatch("giveVotedPlayers", null);
 
         verify(dataManager).deferSharedStorageResult(any(), any(), any(), eq(owner));
+        verify(voteParty, never()).giveReward(user, false);
+    }
+
+    @Test
+    void storageWorkerDoesNotLookUpBukkitPlayerForVotedRecipients() throws Exception {
+        when(dataManager.hasSharedSqlBackend()).thenReturn(true);
+        when(dataManager.isPlatformOwnedThread()).thenReturn(false);
+        deferSharedRead();
+
+        dispatch("giveVotedPlayers", null);
+
+        bukkit.verify(() -> Bukkit.getPlayer(USER_UUID), never());
+        verify(dataManager).deferSharedStorageResult(any(), any(), any(), isNull());
         verify(voteParty, never()).giveReward(user, false);
     }
 
