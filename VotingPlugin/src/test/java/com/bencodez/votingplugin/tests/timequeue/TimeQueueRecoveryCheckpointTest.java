@@ -25,6 +25,34 @@ class TimeQueueRecoveryCheckpointTest {
     @TempDir Path directory;
 
     @Test
+    void occurrenceIdentitySurvivesCheckpointRestartAndDispatch() throws Exception {
+        Path path = directory.resolve("date-occurrence.yml");
+        Fixture first = new Fixture(path);
+        UUID occurrence = UUID.randomUUID();
+        long receivedAt = 1_700_000_000_123L;
+        first.handler.addVote("Player", "site", receivedAt, occurrence);
+        first.handler.save();
+        assertEquals(occurrence.toString(), first.stored().getString("VotingPlugin.TimedVoteCache.0.LocalOccurrenceId"));
+        assertEquals(receivedAt, first.stored().getLong("VotingPlugin.TimedVoteCache.0.CanonicalOccurrenceTime"));
+
+        Fixture restarted = new Fixture(path);
+        var events = restarted.plugin.getServer().getPluginManager();
+        doAnswer(call -> {
+            PlayerVoteEvent event = call.getArgument(0);
+            assertEquals(occurrence, event.getLocalOccurrenceId());
+            assertEquals(receivedAt, event.getCanonicalOccurrenceTime());
+            var inFlight = restarted.stored().getConfigurationSection("VotingPlugin.UncertainTimedVotes");
+            String key = inFlight.getKeys(false).iterator().next();
+            assertEquals(occurrence.toString(), inFlight.getString(key + ".LocalOccurrenceId"));
+            assertEquals(receivedAt, inFlight.getLong(key + ".CanonicalOccurrenceTime"));
+            return null;
+        }).when(events).callEvent(any());
+        restarted.handler.processQueue();
+        verify(events, times(1)).callEvent(any());
+        assertTrue(new Fixture(path).names().isEmpty());
+    }
+
+    @Test
     void stoppingDuringPreparationRestoresTheUndispatchedVoteForActualRestartRecovery() throws Exception {
         Fixture fixture = new Fixture(directory.resolve("aborted-preparation.yml"));
         fixture.handler.addVote("First", "site");

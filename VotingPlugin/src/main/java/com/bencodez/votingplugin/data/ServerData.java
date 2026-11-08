@@ -270,6 +270,8 @@ public class ServerData {
 			getData().set("TimedVoteCache." + num + ".Name", vote.getName());
 			getData().set("TimedVoteCache." + num + ".Service", vote.getService());
 			getData().set("TimedVoteCache." + num + ".Time", vote.getTime());
+			getData().set("TimedVoteCache." + num + ".LocalOccurrenceId", vote.getLocalOccurrenceId() == null ? null : vote.getLocalOccurrenceId().toString());
+			getData().set("TimedVoteCache." + num + ".CanonicalOccurrenceTime", vote.getCanonicalOccurrenceTime() == 0L ? null : vote.getCanonicalOccurrenceTime());
 			saveTimedVoteCache();
 		});
 	}
@@ -284,6 +286,14 @@ public class ServerData {
 			setVoteShopPurchases(ident, (getVoteShopPurchases(ident) + 1));
 		});
 	}
+
+    /** Assign a legacy local cache row its identity before replay is scheduled. */
+    public void setTimedVoteLocalOccurrenceId(String key, UUID occurrenceId) {
+        mutateData(() -> {
+            getData().set("TimedVoteCache." + key + ".LocalOccurrenceId", occurrenceId.toString());
+            saveTimedVoteCache();
+        });
+    }
 
 	/**
 	 * Clears the timed vote cache.
@@ -676,6 +686,8 @@ public class ServerData {
 		fields.put("Name", vote.getName());
 		fields.put("Service", vote.getService());
 		fields.put("Time", vote.getTime());
+		if (vote.getLocalOccurrenceId() != null) fields.put("LocalOccurrenceId", vote.getLocalOccurrenceId().toString());
+		if (vote.getCanonicalOccurrenceTime() != 0L) fields.put("CanonicalOccurrenceTime", vote.getCanonicalOccurrenceTime());
 		return fields;
 	}
 
@@ -686,6 +698,8 @@ public class ServerData {
 			getData().set(path + ".Name", vote.getName());
 			getData().set(path + ".Service", vote.getService());
 			getData().set(path + ".Time", vote.getTime());
+			getData().set(path + ".LocalOccurrenceId", vote.getLocalOccurrenceId() == null ? null : vote.getLocalOccurrenceId().toString());
+			getData().set(path + ".CanonicalOccurrenceTime", vote.getCanonicalOccurrenceTime() == 0L ? null : vote.getCanonicalOccurrenceTime());
 			saveTimedVoteCache();
 		});
 	}

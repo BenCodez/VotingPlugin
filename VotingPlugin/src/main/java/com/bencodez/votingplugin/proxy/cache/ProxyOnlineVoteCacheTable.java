@@ -132,6 +132,8 @@ public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
 			return;
 		}
 
+		newText = com.bencodez.votingplugin.proxy.VoteOccurrenceMetadata.preserve(vote.getText(), newText);
+
 		String sql = "UPDATE " + qi(getTableName()) + " SET " + qi("text") + " = ?" + " WHERE " + qi("uuid")
 				+ " = ? AND " + qi("service") + " = ? AND " + qi("time") + " = ?;";
 

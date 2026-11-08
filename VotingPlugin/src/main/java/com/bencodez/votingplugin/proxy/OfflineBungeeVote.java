@@ -40,6 +40,19 @@ public class OfflineBungeeVote {
 	@Getter
 	@Setter
 	private String text;
+
+	public long getCanonicalOccurrenceTime() {
+		Long original = VoteOccurrenceMetadata.read(text);
+		return original == null ? 0L : original;
+	}
+
+	public void setCanonicalOccurrenceTime(long occurredAt) {
+		text = VoteOccurrenceMetadata.store(text, occurredAt);
+	}
+
+	public void setText(String updated) {
+		text = VoteOccurrenceMetadata.preserve(text, updated);
+	}
 	@Getter
 	private long time;
 	@Getter

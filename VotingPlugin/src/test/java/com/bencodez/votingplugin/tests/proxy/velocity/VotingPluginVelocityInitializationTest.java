@@ -221,6 +221,22 @@ class VotingPluginVelocityInitializationTest {
 	}
 
 	@Test
+	void capturedReceiptIsPassedSeparatelyFromNormalProcessingTime() throws Exception {
+		VotingPluginVelocity plugin = mock(VotingPluginVelocity.class, org.mockito.Mockito.CALLS_REAL_METHODS);
+		VotingPluginProxy runtime = mock(VotingPluginProxy.class);
+		setField(plugin, "reloadLock", new Object());
+		setField(plugin, "votingPluginProxy", runtime);
+		setField(plugin, "runtimeOperational", true);
+		java.util.UUID voteId = java.util.UUID.randomUUID();
+		long receivedAt = 1_609_459_199_999L;
+		assertSame(IncomingVoteRuntimeResult.PROCESSED,
+				plugin.processIncomingVote("TestPlayer", "synthetic-service", voteId, receivedAt));
+		verify(runtime).vote("TestPlayer", "synthetic-service", true, false, 0,
+				null, null, voteId, receivedAt);
+		org.mockito.Mockito.verifyNoMoreInteractions(runtime);
+	}
+
+	@Test
 	void liveVoteAdmissionIsFencedToThePublishedRuntime(@TempDir Path dataDirectory) throws Exception {
 		VotingPluginVelocity plugin = new VotingPluginVelocity(mock(ProxyServer.class), mock(Logger.class),
 				mock(Metrics.Factory.class), dataDirectory);
@@ -366,7 +382,7 @@ class VotingPluginVelocityInitializationTest {
 				.snapshot().get(0);
 		task.get().run();
 
-		verify(runtime).vote("Player", "Service", true, false, 0, null, null, pending.getVoteId());
+		verify(runtime).vote("Player", "Service", true, false, 0, null, null, pending.getVoteId(), pending.getAcceptedAt());
 		assertEquals(0, ((PendingIncomingVoteQueue) getField(plugin, "pendingIncomingVotes")).size());
 	}
 
@@ -401,7 +417,7 @@ class VotingPluginVelocityInitializationTest {
 		assertTrue(((PendingIncomingVoteQueue) getField(plugin, "pendingIncomingVotes")).contains(pending.getVoteId()));
 		setField(plugin, "reloading", false);
 		retry.get().run();
-		verify(runtime).vote("Player", "Service", true, false, 0, null, null, pending.getVoteId());
+		verify(runtime).vote("Player", "Service", true, false, 0, null, null, pending.getVoteId(), pending.getAcceptedAt());
 		assertEquals(0, ((PendingIncomingVoteQueue) getField(plugin, "pendingIncomingVotes")).size());
 	}
 

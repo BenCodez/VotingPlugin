@@ -731,6 +731,51 @@ class VotingPluginProxyPacingTest {
     }
 
     @Test
+    void delayedLiveReceiptUsesCapturedDateTimeWithoutBackdatingCooldown(@TempDir Path directory) throws Exception {
+        CapturingProxy proxy = new CapturingProxy(directory);
+        enableLiveBroadcasts(proxy);
+        UUID id = new UUID(2, 6007);
+        long receivedAt = 1_609_459_199_999L;
+        long processingStarted = System.currentTimeMillis();
+        assertDoesNotThrow(() -> proxy.vote("Synthetic", "synthetic-service", true, false,
+                0L, null, new UUID(1, 6007).toString(), id, receivedAt));
+        proxy.time.advance(TimeUnit.SECONDS.toNanos(6));
+        var delivered = proxy.handoffs.stream().filter(h -> VotingPluginWire.SUB_VOTE_ONLINE
+                .equals(h.envelope().getSubChannel()) || VotingPluginWire.SUB_VOTE.equals(h.envelope().getSubChannel())).toList();
+        assertFalse(delivered.isEmpty());
+        for (var handoff : delivered) {
+            assertEquals(Long.toString(receivedAt), handoff.envelope().getFields()
+                    .get(VotingPluginWire.K_CANONICAL_OCCURRENCE_TIME));
+            assertTrue(Long.parseLong(handoff.envelope().getFields().get(VotingPluginWire.K_TIME)) >= processingStarted);
+        }
+        proxy.closeDispatcher();
+    }
+
+    @Test
+    void unprocessedIncomingReceiptPreservesOriginalTimeThroughDurableRestart(@TempDir Path directory) throws Exception {
+        CapturingProxy proxy = new CapturingProxy(directory);
+        UUID id = new UUID(2, 507);
+        long receivedAt = 1_609_459_199_999L;
+        PendingIncomingVote pending = new PendingIncomingVote(id, "TestPlayer", "synthetic-service", receivedAt);
+        var recovery = proxy.snapshotIncomingVoteForRestart(pending);
+        assertEquals(receivedAt, recovery.getCanonicalOccurrenceTime());
+        assertEquals(receivedAt, recovery.getTime());
+        assertFalse(recovery.isTotalsApplied());
+        assertFalse(recovery.isVotePartyApplied());
+        assertTrue(proxy.cache.addTimeVoteToCache(recovery));
+        proxy.closeDispatcher();
+        CapturingProxy restarted = new CapturingProxy(directory);
+        restarted.cache.load();
+        var restored = restarted.cache.getTimeChangeQueue().peek();
+        assertNotNull(restored);
+        assertEquals(id, restored.getVoteId());
+        assertEquals(receivedAt, restored.getCanonicalOccurrenceTime());
+        assertFalse(restored.isTotalsApplied());
+        assertFalse(restored.isVotePartyApplied());
+        restarted.closeDispatcher();
+    }
+
+    @Test
     void existingTimedQueuePersistsAcceptedRewardBeforeLaterWorkFails(@TempDir Path directory) throws Exception {
         CapturingProxy proxy = new CapturingProxy(directory);
         enableLiveBroadcasts(proxy);

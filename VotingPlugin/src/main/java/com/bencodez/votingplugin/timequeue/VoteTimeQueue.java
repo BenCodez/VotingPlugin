@@ -30,6 +30,10 @@ public class VoteTimeQueue {
 	@Getter
 	@Setter
 	private UUID voteId;
+	/** Local Bukkit receipt identity; never used as a proxy transport vote ID. */
+	@Getter
+	@Setter
+	private UUID localOccurrenceId;
 	/** SQL primary key for a legacy timed-cache row, or {@code -1} when not SQL-backed. */
 	@Getter
 	@Setter
@@ -47,6 +51,19 @@ public class VoteTimeQueue {
 	@Getter
 	@Setter
 	private String totals;
+
+	public long getCanonicalOccurrenceTime() {
+		Long original = com.bencodez.votingplugin.proxy.VoteOccurrenceMetadata.read(totals);
+		return original == null ? 0L : original;
+	}
+
+	public void setCanonicalOccurrenceTime(long time) {
+		totals = com.bencodez.votingplugin.proxy.VoteOccurrenceMetadata.store(totals, time);
+	}
+
+	public void setTotals(String updated) {
+		totals = com.bencodez.votingplugin.proxy.VoteOccurrenceMetadata.preserve(totals, updated);
+	}
 	@Getter
 	@Setter
 	private boolean processed;
