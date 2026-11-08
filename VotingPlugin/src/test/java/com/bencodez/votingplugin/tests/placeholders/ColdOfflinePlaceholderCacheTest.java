@@ -499,6 +499,158 @@ class ColdOfflinePlaceholderCacheTest {
         }
     }
 
+    @Test void publicCallbackAdditionAmbiguityCannotPublishAnUnrelatedRefill() throws Exception { assertPublicArithmeticAmbiguity("callback"); }
+    @Test void publicStageAdditionAmbiguityCannotPublishAnUnrelatedRefill() throws Exception { assertPublicArithmeticAmbiguity("stage"); }
+    @Test void publicLegacyAdditionAmbiguityCannotPublishAnUnrelatedRefill() throws Exception { assertPublicArithmeticAmbiguity("add"); }
+    @Test void publicLegacyDebitAmbiguityCannotPublishAnUnrelatedRefill() throws Exception { assertPublicArithmeticAmbiguity("remove"); }
+    @Test void publicVoteCapAmbiguityCannotPublishAnUnrelatedRefill() throws Exception { assertPublicArithmeticAmbiguity("cap"); }
+    @Test void publicVoteAddAndCapAmbiguityCannotPublishAnUnrelatedRefill() throws Exception { assertPublicArithmeticAmbiguity("addcap"); }
+
+    @Test void confirmedPublicArithmeticPublishesTheReconciledSnapshot() throws Exception { assertPublicArithmeticPhase("confirmed"); }
+    @Test void rejectedPublicArithmeticPublishesTheReconciledSnapshot() throws Exception { assertPublicArithmeticPhase("rejected"); }
+    @Test void preparationFailureRemainsRecoverableAcrossPublicArithmetic() throws Exception { assertPublicArithmeticPhase("prepare"); }
+    @Test void runtimeExecutionFailureRemainsUnavailableAcrossPublicArithmetic() throws Exception { assertPublicArithmeticPhase("runtime"); }
+
+    @Test void rejectedPublicArithmeticAdmissionRecoversWithoutSqlOrRetry() throws Exception { assertPublicArithmeticPhase("admission"); }
+    @Test void stoppedPublicArithmeticCannotReopenNumericPublication() throws Exception { assertPublicArithmeticPhase("shutdown"); }
+
+    @Test void callbackCacheAdmissionFailureCanRecoverWithoutPointExecution() throws Exception { assertPublicArithmeticOutcome("callback", "drain"); }
+    @Test void stageCacheAdmissionFailureCanRecoverWithoutPointExecution() throws Exception { assertPublicArithmeticOutcome("stage", "drain"); }
+    @Test void addCacheAdmissionFailureCanRecoverWithoutPointExecution() throws Exception { assertPublicArithmeticOutcome("add", "drain"); }
+    @Test void removeCacheAdmissionFailureCanRecoverWithoutPointExecution() throws Exception { assertPublicArithmeticOutcome("remove", "drain"); }
+    @Test void capCacheAdmissionFailureCanRecoverWithoutPointExecution() throws Exception { assertPublicArithmeticOutcome("cap", "drain"); }
+    @Test void addcapCacheAdmissionFailureCanRecoverWithoutPointExecution() throws Exception { assertPublicArithmeticOutcome("addcap", "drain"); }
+    @Test void priorUncertainPointWriteSurvivesCachePreparationFailure() throws Exception { assertPublicArithmeticPhase("drain-uncertain"); }
+
+    private void assertPublicArithmeticPhase(String phase) throws Exception {
+        for (String operation : List.of("callback", "stage", "add", "remove", "cap", "addcap")) {
+            assertPublicArithmeticOutcome(operation, phase);
+        }
+    }
+
+    private void assertPublicArithmeticAmbiguity(String operation) throws Exception {
+        assertPublicArithmeticOutcome(operation, "ambiguous");
+    }
+
+    private void assertPublicArithmeticOutcome(String operation, String phase) throws Exception {
+        Fixture f = new Fixture(PlaceholderCacheLevel.AUTOALL, "points");
+        when(f.plugin.getStorageType()).thenReturn(com.bencodez.advancedcore.api.user.UserStorage.MYSQL);
+        org.mockito.Mockito.doReturn(f.player).when(f.user).getPlayer();
+        var field = VotingPluginUser.class.getDeclaredField("plugin");
+        field.setAccessible(true);
+        field.set(f.user, f.plugin);
+        org.mockito.Mockito.doCallRealMethod().when(f.user).addPointsStorageAware(
+                org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.<java.util.function.BiConsumer<Boolean, Integer>>any());
+        var cache = new com.bencodez.advancedcore.api.user.usercache.UserDataCache(null, f.uuid);
+        cache.updateCache(new java.util.HashMap<>(java.util.Map.of("Points", new com.bencodez.simpleapi.sql.data.DataValueInt(20))));
+        when(f.user.getCache()).thenReturn(cache);
+        var manager = f.plugin.getUserManager().getDataManager();
+        when(manager.getUserDataCache()).thenReturn(new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(f.uuid, cache)));
+        doAnswer(call -> {
+            cache.updateCache(new java.util.HashMap<>(java.util.Map.of("Points", new com.bencodez.simpleapi.sql.data.DataValueInt(36))));
+            return null;
+        }).when(manager).cacheUser(f.uuid, null);
+        var connection = mock(java.sql.Connection.class);
+        var statement = mock(java.sql.PreparedStatement.class);
+        when(f.plugin.getMysql().getTableName()).thenReturn("SyntheticPoints");
+        when(f.plugin.getMysql().getMysql().getConnectionManager().getConnection()).thenReturn(connection);
+        when(connection.prepareStatement(anyString())).thenReturn(statement);
+        if (phase.equals("prepare")) {
+            when(connection.prepareStatement(anyString())).thenThrow(new java.sql.SQLException("synthetic prepare rejected"));
+        } else if (phase.equals("ambiguous")) {
+            when(statement.executeUpdate()).thenThrow(new java.sql.SQLException("synthetic lost update acknowledgement"));
+        } else if (phase.equals("runtime")) {
+            when(statement.executeUpdate()).thenThrow(new IllegalStateException("synthetic driver failure"));
+        } else {
+            when(statement.executeUpdate()).thenReturn(phase.equals("confirmed") || phase.equals("shutdown") ? 1 : 0);
+            var row = mock(java.sql.ResultSet.class);
+            when(row.next()).thenReturn(true);
+            when(row.getInt(1)).thenReturn(36);
+            when(statement.executeQuery()).thenReturn(row);
+        }
+        when(f.scheduler.getFoliaLib()).thenReturn(null);
+        doAnswer(call -> { ((Runnable) call.getArgument(1)).run(); return null; })
+                .when(f.scheduler).runTask(eq(f.plugin), any(Runnable.class), eq(f.player));
+        if (phase.equals("admission")) {
+            doThrow(new java.util.concurrent.RejectedExecutionException("synthetic full worker"))
+                    .when(f.timer).execute(any(Runnable.class));
+        }
+        var cacheWrites = new java.util.concurrent.atomic.AtomicInteger();
+        boolean drainFailure = phase.startsWith("drain");
+        if (drainFailure) {
+            // AC138's real exclusive cache gate rejects before its writer runs.
+            cache.configureSharedStorage(values -> cacheWrites.incrementAndGet(),
+                    task -> { throw new IllegalStateException("synthetic cache admission retired"); });
+            when(f.user.isCached()).thenReturn(true);
+            doAnswer(call -> { cache.clearCache(); return null; }).when(manager).removeCache(f.uuid, null);
+            if (phase.equals("drain-uncertain")) {
+                f.placeholders.beginSharedPointDebit(f.uuid);
+                f.placeholders.finishSharedPointDebit(f.uuid, false, false);
+            }
+        }
+        var callbacks = new ArrayList<Boolean>();
+        try (var bukkit = mockStatic(Bukkit.class)) {
+            bukkit.when(Bukkit::getPluginManager).thenReturn(mock(org.bukkit.plugin.PluginManager.class));
+            switch (operation) {
+                case "callback" -> f.user.addPointsStorageAware(16, (java.util.function.BiConsumer<Boolean, Integer>) (success, total) -> callbacks.add(success));
+                case "stage" -> {
+                    org.mockito.Mockito.doCallRealMethod().when(f.user).addPointsStorageAwareAsync(org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.isNull());
+                    f.user.addPointsStorageAwareAsync(16, null).whenComplete((total, failure) -> callbacks.add(failure == null));
+                }
+                case "add" -> {
+                    org.mockito.Mockito.doCallRealMethod().when(f.user).addPoints(org.mockito.ArgumentMatchers.anyInt(), eq(true));
+                    f.user.addPoints(16, true);
+                }
+                case "remove" -> {
+                    org.mockito.Mockito.doCallRealMethod().when(f.user).removePoints(org.mockito.ArgumentMatchers.anyInt(), eq(true));
+                    f.user.removePoints(16, true);
+                }
+                case "cap", "addcap" -> {
+                    when(f.plugin.getConfigFile().getPointsOnVote()).thenReturn(operation.equals("cap") ? 0 : 16);
+                    when(f.plugin.getConfigFile().getLimitVotePoints()).thenReturn(40);
+                    org.mockito.Mockito.doCallRealMethod().when(f.user).addPoints();
+                    f.user.addPoints();
+                }
+                default -> throw new AssertionError(operation);
+            }
+        }
+        verify(f.plugin.getMysql().getMysql().getConnectionManager(), never()).getConnection();
+        verify(statement, never()).executeUpdate();
+        if (phase.equals("admission")) {
+            assertTrue(f.pending.isEmpty());
+            doAnswer(call -> { f.pending.addLast(call.getArgument(0)); return null; })
+                    .when(f.timer).execute(any(Runnable.class));
+            assertEquals("...", f.request("points_nocache"));
+            assertEquals(1, f.pending.size(), "rejected admission permits one ordinary source-recovery worker");
+        }
+        if (phase.equals("shutdown")) when(f.plugin.isEnabled()).thenReturn(false);
+        boolean uncertain = phase.equals("ambiguous") || phase.equals("runtime") || phase.equals("drain-uncertain");
+        Runnable worker = f.pending.removeFirst();
+        if ((phase.equals("runtime") || drainFailure) && !operation.equals("callback") && !operation.equals("stage")) {
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class, worker::run);
+        } else worker.run();
+        assertEquals(operation.equals("callback") || operation.equals("stage") ? List.of(phase.equals("confirmed") || phase.equals("shutdown")) : List.of(), callbacks);
+        verify(statement, times(phase.equals("prepare") || phase.equals("admission") || drainFailure ? 0 : 1)).executeUpdate();
+        if (drainFailure) {
+            assertEquals(0, cacheWrites.get(), "actual AC138 cache writer was never admitted");
+            verify(f.plugin.getMysql().getMysql().getConnectionManager(), never()).getConnection();
+            assertEquals("...", f.request("points_nocache"));
+            if (!uncertain) {
+                assertEquals(1, f.pending.size(), "known pre-point failure must allow ordinary recovery");
+                f.pending.removeFirst().run();
+            }
+        }
+        if (operation.equals("stage") && !uncertain && !phase.equals("confirmed") && !phase.equals("admission") && !phase.equals("shutdown") && !drainFailure) {
+            assertEquals("...", f.request("points_nocache"), operation + "/" + phase);
+            assertEquals(1, f.pending.size(), "known failed stage recovers through the ordinary placeholder worker");
+            f.pending.removeFirst().run();
+        }
+        assertEquals(uncertain || phase.equals("shutdown") ? "..." : "36", f.request("points_nocache"), operation + "/" + phase);
+        f.placeholders.sharedPointRefillCompletion(f.uuid).accept(true);
+        assertEquals(uncertain || phase.equals("shutdown") ? "..." : "36", f.request("points_nocache"));
+        assertTrue(f.pending.isEmpty(), "no retry of an ambiguous addition");
+    }
+
     @Test void publicReplayAdditionClosesRenderingBeforeWorkerAdmission() throws Exception {
         Fixture f = new Fixture(PlaceholderCacheLevel.AUTOALL, "points");
         when(f.plugin.getStorageType()).thenReturn(com.bencodez.advancedcore.api.user.UserStorage.MYSQL);

@@ -21,6 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -42,6 +43,7 @@ import com.bencodez.simpleapi.sql.data.DataValueInt;
 import com.bencodez.simpleapi.sql.data.DataValueString;
 import com.bencodez.simpleapi.time.ParsedDuration;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.placeholders.PlaceHolders;
 import com.bencodez.votingplugin.events.PlayerReceivePointsEvent;
 import com.bencodez.votingplugin.events.PlayerSpecialRewardEvent;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
@@ -380,7 +382,9 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 							event.getPoints(), operationId, pointsColumn);
 					if (result.success()) completion.complete(result.total());
 					else completion.completeExceptionally(
-							new IllegalStateException("Unable to persist shared MySQL points"));
+							result.outcome() == SharedMysqlPointMutator.MutationOutcome.REJECTED
+							? new PointAdditionNotStartedException()
+							: new IllegalStateException("Unable to persist shared MySQL points"));
 				} catch (Throwable failure) {
 					completion.completeExceptionally(failure);
 				}
@@ -994,16 +998,34 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		}
 		Player player = getPlayer();
 		String pointsColumn = getPointsPath();
+		PlaceHolders placeholders = plugin.getPlaceholders();
+		Consumer<Boolean> admission = placeholders == null ? null
+				: placeholders.sharedPointAdmissionCompletion(UUID.fromString(getUUID()));
+		AtomicBoolean completed = new AtomicBoolean();
+		BiConsumer<Boolean, Integer> completeOnce = (success, total) -> {
+			if (completed.compareAndSet(false, true)) completion.accept(success, total);
+		};
 		try {
 			plugin.getTimer().execute(() -> {
-				SharedMysqlPointMutator.AddResult result = sharedPoints.addCommittedToColumn(this,
-						event.getPoints(), pointsColumn);
+				SharedMysqlPointMutator.AddResult result;
+				boolean settled = false;
+				try {
+					result = sharedPoints.addCommittedToColumn(this, event.getPoints(), pointsColumn);
+					settled = true;
+				} catch (RuntimeException failure) {
+					plugin.debug(failure);
+					result = new SharedMysqlPointMutator.AddResult(false, 0);
+				} finally {
+					if (admission != null) admission.accept(settled);
+				}
+				SharedMysqlPointMutator.AddResult outcome = result;
 				BukkitCompletionScheduler.run(plugin, player,
-						() -> completion.accept(result.success(), result.total()));
+						() -> completeOnce.accept(outcome.success(), outcome.total()));
 			});
 		} catch (RuntimeException rejected) {
+			if (admission != null) admission.accept(false);
 			plugin.debug(rejected);
-			BukkitCompletionScheduler.run(plugin, player, () -> completion.accept(false, 0));
+			BukkitCompletionScheduler.run(plugin, player, () -> completeOnce.accept(false, 0));
 		}
 	}
 
