@@ -244,7 +244,16 @@ public class VoteParty implements Listener {
 	 */
 	public void giveRewards(VotingPluginUser orgUser, boolean forceBungee) {
 		rewardHandler.giveRewards(orgUser, forceBungee);
-		reset(false);
+		// Clear this party's recipient list immediately, as before. Delaying it
+		// would risk wiping voters recorded for the next party.
+		setVotedUsers(new ArrayList<>());
+		// Shared-MySQL recipients capture eligibility on AdvancedCore's ordered
+		// storage worker. Only the persisted per-user counter wipe must run
+		// behind those reads; it must not overtake deferred eligibility checks.
+		com.bencodez.advancedcore.api.user.usercache.UserDataManager manager =
+				plugin.getUserManager().getDataManager();
+		if (manager != null && manager.deferSharedStorageWork(this::resetVotePartyCount)) return;
+		resetVotePartyCount();
 	}
 
 	/**
