@@ -19,6 +19,9 @@ import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.ArrayDeque;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.Collections;
 import java.util.UUID;
 import java.util.concurrent.RejectedExecutionException;
@@ -39,6 +42,7 @@ import org.mockito.MockedStatic;
 import org.mockito.ArgumentCaptor;
 
 import com.bencodez.advancedcore.api.user.UserDataFetchMode;
+import com.bencodez.advancedcore.api.misc.MiscUtils;
 import com.bencodez.advancedcore.api.rewards.RewardHandler;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.advancedcore.api.user.usercache.UserDataCache;
@@ -398,6 +402,169 @@ class VotePartySharedMysqlRewardTest {
         verify(user).userDataFetechMode(UserDataFetchMode.DEFAULT);
         verify(dataManager).deferSharedStorageResult(any(), any(), any(), eq(owner));
         verify(voteParty, never()).giveReward(user, false);
+    }
+
+    @Test
+    void sharedStoredRecipientEnumerationWaitsForStorageWorker() throws Exception {
+        when(dataManager.hasSharedSqlBackend()).thenReturn(true);
+        when(config.isVotePartyGiveOnlinePlayersOnly()).thenReturn(false);
+        AtomicReference<Runnable> enumerate = new AtomicReference<>();
+        when(dataManager.deferSharedStorageWork(any())).thenAnswer(call -> {
+            enumerate.set(call.getArgument(0));
+            return true;
+        });
+        when(votingUsers.getAllUUIDs()).thenReturn(new ArrayList<>());
+
+        dispatch("giveAllPlayers", null);
+
+        verify(votingUsers, never()).getAllUUIDs();
+        assertNotNull(enumerate.get());
+        enumerate.get().run();
+        verify(votingUsers).getAllUUIDs();
+    }
+
+    @Test
+    void onlineOnlyPartyNeverEnumeratesStoredUsers() throws Exception {
+        when(dataManager.hasSharedSqlBackend()).thenReturn(true);
+
+        dispatch("giveAllPlayers", null);
+
+        verify(votingUsers, never()).getAllUUIDs();
+        verify(dataManager, never()).deferSharedStorageWork(any());
+    }
+
+    @Test
+    void deferredStoredRecipientUsesPartyTimeMetadataAndPreResetEligibility() throws Exception {
+        when(dataManager.hasSharedSqlBackend()).thenReturn(true);
+        when(config.isVotePartyGiveOnlinePlayersOnly()).thenReturn(false);
+        when(config.getVotePartyUserVotesRequired()).thenReturn(2);
+        when(user.getVotePartyVotes()).thenReturn(2);
+        when(dataManager.getPublishedCache(USER_UUID)).thenReturn(mock(UserDataCache.class));
+        when(votingUsers.getAllUUIDs()).thenReturn(new ArrayList<>(Collections.singletonList(USER_UUID.toString())));
+        AtomicReference<Runnable> enumerate = new AtomicReference<>();
+        when(dataManager.deferSharedStorageWork(any())).thenAnswer(call -> {
+            enumerate.set(call.getArgument(0));
+            return true;
+        });
+        BukkitScheduler scheduler = mock(BukkitScheduler.class);
+        when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+
+        dispatch("giveAllPlayers", null);
+        // VoteParty.check updates this immediately after recipient admission.
+        when(serverData.isLastVotePartySameDay()).thenReturn(true);
+        when(config.getVotePartyUserVotesRequired()).thenReturn(3);
+        assertNotNull(enumerate.get());
+        enumerate.get().run();
+        when(user.getVotePartyVotes()).thenReturn(0);
+        ArgumentCaptor<Runnable> completion = ArgumentCaptor.forClass(Runnable.class);
+        verify(scheduler).runTask(eq(plugin), completion.capture());
+        completion.getValue().run();
+
+        ArgumentCaptor<RewardOptions> options = ArgumentCaptor.forClass(RewardOptions.class);
+        verify(apiRewards).giveReward(eq(user), eq(rewardData), eq(REWARD_PATH), options.capture());
+        assertEquals("true", options.getValue().getPlaceholders().get("FirstVotePartyToday"));
+        verify(user, times(1)).getVotePartyVotes();
+    }
+
+    @Test
+    void actualPartyEnumeratesAndChecksStoredRecipientsBeforeQueuedCounterReset() throws Exception {
+        when(dataManager.hasSharedSqlBackend()).thenReturn(true);
+        when(config.isVotePartyGiveAllPlayers()).thenReturn(true);
+        when(config.isVotePartyGiveOnlinePlayersOnly()).thenReturn(false);
+        when(config.getVotePartyUserVotesRequired()).thenReturn(2);
+        when(dataManager.getPublishedCache(USER_UUID)).thenReturn(mock(UserDataCache.class));
+        ArrayDeque<Runnable> storage = new ArrayDeque<>();
+        List<String> order = new ArrayList<>();
+        AtomicInteger votes = new AtomicInteger(2);
+        when(user.getVotePartyVotes()).thenAnswer(call -> {
+            order.add("eligibility");
+            return votes.get();
+        });
+        when(votingUsers.getAllUUIDs()).thenAnswer(call -> {
+            order.add("enumeration");
+            return new ArrayList<>(Collections.singletonList(USER_UUID.toString()));
+        });
+        when(dataManager.deferSharedStorageWork(any())).thenAnswer(call -> {
+            storage.add(call.getArgument(0));
+            return true;
+        });
+        com.bencodez.advancedcore.api.user.UserManager coreUsers = plugin.getUserManager();
+        doAnswer(call -> {
+            order.add("reset");
+            votes.set(0);
+            return null;
+        }).when(coreUsers).removeAllKeyValues(eq("VotePartyVotes"), any());
+        BukkitScheduler scheduler = mock(BukkitScheduler.class);
+        when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+        try (MockedStatic<MiscUtils> misc = mockStatic(MiscUtils.class)) {
+            misc.when(MiscUtils::getInstance).thenReturn(mock(MiscUtils.class));
+            new VoteParty(plugin).giveRewards(user, false);
+        }
+        assertEquals(2, storage.size());
+        assertEquals(Collections.emptyList(), order);
+        when(serverData.isLastVotePartySameDay()).thenReturn(true);
+        storage.remove().run();
+        assertEquals(List.of("enumeration", "eligibility"), order);
+        storage.remove().run();
+        assertEquals(List.of("enumeration", "eligibility", "reset"), order);
+        ArgumentCaptor<Runnable> completion = ArgumentCaptor.forClass(Runnable.class);
+        verify(scheduler).runTask(eq(plugin), completion.capture());
+        completion.getValue().run();
+        ArgumentCaptor<RewardOptions> options = ArgumentCaptor.forClass(RewardOptions.class);
+        verify(apiRewards).giveReward(eq(user), eq(rewardData), eq(REWARD_PATH), options.capture());
+        assertEquals("true", options.getValue().getPlaceholders().get("FirstVotePartyToday"));
+    }
+
+    @Test
+    void rejectedStoredEnumerationDoesNotRunInlineOrSendRewards() {
+        when(dataManager.hasSharedSqlBackend()).thenReturn(true);
+        when(config.isVotePartyGiveOnlinePlayersOnly()).thenReturn(false);
+        when(dataManager.deferSharedStorageWork(any()))
+                .thenThrow(new RejectedExecutionException("storage worker stopped"));
+
+        java.lang.reflect.InvocationTargetException failure = org.junit.jupiter.api.Assertions.assertThrows(
+                java.lang.reflect.InvocationTargetException.class, () -> dispatch("giveAllPlayers", null));
+        org.junit.jupiter.api.Assertions.assertInstanceOf(RejectedExecutionException.class, failure.getCause());
+        verify(votingUsers, never()).getAllUUIDs();
+        verify(apiRewards, never()).giveReward(eq(user), eq(rewardData), eq(REWARD_PATH), any(RewardOptions.class));
+    }
+
+    @Test
+    void storedEnumerationFailureIsNotRetriedOrTreatedAsEmptyRecipients() throws Exception {
+        when(dataManager.hasSharedSqlBackend()).thenReturn(true);
+        when(config.isVotePartyGiveOnlinePlayersOnly()).thenReturn(false);
+        AtomicReference<Runnable> enumeration = new AtomicReference<>();
+        when(dataManager.deferSharedStorageWork(any())).thenAnswer(call -> {
+            enumeration.set(call.getArgument(0));
+            return true;
+        });
+        when(votingUsers.getAllUUIDs()).thenThrow(new IllegalStateException("storage unavailable"));
+
+        dispatch("giveAllPlayers", null);
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class, () -> enumeration.get().run());
+
+        verify(votingUsers, times(1)).getAllUUIDs();
+        verify(apiRewards, never()).giveReward(eq(user), eq(rewardData), eq(REWARD_PATH), any(RewardOptions.class));
+    }
+
+    @Test
+    void nonsharedStoredRecipientsRemainImmediateAndLiveRecipientIsNotDuplicated() throws Exception {
+        when(config.isVotePartyGiveOnlinePlayersOnly()).thenReturn(false);
+        Player online = mock(Player.class);
+        when(online.getUniqueId()).thenReturn(USER_UUID);
+        when(votingUsers.getVotingPluginUser(online)).thenReturn(user);
+        bukkit.when(Bukkit::getOnlinePlayers).thenReturn(Collections.singletonList(online));
+        UUID offlineId = UUID.fromString("71bc126a-0323-42bb-8334-f31f5fb7f455");
+        VotingPluginUser offline = mock(VotingPluginUser.class);
+        when(votingUsers.getVotingPluginUser(offlineId, true)).thenReturn(offline);
+        when(votingUsers.getAllUUIDs()).thenReturn(new ArrayList<>(List.of(USER_UUID.toString(), offlineId.toString())));
+
+        dispatch("giveAllPlayers", null);
+
+        verify(voteParty, times(1)).giveReward(user, false);
+        verify(voteParty, times(1)).giveReward(offline, false);
+        verify(offline).userDataFetechMode(UserDataFetchMode.NO_CACHE);
+        verify(dataManager, never()).deferSharedStorageWork(any());
     }
 
     private Deferred deferSharedRead() {

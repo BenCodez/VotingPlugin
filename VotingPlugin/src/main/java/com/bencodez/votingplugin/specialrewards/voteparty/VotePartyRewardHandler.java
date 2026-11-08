@@ -102,15 +102,30 @@ public final class VotePartyRewardHandler {
 			alreadyGiven.add(player.getUniqueId().toString());
 		}
 
-		for (String uuid : plugin.getVotingPluginUserManager().getAllUUIDs()) {
-			if (alreadyGiven.contains(uuid)) {
-				continue;
-			}
-			VotingPluginUser user = resolveUser(triggeringUser, UUID.fromString(uuid), null);
-			if (!plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayersOnly() || user.isOnline()) {
-				giveRewardWhenLoaded(user, forceBungee, null);
-			}
+		UserDataManager manager = sharedDataManager();
+		if (manager != null && plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayersOnly()) {
+			// Every live player was considered above. No stored-user query is needed.
+			return;
 		}
+		// The party timestamp is updated as soon as dispatch returns. Carry its
+		// decisions into the deferred enumeration rather than reading the next state.
+		boolean firstPartyToday = !plugin.getServerData().isLastVotePartySameDay();
+		int userVotesRequired = plugin.getSpecialRewardsConfig().getVotePartyUserVotesRequired();
+		Runnable storedRecipients = () -> {
+			for (String uuid : plugin.getVotingPluginUserManager().getAllUUIDs()) {
+				if (alreadyGiven.contains(uuid)) {
+					continue;
+				}
+				VotingPluginUser user = resolveUser(triggeringUser, UUID.fromString(uuid), null);
+				if (!plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayersOnly() || user.isOnline()) {
+					giveRewardWhenLoaded(user, forceBungee, null, firstPartyToday, userVotesRequired);
+				}
+			}
+		};
+		// UUID enumeration itself enters storage. Admit it after the online reads
+		// and before VoteParty queues its counter wipe on this same ordered worker.
+		if (manager != null && manager.deferSharedStorageWork(storedRecipients)) return;
+		storedRecipients.run();
 	}
 
 	/** Dispatch to users recorded for this party before its voter list is reset. */
@@ -160,18 +175,19 @@ public final class VotePartyRewardHandler {
 	 * directly because checking publication takes the cache's synchronized monitor.
 	 */
 	private void giveRewardWhenLoaded(VotingPluginUser user, boolean forceBungee, Player callbackOwner) {
+		giveRewardWhenLoaded(user, forceBungee, callbackOwner,
+				!plugin.getServerData().isLastVotePartySameDay(),
+				plugin.getSpecialRewardsConfig().getVotePartyUserVotesRequired());
+	}
+
+	private void giveRewardWhenLoaded(VotingPluginUser user, boolean forceBungee, Player callbackOwner,
+			boolean firstPartyToday, int userVotesRequired) {
 		UserDataManager manager = sharedDataManager();
 		if (manager == null) {
 			voteParty.giveReward(user, forceBungee);
 			return;
 		}
 		UUID uuid = user.getJavaUUID();
-
-		// VoteParty clears per-user counters and updates the last-party timestamp
-		// after dispatch. Capture these decisions before that reset, not when the
-		// deferred reward finally runs on the player scheduler.
-		final boolean firstPartyToday = !plugin.getServerData().isLastVotePartySameDay();
-		final int userVotesRequired = plugin.getSpecialRewardsConfig().getVotePartyUserVotesRequired();
 
 		// A mapped cache entry can still be an *unpublished* placeholder, so
 		// cacheUserIfNeeded() alone would not make reward placeholders safe to read.
