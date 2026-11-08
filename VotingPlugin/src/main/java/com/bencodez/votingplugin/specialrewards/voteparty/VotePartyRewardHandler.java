@@ -2,6 +2,10 @@ package com.bencodez.votingplugin.specialrewards.voteparty;
 
 import java.util.ArrayList;
 import java.util.UUID;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import com.bencodez.advancedcore.AdvancedCorePlugin.UserStorageOwner;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -13,6 +17,8 @@ import com.bencodez.advancedcore.api.messages.PlaceholderUtils;
 import com.bencodez.advancedcore.api.misc.MiscUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.advancedcore.api.user.UserDataFetchMode;
+import com.bencodez.advancedcore.api.user.UserStorage;
+import com.bencodez.simpleapi.sql.Column;
 import com.bencodez.advancedcore.api.user.usercache.UserDataManager;
 import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
@@ -53,11 +59,109 @@ public final class VotePartyRewardHandler {
 	}
 
 	public void giveRewards(VotingPluginUser triggeringUser, boolean forceBungee) {
+		if (prepareStoredRecipients(ids -> giveRewards(triggeringUser, forceBungee, ids.forDispatch()),
+				this::logPreparationFailure)) return;
+		giveRewards(triggeringUser, forceBungee, null);
+	}
+
+	/** True only for the shared-MySQL path that needs stored recipients. */
+	boolean needsStoredPreparation() {
+		return sharedDataManager() != null && plugin.getStorageType() == UserStorage.MYSQL
+				&& plugin.getSpecialRewardsConfig().isVotePartyGiveAllPlayers()
+				&& !plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayersOnly();
+	}
+
+	/** Prepare a complete recipient list before any party effects or counter reset. */
+	boolean prepareStoredRecipients(Consumer<StoredRecipients> success, Consumer<Throwable> failure) {
+		if (!needsStoredPreparation()) return false;
+		UserDataManager manager = sharedDataManager();
+		AtomicBoolean completed = new AtomicBoolean();
+		AtomicReference<UserStorageOwner> capturedOwner = new AtomicReference<>();
+		Consumer<List<String>> ready = ids -> {
+			if (!completed.compareAndSet(false, true)) return;
+			StoredRecipients prepared = new StoredRecipients(manager, capturedOwner.get(), ids, false, 0);
+			if (prepared.isCurrent()) success.accept(prepared);
+			else failure.accept(new IllegalStateException("Shared VoteParty storage changed after enumeration"));
+		};
+		Consumer<Throwable> failed = error -> {
+			if (completed.compareAndSet(false, true)) failure.accept(error);
+		};
+		Supplier<List<String>> query = () -> manager.withSharedNativeUserStorage(owner -> {
+			if (owner == null || owner.storageType() != UserStorage.MYSQL || owner.mysql() == null) {
+				throw new IllegalStateException("Shared VoteParty storage owner is unavailable");
+			}
+			// The legacy UUID-list API converts this query's null failure to an empty
+			// list. Use the existing public nullable query under current-owner admission.
+			ArrayList<Column> rows = owner.mysql().getRowsQuery();
+			if (rows == null) throw new IllegalStateException("Stored VoteParty recipients could not be loaded");
+			ArrayList<String> ids = new ArrayList<>();
+			for (Column row : rows) {
+				if (row == null || row.getValue() == null || !row.getValue().isString()) {
+					throw new IllegalStateException("Stored VoteParty recipient identity is invalid");
+				}
+				ids.add(UUID.fromString(row.getValue().getString()).toString());
+			}
+			capturedOwner.set(owner);
+			return List.copyOf(ids);
+		});
+		try {
+			// Always queue preparation, including worker-originated votes. A vote
+			// can hold its coordinator monitor; no native query belongs in that call.
+			if (!manager.deferSharedStorageResultFromPlatform(query, ready, failed)) {
+				failed.accept(new IllegalStateException("Shared VoteParty storage changed before admission"));
+			}
+		} catch (RuntimeException | Error error) {
+			failed.accept(error);
+		}
+		return true;
+	}
+
+	/** The owner identity travels with the list through delivery admission and reset. */
+	final class StoredRecipients {
+		private final UserDataManager manager;
+		private final UserStorageOwner owner;
+		private final List<String> ids;
+		private final boolean firstPartyToday;
+		private final int userVotesRequired;
+
+		private StoredRecipients(UserDataManager manager, UserStorageOwner owner, List<String> ids,
+				boolean firstPartyToday, int userVotesRequired) {
+			this.manager = manager;
+			this.owner = owner;
+			this.ids = ids;
+			this.firstPartyToday = firstPartyToday;
+			this.userVotesRequired = userVotesRequired;
+		}
+
+		StoredRecipients forDispatch() {
+			return new StoredRecipients(manager, owner, ids, !plugin.getServerData().isLastVotePartySameDay(),
+					plugin.getSpecialRewardsConfig().getVotePartyUserVotesRequired());
+		}
+
+		boolean isCurrent() {
+			try {
+				return owner != null && sharedDataManager() == manager && manager.sharedNativeUserStorageOwner() == owner;
+			} catch (RuntimeException unavailable) { return false; }
+		}
+
+		<T> T withCurrentOwner(Supplier<T> work) {
+			return manager.withSharedNativeUserStorage(current -> {
+				if (current != owner) throw new IllegalStateException("Shared VoteParty storage owner changed");
+				return work.get();
+			});
+		}
+	}
+
+	void logPreparationFailure(Throwable error) {
+		plugin.getLogger().warning("VoteParty not started: stored recipients are unavailable: " + error);
+	}
+
+	void giveRewards(VotingPluginUser triggeringUser, boolean forceBungee, StoredRecipients storedRecipients) {
 		MiscUtils.getInstance().broadcast(plugin.getSpecialRewardsConfig().getVotePartyBroadcast());
 		dispatchGlobalCommands(voteParty.getRandomPlayerName());
 
 		if (plugin.getSpecialRewardsConfig().isVotePartyGiveAllPlayers()) {
-			giveAllPlayers(triggeringUser, forceBungee);
+			giveAllPlayers(triggeringUser, forceBungee, storedRecipients);
 		} else {
 			giveVotedPlayers(triggeringUser, forceBungee);
 		}
@@ -92,25 +196,52 @@ public final class VotePartyRewardHandler {
 
 	/** Dispatch to every eligible user, preserving each online player's scheduler owner. */
 	private void giveAllPlayers(VotingPluginUser triggeringUser, boolean forceBungee) {
+		if (prepareStoredRecipients(ids -> giveAllPlayers(triggeringUser, forceBungee, ids.forDispatch()),
+				this::logPreparationFailure)) return;
+		giveAllPlayers(triggeringUser, forceBungee, null);
+	}
+
+	private void giveAllPlayers(VotingPluginUser triggeringUser, boolean forceBungee, StoredRecipients prepared) {
 		plugin.debug("Trying to give all players vote party");
 		ArrayList<String> alreadyGiven = new ArrayList<>();
 		for (Player player : Bukkit.getOnlinePlayers()) {
 			VotingPluginUser user = resolveUser(triggeringUser, player.getUniqueId(), player);
 			if (!plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayersOnly() || user.isOnline()) {
-				giveRewardWhenLoaded(user, forceBungee, player);
+				if (prepared == null) giveRewardWhenLoaded(user, forceBungee, player);
+				else giveRewardWhenLoaded(user, forceBungee, player, prepared.firstPartyToday,
+						prepared.userVotesRequired, prepared);
 			}
 			alreadyGiven.add(player.getUniqueId().toString());
 		}
 
-		for (String uuid : plugin.getVotingPluginUserManager().getAllUUIDs()) {
-			if (alreadyGiven.contains(uuid)) {
-				continue;
-			}
-			VotingPluginUser user = resolveUser(triggeringUser, UUID.fromString(uuid), null);
-			if (!plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayersOnly() || user.isOnline()) {
-				giveRewardWhenLoaded(user, forceBungee, null);
-			}
+		UserDataManager manager = sharedDataManager();
+		if (manager != null && plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayersOnly()) {
+			// Every live player was considered above. No stored-user query is needed.
+			return;
 		}
+		// The party timestamp is updated as soon as dispatch returns. Carry its
+		// decisions into the deferred enumeration rather than reading the next state.
+		boolean firstPartyToday = prepared == null ? !plugin.getServerData().isLastVotePartySameDay() : prepared.firstPartyToday;
+		int userVotesRequired = prepared == null ? plugin.getSpecialRewardsConfig().getVotePartyUserVotesRequired() : prepared.userVotesRequired;
+		Runnable recipients = () -> {
+			for (String uuid : prepared != null ? prepared.ids : plugin.getVotingPluginUserManager().getAllUUIDs()) {
+				if (alreadyGiven.contains(uuid)) {
+					continue;
+				}
+				VotingPluginUser user = resolveUser(triggeringUser, UUID.fromString(uuid), null);
+				if (!plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayersOnly() || user.isOnline()) {
+					giveRewardWhenLoaded(user, forceBungee, null, firstPartyToday, userVotesRequired, prepared);
+				}
+			}
+		};
+		Runnable storedRecipients = prepared == null ? recipients : () -> prepared.withCurrentOwner(() -> {
+			recipients.run();
+			return null;
+		});
+		// UUID enumeration itself enters storage. Admit it after the online reads
+		// and before VoteParty queues its counter wipe on this same ordered worker.
+		if (manager != null && manager.deferSharedStorageWork(storedRecipients)) return;
+		storedRecipients.run();
 	}
 
 	/** Dispatch to users recorded for this party before its voter list is reset. */
@@ -160,6 +291,18 @@ public final class VotePartyRewardHandler {
 	 * directly because checking publication takes the cache's synchronized monitor.
 	 */
 	private void giveRewardWhenLoaded(VotingPluginUser user, boolean forceBungee, Player callbackOwner) {
+		giveRewardWhenLoaded(user, forceBungee, callbackOwner,
+				!plugin.getServerData().isLastVotePartySameDay(),
+				plugin.getSpecialRewardsConfig().getVotePartyUserVotesRequired());
+	}
+
+	private void giveRewardWhenLoaded(VotingPluginUser user, boolean forceBungee, Player callbackOwner,
+			boolean firstPartyToday, int userVotesRequired) {
+		giveRewardWhenLoaded(user, forceBungee, callbackOwner, firstPartyToday, userVotesRequired, null);
+	}
+
+	private void giveRewardWhenLoaded(VotingPluginUser user, boolean forceBungee, Player callbackOwner,
+			boolean firstPartyToday, int userVotesRequired, StoredRecipients prepared) {
 		UserDataManager manager = sharedDataManager();
 		if (manager == null) {
 			voteParty.giveReward(user, forceBungee);
@@ -167,21 +310,17 @@ public final class VotePartyRewardHandler {
 		}
 		UUID uuid = user.getJavaUUID();
 
-		// VoteParty clears per-user counters and updates the last-party timestamp
-		// after dispatch. Capture these decisions before that reset, not when the
-		// deferred reward finally runs on the player scheduler.
-		final boolean firstPartyToday = !plugin.getServerData().isLastVotePartySameDay();
-		final int userVotesRequired = plugin.getSpecialRewardsConfig().getVotePartyUserVotesRequired();
-
 		// A mapped cache entry can still be an *unpublished* placeholder, so
 		// cacheUserIfNeeded() alone would not make reward placeholders safe to read.
-		Supplier<Integer> populate = () -> {
+		Supplier<Integer> read = () -> {
 			if (manager.getPublishedCache(uuid) == null) manager.cacheUser(uuid, null);
 			if (manager.getPublishedCache(uuid) == null) return null;
 			// Read eligibility on the storage worker, before VoteParty resets counters.
 			return userVotesRequired > 0 ? user.getVotePartyVotes() : 0;
 		};
+		Supplier<Integer> populate = prepared == null ? read : () -> prepared.withCurrentOwner(read);
 		Consumer<Integer> success = votes -> {
+			if (prepared != null && !prepared.isCurrent()) return;
 			if (votes == null) {
 				plugin.getLogger().warning("VoteParty reward not sent: shared user data is unavailable for " + uuid);
 				return;
@@ -190,7 +329,10 @@ public final class VotePartyRewardHandler {
 
 			// Eligibility was captured on the storage worker before reset. Do not
 			// re-read the cache on a platform thread or re-check reset counters.
-			Runnable deliver = () -> givePreparedReward(user, user.isOnline(), forceBungee, firstPartyToday);
+			Runnable deliver = () -> {
+				if (prepared == null || prepared.isCurrent())
+					givePreparedReward(user, user.isOnline(), forceBungee, firstPartyToday);
+			};
 			if (callbackOwner != null) {
 				deliver.run();
 			} else {
