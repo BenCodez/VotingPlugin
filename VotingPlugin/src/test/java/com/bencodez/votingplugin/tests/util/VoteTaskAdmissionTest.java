@@ -17,6 +17,13 @@ import com.bencodez.votingplugin.util.VoteTaskAdmission;
 
 class VoteTaskAdmissionTest {
 	@Test
+	void unavailableExecutorIsRejectionWithoutRunningTheTask() {
+		var ran = new java.util.concurrent.atomic.AtomicBoolean();
+		assertFalse(VoteTaskAdmission.trySubmit(null, () -> ran.set(true)));
+		assertFalse(VoteTaskAdmission.trySchedule(null, () -> ran.set(true), 5, TimeUnit.SECONDS));
+		assertFalse(ran.get());
+	}
+	@Test
 	void rejectedSubmissionIsReportedWithoutPropagating() {
 		ScheduledExecutorService executor = mock(ScheduledExecutorService.class);
 		doThrow(new RejectedExecutionException("capacity exhausted"))

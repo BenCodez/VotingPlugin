@@ -1,7 +1,5 @@
 package com.bencodez.votingplugin.core.vote;
 
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.UUID;
 
 /** The accepted vote sequence. Platform operations are supplied by the receiving adapter. */
@@ -67,12 +65,15 @@ public final class SharedVoteProcessor {
         boolean forceProxyRouting();
         boolean wasOnline();
         boolean realVote();
+        default long currentTimeMillis() { return System.currentTimeMillis(); }
         boolean addTotals();
         boolean broadcastEnabled();
         boolean hasBroadcastHandler();
         void broadcast(UUID uuid, String name, String siteDisplayName, boolean online);
         boolean hasProxyTextTotals();
         UUID proxyVoteId();
+        /** Local receipt identity, without implying proxy provenance. */
+        default UUID localOccurrenceId() { return null; }
         default boolean identifiedQueuedProxyVote() { return false; }
         default boolean proxyQueueClassificationKnown() { return false; }
         default boolean proxyDelayValidationKnown() { return false; }
@@ -105,6 +106,7 @@ public final class SharedVoteProcessor {
         int enabledSiteCount();
         void setMonthTotal(U user, int total);
         void milestones(U user, UUID voteId, boolean forceProxyRouting);
+        default void dateMilestones(U user, S site, long voteTime, UUID voteId) { }
         void cooldown(U user, S site);
         void voteStreak(U user, long voteTime, UUID voteId);
         void postVote(S site, U user, String playerName, long voteTime, UUID voteId, boolean cached);
@@ -186,10 +188,8 @@ public final class SharedVoteProcessor {
                     + (legacyRecordedProxyVote ? "; legacy timestamp matches LastVotes: " + ops.incomingTime()
                             : "; stable vote ID identifies this queued delivery: " + ops.proxyVoteId()));
         }
-        UUID voteId = UUID.randomUUID();
-        if (ops.proxyVote() && ops.proxyVoteId() != null) {
-            voteId = ops.proxyVoteId();
-        }
+        UUID voteId = ops.proxyVote() ? ops.proxyVoteId() : ops.localOccurrenceId();
+        if (voteId == null) voteId = UUID.randomUUID();
         String userId = ops.userId(user);
         ops.cache(user);
         ops.updateName(user);
@@ -217,7 +217,7 @@ public final class SharedVoteProcessor {
             voteTime = ops.incomingTime();
         } else {
             ops.setTimeNow(user, site);
-            voteTime = LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+            voteTime = ops.currentTimeMillis();
         }
         boolean cached = false;
         if (SharedVoteDelivery.shouldDeliverNow(ops::proxyVote, () -> ops.userOnline(user),
@@ -251,6 +251,7 @@ public final class SharedVoteProcessor {
             }
         }
         ops.milestones(user, voteId, ops.forceProxyRouting());
+        ops.dateMilestones(user, site, voteTime, voteId);
         ops.cooldown(user, site);
         ops.voteStreak(user, voteTime, voteId);
         ops.postVote(site, user, playerName, voteTime, voteId, cached);

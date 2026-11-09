@@ -607,8 +607,31 @@ public class CommandLoader {
 	/**
 	 * Load admin vote command.
 	 */
+	private void clearDiscordMessageId(CommandSender sender, TopVoter top) {
+		try {
+			plugin.getTimer().execute(() -> {
+				boolean confirmed;
+				try { confirmed = clearDiscordMessageId(top); }
+				catch (RuntimeException failure) { confirmed = false; }
+				String message = confirmed ? "&cCleared discord message ID for " + top.toString()
+						: "&cUnable to confirm the cleared Discord message ID; check storage before restarting.";
+				runForCommandSender(sender, () -> sender.sendMessage(MessageAPI.colorize(message)));
+			});
+		} catch (RuntimeException rejected) {
+			runForCommandSender(sender, () -> sender.sendMessage(MessageAPI.colorize(
+					"&cUnable to schedule clearing the Discord message ID; no changes made.")));
+		}
+	}
+
+	private boolean clearDiscordMessageId(TopVoter top) {
+		var discord = plugin.getDiscordHandler();
+		return discord != null ? discord.clearTopVoterMessageId(top)
+				: plugin.getServerData().setTopVoterMessageIdConfirmed(top, 0L);
+	}
+
 	private void loadAdminVoteCommand() {
 		plugin.setAdminVoteCommand(new ArrayList<>());
+        DateVoteMilestoneCommands.register(plugin, adminPerm);
 
 		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "CurrentPluginTime" },
 				"VotingPlugin.Commands.AdminVote.CurrentPluginTime|" + adminPerm, "Current plugin time") {
@@ -843,7 +866,7 @@ public class CommandLoader {
 					@Override
 					public void executeSinglePlayer(CommandSender sender, String[] args) {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
-						user.cache();
+						if (!UserStorage.MYSQL.equals(plugin.getStorageType())) user.cache();
 						user.removePoints(Integer.parseInt(args[3]), removed -> {
 							if (!removed) {
 								runForCommandSender(sender, () -> sender.sendMessage(MessageAPI.colorize(
@@ -2947,9 +2970,7 @@ public class CommandLoader {
 					public void execute(CommandSender sender, String[] args) {
 						String topVoter = args[1];
 						TopVoter top = TopVoter.getTopVoter(topVoter);
-						plugin.getServerData().setTopVoterMessageId(top, 0);
-						plugin.getDiscordHandler().getTopVoterMessageIds().put(top, 0L);
-						sendMessage(sender, "&cCleared discord message ID for " + top.toString());
+						clearDiscordMessageId(sender, top);
 					}
 				});
 
@@ -3631,7 +3652,15 @@ public class CommandLoader {
 	 */
 	private void loadVoteCommand() {
 		plugin.setVoteCommand(new ArrayList<>());
-		plugin.getVoteCommand().add(new CommandHandler(plugin, new String[] { "Help&?" },
+		plugin.getVoteCommand().add(new CommandHandler(plugin, new String[] { "DateEvents" },
+                "VotingPlugin.Commands.Vote.DateEvents|" + playerPerm, "View date-window vote milestone progress") {
+            @Override public void execute(CommandSender sender, String[] args) {
+                if (sender instanceof Player player) plugin.getDateVoteMilestones().progress(player);
+                else sender.sendMessage("Run /vote dateevents as a player.");
+            }
+        });
+
+        plugin.getVoteCommand().add(new CommandHandler(plugin, new String[] { "Help&?" },
 				"VotingPlugin.Commands.Vote.Help|" + playerPerm, "View help page") {
 
 			@Override

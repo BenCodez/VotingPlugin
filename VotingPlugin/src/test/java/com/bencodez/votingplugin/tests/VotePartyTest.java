@@ -10,8 +10,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
+import java.lang.reflect.Field;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -27,12 +29,15 @@ import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
 import com.bencodez.advancedcore.api.user.UserManager;
+import com.bencodez.advancedcore.api.user.usercache.UserDataManager;
+import com.bencodez.simpleapi.sql.DataType;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.config.Config;
 import com.bencodez.votingplugin.config.SpecialRewardsConfig;
 import com.bencodez.votingplugin.data.ServerData;
 import com.bencodez.votingplugin.placeholders.PlaceHolders;
 import com.bencodez.votingplugin.specialrewards.voteparty.VoteParty;
+import com.bencodez.votingplugin.specialrewards.voteparty.VotePartyRewardHandler;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
 public class VotePartyTest {
@@ -88,7 +93,7 @@ public class VotePartyTest {
 	public void addTotal_IncrementsTotalVotes() {
 		when(plugin.getServerData().getData().getInt("VoteParty.Total")).thenReturn(5);
 		voteParty.addTotal(user);
-		verify(plugin.getServerData().getData()).set("VoteParty.Total", 6);
+		verify(plugin.getServerData()).setInt("VoteParty.Total", 6);
 	}
 
 	@Test
@@ -114,6 +119,8 @@ public class VotePartyTest {
 
 	@Test
 	public void commandVoteParty_VotePartyEnabled_SendsMessage() {
+		when(plugin.getServerData().getVotePartyDisplay()).thenReturn(
+				new com.bencodez.votingplugin.data.ServerData.VotePartyDisplay(0, 0));
 		CommandSender sender = Mockito.mock(CommandSender.class);
 		when(plugin.getSpecialRewardsConfig().isVotePartyEnabled()).thenReturn(true);
 		when(plugin.getConfigFile().getFormatCommandsVoteParty()).thenReturn(new ArrayList<>());
@@ -187,5 +194,49 @@ public class VotePartyTest {
 		String playerName = voteParty.getRandomPlayerName();
 
 		assertEquals("No Player", playerName);
+	}
+
+	@Test
+	public void sharedMysqlResetWaitsForQueuedRewardEligibilityReads() throws Exception {
+		UserDataManager dataManager = Mockito.mock(UserDataManager.class);
+		when(plugin.getUserManager().getDataManager()).thenReturn(dataManager);
+		VotePartyRewardHandler handler = Mockito.mock(VotePartyRewardHandler.class);
+		replaceRewardHandler(handler);
+		AtomicReference<Runnable> queuedReset = new AtomicReference<>();
+		when(dataManager.deferSharedStorageWork(any(Runnable.class))).thenAnswer(invocation -> {
+			queuedReset.set(invocation.getArgument(0));
+			return true;
+		});
+
+		voteParty.giveRewards(user, false);
+
+		verify(handler).giveRewards(user, false);
+		// Voter-list state clears immediately; only the SQL counter wipe is deferred.
+		verify(plugin.getServerData()).setStringList(eq("VoteParty.Voted"), any());
+		org.junit.jupiter.api.Assertions.assertNotNull(queuedReset.get());
+		verify(plugin.getUserManager(), never()).removeAllKeyValues("VotePartyVotes", DataType.INTEGER);
+
+		queuedReset.get().run();
+		verify(plugin.getUserManager()).removeAllKeyValues("VotePartyVotes", DataType.INTEGER);
+	}
+
+	@Test
+	public void nonsharedResetRemainsImmediate() throws Exception {
+		UserDataManager dataManager = Mockito.mock(UserDataManager.class);
+		when(plugin.getUserManager().getDataManager()).thenReturn(dataManager);
+		VotePartyRewardHandler handler = Mockito.mock(VotePartyRewardHandler.class);
+		replaceRewardHandler(handler);
+
+		voteParty.giveRewards(user, false);
+
+		verify(handler).giveRewards(user, false);
+		verify(dataManager).deferSharedStorageWork(any(Runnable.class));
+		verify(plugin.getUserManager()).removeAllKeyValues("VotePartyVotes", DataType.INTEGER);
+	}
+
+	private void replaceRewardHandler(VotePartyRewardHandler handler) throws Exception {
+		Field field = VoteParty.class.getDeclaredField("rewardHandler");
+		field.setAccessible(true);
+		field.set(voteParty, handler);
 	}
 }

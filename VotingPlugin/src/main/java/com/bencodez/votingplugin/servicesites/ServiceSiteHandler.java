@@ -123,8 +123,7 @@ public class ServiceSiteHandler {
 
 	public void saveToServerData() {
 		List<String> out = toListFormat(sitesRef.get());
-		plugin.getServerData().getData().set(SERVERDATA_PATH, out);
-		plugin.getServerData().saveData();
+		plugin.getServerData().setStringList(SERVERDATA_PATH, out);
 	}
 
 	public void refreshFromWebOnce(boolean logMore) {

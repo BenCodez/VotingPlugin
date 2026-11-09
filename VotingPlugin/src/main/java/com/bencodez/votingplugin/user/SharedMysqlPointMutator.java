@@ -21,6 +21,7 @@ import com.bencodez.simpleapi.sql.DataType;
 import com.bencodez.simpleapi.sql.data.DataValue;
 import com.bencodez.simpleapi.sql.data.DataValueInt;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.placeholders.PlaceHolders;
 import com.bencodez.votingplugin.util.BukkitCompletionScheduler;
 
 /** Performs point writes that must remain atomic across shared MySQL servers. */
@@ -124,7 +125,7 @@ final class SharedMysqlPointMutator {
 			int previousTotal = cachedPoints(user, pointsColumn);
 			int predictedTotal = previousTotal + amount;
 			cachePredictedPoints(user, predictedTotal, pointsColumn);
-			if (!run(() -> update(user, amount, false, pointsColumn), true)) {
+			if (!runPointMutation(user, () -> update(user, amount, false, pointsColumn), true)) {
 				discardOptimisticPoints(user, pointsColumn);
 				if (failOnRejectedAdmission) throw new IllegalStateException("Point mutation storage worker is unavailable");
 				return previousTotal;
@@ -185,16 +186,29 @@ final class SharedMysqlPointMutator {
 
 	AddResult addCommittedToColumn(VotingPluginUser user, int amount, String operationId, String pointsColumn) {
 		if (operationId == null || operationId.isEmpty()) return addCommittedToColumn(user, amount, pointsColumn);
-		drainCache(user, pointsColumn);
+		var placeholders = plugin.getPlaceholders();
+		UUID uuid = UUID.fromString(user.getUUID());
+		if (placeholders != null) placeholders.beginSharedPointDebit(uuid);
+		boolean confirmed = false;
 		try {
+			drainCache(user, pointsColumn);
 			SharedPointAdditionJournal.AdditionResult result = SharedPointAdditionJournal.forTable(plugin.getMysql())
 					.add(operationId, user.getUUID(), pointsColumn, amount, System.currentTimeMillis());
+			confirmed = true;
 			return new AddResult(true, result.total());
 		} catch (SQLException failure) {
 			logFailure(failure);
 			return new AddResult(MutationOutcome.INDETERMINATE, 0);
 		} finally {
-			discardPointsCache(user, pointsColumn);
+			boolean refreshed = SharedMysqlCacheReconciler.tryInvalidateAndRefreshOnWorker(plugin, user.getUUID(), pointsColumn);
+			if (placeholders != null) {
+				var cache = plugin.getUserManager().getDataManager().getUserDataCache().get(uuid);
+				boolean available = false;
+				if (cache != null) synchronized (cache) {
+					available = refreshed && confirmed && cache.hasPublishedStorageSnapshot();
+				}
+				placeholders.finishSharedPointDebit(uuid, confirmed, available);
+			}
 		}
 	}
 
@@ -209,18 +223,36 @@ final class SharedMysqlPointMutator {
 
 	AddResult removeCommittedFromColumn(VotingPluginUser user, int amount, String operationId, String pointsColumn) {
 		if (operationId == null || operationId.isEmpty()) return new AddResult(false, 0);
-		drainCache(user, pointsColumn);
+		var placeholders = plugin.getPlaceholders();
+		UUID uuid = UUID.fromString(user.getUUID());
+		if (placeholders != null) placeholders.beginSharedPointDebit(uuid);
+		AddResult outcome = new AddResult(MutationOutcome.INDETERMINATE, 0);
+		boolean refreshed;
 		try {
+			drainCache(user, pointsColumn);
 			SharedPointAdditionJournal.AdditionResult result = SharedPointAdditionJournal.forTable(plugin.getMysql())
 					.subtract(operationId, user.getUUID(), pointsColumn, amount, System.currentTimeMillis());
-			return new AddResult(true, result.total());
+			outcome = new AddResult(true, result.total());
 		} catch (SQLException failure) {
-			logFailure(failure);
-			return new AddResult(failure instanceof SharedPointAdditionJournal.DebitRejectedException
-					? MutationOutcome.REJECTED : MutationOutcome.INDETERMINATE, 0);
+			if (failure instanceof SharedPointAdditionJournal.DebitRejectedException) {
+				outcome = new AddResult(MutationOutcome.REJECTED, 0);
+			} else {
+				logFailure(failure);
+				outcome = new AddResult(MutationOutcome.INDETERMINATE, 0);
+			}
 		} finally {
-			discardPointsCache(user, pointsColumn);
+			refreshed = SharedMysqlCacheReconciler.tryInvalidateAndRefreshOnWorker(plugin, user.getUUID(), pointsColumn);
+			if (placeholders != null) {
+				var cache = plugin.getUserManager().getDataManager().getUserDataCache().get(uuid);
+				boolean available = false;
+				if (cache != null) synchronized (cache) {
+					available = refreshed && outcome.outcome() != MutationOutcome.INDETERMINATE
+							&& cache.hasPublishedStorageSnapshot();
+				}
+				placeholders.finishSharedPointDebit(uuid, outcome.outcome() != MutationOutcome.INDETERMINATE, available);
+			}
 		}
+		return new AddResult(outcome.outcome(), outcome.total(), refreshed);
 	}
 
 	/** Looks up a completed retry before its Bukkit receive event is dispatched. */
@@ -326,7 +358,20 @@ final class SharedMysqlPointMutator {
 
 	boolean set(VotingPluginUser user, int value, boolean async) {
 		String pointsColumn = user.getPointsPath();
-		return run(() -> setAbsolute(user, value, pointsColumn), async);
+		var placeholders = plugin.getPlaceholders();
+		Consumer<Boolean> admission = placeholders == null ? null
+				: placeholders.sharedPointAdmissionCompletion(UUID.fromString(user.getUUID()));
+		boolean accepted = run(() -> {
+			boolean settled = false;
+			try {
+				setAbsolute(user, value, pointsColumn);
+				settled = true;
+			} finally {
+				if (admission != null) admission.accept(settled);
+			}
+		}, async);
+		if (!accepted && admission != null) admission.accept(false);
+		return accepted;
 	}
 
 	boolean setCommitted(VotingPluginUser user, int value) {
@@ -339,7 +384,7 @@ final class SharedMysqlPointMutator {
 
 	void cap(VotingPluginUser user, int maximum, boolean async) {
 		String pointsColumn = user.getPointsPath();
-		run(() -> capAt(user, maximum, pointsColumn), async);
+		runPointMutation(user, () -> capAt(user, maximum, pointsColumn), async);
 	}
 
 	/**
@@ -357,7 +402,7 @@ final class SharedMysqlPointMutator {
 		int predictedTotal = (int) Math.max(Integer.MIN_VALUE,
 				Math.min((long) previousTotal + amount, maximum));
 		cachePredictedPoints(user, predictedTotal, pointsColumn);
-		if (!run(() -> addAndCapAt(user, amount, maximum, pointsColumn), true)) {
+		if (!runPointMutation(user, () -> addAndCapAt(user, amount, maximum, pointsColumn), true)) {
 			discardOptimisticPoints(user, pointsColumn);
 		}
 	}
@@ -370,7 +415,7 @@ final class SharedMysqlPointMutator {
 		if (!async) return remove(user, amount);
 		String pointsColumn = user.getPointsPath();
 		boolean predictedSuccess = cachedPoints(user, pointsColumn) >= amount;
-		boolean submitted = run(() -> update(user, -amount, true, pointsColumn), true);
+		boolean submitted = runPointMutation(user, () -> update(user, -amount, true, pointsColumn), true);
 		// Preserve the historical asynchronous API contract: the caller receives
 		// the cached prediction while the conditional database debit runs later.
 		return submitted && predictedSuccess;
@@ -498,41 +543,40 @@ final class SharedMysqlPointMutator {
 		org.bukkit.entity.Player approvalPlayer = targetPlayer != null ? targetPlayer : sourcePlayer;
 		String sourcePoints = source.getPointsPath();
 		String targetPoints = target.getPointsPath();
+		var reservationPublication = beginPointPublication(source);
 		try {
 			plugin.getTimer().execute(() -> {
-				try {
-					drainCache(source);
-					drainCache(target);
-				} catch (RuntimeException cacheFailure) {
-					plugin.debug(cacheFailure);
-					completeOnBukkit(sourcePlayer, completion, PointTransferResult.UNAVAILABLE);
-					return;
-				}
 				MySQL table = plugin.getMysql();
 				String transferId = UUID.randomUUID().toString();
 				String owner = UUID.randomUUID().toString();
-				SharedPointTransferJournal journal;
+				SharedPointTransferJournal prepared = null;
+				boolean known = true;
+				boolean reserved = false;
+				PointTransferResult failed = PointTransferResult.UNAVAILABLE;
 				try {
-					journal = SharedPointTransferJournal.forTable(table);
-					recoverTransfers(plugin, journal);
-					if (!journal.reserve(transferId, source.getUUID(), sourcePoints, debitAmount, target.getUUID(),
-							debitAmount, System.currentTimeMillis())) {
-						completeOnBukkit(sourcePlayer, completion, PointTransferResult.INSUFFICIENT_POINTS);
-						return;
-					}
-					// The source cache may have been recreated while the reservation was being
-					// committed. Invalidate its points after the durable debit, before any later
-					// dump can restore the pre-debit balance.
-					discardPointsCache(source, sourcePoints);
+					drainCache(source);
+					drainCache(target);
+					prepared = SharedPointTransferJournal.forTable(table);
+					recoverTransfers(plugin, prepared);
+					known = false;
+					reserved = prepared.reserve(transferId, source.getUUID(), sourcePoints, debitAmount,
+							target.getUUID(), debitAmount, System.currentTimeMillis());
+					known = true;
+					failed = PointTransferResult.INSUFFICIENT_POINTS;
 				} catch (SQLException failure) {
-					// An acknowledgement/confirmation failure can follow a committed
-					// reservation debit. Never allow a cache recreated during the unknown
-					// outcome to flush the pre-debit source balance over it.
-					discardPointsCache(source, sourcePoints);
+					known |= failure instanceof SharedPointTransferJournal.PreparationFailure;
 					logFailure(failure);
-					completeOnBukkit(sourcePlayer, completion, PointTransferResult.UNAVAILABLE);
+				} catch (RuntimeException cacheFailure) {
+					plugin.debug(cacheFailure);
+				} finally {
+					boolean refreshed = SharedMysqlCacheReconciler.tryInvalidateAndRefreshOnWorker(plugin, source.getUUID(), sourcePoints);
+					finishPointPublication(reservationPublication, source, sourcePoints, known, refreshed);
+				}
+				if (!reserved) {
+					completeOnBukkit(sourcePlayer, completion, failed);
 					return;
 				}
+				SharedPointTransferJournal journal = prepared;
 
 				/*
 				 * Do not claim the reservation until the Bukkit approval task has actually
@@ -562,6 +606,7 @@ final class SharedMysqlPointMutator {
 			// No reservation exists when the initial persistence task is rejected.
 			// Still complete the command contract on the source entity lane.
 			plugin.debug(schedulingFailure);
+			finishPointPublication(reservationPublication, source, sourcePoints, true, false);
 			completeOnBukkit(sourcePlayer, completion, PointTransferResult.UNAVAILABLE);
 		}
 	}
@@ -574,8 +619,7 @@ final class SharedMysqlPointMutator {
 				System.currentTimeMillis());
 		if (claim == SharedPointTransferJournal.ClaimOutcome.NOT_CLAIMED) {
 			try {
-				journal.refundReserved(transferId, source.getUUID(), sourcePoints, debitAmount);
-				discardPointsCache(source, sourcePoints);
+				refundReservedWithPublication(source, journal, transferId, sourcePoints, debitAmount);
 			} catch (SQLException failure) {
 				logFailure(failure);
 			}
@@ -713,10 +757,7 @@ final class SharedMysqlPointMutator {
 		} catch (SQLException markerFailure) {
 			boolean refunded = false;
 			try {
-				refunded = journal.refundHookStarted(transferId, source.getUUID(), sourcePoints, debitAmount);
-				if (refunded) {
-					discardPointsCache(source, sourcePoints);
-				}
+				refunded = refundClaimedWithPublication(source, journal, transferId, sourcePoints, debitAmount);
 			} catch (SQLException refundFailure) {
 				logFailure(refundFailure);
 			}
@@ -736,17 +777,24 @@ final class SharedMysqlPointMutator {
 			int debitAmount,
 			Consumer<PointTransferResult> completion, SharedPointTransferJournal journal, String transferId, String owner,
 			String sourcePoints, String targetPoints, Integer approvedAmount) {
+		var sourcePublication = beginPointPublication(source);
+		var targetPublication = beginPointPublication(target);
+		boolean known = false;
 		PointTransferResult result;
 		try {
 			// The hook may have recreated either cache while it ran on Bukkit.
-			drainCache(target);
+
 			SharedPointTransferJournal.SettlementOutcome outcome;
 			try {
+				drainCache(target);
 				outcome = journal.settleWithConfirmation(transferId, owner, source.getUUID(), sourcePoints,
 						target.getUUID(), targetPoints, debitAmount, approvedAmount);
+				known = outcome != SharedPointTransferJournal.SettlementOutcome.INDETERMINATE;
 			} finally {
-				discardPointsCache(source, sourcePoints);
-				discardPointsCache(target, targetPoints);
+				boolean sourceRefreshed = SharedMysqlCacheReconciler.tryInvalidateAndRefreshOnWorker(plugin, source.getUUID(), sourcePoints);
+				boolean targetRefreshed = SharedMysqlCacheReconciler.tryInvalidateAndRefreshOnWorker(plugin, target.getUUID(), targetPoints);
+				finishPointPublication(sourcePublication, source, sourcePoints, known, sourceRefreshed);
+				finishPointPublication(targetPublication, target, targetPoints, known, targetRefreshed);
 			}
 			result = outcome == SharedPointTransferJournal.SettlementOutcome.COMPLETED ? PointTransferResult.SUCCESS
 					: outcome == SharedPointTransferJournal.SettlementOutcome.REFUNDED ? PointTransferResult.CANCELLED
@@ -760,14 +808,29 @@ final class SharedMysqlPointMutator {
 		completeOnBukkit(sourcePlayer, completion, result);
 	}
 
+	private boolean refundReservedWithPublication(VotingPluginUser source, SharedPointTransferJournal journal,
+			String transferId, String sourcePoints, int debitAmount) throws SQLException {
+		var publication = beginPointPublication(source);
+		boolean known = false;
+		try {
+			boolean refunded = journal.refundReserved(transferId, source.getUUID(), sourcePoints, debitAmount);
+			known = true;
+			return refunded;
+		} catch (SQLException failure) {
+			known = failure instanceof SharedPointTransferJournal.PreparationFailure;
+			throw failure;
+		} finally {
+			boolean refreshed = SharedMysqlCacheReconciler.tryInvalidateAndRefreshOnWorker(plugin, source.getUUID(), sourcePoints);
+			finishPointPublication(publication, source, sourcePoints, known, refreshed);
+		}
+	}
+
 	private void refundReservedAfterSchedulingFailure(VotingPluginUser source, org.bukkit.entity.Player sourcePlayer,
 			Consumer<PointTransferResult> completion,
 			SharedPointTransferJournal journal, String transferId, String sourcePoints, int debitAmount,
 			RuntimeException failure) {
 		try {
-			if (journal.refundReserved(transferId, source.getUUID(), sourcePoints, debitAmount)) {
-				discardPointsCache(source, sourcePoints);
-			}
+			refundReservedWithPublication(source, journal, transferId, sourcePoints, debitAmount);
 		} catch (SQLException refundFailure) {
 			logFailure(refundFailure);
 		}
@@ -783,24 +846,23 @@ final class SharedMysqlPointMutator {
 			// HOOK_STARTED is safe to compensate because the approval task has not
 			// been submitted yet. A RESERVED row is handled by its normal refund.
 			if (journal.markCompensating(transferId)) {
-				refunded = journal.refundHookStarted(transferId, source.getUUID(), sourcePoints, debitAmount);
+				refunded = refundClaimedWithPublication(source, journal, transferId, sourcePoints, debitAmount);
 			} else {
-				refunded = journal.refundReserved(transferId, source.getUUID(), sourcePoints, debitAmount);
+				refunded = refundReservedWithPublication(source, journal, transferId, sourcePoints, debitAmount);
 			}
 		} catch (SQLException markerFailure) {
 			// A lost marker acknowledgement may still have committed. Both refund
 			// operations are idempotent and cover either durable pre-hook state.
 			try {
-				refunded = journal.refundHookStarted(transferId, source.getUUID(), sourcePoints, debitAmount);
+				refunded = refundClaimedWithPublication(source, journal, transferId, sourcePoints, debitAmount);
 				if (!refunded) {
-					refunded = journal.refundReserved(transferId, source.getUUID(), sourcePoints, debitAmount);
+					refunded = refundReservedWithPublication(source, journal, transferId, sourcePoints, debitAmount);
 				}
 			} catch (SQLException refundFailure) {
 				logFailure(refundFailure);
 			}
 			logFailure(markerFailure);
 		}
-		if (refunded) discardPointsCache(source, sourcePoints);
 		if (!refunded) {
 			rememberPendingCompensationMarker(plugin, transferId);
 			logIndeterminateClaim(transferId);
@@ -815,19 +877,32 @@ final class SharedMysqlPointMutator {
 		completeOnBukkit(sourcePlayer, completion, PointTransferResult.UNAVAILABLE);
 	}
 
+	private boolean refundClaimedWithPublication(VotingPluginUser source, SharedPointTransferJournal journal,
+			String transferId, String sourcePoints, int debitAmount) throws SQLException {
+		var publication = beginPointPublication(source);
+		boolean known = false;
+		try {
+			boolean refunded = journal.refundHookStarted(transferId, source.getUUID(), sourcePoints, debitAmount);
+			known = true;
+			return refunded;
+		} catch (SQLException refundFailure) {
+			known = refundFailure instanceof SharedPointTransferJournal.PreparationFailure;
+			throw refundFailure;
+		} finally {
+			// A later guarded fallback or refill cannot erase an earlier ambiguous write.
+			boolean refreshed = SharedMysqlCacheReconciler.tryInvalidateAndRefreshOnWorker(plugin, source.getUUID(), sourcePoints);
+			finishPointPublication(publication, source, sourcePoints, known, refreshed);
+		}
+	}
+
 	void refundClaimedAfterSchedulingFailure(VotingPluginUser source, org.bukkit.entity.Player sourcePlayer,
 			Consumer<PointTransferResult> completion,
 			SharedPointTransferJournal journal, String transferId, String sourcePoints, int debitAmount,
 			RuntimeException failure) {
 		try {
-			journal.refundHookStarted(transferId, source.getUUID(), sourcePoints, debitAmount);
+			refundClaimedWithPublication(source, journal, transferId, sourcePoints, debitAmount);
 		} catch (SQLException refundFailure) {
 			logFailure(refundFailure);
-		} finally {
-			// The refund may have committed even when its acknowledgement and
-			// confirmation read both failed. Invalidate a cache recreated after the
-			// original debit so it cannot later overwrite either durable outcome.
-			discardPointsCache(source, sourcePoints);
 		}
 		plugin.debug(failure);
 		completeOnBukkit(sourcePlayer, completion, PointTransferResult.UNAVAILABLE);
@@ -890,6 +965,23 @@ final class SharedMysqlPointMutator {
 		}
 	}
 
+	private boolean runPointMutation(VotingPluginUser user, Runnable operation, boolean async) {
+		PlaceHolders placeholders = plugin.getPlaceholders();
+		Consumer<Boolean> admission = placeholders == null ? null
+				: placeholders.sharedPointAdmissionCompletion(UUID.fromString(user.getUUID()));
+		boolean accepted = run(() -> {
+			boolean settled = false;
+			try {
+				operation.run();
+				settled = true;
+			} finally {
+				if (admission != null) admission.accept(settled);
+			}
+		}, async);
+		if (!accepted && admission != null) admission.accept(false);
+		return accepted;
+	}
+
 	private boolean run(Runnable operation, boolean async) {
 		if (async) {
 			try {
@@ -910,25 +1002,34 @@ final class SharedMysqlPointMutator {
 	}
 
 	private boolean update(VotingPluginUser user, int delta, boolean requireNonnegative, String points) {
-		drainCache(user, points);
-		MySQL table = plugin.getMysql();
-		StringBuilder sql = new StringBuilder("UPDATE ").append(table.qi(table.getTableName())).append(" SET ")
-				.append(table.qi(points)).append(" = COALESCE(").append(table.qi(points)).append(", 0) + ? WHERE ")
-				.append(table.qi("uuid")).append(table.getDbType() == DbType.POSTGRESQL ? " = ?::uuid" : " = ?");
-		if (requireNonnegative) {
-			sql.append(" AND COALESCE(").append(table.qi(points)).append(", 0) >= ?");
-		}
-		try (Connection connection = requireConnection(table);
-				PreparedStatement statement = connection.prepareStatement(sql.toString())) {
-			statement.setInt(1, delta);
-			statement.setString(2, user.getUUID());
-			if (requireNonnegative) statement.setInt(3, -delta);
-			return statement.executeUpdate() == 1;
-		} catch (SQLException failure) {
-			logFailure(failure);
-			return false;
+		PlaceHolders publication = beginPointPublication(user);
+		// Classify this arithmetic statement; an earlier uncertain operation stays fenced.
+		boolean known = true;
+		try {
+			drainCache(user, points);
+			MySQL table = plugin.getMysql();
+			StringBuilder sql = new StringBuilder("UPDATE ").append(table.qi(table.getTableName())).append(" SET ")
+					.append(table.qi(points)).append(" = COALESCE(").append(table.qi(points)).append(", 0) + ? WHERE ")
+					.append(table.qi("uuid")).append(table.getDbType() == DbType.POSTGRESQL ? " = ?::uuid" : " = ?");
+			if (requireNonnegative) {
+				sql.append(" AND COALESCE(").append(table.qi(points)).append(", 0) >= ?");
+			}
+			try (Connection connection = requireConnection(table);
+					PreparedStatement statement = connection.prepareStatement(sql.toString())) {
+				statement.setInt(1, delta);
+				statement.setString(2, user.getUUID());
+				if (requireNonnegative) statement.setInt(3, -delta);
+				known = false;
+				int affected = statement.executeUpdate();
+				known = true;
+				return affected == 1;
+			} catch (SQLException failure) {
+				logFailure(failure);
+				return false;
+			}
 		} finally {
-			discardPointsCache(user, points);
+			boolean refreshed = SharedMysqlCacheReconciler.tryInvalidateAndRefreshOnWorker(plugin, user.getUUID(), points);
+			finishPointPublication(publication, user, points, known, refreshed);
 		}
 	}
 
@@ -946,53 +1047,74 @@ final class SharedMysqlPointMutator {
 	}
 
 	private AddResult addAndReadCommittedResult(VotingPluginUser user, int amount, String points) {
-		drainCache(user, points);
-		MySQL table = plugin.getMysql();
-		String uuidMatch = table.qi("uuid") + (table.getDbType() == DbType.POSTGRESQL ? " = ?::uuid" : " = ?");
-		String update = "UPDATE " + table.qi(table.getTableName()) + " SET " + table.qi(points) + " = COALESCE("
-				+ table.qi(points) + ", 0) + ? WHERE " + uuidMatch;
-		String read = "SELECT " + table.qi(points) + " FROM " + table.qi(table.getTableName()) + " WHERE " + uuidMatch;
-		boolean updateCommitted = false;
-		Integer committedTotal = null;
-		try (Connection connection = requireConnection(table);
-				PreparedStatement updateStatement = connection.prepareStatement(update);
-				PreparedStatement readStatement = connection.prepareStatement(read)) {
-			updateStatement.setInt(1, amount);
-			updateStatement.setString(2, user.getUUID());
-			if (updateStatement.executeUpdate() == 1) {
-				// With JDBC auto-commit, executeUpdate returning one means the mutation
-				// completed. A later read may still fail after the points have been
-				// committed, so never turn that outcome into a retryable failure.
-				updateCommitted = true;
-				readStatement.setString(1, user.getUUID());
-				try (java.sql.ResultSet result = readStatement.executeQuery()) {
-					if (result.next()) committedTotal = result.getInt(1);
-				}
+		PlaceHolders publication = beginPointPublication(user);
+		// Classify this arithmetic statement; an earlier uncertain operation stays fenced.
+		boolean known = true;
+		boolean refreshed = false;
+		try {
+			try {
+				drainCache(user, points);
+			} catch (RuntimeException preparationFailure) {
+				// No arithmetic statement was submitted. Cache retirement may itself
+				// perform I/O; its failure is not proof this addition ran.
+				plugin.debug(preparationFailure);
+				return new AddResult(MutationOutcome.REJECTED, 0);
 			}
-		} catch (SQLException failure) {
-			logFailure(failure);
+			MySQL table = plugin.getMysql();
+			String uuidMatch = table.qi("uuid") + (table.getDbType() == DbType.POSTGRESQL ? " = ?::uuid" : " = ?");
+			String update = "UPDATE " + table.qi(table.getTableName()) + " SET " + table.qi(points) + " = COALESCE("
+					+ table.qi(points) + ", 0) + ? WHERE " + uuidMatch;
+			String read = "SELECT " + table.qi(points) + " FROM " + table.qi(table.getTableName()) + " WHERE " + uuidMatch;
+			boolean updateCommitted = false;
+			Integer committedTotal = null;
+			try (Connection connection = requireConnection(table);
+					PreparedStatement updateStatement = connection.prepareStatement(update);
+					PreparedStatement readStatement = connection.prepareStatement(read)) {
+				updateStatement.setInt(1, amount);
+				updateStatement.setString(2, user.getUUID());
+				known = false;
+				int affected = updateStatement.executeUpdate();
+				known = true;
+				if (affected == 1) {
+					// With JDBC auto-commit, executeUpdate returning one means the mutation
+					// completed. A later read may still fail after the points have been
+					// committed, so never turn that outcome into a retryable failure.
+					updateCommitted = true;
+					readStatement.setString(1, user.getUUID());
+					try (java.sql.ResultSet result = readStatement.executeQuery()) {
+						if (result.next()) committedTotal = result.getInt(1);
+					}
+				}
+			} catch (SQLException failure) {
+				logFailure(failure);
+			} finally {
+				refreshed = SharedMysqlCacheReconciler.tryInvalidateAndRefreshOnWorker(plugin, user.getUUID(), points);
+			}
+			// Do not evaluate the fallback while the JDBC handle is still held. With a
+			// one-connection pool, getPoints() may need that same handle after a missing
+			// row or a failed follow-up read.
+			if (committedTotal != null) return new AddResult(true, committedTotal);
+			// A failed acquisition cannot support the fallback read either. Report the
+			// mutation failure without checking out a second connection and let callers
+			// complete their callback deterministically.
+			if (!updateCommitted) return new AddResult(known ? MutationOutcome.REJECTED : MutationOutcome.INDETERMINATE, 0);
+			// A live mode reload can change getPointsPath() while this queued write is
+			// running. Keep the fallback on the column that received the credit.
+			if (!points.equals(user.getPointsPath())) return new AddResult(true, user.getUserData().getInt(points));
+			return new AddResult(true, user.getPoints());
 		} finally {
-			discardPointsCache(user, points);
+			finishPointPublication(publication, user, points, known, refreshed);
 		}
-		// Do not evaluate the fallback while the JDBC handle is still held. With a
-		// one-connection pool, getPoints() may need that same handle after a missing
-		// row or a failed follow-up read.
-		if (committedTotal != null) return new AddResult(true, committedTotal);
-		// A failed acquisition cannot support the fallback read either. Report the
-		// mutation failure without checking out a second connection and let callers
-		// complete their callback deterministically.
-		if (!updateCommitted) return new AddResult(false, 0);
-		// A live mode reload can change getPointsPath() while this queued write is
-		// running. Keep the fallback on the column that received the credit.
-		if (!points.equals(user.getPointsPath())) return new AddResult(true, user.getUserData().getInt(points));
-		return new AddResult(true, user.getPoints());
 	}
 
 	enum MutationOutcome { CONFIRMED, REJECTED, INDETERMINATE }
 
-	record AddResult(MutationOutcome outcome, int total) {
+	record AddResult(MutationOutcome outcome, int total, boolean sourceRefreshed) {
+		AddResult(MutationOutcome outcome, int total) {
+			this(outcome, total, false);
+		}
 		AddResult(boolean success, int total) {
-			this(success ? MutationOutcome.CONFIRMED : MutationOutcome.INDETERMINATE, total);
+			this(success ? MutationOutcome.CONFIRMED : MutationOutcome.INDETERMINATE, total, false);
 		}
 		boolean success() { return outcome == MutationOutcome.CONFIRMED; }
 	}
@@ -1002,21 +1124,29 @@ final class SharedMysqlPointMutator {
 	}
 
 	private boolean setAbsolute(VotingPluginUser user, int value, String points) {
-		drainCache(user, points);
-		MySQL table = plugin.getMysql();
-		String sql = "UPDATE " + table.qi(table.getTableName()) + " SET " + table.qi(points)
-				+ " = ? WHERE " + table.qi("uuid")
-				+ (table.getDbType() == DbType.POSTGRESQL ? " = ?::uuid" : " = ?");
-		try (Connection connection = requireConnection(table);
-				PreparedStatement statement = connection.prepareStatement(sql)) {
-			statement.setInt(1, value);
-			statement.setString(2, user.getUUID());
-			return statement.executeUpdate() == 1;
-		} catch (SQLException failure) {
-			logFailure(failure);
-			return false;
+		var publication = beginPointPublication(user);
+		boolean known = true;
+		try {
+			drainCache(user, points);
+			MySQL table = plugin.getMysql();
+			String sql = "UPDATE " + table.qi(table.getTableName()) + " SET " + table.qi(points)
+					+ " = ? WHERE " + table.qi("uuid")
+					+ (table.getDbType() == DbType.POSTGRESQL ? " = ?::uuid" : " = ?");
+			try (Connection connection = requireConnection(table);
+					PreparedStatement statement = connection.prepareStatement(sql)) {
+				statement.setInt(1, value);
+				statement.setString(2, user.getUUID());
+				known = false;
+				int affected = statement.executeUpdate();
+				known = true;
+				return affected == 1;
+			} catch (SQLException failure) {
+				logFailure(failure);
+				return false;
+			}
 		} finally {
-			discardPointsCache(user, points);
+			boolean refreshed = SharedMysqlCacheReconciler.tryInvalidateAndRefreshOnWorker(plugin, user.getUUID(), points);
+			finishPointPublication(publication, user, points, known, refreshed);
 		}
 	}
 
@@ -1025,20 +1155,28 @@ final class SharedMysqlPointMutator {
 	}
 
 	private void capAt(VotingPluginUser user, int maximum, String points) {
-		drainCache(user, points);
-		MySQL table = plugin.getMysql();
-		String sql = "UPDATE " + table.qi(table.getTableName()) + " SET " + table.qi(points) + " = LEAST(COALESCE("
-				+ table.qi(points) + ", 0), ?) WHERE " + table.qi("uuid")
-				+ (table.getDbType() == DbType.POSTGRESQL ? " = ?::uuid" : " = ?");
-		try (Connection connection = requireConnection(table);
-				PreparedStatement statement = connection.prepareStatement(sql)) {
-			statement.setInt(1, maximum);
-			statement.setString(2, user.getUUID());
-			statement.executeUpdate();
-		} catch (SQLException failure) {
-			logFailure(failure);
+		PlaceHolders publication = beginPointPublication(user);
+		// Classify this arithmetic statement; an earlier uncertain operation stays fenced.
+		boolean known = true;
+		try {
+			drainCache(user, points);
+			MySQL table = plugin.getMysql();
+			String sql = "UPDATE " + table.qi(table.getTableName()) + " SET " + table.qi(points) + " = LEAST(COALESCE("
+					+ table.qi(points) + ", 0), ?) WHERE " + table.qi("uuid")
+					+ (table.getDbType() == DbType.POSTGRESQL ? " = ?::uuid" : " = ?");
+			try (Connection connection = requireConnection(table);
+					PreparedStatement statement = connection.prepareStatement(sql)) {
+				statement.setInt(1, maximum);
+				statement.setString(2, user.getUUID());
+				known = false;
+				statement.executeUpdate();
+				known = true;
+			} catch (SQLException failure) {
+				logFailure(failure);
+			}
 		} finally {
-			discardPointsCache(user, points);
+			boolean refreshed = SharedMysqlCacheReconciler.tryInvalidateAndRefreshOnWorker(plugin, user.getUUID(), points);
+			finishPointPublication(publication, user, points, known, refreshed);
 		}
 	}
 
@@ -1047,21 +1185,29 @@ final class SharedMysqlPointMutator {
 	}
 
 	private void addAndCapAt(VotingPluginUser user, int amount, int maximum, String points) {
-		drainCache(user, points);
-		MySQL table = plugin.getMysql();
-		String sql = "UPDATE " + table.qi(table.getTableName()) + " SET " + table.qi(points) + " = LEAST(COALESCE("
-				+ table.qi(points) + ", 0) + ?, ?) WHERE " + table.qi("uuid")
-				+ (table.getDbType() == DbType.POSTGRESQL ? " = ?::uuid" : " = ?");
-		try (Connection connection = requireConnection(table);
-				PreparedStatement statement = connection.prepareStatement(sql)) {
-			statement.setInt(1, amount);
-			statement.setInt(2, maximum);
-			statement.setString(3, user.getUUID());
-			statement.executeUpdate();
-		} catch (SQLException failure) {
-			logFailure(failure);
+		PlaceHolders publication = beginPointPublication(user);
+		// Classify this arithmetic statement; an earlier uncertain operation stays fenced.
+		boolean known = true;
+		try {
+			drainCache(user, points);
+			MySQL table = plugin.getMysql();
+			String sql = "UPDATE " + table.qi(table.getTableName()) + " SET " + table.qi(points) + " = LEAST(COALESCE("
+					+ table.qi(points) + ", 0) + ?, ?) WHERE " + table.qi("uuid")
+					+ (table.getDbType() == DbType.POSTGRESQL ? " = ?::uuid" : " = ?");
+			try (Connection connection = requireConnection(table);
+					PreparedStatement statement = connection.prepareStatement(sql)) {
+				statement.setInt(1, amount);
+				statement.setInt(2, maximum);
+				statement.setString(3, user.getUUID());
+				known = false;
+				statement.executeUpdate();
+				known = true;
+			} catch (SQLException failure) {
+				logFailure(failure);
+			}
 		} finally {
-			discardPointsCache(user, points);
+			boolean refreshed = SharedMysqlCacheReconciler.tryInvalidateAndRefreshOnWorker(plugin, user.getUUID(), points);
+			finishPointPublication(publication, user, points, known, refreshed);
 		}
 	}
 
@@ -1101,6 +1247,27 @@ final class SharedMysqlPointMutator {
 	 * deliberately not discarded here because it is a distinct, later write and
 	 * the generic absolute-value API cannot provide cross-server atomic semantics.
 	 */
+	private com.bencodez.votingplugin.placeholders.PlaceHolders beginPointPublication(VotingPluginUser user) {
+		var placeholders = plugin.getPlaceholders();
+		if (placeholders != null) placeholders.beginSharedPointDebit(UUID.fromString(user.getUUID()));
+		return placeholders;
+	}
+
+	private void finishPointPublication(com.bencodez.votingplugin.placeholders.PlaceHolders placeholders,
+			VotingPluginUser user, String column, boolean known, boolean refreshed) {
+		if (placeholders == null) return;
+		UUID uuid = UUID.fromString(user.getUUID());
+		var caches = plugin.getUserManager().getDataManager().getUserDataCache();
+		var cache = caches.get(uuid);
+		boolean available = false;
+		if (cache != null) synchronized (cache) {
+			available = known && refreshed && caches.get(uuid) == cache && cache.hasPublishedStorageSnapshot()
+					&& column.equals(user.getPointsPath())
+					&& plugin.isEnabled() && plugin.getPlaceholders() == placeholders;
+		}
+		placeholders.finishSharedPointDebit(uuid, known, available);
+	}
+
 	private void discardPointsCache(VotingPluginUser user) {
 		discardPointsCache(user, user.getPointsPath());
 	}

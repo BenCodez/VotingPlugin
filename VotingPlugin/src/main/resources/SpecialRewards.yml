@@ -397,3 +397,45 @@ DailyAwards:
     Rewards:
       Messages:
         Player: '&aYou came in second place in %TopVoter%!'
+
+# Owner-defined dated events. This example is DISABLED by default.
+# Set your own dates/rewards, then enable the event. No automatic recurring reset.
+# Keep the event ID stable to retain progress; never delete its ledger and reuse it.
+# After accounting starts, use a NEW ID for changes to dates, timezone, thresholds,
+# VoteSites or AccountingServer. Unsafe edits are rejected, preserving progress.
+# DisplayName and Enabled may change without resetting counts.
+# Full configuration and durability limits: docs/date-vote-milestones.md
+DateVoteMilestones:
+  example_event:
+    Enabled: false
+    # Count admin/test votes for this event? Existing normal vote policies are unchanged.
+    CountFakeVotes: true
+    DisplayName: 'Example voting event'
+    # Local ISO date-times interpreted in the explicit IANA timezone below.
+    Start: '2026-10-01T00:00:00' # Inclusive: occurrences at this instant count.
+    End: '2026-11-01T00:00:00' # Exclusive: occurrences at this instant do not count.
+    Timezone: 'UTC'
+    # Ledger owner: empty/omitted means local accounting on standalone servers.
+    # With UseBungeecord enabled, empty/omitted disables new date accounting.
+    # Proxy: set the exact, case-sensitive BungeeSettings.yml Server name of ONE
+    # backend, identically on every backend, with identified all-server delivery.
+    # Reward delivery follows the existing reward settings. Keep matching event
+    # IDs and milestone reward sections on backends that may resolve rewards.
+    AccountingServer: ''
+    # Configured VoteSites.yml keys (not service names); empty means all sites.
+    VoteSites: []
+    # Named milestones use At (one count, list, or bounded range) / Every.
+    # Existing numeric keys with Rewards remain supported; see the guide.
+    Milestones:
+      TenVotes:
+        Enabled: true
+        At: 10
+        Rewards:
+          Messages:
+            Player: '&aYou reached 10 votes in %DateVoteEvent%!'
+      TwentyFiveVotes:
+        Enabled: true
+        At: 25
+        Rewards:
+          Messages:
+            Player: '&aYou reached 25 votes in %DateVoteEvent%!'

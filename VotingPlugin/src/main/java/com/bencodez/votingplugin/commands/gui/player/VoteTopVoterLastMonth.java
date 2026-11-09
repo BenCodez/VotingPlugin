@@ -31,7 +31,7 @@ public class VoteTopVoterLastMonth extends GUIHandler {
 	
 	@Override
 	public void onDialog(Player player) {
-		Set<Entry<TopVoterPlayer, Integer>> users = plugin.getLastMonthTopVoter().entrySet();
+		Set<Entry<TopVoterPlayer, Integer>> users = plugin.getLastMonthTopVoterDisplay().entrySet();
 
 		com.bencodez.simpleapi.dialog.MultiActionDialogBuilder dialog = plugin.getDialogService().multiAction(player)
 				.placeholder("player", user.getPlayerName())
@@ -91,7 +91,7 @@ public class VoteTopVoterLastMonth extends GUIHandler {
 	public void onChest(Player player) {
 		Set<Entry<TopVoterPlayer, Integer>> users = null;
 
-		users = plugin.getLastMonthTopVoter().entrySet();
+		users = plugin.getLastMonthTopVoterDisplay().entrySet();
 
 		BInventory inv = new BInventory(plugin.getGui().getChestVoteTopName());
 		inv.addPlaceholder("topvoter", "Last Month");

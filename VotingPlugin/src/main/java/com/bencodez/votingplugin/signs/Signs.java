@@ -64,6 +64,69 @@ public class Signs {
 		}
 	}
 
+    private final Object shutdownLock = new Object();
+    private ShutdownSigns shutdownSigns;
+    private java.util.concurrent.CompletableFuture<Void> shutdownAttempt;
+
+    private record ShutdownSigns(com.bencodez.votingplugin.data.ServerData data,
+            java.util.List<com.bencodez.votingplugin.data.ServerData.SignSnapshot> snapshot,
+            com.bencodez.votingplugin.util.ServerDataPublicationFence.Lease lease) { }
+
+    /** No YAML lock or disk wait on the lifecycle caller; failures retain the original payload. */
+    public java.util.concurrent.CompletionStage<Void> storeSignsForShutdown() {
+        synchronized (shutdownLock) {
+            if (shutdownAttempt != null && !shutdownAttempt.isCompletedExceptionally())
+                return shutdownAttempt.minimalCompletionStage();
+            if (shutdownSigns == null) {
+                var snapshot = new java.util.ArrayList<com.bencodez.votingplugin.data.ServerData.SignSnapshot>();
+                for (var sign : java.util.List.copyOf(getSigns())) snapshot.add(sign.captureShutdownSnapshot());
+                if (snapshot.isEmpty()) {
+                    shutdownAttempt = java.util.concurrent.CompletableFuture.completedFuture(null);
+                    return shutdownAttempt.minimalCompletionStage();
+                }
+                var data = java.util.Objects.requireNonNull(plugin.getServerData());
+                var fence = java.util.Objects.requireNonNull(plugin.getServerDataPublicationFence());
+                shutdownSigns = new ShutdownSigns(data, java.util.List.copyOf(snapshot), fence.acquire());
+            }
+            var publication = shutdownSigns;
+            var attempt = new java.util.concurrent.CompletableFuture<Void>();
+            shutdownAttempt = attempt;
+            try {
+                startShutdownWorker(() -> {
+                    try {
+                        java.util.Objects.requireNonNull(publication.data().publishShutdownSigns(publication.snapshot()))
+                                .whenComplete((ignored, failure) -> finishShutdownSigns(publication, attempt, failure));
+                    } catch (Throwable failure) { finishShutdownSigns(publication, attempt, failure); }
+                });
+            } catch (RuntimeException | Error failure) {
+                finishShutdownSigns(publication, attempt, failure);
+                throw failure;
+            }
+            return attempt.minimalCompletionStage();
+        }
+    }
+
+    private void finishShutdownSigns(ShutdownSigns publication,
+            java.util.concurrent.CompletableFuture<Void> attempt, Throwable failure) {
+        if (failure == null) {
+            try { publication.lease().close(); attempt.complete(null); }
+            catch (Throwable releaseFailure) { attempt.completeExceptionally(releaseFailure); }
+        } else {
+            // Neither rejected admission nor failed I/O proves durability or writer drain.
+            // Keep the same detached payload and lease for an explicit repeated-unload attempt.
+            try { plugin.getLogger().warning("Sign shutdown persistence failed; its payload remains owned. Recovery is not confirmed."); }
+            catch (RuntimeException | Error ignored) { }
+            attempt.completeExceptionally(failure);
+        }
+    }
+
+    /** Admission seam for deterministic rejection/cancellation tests. */
+    protected void startShutdownWorker(Runnable task) {
+        var worker = new Thread(task, "VotingPlugin-sign-shutdown");
+        worker.setDaemon(true);
+        worker.start();
+    }
+
 	/**
 	 * Update signs.
 	 */

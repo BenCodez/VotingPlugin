@@ -3,10 +3,8 @@ package com.bencodez.votingplugin.discord;
 import java.awt.Color;
 import java.time.Instant;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -27,6 +25,7 @@ import github.scarsz.discordsrv.api.events.DiscordReadyEvent;
 import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
 import github.scarsz.discordsrv.dependencies.jda.api.JDA;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.TextChannel;
+import github.scarsz.discordsrv.dependencies.jda.api.entities.Message;
 import github.scarsz.discordsrv.dependencies.jda.api.requests.ErrorResponse;
 import github.scarsz.discordsrv.dependencies.jda.api.exceptions.ErrorResponseException;
 import github.scarsz.discordsrv.util.DiscordUtil;
@@ -40,8 +39,45 @@ public class DiscordHandler {
 	private final VotingPluginMain plugin;
 	@Getter
 	private final HashMap<TopVoter, Long> topVoterMessageIds = new HashMap<TopVoter, Long>();
-	private final Set<TopVoter> recoveringTopVoters = new HashSet<>();
+	/** Identity, rather than generation alone, owns every request and its callbacks. */
+	private static final class Publication {
+		final long generation;
+		final boolean persistent;
+		boolean sending, editing, recovering, again, completing, retired;
+		long requestedGeneration;
+		final AtomicBoolean sendCompleted = new AtomicBoolean(false);
+		Publication(long generation, boolean persistent, boolean sending) {
+			this.generation = generation; this.requestedGeneration = generation;
+			this.persistent = persistent; this.sending = sending; this.editing = !sending;
+		}
+	}
+	private static final int PENDING = 0, WRITING = 1, RETAINED = 2, DISCARDED = 3, DETACHED = 4;
+	private static final int MAX_OWNED_RECEIPTS = 128;
+	/** External success is owned here before any cancellable worker handoff. */
+	private static final class SentReceipt {
+		final TopVoter top;
+		final Message message;
+		final long id;
+		final long generation;
+		final AtomicBoolean cleanupRequested = new AtomicBoolean(false);
+		int state = PENDING;
+		boolean confirmed;
+		SentReceipt(TopVoter top, Message message, long generation) {
+			this.top = top; this.message = message; this.id = message.getIdLong(); this.generation = generation;
+		}
+	}
+	private final java.util.EnumMap<TopVoter, Publication> publications = new java.util.EnumMap<>(TopVoter.class);
+	/** Guarded by publications; includes uncertain saves until confirmed replacement or explicit detachment. */
+	private final java.util.Set<SentReceipt> ownedReceipts = new java.util.HashSet<>();
+	private final AtomicBoolean closed = new AtomicBoolean(false);
 	private final AtomicBoolean discordReady = new AtomicBoolean(false);
+	private static final class DisplayUpdate {
+		private final long generation;
+		private long requestedGeneration;
+		private boolean again;
+		private DisplayUpdate(long generation) { this.generation = generation; this.requestedGeneration = generation; }
+	}
+	private final java.util.EnumMap<TopVoter, DisplayUpdate> preparing = new java.util.EnumMap<>(TopVoter.class);
 
 	/**
 	 * Constructs a new Discord handler.
@@ -149,14 +185,347 @@ public class DiscordHandler {
 	 * @param top the top voter
 	 */
 	public void updateTopVoterMessageId(TopVoter top) {
-		plugin.extraDebug("Updating Discord Top Voter message for: " + top);
+		prepareTopVoterMessage(top, plugin.getTopVoterDisplayGeneration());
+	}
 
-		long channelId = plugin.getConfigFile().getDiscordSRVTopVoterChannel(top);
-		LinkedHashMap<TopVoterPlayer, Integer> topVoters = plugin.getTopVoter(top);
+	private void prepareTopVoterMessage(TopVoter top, long generation) {
+		DisplayUpdate update;
+		synchronized (preparing) {
+			if (!currentGeneration(generation)) return;
+			DisplayUpdate pending = preparing.get(top);
+			if (pending != null) {
+				pending.again = true;
+				pending.requestedGeneration = generation;
+				return;
+			}
+			update = new DisplayUpdate(generation);
+			preparing.put(top, update);
+		}
+		try {
+			plugin.getTopVoterDisplayAsync(top).whenComplete((snapshot, failure) -> {
+				try {
+					plugin.getTimer().execute(() -> {
+						if (!releasePreparation(top, update)) return;
+						if (!currentGeneration(update.generation)) {
+							retryRequestedPreparation(top, update);
+							return;
+						}
+						// Joins and TTL/scope changes can revoke omissions while publication is queued.
+						// Recheck current evidence without opening another asynchronous deadline.
+						if (update.again || (failure == null && snapshot != null)) {
+							try { publishTopVoterMessage(top, plugin.getTopVoterDisplay(top), update.generation); }
+							catch (RuntimeException unavailable) { warnLeaderboardFailure("preparing a current display for " + top); }
+						} else plugin.getLogger().warning("Unable to prepare Discord Top Voters: " + top);
+					});
+				} catch (RuntimeException rejected) {
+					if (releasePreparation(top, update)) {
+						try { if (currentGeneration(update.generation)) warnLeaderboardFailure("preparation worker admission for " + top); }
+						finally { retryRequestedPreparation(top, update); }
+					}
+				}
+			});
+		} catch (RuntimeException unavailable) {
+			if (releasePreparation(top, update)) {
+				try { if (currentGeneration(update.generation)) warnLeaderboardFailure("preparing evidence for " + top); }
+				finally { retryRequestedPreparation(top, update); }
+			}
+		}
+	}
 
-		String title = plugin.getConfigFile().getDiscordSRVTopVoterTitle(top);
+	private boolean releasePreparation(TopVoter top, DisplayUpdate update) {
+		synchronized (preparing) { return preparing.remove(top, update); }
+	}
+
+	private void retryRequestedPreparation(TopVoter top, DisplayUpdate update) {
+		// The retired request's evidence never changes ownership to a replacement filter.
+		if (update.again && update.requestedGeneration != update.generation)
+			prepareTopVoterMessage(top, update.requestedGeneration);
+	}
+
+	void publishTopVoterMessage(TopVoter top, LinkedHashMap<TopVoterPlayer, Integer> prepared) {
+		publishTopVoterMessage(top, prepared, plugin.getTopVoterDisplayGeneration());
+	}
+
+	void publishTopVoterMessage(TopVoter top, LinkedHashMap<TopVoterPlayer, Integer> prepared, long generation) {
+		if (!currentGeneration(generation)) return;
 		boolean newMessage = plugin.getConfigFile().isDiscordSRVTopVoterNewMessageOnUpdate(top);
+		TextChannel channel;
+		try { channel = leaderboardChannel(plugin.getConfigFile().getDiscordSRVTopVoterChannel(top)); }
+		catch (RuntimeException unavailable) { warnLeaderboardFailure("channel lookup for " + top); return; }
+		if (channel == null) { warnLeaderboardFailure("missing channel for " + top); return; }
+		Publication publication;
+		long existingId;
+		synchronized (publications) {
+			if (!currentGeneration(generation)) return;
+			Publication pending = publications.get(top);
+			if (pending != null && (pending.editing || (!pending.retired && pending.generation == generation
+					&& (pending.sending || pending.completing)))) {
+				pending.again = true;
+				pending.requestedGeneration = generation;
+				return;
+			}
+			existingId = topVoterMessageIds.getOrDefault(top, 0L);
+			publication = new Publication(generation, !newMessage, existingId <= 0 || newMessage);
+			publications.put(top, publication);
+		}
+		try {
+			var embed = buildTopVoterEmbed(plugin.getConfigFile().getDiscordSRVTopVoterTitle(top), plugin.getTopVoterDisplay(top)).build();
+			if (!current(top, publication)) { finish(top, publication); return; }
+			if (publication.sending) send(top, channel, publication, embed);
+			else channel.editMessageEmbedsById(existingId, embed).queue(
+					message -> finishEdit(top, publication, existingId),
+					error -> handleMessageUpdateFailure(top, channel, publication, error));
+		} catch (RuntimeException unavailable) { failPublication(top, publication, "preparing or submitting a message"); }
+	}
 
+	private boolean current(TopVoter top, Publication publication) {
+		if (!currentGeneration(publication.generation)) return false;
+		synchronized (publications) { return publications.get(top) == publication && !publication.retired; }
+	}
+
+	/** Never hold the publication lock while waiting for the ServerData save monitor. */
+	private boolean persist(TopVoter top, Publication publication, long id) {
+		var data = plugin.getServerData();
+		synchronized (data) {
+			if (!current(top, publication)) return false;
+			data.setTopVoterMessageId(top, id);
+		}
+		return current(top, publication);
+	}
+
+	private void finish(TopVoter top, Publication publication) {
+		boolean again, prepareAgain;
+		long generation;
+		synchronized (publications) {
+			if (publications.get(top) != publication) return;
+			publications.remove(top);
+			again = publication.again;
+			generation = publication.requestedGeneration;
+			prepareAgain = publication.retired || generation != publication.generation;
+		}
+		// A queued request is independent of whether the previous network operation succeeded.
+		if (again) {
+			if (prepareAgain) prepareTopVoterMessage(top, generation);
+			else dispatchLeaderboard(generation,
+					() -> publishTopVoterMessage(top, plugin.getTopVoterDisplay(top), generation), () -> { });
+		}
+	}
+
+	private void warnLeaderboardFailure(String stage) {
+		// Provider exceptions can contain request URLs or message content. Report the phase only.
+		plugin.getLogger().warning("Unable to publish Discord Top Voters (" + stage
+				+ "). Check the Discord channel, permissions and configuration; a later update can retry.");
+	}
+
+	private void failPublication(TopVoter top, Publication publication, String stage) {
+		try { if (current(top, publication)) warnLeaderboardFailure(stage + " for " + top); }
+		finally { finish(top, publication); }
+	}
+
+	private void send(TopVoter top, TextChannel channel, Publication publication,
+			github.scarsz.discordsrv.dependencies.jda.api.entities.MessageEmbed embed) {
+		if (!current(top, publication)) { finish(top, publication); return; }
+		channel.sendMessageEmbeds(embed).queue(message -> {
+			if (!publication.sendCompleted.compareAndSet(false, true)) return;
+			SentReceipt receipt = new SentReceipt(top, message, publication.generation);
+			boolean admitted;
+			synchronized (publications) {
+				admitted = !closed.get() && (!publication.persistent || ownedReceipts.size() < MAX_OWNED_RECEIPTS);
+				if (admitted && publication.persistent) ownedReceipts.add(receipt);
+				publication.completing = true;
+			}
+			if (!admitted) {
+				discardCreatedMessage(publication, receipt); finish(top, publication); return;
+			}
+			dispatchLeaderboard(publication.generation, () -> {
+				try {
+					if (!current(top, publication)) return;
+					if (publication.persistent) { retainCreatedMessage(top, publication, receipt); return; }
+					if (!current(top, publication)) return;
+					synchronized (publications) {
+						if (publications.get(top) == publication) topVoterMessageIds.put(top, receipt.id);
+					}
+				} catch (RuntimeException failure) { warnLeaderboardFailure("storing a message ID for " + top); }
+				finally { discardCreatedMessage(publication, receipt); finish(top, publication); }
+			}, () -> { discardCreatedMessage(publication, receipt); finish(top, publication); });
+		}, failure -> failPublication(top, publication, "sending a message"));
+	}
+
+	/** Retry an uncertain ID save after a successful edit, without creating another external post. */
+	private void finishEdit(TopVoter top, Publication publication, long id) {
+		synchronized (publications) { publication.editing = false; publication.completing = true; }
+		if (!current(top, publication)) { finish(top, publication); return; }
+		SentReceipt retry;
+		synchronized (publications) {
+			retry = ownedReceipts.stream().filter(receipt -> receipt.top == top && receipt.id == id
+					&& receipt.state == RETAINED && !receipt.confirmed).findFirst().orElse(null);
+		}
+		if (retry == null) { finish(top, publication); return; }
+		dispatchLeaderboard(publication.generation, () -> {
+			try { retainCreatedMessage(top, publication, retry); }
+			finally { discardCreatedMessage(publication, retry); finish(top, publication); }
+		}, () -> finish(top, publication));
+	}
+
+	/** Never hold publication ownership while waiting for the existing save monitor or file I/O. */
+	private void retainCreatedMessage(TopVoter top, Publication publication, SentReceipt receipt) {
+		var obsolete = new java.util.ArrayList<SentReceipt>();
+		var data = plugin.getServerData();
+		boolean uncertain = false;
+		synchronized (data) {
+			if (!current(top, publication)) return;
+			synchronized (publications) {
+				if (!current(top, publication) || (receipt.state != PENDING && receipt.state != RETAINED)) return;
+				receipt.state = WRITING;
+			}
+			try {
+				boolean confirmed = data.setTopVoterMessageIdConfirmed(top, receipt.id);
+				long actual = data.getTopVoterMessageId(top);
+				synchronized (publications) {
+					if (receipt.state == DETACHED) return;
+					// A reentrant newer confirmed write already owns the file. Reconcile only this older post.
+					if (actual != receipt.id && ownedReceipts.stream().anyMatch(other -> other != receipt
+							&& other.top == top && other.id == actual && other.state == RETAINED && other.confirmed)) return;
+					receipt.state = RETAINED;
+					receipt.confirmed = confirmed && actual == receipt.id;
+					uncertain = !receipt.confirmed;
+					if (actual == receipt.id && (publications.get(top) == publication
+							|| topVoterMessageIds.getOrDefault(top, 0L) <= 0)) topVoterMessageIds.put(top, receipt.id);
+					if (receipt.confirmed) {
+						var iterator = ownedReceipts.iterator();
+						while (iterator.hasNext()) {
+							SentReceipt previous = iterator.next();
+							if (previous != receipt && previous.top == top && previous.state == RETAINED) {
+								previous.state = DISCARDED; iterator.remove(); obsolete.add(previous);
+							}
+						}
+					}
+				}
+			} catch (RuntimeException failure) {
+				// The legacy writer may have mutated or saved before throwing; do not delete a possibly recorded post.
+				synchronized (publications) {
+					if (receipt.state == DETACHED) return;
+					receipt.state = RETAINED; receipt.confirmed = false;
+					if (publications.get(top) == publication && topVoterMessageIds.getOrDefault(top, 0L) <= 0)
+						topVoterMessageIds.put(top, receipt.id);
+				}
+				uncertain = true;
+			}
+		}
+		obsolete.forEach(this::removeCreatedMessage);
+		if (uncertain) warnMessageStorage();
+	}
+
+	private void discardCreatedMessage(Publication publication, SentReceipt receipt) {
+		if (!publication.persistent) return; // Append mode deliberately keeps its posts.
+		synchronized (publications) {
+			if (receipt.state != PENDING && receipt.state != WRITING) return;
+			receipt.state = DISCARDED; ownedReceipts.remove(receipt);
+		}
+		removeCreatedMessage(receipt);
+	}
+
+	/** Detach the administrator's old posts; clearing an ID never authorizes deleting those posts. */
+	public boolean clearTopVoterMessageId(TopVoter top) {
+		var data = plugin.getServerData();
+		synchronized (data) {
+			synchronized (publications) {
+				publications.remove(top);
+				synchronized (preparing) { preparing.remove(top); }
+				topVoterMessageIds.put(top, 0L);
+				ownedReceipts.removeIf(receipt -> {
+					if (receipt.top != top || (receipt.state != PENDING && receipt.state != RETAINED
+							&& receipt.state != WRITING)) return false;
+					receipt.state = DETACHED; return true;
+				});
+			}
+			try { if (data.setTopVoterMessageIdConfirmed(top, 0L)) return true; }
+			catch (RuntimeException failure) { /* The outgoing diagnostic remains redacted. */ }
+		}
+		warnMessageStorage(); return false;
+	}
+
+	/** Retire invalidated generations before worker cancellation; close invalidates every generation. */
+	public void retireLeaderboardPublications() {
+		var abandoned = new java.util.ArrayList<SentReceipt>();
+		var restart = new java.util.EnumMap<TopVoter, Long>(TopVoter.class);
+		synchronized (publications) {
+			// An admitted edit can still write on Discord after retirement. Keep its
+			// bounded slot until its network callback rather than submitting overlapping edits.
+			publications.entrySet().removeIf(entry -> {
+				Publication publication = entry.getValue();
+				if (currentGeneration(publication.generation) && !publication.retired) return false;
+				boolean again = publication.again && currentGeneration(publication.requestedGeneration);
+				if (!publication.editing) {
+					if (again) restart.put(entry.getKey(), publication.requestedGeneration);
+					return true;
+				}
+				publication.retired = true;
+				publication.again = again;
+				return false;
+			});
+			synchronized (preparing) {
+				preparing.entrySet().removeIf(entry -> {
+					DisplayUpdate update = entry.getValue();
+					if (currentGeneration(update.generation)) return false;
+					if (update.again && currentGeneration(update.requestedGeneration))
+						restart.put(entry.getKey(), update.requestedGeneration);
+					return true;
+				});
+			}
+			var iterator = ownedReceipts.iterator();
+			while (iterator.hasNext()) {
+				SentReceipt receipt = iterator.next();
+				if (receipt.state == PENDING && !currentGeneration(receipt.generation)) {
+					receipt.state = DISCARDED; iterator.remove(); abandoned.add(receipt);
+				}
+			}
+		}
+		abandoned.forEach(this::removeCreatedMessage);
+		// Old worker completions can be cancelled; transfer explicit requests now,
+		// outside both ownership monitors and without waiting for those callbacks.
+		restart.forEach(this::prepareTopVoterMessage);
+	}
+
+	public void close() {
+		synchronized (publications) {
+			if (!closed.compareAndSet(false, true)) return;
+		}
+		retireLeaderboardPublications();
+		boolean uncertain;
+		synchronized (publications) {
+			uncertain = ownedReceipts.stream().anyMatch(receipt -> receipt.state == WRITING || !receipt.confirmed);
+		}
+		if (uncertain) warnMessageStorage();
+	}
+
+	private void warnMessageStorage() {
+		plugin.getLogger().warning("Unable to confirm Discord Top Voters message ID storage. "
+				+ "The post remains tracked in memory; check storage before restarting and reconcile posts manually.");
+	}
+
+	/** JDA owns asynchronous deletion; cleanup does not depend on the retiring plugin worker. */
+	private void removeCreatedMessage(SentReceipt receipt) {
+		if (!receipt.cleanupRequested.compareAndSet(false, true)) return;
+		try {
+			receipt.message.delete().queue(ignored -> { }, failure -> {
+				if (!(failure instanceof ErrorResponseException response)
+						|| response.getErrorResponse() != ErrorResponse.UNKNOWN_MESSAGE) warnMessageCleanup();
+			});
+		} catch (RuntimeException failure) { warnMessageCleanup(); }
+	}
+
+	private void warnMessageCleanup() {
+		plugin.getLogger().warning("Unable to remove an untracked Discord Top Voters message. "
+				+ "Check Discord permissions and remove the unwanted post manually.");
+	}
+
+	TextChannel leaderboardChannel(long channelId) {
+		return DiscordUtil.getJda().getTextChannelById(channelId);
+	}
+
+	/** Render an inspected display snapshot without accessing the Discord runtime. */
+	static EmbedBuilder buildTopVoterEmbed(String title, LinkedHashMap<TopVoterPlayer, Integer> topVoters) {
 		EmbedBuilder eb = new EmbedBuilder().setTitle(title).setColor(Color.CYAN).setTimestamp(Instant.now());
 
 		if (topVoters == null || topVoters.isEmpty()) {
@@ -187,34 +556,7 @@ public class DiscordHandler {
 			eb.setDescription(sb.toString()).setFooter("Top 10 • Updated");
 		}
 
-		TextChannel channel = DiscordUtil.getJda().getTextChannelById(channelId);
-		if (channel == null) {
-			plugin.getLogger().warning("Discord channel ID " + channelId + " not found: " + top);
-			return;
-		}
-
-		long existingId;
-		synchronized (recoveringTopVoters) {
-			if (recoveringTopVoters.contains(top)) {
-				plugin.debug("Skipping Discord Top Voter update while recovery is in progress: " + top);
-				return;
-			}
-			existingId = topVoterMessageIds.getOrDefault(top, 0L);
-		}
-
-		if (existingId <= 0 || newMessage) {
-			channel.sendMessageEmbeds(eb.build()).queue(msg -> {
-				long newId = msg.getIdLong();
-				topVoterMessageIds.put(top, newId);
-				if (!newMessage)
-					plugin.getServerData().setTopVoterMessageId(top, newId);
-				plugin.debug("Posted new Top Voters " + top + " (ID: " + newId + ")");
-			}, err -> plugin.getLogger().warning("Error sending Top Voters " + top + ": " + err.getMessage()));
-		} else {
-			channel.editMessageEmbedsById(existingId, eb.build()).queue(
-					m -> plugin.debug("Edited Top Voters " + top + " (ID: " + existingId + ")"),
-					err -> handleMessageUpdateFailure(top, channel, eb, existingId, err));
-		}
+		return eb;
 	}
 
 	/**
@@ -224,41 +566,65 @@ public class DiscordHandler {
 	 * condition as recoverable so one deleted message cannot permanently stop
 	 * leaderboard updates.
 	 */
-	private void handleMessageUpdateFailure(TopVoter top, TextChannel channel, EmbedBuilder eb, long existingId,
-			Throwable error) {
-		if (plugin.getConfigFile().isDiscordSRVTopVoterAutoRecoverMessageOnFailure()
-				&& error instanceof ErrorResponseException
-				&& ((ErrorResponseException) error).getErrorResponse() == ErrorResponse.UNKNOWN_MESSAGE) {
-			synchronized (recoveringTopVoters) {
-				if (topVoterMessageIds.getOrDefault(top, 0L) != existingId || !recoveringTopVoters.add(top)) {
-					plugin.debug("Skipping stale Discord Top Voter recovery because another update handled: " + top);
-					return;
+	private boolean currentGeneration(long generation) {
+		return !closed.get() && plugin.isEnabled() && plugin.getTopVoterDisplayGeneration() == generation;
+	}
+
+	private void dispatchLeaderboard(long generation, Runnable action, Runnable discarded) {
+		if (!currentGeneration(generation)) { discarded.run(); return; }
+		try {
+			plugin.getTimer().execute(() -> {
+				try {
+					if (currentGeneration(generation)) action.run(); else discarded.run();
+				} catch (RuntimeException failure) {
+					try { if (currentGeneration(generation)) warnLeaderboardFailure("asynchronous publication"); }
+					finally { discarded.run(); }
 				}
-			}
-			plugin.getLogger().warning("Discord Top Voters " + top + " message " + existingId
-					+ " no longer exists; clearing the stored ID and posting a replacement.");
-			synchronized (recoveringTopVoters) {
-				topVoterMessageIds.put(top, 0L);
-			}
-			plugin.getServerData().setTopVoterMessageId(top, 0L);
-			channel.sendMessageEmbeds(eb.build()).queue(msg -> {
-				long newId = msg.getIdLong();
-				synchronized (recoveringTopVoters) {
-					topVoterMessageIds.put(top, newId);
-					plugin.getServerData().setTopVoterMessageId(top, newId);
-					recoveringTopVoters.remove(top);
-				}
-				plugin.debug("Recovered Top Voters " + top + " with replacement message (ID: " + newId + ")");
-			}, sendError -> {
-				synchronized (recoveringTopVoters) {
-					recoveringTopVoters.remove(top);
-				}
-				plugin.getLogger().warning("Error recovering Top Voters " + top + ": " + sendError.getMessage());
 			});
+		} catch (RuntimeException rejected) {
+			try { if (currentGeneration(generation)) warnLeaderboardFailure("worker admission"); }
+			finally { discarded.run(); }
+		}
+	}
+
+	private void handleMessageUpdateFailure(TopVoter top, TextChannel channel, Publication publication,
+			Throwable error) {
+		synchronized (publications) { publication.editing = false; }
+		if (!current(top, publication)) { finish(top, publication); return; }
+		if (!plugin.getConfigFile().isDiscordSRVTopVoterAutoRecoverMessageOnFailure()
+				|| !(error instanceof ErrorResponseException response)
+				|| response.getErrorResponse() != ErrorResponse.UNKNOWN_MESSAGE) {
+			failPublication(top, publication, "editing a message");
 			return;
 		}
-
-		plugin.getLogger().warning("Error editing Top Voters " + top + ": " + error.getMessage());
+		synchronized (publications) {
+			if (publications.get(top) != publication || publication.recovering) return;
+			publication.recovering = true;
+			publication.sending = true;
+		}
+		dispatchLeaderboard(publication.generation, () -> {
+			try {
+				if (!persist(top, publication, 0L)) { finish(top, publication); return; }
+				synchronized (publications) {
+					if (publications.get(top) != publication) return;
+					topVoterMessageIds.put(top, 0L);
+				}
+				// Persistence can block while a join, TTL, reload or disable revokes the earlier frame.
+				var replacement = buildTopVoterEmbed(plugin.getConfigFile().getDiscordSRVTopVoterTitle(top),
+						plugin.getTopVoterDisplay(top)).build();
+				send(top, channel, publication, replacement);
+			} catch (RuntimeException failure) { failPublication(top, publication, "recovering a deleted message"); }
+		}, () -> {
+			// Rejected admission has no effects; the same failed edit may be retried.
+			boolean again = false;
+			synchronized (publications) {
+				if (publications.get(top) == publication) {
+					publication.recovering = false; publication.sending = false;
+					again = publication.again;
+				}
+			}
+			if (again) finish(top, publication);
+		});
 	}
 
 	/**

@@ -21,6 +21,16 @@ import lombok.Setter;
  */
 public class PlayerVoteEvent extends Event implements Cancellable {
 
+	/** Stable local receipt identity, separate from proxy transport provenance. */
+	@Getter
+	@Setter
+	private UUID localOccurrenceId;
+
+	/** Original accepted occurrence time; ordinary cooldown/event time remains separate. */
+	@Getter
+	@Setter
+	private Long canonicalOccurrenceTime;
+
 	/** The Constant handlers. */
 	private static final HandlerList handlers = new HandlerList();
 
@@ -45,7 +55,7 @@ public class PlayerVoteEvent extends Event implements Cancellable {
 	@Setter
 	private VoteTotalsSnapshot bungeeTextTotals;
 
-	/** Stable identity supplied by a proxy delivery, independent of totals. */
+	/** Original explicit proxy transport ID; null for legacy totals-only correlation. */
 	@Getter
 	@Setter
 	private UUID proxyVoteId;
@@ -85,6 +95,20 @@ public class PlayerVoteEvent extends Event implements Cancellable {
 	@Getter
 	@Setter
 	private boolean wasOnline;
+
+    /** Native receipt ownership is released only after the accepted consumer returns. */
+    @Getter
+    @Setter
+    private boolean nativeProcessingStarted;
+
+    @Getter
+    @Setter
+    private boolean nativeProcessingCompleted;
+
+	/** Missing date accounting is surfaced after event dispatch so durable proxy envelopes are not acknowledged. */
+	@Getter
+	@Setter
+	private boolean dateMilestoneAccountingFailed;
 
 	/** Whether this is an identified queued proxy delivery. */
 	@Getter

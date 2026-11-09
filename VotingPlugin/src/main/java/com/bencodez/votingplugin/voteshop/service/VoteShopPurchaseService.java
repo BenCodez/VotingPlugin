@@ -186,15 +186,24 @@ public class VoteShopPurchaseService {
 		// or entity task runs could pair an old debit with a newly loaded reward.
 		FileConfiguration shopData = plugin.getShopFile().getData();
 		HashMap<String, String> placeholders = purchasePlaceholders(item);
+		var pointPlaceholders = plugin.getPlaceholders();
+		Consumer<Boolean> admission = pointPlaceholders == null ? null
+				: pointPlaceholders.sharedPointAdmissionCompletion(UUID.fromString(user.getUUID()));
 		try {
 			plugin.getTimer().execute(() -> {
 				try {
 					SharedPurchaseDebit debit;
-					synchronized (purchaseLock(user.getUUID())) {
-						// Sample the reset window beside the conditional debit. A queued
-						// persistence task may otherwise cross into a new limit period.
-						debit = reserveSharedMysqlPurchase(user, item,
-								limitGeneration(item, System.currentTimeMillis()));
+					boolean settled = false;
+					try {
+						synchronized (purchaseLock(user.getUUID())) {
+							// Sample the reset window beside the conditional debit. A queued
+							// persistence task may otherwise cross into a new limit period.
+							debit = reserveSharedMysqlPurchase(user, item,
+									limitGeneration(item, System.currentTimeMillis()));
+						}
+						settled = true;
+					} finally {
+						if (admission != null) admission.accept(settled);
 					}
 					if (debit.result() != VoteShopPurchaseResult.SUCCESS) {
 						completePurchaseResult(player, completion, debit.result());
@@ -207,6 +216,7 @@ public class VoteShopPurchaseService {
 				}
 			});
 		} catch (RuntimeException persistenceRejected) {
+			if (admission != null) admission.accept(false);
 			plugin.debug(persistenceRejected);
 			completeFailedPurchase(player, completion);
 		}
@@ -479,20 +489,29 @@ public class VoteShopPurchaseService {
 	}
 
 	private void refundCompensatingMysqlDebit(VotingPluginUser user, SharedPurchaseDebit debit) {
+		var publication = plugin.getPlaceholders();
+		UUID uuid = publication == null ? null : UUID.fromString(user.getUUID());
+		if (publication != null) publication.beginSharedPointDebit(uuid);
+		boolean known = false;
 		try {
-			if (debit.journal().refundCompensatingReward(debit.purchaseId())) {
-				refreshPurchaseCache(user, debit.pointsColumn(), debit.limitColumn());
-			}
+			debit.journal().refundCompensatingReward(debit.purchaseId());
+			known = true;
 		} catch (SQLException failure) {
+			known = failure instanceof SharedMysqlPurchaseJournal.PreparationFailure;
 			// A commit/confirmation failure is indeterminate: the refund transaction
 			// may have committed even though this worker could not observe its terminal
 			// journal state. Drop the affected snapshots before any later cache dump so
 			// a stale debit cannot overwrite a durable refund. Recovery will reconcile
 			// the journal state if the transaction did not commit.
-			refreshPurchaseCache(user, debit.pointsColumn(), debit.limitColumn());
 			plugin.getLogger().severe("Unable to refund an incomplete vote shop purchase: "
 					+ failure.getClass().getSimpleName());
 			plugin.debug(failure);
+		} finally {
+			try {
+				refreshPurchaseCache(user, debit.pointsColumn(), debit.limitColumn());
+			} finally {
+				if (publication != null) publication.finishSharedPointDebit(uuid, known, false);
+			}
 		}
 	}
 
@@ -738,37 +757,50 @@ public class VoteShopPurchaseService {
 
 	private SharedPurchaseDebit reserveSharedMysqlPurchase(VotingPluginUser user, VoteShopItem item,
 			LimitGeneration limitGeneration) {
-		MySQL table = plugin.getMysql();
-		String pointsColumn = user.getPointsPath();
-		String limitColumn = item.getLimit() > 0 ? "VoteShopLimit" + item.getIdentifier() : null;
-		ensurePerServerPointsColumn(table, pointsColumn);
-		drainPurchaseCache(user, pointsColumn);
-		if (limitColumn != null) {
-			table.checkColumn(limitColumn, DataType.INTEGER);
-		}
+		var publication = plugin.getPlaceholders();
+		UUID pointUuid = UUID.fromString(user.getUUID());
+		if (publication != null) publication.beginSharedPointDebit(pointUuid);
+		boolean known = true;
 		try {
-			SharedMysqlPurchaseJournal journal = SharedMysqlPurchaseJournal.forTable(table);
-			String purchaseId = UUID.randomUUID().toString();
-			if (journal.reserve(purchaseId, user.getUUID(), pointsColumn, limitColumn, item.getCost(), item.getLimit(),
-					limitGeneration.value(), limitGeneration.expiresAt(), System.currentTimeMillis())) {
-				// reserve() returns only after its transaction and connection are closed;
-				// NO_CACHE reads must not contend with its one-connection pool handle.
-				refreshPurchaseCache(user, pointsColumn, limitColumn);
-				return new SharedPurchaseDebit(VoteShopPurchaseResult.SUCCESS, journal, purchaseId, pointsColumn,
-						limitColumn);
+			MySQL table = plugin.getMysql();
+			String pointsColumn = user.getPointsPath();
+			String limitColumn = item.getLimit() > 0 ? "VoteShopLimit" + item.getIdentifier() : null;
+			ensurePerServerPointsColumn(table, pointsColumn);
+			drainPurchaseCache(user, pointsColumn);
+			if (limitColumn != null) {
+				table.checkColumn(limitColumn, DataType.INTEGER);
 			}
-		} catch (SQLException failure) {
-			// reserve() can throw after its commit acknowledgement and confirmation
-			// both fail. The debit may therefore be durable even though this caller
-			// reports FAILED; drop snapshots recreated during that transaction so a
-			// later cache dump cannot restore the pre-reservation values.
+			try {
+				SharedMysqlPurchaseJournal journal = SharedMysqlPurchaseJournal.forTable(table);
+				String purchaseId = UUID.randomUUID().toString();
+				known = false;
+				boolean reserved = journal.reserve(purchaseId, user.getUUID(), pointsColumn, limitColumn, item.getCost(), item.getLimit(),
+						limitGeneration.value(), limitGeneration.expiresAt(), System.currentTimeMillis());
+				known = true;
+				if (reserved) {
+					// reserve() returns only after its transaction and connection are closed;
+					// NO_CACHE reads must not contend with its one-connection pool handle.
+					refreshPurchaseCache(user, pointsColumn, limitColumn);
+					return new SharedPurchaseDebit(VoteShopPurchaseResult.SUCCESS, journal, purchaseId, pointsColumn,
+							limitColumn);
+				}
+			} catch (SQLException failure) {
+				known |= failure instanceof SharedMysqlPurchaseJournal.PreparationFailure;
+				// reserve() can throw after its commit acknowledgement and confirmation
+				// both fail. The debit may therefore be durable even though this caller
+				// reports FAILED; drop snapshots recreated during that transaction so a
+				// later cache dump cannot restore the pre-reservation values.
+				refreshPurchaseCache(user, pointsColumn, limitColumn);
+				plugin.getLogger().severe("Unable to atomically debit vote shop points: "
+						+ failure.getClass().getSimpleName());
+				plugin.debug(failure);
+				return new SharedPurchaseDebit(VoteShopPurchaseResult.FAILED, null, null, null, null);
+			}
 			refreshPurchaseCache(user, pointsColumn, limitColumn);
-			plugin.getLogger().severe("Unable to atomically debit vote shop points: "
-					+ failure.getClass().getSimpleName());
-			plugin.debug(failure);
-			return new SharedPurchaseDebit(VoteShopPurchaseResult.FAILED, null, null, null, null);
+			return new SharedPurchaseDebit(sharedMysqlFailure(user, item, limitColumn), null, null, null, null);
+		} finally {
+			if (publication != null) publication.finishSharedPointDebit(pointUuid, known, false);
 		}
-		return new SharedPurchaseDebit(sharedMysqlFailure(user, item, limitColumn), null, null, null, null);
 	}
 
 	/** The legacy cache path created server-suffixed points columns before direct SQL used them. */

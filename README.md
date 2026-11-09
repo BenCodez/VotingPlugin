@@ -52,3 +52,5 @@ or disabling it; inspections gate disabled state immediately and report a newly 
 ```
 
 `LATEST` resolves to the latest stable release.
+
+Owner-defined [DateVoteMilestones](docs/date-vote-milestones.md) count qualifying accepted votes within explicit date windows, independently of normal totals. This optional feature is disabled until events are configured.

@@ -1,0 +1,11 @@
+# Redis dependency compatibility
+
+The dependency versions in SimpleAPI, AdvancedCore and VotingPlugin describe different packaging boundaries. Equal version strings alone do not prove that a consumer can link or that a shaded JAR contains the intended implementation.
+
+- SimpleAPI's full artifact preserves the established Jedis 7 API, including `JedisPooled`, `JedisSentineled` and the public `UnifiedJedis` constructors. Its existing full-artifact test compiles and links a legacy consumer using only that JAR. Jedis 8 removes those APIs; replacing the producer dependency without a migration would break the full-artifact contract.
+- AdvancedCore excludes the ordinary transitive Jedis dependency from SimpleAPI. This exclusion does not strip classes already embedded in SimpleAPI's full JAR. The published AdvancedCore artifact therefore still contains that producer's Redis implementation.
+- VotingPlugin filters `redis/clients/**` from both producer JARs and explicitly selects its own Jedis client. These filters must remain together: removing only a Maven transitive dependency does not prevent a fat producer JAR from shadowing the selected client.
+
+VotingPlugin's package checks verify the selected implementation's class bytes, including an anchor that distinguishes the 8.0.1 and 8.0.2 patch artifacts. They compile and load the relocated SimpleAPI Redis handler using only the downloadable plugin JAR and the platform logging API. The same constructor, listener, TLS configuration and close checks run separately against the actual normal AdvancedCore and SimpleAPI dependency JARs; their legacy constructors remain checked in isolated class loaders. Maven's test dependency classpath cannot supply a missing Redis class to these probes.
+
+Keep the SimpleAPI legacy exclusion until a separately reviewed compatibility-preserving migration exists. Evaluate each dependency update against its actual public API, supported Java version, resolved artifacts and downstream packaged linkage. A passed constructor/linkage check is not a Redis broker integration test: the probes do not publish, subscribe, borrow a connection or start a service. Native and live transport acceptance remain separate.

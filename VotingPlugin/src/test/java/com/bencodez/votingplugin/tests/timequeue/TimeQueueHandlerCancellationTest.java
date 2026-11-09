@@ -104,7 +104,9 @@ class TimeQueueHandlerCancellationTest {
         verify(acceptedUser).addTotalDaily();
         verify(acceptedUser).addTotalWeekly();
         verify(acceptedUser).setTime(site, 456L);
-        verify(plugin.getServerData()).clearTimedVoteCache();
+        verify(plugin.getServerData(), never()).clearTimedVoteCache();
+        verify(plugin.getServerData(), times(2)).prepareTimedVoteDispatch(any(), any(), any());
+        verify(plugin.getServerData(), times(2)).completeTimedVoteDispatch(any());
 
         queue.processQueue();
         assertEquals(2, dispatched.size(), "a subsequent drain cannot dispatch either retired entry again");
