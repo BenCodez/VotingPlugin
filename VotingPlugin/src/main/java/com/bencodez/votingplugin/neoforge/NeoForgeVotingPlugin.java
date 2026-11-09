@@ -31,7 +31,7 @@ public final class NeoForgeVotingPlugin {
         try {
             runtime = NeoForgeRuntime.start(FMLPaths.CONFIGDIR.get().resolve("votingplugin"), serverFromEvent(ignored));
             LOGGER.info("VotingPlugin NeoForge started; reward replay active"
-                    + (runtime.proxySocket().isPresent() ? "; proxy delivery active" : ""));
+                    + (runtime.proxyTransport().isPresent() ? "; proxy transport initialized" : ""));
         } catch (IOException failure) {
             throw new IllegalStateException("VotingPlugin NeoForge startup failed", failure);
         }
@@ -57,14 +57,14 @@ public final class NeoForgeVotingPlugin {
     private void joined(PlayerEvent.PlayerLoggedInEvent event) {
         if (runtime != null) {
             var identity = runtime.playerJoinedIdentity(NeoForgePlayerDirectory.playerFromEvent(event));
-            runtime.proxySocket().ifPresent(proxy -> proxy.playerOnline(identity));
+            runtime.proxyTransport().ifPresent(proxy -> proxy.playerOnline(identity));
         }
     }
 
     private void left(PlayerEvent.PlayerLoggedOutEvent event) {
         if (runtime != null) {
             runtime.players().left(NeoForgePlayerDirectory.playerFromEvent(event))
-                    .ifPresent(identity -> runtime.proxySocket().ifPresent(proxy -> proxy.playerOffline(identity)));
+                    .ifPresent(identity -> runtime.proxyTransport().ifPresent(proxy -> proxy.playerOffline(identity)));
         }
     }
 

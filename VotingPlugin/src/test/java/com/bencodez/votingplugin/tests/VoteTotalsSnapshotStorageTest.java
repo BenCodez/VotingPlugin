@@ -24,6 +24,24 @@ import com.bencodez.votingplugin.proxy.VoteTotalsSnapshot;
 public class VoteTotalsSnapshotStorageTest {
 
 	@Test
+	public void localAdmissionProvenanceRoundTripsWithoutChangingLegacyTotals() {
+		VoteTotalsSnapshot local = new VoteTotalsSnapshot(1, 2, 3, 4, 5, 6, 7, 8);
+		String legacy = local.toStorageString();
+		assertFalse(VoteTotalsSnapshot.parseStorage(legacy).isLocalProxyOrigin());
+		local.setLocalProxyOrigin(true);
+		String stored = local.toStorageString();
+		assertTrue(stored.startsWith(legacy + "//"));
+		VoteTotalsSnapshot recovered = VoteTotalsSnapshot.parseStorage(stored);
+		assertTrue(recovered.isLocalProxyOrigin());
+		assertEquals(stored, recovered.toStorageString());
+		recovered.setLocalProxyOrigin(false);
+		assertEquals(legacy, recovered.toStorageString());
+		for (String malformed : new String[] {stored + "//extra", stored.replace("v2//", "v3//"),
+				stored.replace("local-proxy-origin-v1", "unknown"), stored + "\r\n"})
+			assertFalse(VoteTotalsSnapshot.parseStorage(malformed).isLocalProxyOrigin());
+	}
+
+	@Test
 	public void projectedTotalsReplaceBroadcastPlaceholdersWithoutChangingStorage() {
 		VoteTotalsSnapshot data = new VoteTotalsSnapshot(1234, 45, 12, 3, 9876, 8, 20, 45);
 

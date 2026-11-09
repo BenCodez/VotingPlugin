@@ -24,6 +24,8 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import com.bencodez.simpleapi.sql.mysql.MySQL;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfig;
 import com.bencodez.votingplugin.proxy.OfflineBungeeVote;
+import com.bencodez.votingplugin.proxy.VoteTotalsSnapshot;
+import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 import com.bencodez.votingplugin.util.DurableFiles;
 
@@ -1482,7 +1484,7 @@ public abstract class VoteCacheHandler {
 				serverRows.forEach(voteRow -> {
 					OfflineBungeeVote vote = new OfflineBungeeVote(voteRow.getVoteId(), voteRow.getPlayerName(),
 							voteRow.getUuid(), voteRow.getService(), voteRow.getTime(), voteRow.isRealVote(),
-							voteRow.getText(), voteRow.isBroadcastForwarded(), voteRow.isProxyBroadcastHandled(),
+							withoutSharedAdmissionAuthority(voteRow.getText()), voteRow.isBroadcastForwarded(), voteRow.isProxyBroadcastHandled(),
 							VoteTimeQueue.decodeBroadcastForwardedServers(voteRow.getBroadcastTargets()),
 							VoteTimeQueue.decodeBroadcastForwardedServers(voteRow.getBroadcastForwardedServers()),
 							voteRow.isRewardDelivered(), OfflineBungeeVote.decodeHttpDeliveryIds(voteRow.getHttpDeliveryIds()),
@@ -1500,7 +1502,7 @@ public abstract class VoteCacheHandler {
 				onlineRows.forEach(voteRow -> {
 					OfflineBungeeVote vote = new OfflineBungeeVote(voteRow.getVoteId(), voteRow.getPlayerName(),
 							voteRow.getUuid(), voteRow.getService(), voteRow.getTime(), voteRow.isRealVote(),
-							voteRow.getText(), voteRow.isBroadcastForwarded(), voteRow.isProxyBroadcastHandled(),
+							withoutSharedAdmissionAuthority(voteRow.getText()), voteRow.isBroadcastForwarded(), voteRow.isProxyBroadcastHandled(),
 							VoteTimeQueue.decodeBroadcastForwardedServers(voteRow.getBroadcastTargets()),
 							VoteTimeQueue.decodeBroadcastForwardedServers(voteRow.getBroadcastForwardedServers()),
 							voteRow.isRewardDelivered(), OfflineBungeeVote.decodeHttpDeliveryIds(voteRow.getHttpDeliveryIds()),
@@ -1521,7 +1523,7 @@ public abstract class VoteCacheHandler {
 							timedVoteRow.getService(), timedVoteRow.getTime(), timedVoteRow.isProxyBroadcastHandled(),
 							VoteTimeQueue.decodeBroadcastForwardedServers(timedVoteRow.getBroadcastTargets()),
 							VoteTimeQueue.decodeBroadcastForwardedServers(timedVoteRow.getBroadcastForwardedServers()),
-							timedVoteRow.getTotals(), timedVoteRow.isProcessed(),
+							withoutSharedAdmissionAuthority(timedVoteRow.getTotals()), timedVoteRow.isProcessed(),
 							timedVoteRow.isMultiProxyForwardingHandled(), timedVoteRow.getUuid(),
 							VoteTimeQueue.decodeHttpBroadcastDeliveryIds(timedVoteRow.getHttpBroadcastDeliveryIds()));
 					voteTimeQueue.setMultiProxyForwardingRequired(timedVoteRow.isMultiProxyForwardingRequired());
@@ -2033,7 +2035,38 @@ public abstract class VoteCacheHandler {
 		return new java.math.BigDecimal(data.get(field).asString()).intValueExact();
 	}
 
+	/** Shared cache data must not become local authority through an emergency-file copy. */
+	private static String withoutSharedAdmissionAuthority(String stored) {
+		String inner = stored;
+		List<String> forwardedFlags = new ArrayList<>();
+		while (inner != null) {
+			String[] decoded = VotingPluginProxy.decodeForwardedQueueTotals(inner);
+			// Every supported wrapper decodes to strictly fewer bytes/characters.
+			// Invalid/plain values remain unchanged, matching replay's decoder.
+			if (decoded[1].length() >= inner.length()) break;
+			forwardedFlags.add(decoded[0]);
+			inner = decoded[1];
+		}
+		VoteTotalsSnapshot totals = VoteTotalsSnapshot.parseStorage(inner);
+		if (!totals.isLocalProxyOrigin()) return stored;
+		totals.setLocalProxyOrigin(false);
+		String cleared = totals.toStorageString();
+		// Preserve every legacy real/test-vote classification, including nested
+		// wrappers that may otherwise be unwrapped across successive retries.
+		for (int i = forwardedFlags.size() - 1; i >= 0; i--) {
+			cleared = "\u0000VP-FWD:" + (Boolean.parseBoolean(forwardedFlags.get(i)) ? "1:" : "0:")
+					+ java.util.Base64.getUrlEncoder().withoutPadding()
+							.encodeToString(cleared.getBytes(StandardCharsets.UTF_8));
+		}
+		return cleared;
+	}
+
 	private final boolean useMySQL;
+
+	/** Immutable storage boundary used by proxy-only delivery authorization. */
+	public boolean usesMySQLStorage() {
+		return useMySQL;
+	}
 	private ProxyVoteCacheTable voteCacheTable;
 	private ProxyTimedVoteCacheTable timedVoteCacheTable;
 	private ProxyOnlineVoteCacheTable onlineVoteCacheTable;

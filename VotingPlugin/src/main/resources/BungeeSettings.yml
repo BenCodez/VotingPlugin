@@ -110,6 +110,10 @@ BungeeDebug: false
 # upgraded JAR, set REQUIRED everywhere and reload or restart.
 SharedTransportAuthentication: COMPATIBILITY
 
+# NeoForge REDIS/MQTT/MYSQL also require an independently pinned proxy public key.
+# See docs/neoforge-vote-transports.md; never copy the proxy private signing key here.
+# ProxyVerificationKeyFile: proxy-origin-public.key
+
 # If true, offline rewards will be stored per server, rather than global
 # This shouldn't need to be set unless you get alot of cross server rewards issues
 # You can also specify the server within the rewards
