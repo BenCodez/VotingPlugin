@@ -2414,6 +2414,17 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			}
 		}
 
+        // Export documentation only after both handler lists and the player command label are ready.
+        // A filesystem problem must never stop registration or normal voting.
+        try {
+            if (com.bencodez.votingplugin.commands.CommandDocumentationExporter.write(getDataFolder().toPath(),
+                    getVoteCommandPrefix(), getVoteCommand(), getAdminVoteCommand())) {
+                getLogger().info("Updated generated command documentation in GeneratedDocs/");
+            }
+        } catch (IOException | RuntimeException error) {
+            getLogger().warning("Unable to write generated command documentation: " + error.getMessage());
+        }
+
 		plugin.debug("Loaded Commands");
 
 	}
