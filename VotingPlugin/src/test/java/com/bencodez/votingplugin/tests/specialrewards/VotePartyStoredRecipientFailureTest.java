@@ -554,4 +554,32 @@ class VotePartyStoredRecipientFailureTest {
         assertEquals(reset ? 0 : 8, party.getTotalVotes());
     }
 
+
+    @Test
+    void votesAccumulatedDuringStoredPreparationTriggerNextPartyWithoutAnotherVote() {
+        when(mysql.getRowsQuery()).thenReturn(new ArrayList<>());
+
+        // The first threshold starts asynchronous stored-recipient preparation.
+        party.check(user, false);
+        assertEquals(1, storage.size());
+
+        // Three more votes arrive while the first party is still preparing.
+        // Each vote performs the normal threshold check, but those checks are
+        // suppressed while storedPreparation is active.
+        for (int i = 0; i < 3; i++) {
+            party.addTotal(user);
+            party.check(user, false);
+        }
+        assertEquals(6, party.getTotalVotes());
+
+        // Completing the first party must retain responsibility for the three
+        // accumulated votes and start the second party without a seventh vote.
+        drain();
+
+        assertEquals(0, party.getTotalVotes(),
+                "remaining eligible votes must be rechecked when stored preparation finishes");
+        verify(serverData, times(2)).updateLastVoteParty();
+    }
+
+
 }
