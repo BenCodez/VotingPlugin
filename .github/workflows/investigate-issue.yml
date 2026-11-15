@@ -94,7 +94,7 @@ jobs:
 
   post-report:
     needs: investigate
-    if: ${{ needs.investigate.result == 'success' && (github.event_name == 'issues' || inputs.post_comment) }}
+    if: ${{ !cancelled() && needs.investigate.result == 'success' && (github.event_name == 'issues' || inputs.post_comment) }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
