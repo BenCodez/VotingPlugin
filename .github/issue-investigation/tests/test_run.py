@@ -49,6 +49,22 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(payload['environment']['env'], {'JAVA_HOME': '/opt/issue-jdk21'})
         self.assertFalse(payload['stream'])
 
+    def test_automatic_issue_context_is_bounded_and_labeled(self):
+        issue = {'url': 'https://github.com/BenCodez/VotingPlugin/issues/1',
+                 'title': 'X' * 500, 'body': 'B' * 20000,
+                 'comments': [{'body': 'C' * 4000, 'user': 'u'}] * 9}
+        trimmed = runner.limit_automatic_context(issue)
+        self.assertTrue(trimmed['context_truncated'])
+        self.assertLess(len(trimmed['body']), 15000)
+        self.assertLess(len(trimmed['title']), 400)
+        self.assertEqual(len(trimmed['comments']), 5)
+        self.assertIn('Truncated', trimmed['body'])
+        self.assertEqual(len(issue['comments']), 9)
+
+    def test_automatic_issue_context_preserves_short_issue(self):
+        issue = {'title': 'Issue', 'body': 'Description', 'comments': []}
+        self.assertEqual(runner.limit_automatic_context(issue), issue)
+
     def test_rejects_pr_before_spending_api_usage(self):
         api = FakeApi(lambda *args: {'pull_request': {}})
         with self.assertRaisesRegex(RuntimeError, 'not a pull request'):
