@@ -182,6 +182,18 @@ def wait_for_turn(api, session_id, deadline, sleep=time.sleep, clock=time.monoto
     raise TimeoutError('Investigation runtime exceeded; cancelling remote work')
 
 
+def artifact_filename(artifact):
+    """Keep safe original report/log names in the downloadable Actions ZIP."""
+    aid = resource_id(artifact['id'], 'artifact')
+    path = artifact.get('path')
+    prefix = '/workspace/outputs/'
+    if isinstance(path, str) and path.startswith(prefix):
+        name = path[len(prefix):]
+        if re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,99}', name):
+            return name
+    return aid
+
+
 def collect(api, session_id, turn):
     path = '/agents/sessions/' + session_id
     items = pages(api, path + '/items')
@@ -199,9 +211,16 @@ def collect(api, session_id, turn):
         raise RuntimeError('Sandbox artifacts exceed the 10-file / 25 MiB retrieval limit')
     folder = RESULTS / 'artifacts'
     folder.mkdir(exist_ok=True)
+    used_names = set()
     for artifact in selected:
         aid = resource_id(artifact['id'], 'artifact')
-        (folder / aid).write_bytes(api.request('GET', path + '/artifacts/' + aid + '/content', binary=True))
+        name = artifact_filename(artifact)
+        if name in used_names:
+            name = aid  # Avoid silently overwriting a second file with the same basename.
+        if name in used_names:
+            raise RuntimeError('Duplicate artifact ID; refusing to overwrite output')
+        used_names.add(name)
+        (folder / name).write_bytes(api.request('GET', path + '/artifacts/' + aid + '/content', binary=True))
     # Accounting can lag the completion event. Null must never be reported as zero.
     usage = None
     for attempt in range(6):
