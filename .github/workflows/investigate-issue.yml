@@ -1,0 +1,60 @@
+name: Investigate issue
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: VotingPlugin issue number to investigate
+        required: true
+        type: string
+      environment:
+        description: Environment containing OPENAI_API_KEY
+        required: true
+        type: environment
+      timeout_minutes:
+        description: Maximum agent runtime (5 to 30 minutes; not a spending cap)
+        required: true
+        default: '15'
+        type: string
+
+permissions:
+  contents: read
+  issues: read
+
+concurrency:
+  group: issue-investigation
+  cancel-in-progress: false
+
+jobs:
+  investigate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Investigate without posting to GitHub
+        timeout-minutes: 43
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_PROJECT_ID: ${{ vars.OPENAI_PROJECT_ID || 'proj_aRse4SXfv5N60VlakdZGzVV5' }}
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+          AGENT_TIMEOUT_MINUTES: ${{ inputs.timeout_minutes }}
+        run: python3 .github/issue-investigation/run.py
+      - name: Retry session cleanup
+        if: always()
+        timeout-minutes: 4
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_PROJECT_ID: ${{ vars.OPENAI_PROJECT_ID || 'proj_aRse4SXfv5N60VlakdZGzVV5' }}
+        run: python3 .github/issue-investigation/run.py --cleanup
+      - name: Upload report, usage, and diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: issue-investigation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: investigation-results/
+          retention-days: 14
+          if-no-files-found: warn
