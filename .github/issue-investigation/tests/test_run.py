@@ -47,6 +47,7 @@ class RunnerTests(unittest.TestCase):
         self.assertNotIn('name', payload['agent'])
         self.assertEqual(json.loads(runner.session_input('a' * 40, issue, 15).split('\n', 1)[1]), issue)
         self.assertEqual(payload['environment']['env'], {'JAVA_HOME': '/opt/issue-jdk21'})
+        self.assertIn('maven ripgrep', payload['environment']['setup_commands'][0]['command'])
         self.assertFalse(payload['stream'])
 
     def test_automatic_issue_context_is_bounded_and_labeled(self):
@@ -127,6 +128,40 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual((self.output / 'report.md').read_text(), 'Actual final report\n')
         self.assertEqual((self.output / 'artifacts/artifact_1').read_bytes(), b'log')
         self.assertEqual(json.loads((self.output / 'usage.json').read_text())['usage']['total_tokens'], 120)
+
+    def test_artifact_filenames_preserve_safe_names_only(self):
+        self.assertEqual(runner.artifact_filename({
+            'id': 'artifact_123', 'path': '/workspace/outputs/report.md'}), 'report.md')
+        self.assertEqual(runner.artifact_filename({
+            'id': 'artifact_124', 'path': '/workspace/outputs/run.log'}), 'run.log')
+        for path in ('/workspace/outputs/../secrets',
+                     '/workspace/outputs/subfolder/file.txt',
+                     '/etc/passwd', '/workspace/outputs/invalid name.txt'):
+            self.assertEqual(runner.artifact_filename({'id': 'artifact_125', 'path': path}),
+                             'artifact_125')
+
+    def test_collected_artifacts_retain_readable_names_and_avoid_overwrite(self):
+        def reply(method, path, payload):
+            if '/items?' in path:
+                return {'data': [{
+                    'type': 'message', 'role': 'assistant', 'phase': 'final_answer',
+                    'turn_id': 'turn_1', 'content': [{'type': 'output_text', 'text': 'Finding'}]
+                }], 'has_more': False}
+            if '/artifacts?' in path:
+                return {'data': [
+                    {'id': 'artifact_1', 'turn_id': 'turn_1', 'size_bytes': 3,
+                     'path': '/workspace/outputs/report.md'},
+                    {'id': 'artifact_2', 'turn_id': 'turn_1', 'size_bytes': 3,
+                     'path': '/workspace/outputs/report.md'},
+                ], 'has_more': False}
+            if path.endswith('artifact_1/content'):
+                return b'one'
+            if path.endswith('artifact_2/content'):
+                return b'two'
+            return {'status': 'idle', 'usage': {'total_tokens': 1}}
+        runner.collect(FakeApi(reply), 'sess_1', {'id': 'turn_1'})
+        self.assertEqual((self.output / 'artifacts/report.md').read_bytes(), b'one')
+        self.assertEqual((self.output / 'artifacts/artifact_2').read_bytes(), b'two')
 
     def test_missing_usage_remains_unknown(self):
         with patch.object(runner.time, 'sleep'):
