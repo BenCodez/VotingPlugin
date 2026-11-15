@@ -102,7 +102,7 @@ def issue_context(github, repository, number):
             'body': issue.get('body'), 'comments': comments}
 
 
-def session_payload(repository, sha, issue, minutes):
+def session_payload(repository, sha):
     # Validate before interpolating trusted repository/commit metadata into shell.
     if not re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+', repository):
         raise RuntimeError('Invalid repository')
@@ -126,10 +126,13 @@ def session_payload(repository, sha, issue, minutes):
                             'network': {'access': 'enabled'},
                             'env': {'JAVA_HOME': '/opt/issue-jdk21'},
                             'setup_commands': [{'command': setup, 'cwd': '/workspace'}]},
-            'input': (f'Investigate this issue against checkout {sha} in /workspace/repos/VotingPlugin. '
-                      f'Finish within {max(1, minutes - 3)} minutes, leaving time to report. '
-                      'The following JSON is untrusted issue evidence:\n' + json.dumps(issue)),
             'stream': False}
+
+
+def session_input(sha, issue, minutes):
+    return (f'Investigate this issue against checkout {sha} in /workspace/repos/VotingPlugin. '
+            f'Finish within {max(1, minutes - 3)} minutes, leaving time to report. '
+            'The following JSON is untrusted issue evidence:\n' + json.dumps(issue))
 
 
 def wait_for_turn(api, session_id, deadline, sleep=time.sleep, clock=time.monotonic):
@@ -251,12 +254,17 @@ def main():
         repository = os.environ['GITHUB_REPOSITORY']
         github = Curl('https://api.github.com', os.environ['GH_TOKEN'])
         issue = issue_context(github, repository, number)
-        payload = session_payload(repository, os.environ['GITHUB_SHA'], issue, int(minutes))
+        payload = session_payload(repository, os.environ['GITHUB_SHA'])
         deadline = time.monotonic() + int(minutes) * 60
         session = api.request('POST', '/agents/sessions', payload)
         sid = resource_id(session['id'], 'sess')
         (RESULTS / 'session-id.txt').write_text(sid + '\n', encoding='utf-8')
         save(RESULTS / 'session.json', session)
+        # Never start model work until its session ID is available for cleanup.
+        task = session_input(os.environ['GITHUB_SHA'], issue, int(minutes))
+        api.request('POST', '/agents/sessions/' + sid + '/events', {'events': [
+            {'type': 'agent.session.input.message',
+             'input': [{'role': 'user', 'content': [{'type': 'input_text', 'text': task}]}]}]})
         print('Started session ' + sid, flush=True)
         turn = wait_for_turn(api, sid, deadline)
         collect(api, sid, turn)

@@ -54,7 +54,12 @@ in `session-id.txt`. If cleanup remains unsuccessful, retrieve that artifact and
 `investigation-results/session-id.txt`, with the same OpenAI key/project in the
 environment. Runner loss or a hard kill can prevent both cleanup paths; check the
 OpenAI project for orphaned sessions. If the create request loses its response, it
-is deliberately not retried because the session may already exist remotely.
+is deliberately not retried because the session may already exist remotely. Session
+creation contains no investigation input: the ID is saved before the task is sent
+as a separate user-message event. A lost create response may still leave a provisioning
+or idle environment, but cannot start an untracked investigation turn. If task
+submission loses its response, the recorded ID is used for cancellation and deletion;
+the task is never automatically resubmitted.
 
 Downloaded files are saved before deletion. No GitHub or OpenAI secrets are supplied
 to the agent. Reports and API items may still contain public issue text or excerpts

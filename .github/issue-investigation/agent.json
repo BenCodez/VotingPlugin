@@ -1,5 +1,4 @@
 {
-  "name": "GitHub issue investigation agent",
   "model": "gpt-6.1-sol",
   "reasoning": {"effort": "medium", "summary": "auto"},
   "text": {"format": {"type": "text"}, "verbosity": "medium"},

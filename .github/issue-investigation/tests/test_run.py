@@ -41,9 +41,11 @@ class RunnerTests(unittest.TestCase):
         issue = runner.issue_context(api, 'BenCodez/VotingPlugin', '1747')
         self.assertEqual(len(issue['comments']), 101)
         self.assertEqual(issue['body'], body)
-        payload = runner.session_payload('BenCodez/VotingPlugin', 'a' * 40, issue, 15)
+        payload = runner.session_payload('BenCodez/VotingPlugin', 'a' * 40)
         self.assertNotIn(body, payload['environment']['setup_commands'][0]['command'])
-        self.assertEqual(json.loads(payload['input'].split('\n', 1)[1]), issue)
+        self.assertNotIn('input', payload)
+        self.assertNotIn('name', payload['agent'])
+        self.assertEqual(json.loads(runner.session_input('a' * 40, issue, 15).split('\n', 1)[1]), issue)
         self.assertEqual(payload['environment']['env'], {'JAVA_HOME': '/opt/issue-jdk21'})
         self.assertFalse(payload['stream'])
 
@@ -55,7 +57,7 @@ class RunnerTests(unittest.TestCase):
     def test_rejects_shell_injection_in_repository_and_sha(self):
         for repo, sha in [('BenCodez/VotingPlugin;id', 'a' * 40), ('BenCodez/VotingPlugin', '$(id)')]:
             with self.assertRaises(RuntimeError):
-                runner.session_payload(repo, sha, {}, 15)
+                runner.session_payload(repo, sha)
 
     def test_idle_during_provisioning_is_not_success(self):
         states = iter([[], [{'id': 'turn_1', 'status': 'completed'}]])
@@ -170,6 +172,11 @@ class RunnerTests(unittest.TestCase):
     def test_main_failure_after_create_still_cleans_exact_session(self):
         def reply(method, path, payload):
             if method == 'POST':
+                if path == '/agents/sessions':
+                    self.assertNotIn('input', payload)
+                else:
+                    self.assertEqual((self.output / 'session-id.txt').read_text(), 'sess_1\n')
+                    self.assertEqual(payload['events'][0]['type'], 'agent.session.input.message')
                 return {'id': 'sess_1', 'status': 'in_progress'}
             if '/turns?' in path:
                 return {'data': [{'id': 'turn_1', 'status': 'failed'}]}
@@ -182,6 +189,43 @@ class RunnerTests(unittest.TestCase):
              patch.object(runner.signal, 'signal'):
             self.assertEqual(runner.main(), 1)
         self.assertTrue(any(m == 'DELETE' and p.endswith('/sess_1') for m, p, _ in api.calls))
+
+    def test_lost_create_response_never_submits_task(self):
+        def reply(method, path, payload):
+            self.assertEqual((method, path), ('POST', '/agents/sessions'))
+            self.assertNotIn('input', payload)
+            raise RuntimeError('Simulated lost create response')
+        api = FakeApi(reply)
+        env = {'OPENAI_API_KEY': 'test', 'GH_TOKEN': 'test', 'ISSUE_NUMBER': '1747',
+               'GITHUB_REPOSITORY': 'BenCodez/VotingPlugin', 'GITHUB_SHA': 'a' * 40}
+        with patch.dict(os.environ, env), patch.object(runner.sys, 'argv', ['run.py']), \
+             patch.object(runner, 'Curl', return_value=api), patch.object(runner, 'issue_context', return_value={}), \
+             patch.object(runner.signal, 'signal'):
+            self.assertEqual(runner.main(), 1)
+        self.assertEqual(len(api.calls), 1)
+        self.assertFalse((self.output / 'session-id.txt').exists())
+
+    def test_lost_task_response_cancels_recorded_session_without_resubmitting(self):
+        def reply(method, path, payload):
+            if (method, path) == ('POST', '/agents/sessions'):
+                return {'id': 'sess_1', 'status': 'idle'}
+            if method == 'GET':
+                return {'status': 'in_progress', 'usage': None}
+            if method == 'POST' and payload['events'][0]['type'] == 'agent.session.input.message':
+                self.assertEqual((self.output / 'session-id.txt').read_text(), 'sess_1\n')
+                raise RuntimeError('Simulated lost task response')
+            return {}
+        api = FakeApi(reply)
+        env = {'OPENAI_API_KEY': 'test', 'GH_TOKEN': 'test', 'ISSUE_NUMBER': '1747',
+               'GITHUB_REPOSITORY': 'BenCodez/VotingPlugin', 'GITHUB_SHA': 'a' * 40}
+        with patch.dict(os.environ, env), patch.object(runner.sys, 'argv', ['run.py']), \
+             patch.object(runner, 'Curl', return_value=api), patch.object(runner, 'issue_context', return_value={}), \
+             patch.object(runner.signal, 'signal'):
+            self.assertEqual(runner.main(), 1)
+        events = [payload['events'][0]['type'] for method, path, payload in api.calls
+                  if method == 'POST' and path.endswith('/events')]
+        self.assertEqual(events, ['agent.session.input.message', 'agent.session.input.cancel'])
+        self.assertTrue(json.loads((self.output / 'cleanup.json').read_text())['deleted'])
 
     def test_missing_key_fails_without_creating_session(self):
         with patch.dict(os.environ, {}, clear=True), patch.object(runner, 'Curl') as curl:
