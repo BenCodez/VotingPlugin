@@ -25,6 +25,30 @@ jobs:
           java-version: '21'
           cache: maven
 
+      - name: Use alternate Maven Central endpoint to avoid rate limiting
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          path = Path.home() / '.m2' / 'settings.xml'
+          tree = ET.parse(path)
+          root = tree.getroot()
+          namespace = root.tag[1:].split('}', 1)[0] if root.tag.startswith('{') else ''
+          def tag(value):
+              return '{%s}%s' % (namespace, value) if namespace else value
+          mirrors = root.find(tag('mirrors'))
+          if mirrors is None:
+              mirrors = ET.SubElement(root, tag('mirrors'))
+          mirror = ET.SubElement(mirrors, tag('mirror'))
+          ET.SubElement(mirror, tag('id')).text = 'central-gcs-mirror'
+          ET.SubElement(mirror, tag('name')).text = 'Pinned Google CDN mirror of Maven Central'
+          ET.SubElement(mirror, tag('url')).text = 'https://maven-central.storage-download.googleapis.com/maven2/'
+          ET.SubElement(mirror, tag('mirrorOf')).text = 'central'
+          tree.write(path, encoding='utf-8', xml_declaration=True)
+          PY
+
       - name: Check out upstream candidate branches
         shell: bash
         run: |
