@@ -1,0 +1,28 @@
+name: Issue investigation tests
+
+on:
+  pull_request:
+    paths:
+      - '.github/issue-investigation/**'
+      - '.github/workflows/investigate-issue.yml'
+      - '.github/workflows/issue-investigation-tests.yml'
+  push:
+    branches: [master]
+    paths:
+      - '.github/issue-investigation/**'
+      - '.github/workflows/investigate-issue.yml'
+      - '.github/workflows/issue-investigation-tests.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Test lifecycle, reporting, and credential handling without API calls
+        run: python3 -m unittest discover -s .github/issue-investigation/tests -v
