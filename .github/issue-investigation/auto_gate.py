@@ -6,9 +6,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 import re
 import sys
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
-from run import Curl
+from run import ApiError, Curl
 
 # A new public issue can be opened by anyone. Limit billable investigations.
 MAX_DAILY_AUTOMATIC_ISSUES = 5
@@ -32,6 +32,19 @@ def eligible(event, github, repository, environment_name, today=None):
         return False, 'Bot-generated issue'
     if not environment_name or not environment_name.strip():
         return False, 'Set repository variable ISSUE_INVESTIGATION_ENVIRONMENT to the existing key environment'
+
+    # A typo must not cause GitHub to create a new, unprotected environment.
+    environment_path = '/repos/' + repository + '/environments/' + quote(environment_name, safe='')
+    try:
+        environment = github.request('GET', environment_path)
+    except ApiError as error:
+        if error.status == 404:
+            return False, 'Configured GitHub Environment does not exist'
+        raise
+    if not isinstance(environment, dict) or (
+            not isinstance(environment.get('name'), str) or
+            environment['name'].casefold() != environment_name.casefold()):
+        raise RuntimeError('Could not verify the configured GitHub Environment')
 
     day = today or datetime.now(timezone.utc).date()
     query = urlencode({
