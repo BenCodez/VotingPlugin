@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import re
 import sys
+from urllib.parse import quote
 
 from run import Curl
 
@@ -12,15 +13,35 @@ RESULTS = Path('investigation-results')
 
 
 def report_links(report, repository, sha, artifacts_url):
-    # The hosted sandbox paths do not exist for issue readers. Pin source links.
-    def source(match):
-        path = match.group(1)
-        line = re.search(r':([0-9]+)$', path)
-        if line:
-            path = path[:line.start()] + '#L' + line.group(1)
-        return '](' + f'https://github.com/{repository}/blob/{sha}/' + path + ')'
-    report = re.sub(r'\]\(/workspace/repos/VotingPlugin/([^\s)]+)\)', source, report)
-    return re.sub(r'\]\(/workspace/outputs/[^\s)]+\)', '](' + artifacts_url + ')', report)
+    """Replace sandbox-only Markdown links with public, pinned URLs.
+
+    Markdown accepts both [label](/path) and [label](</path with spaces>).
+    Output files are included in the downloadable workflow artifact ZIP, not
+    reachable at their original /workspace/outputs locations.
+    """
+    def rewrite(match):
+        target = match.group(1) or match.group(2)
+        if target.startswith('/workspace/outputs/'):
+            return '](' + artifacts_url + ')'
+
+        prefix = '/workspace/repos/VotingPlugin/'
+        if not target.startswith(prefix):
+            return match.group(0)
+        path = target[len(prefix):]
+        line = ''
+        path_with_line = re.fullmatch(r'(.+):([1-9][0-9]*)', path)
+        if path_with_line:
+            path, line = path_with_line.group(1), '#L' + path_with_line.group(2)
+
+        # Do not construct misleading or traversal-based source links.
+        if not path or any(part in ('', '.', '..') for part in path.split('/')):
+            return match.group(0)
+        url = f'https://github.com/{repository}/blob/{sha}/' + quote(path, safe='/._-~') + line
+        return '](' + url + ')'
+
+    # Bracketed URLs may contain spaces; ordinary Markdown URLs may not.
+    pattern = r'\]\((?:<(/workspace/(?:repos/VotingPlugin|outputs)/[^>]+)>|(/workspace/(?:repos/VotingPlugin|outputs)/[^\s)]+))\)'
+    return re.sub(pattern, rewrite, report)
 
 
 def comment_body(report, repository, sha, run_id):
