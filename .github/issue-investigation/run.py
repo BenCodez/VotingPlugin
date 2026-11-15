@@ -110,7 +110,7 @@ def session_payload(repository, sha):
         raise RuntimeError('Invalid checkout SHA')
     setup = (
         'set -eu; apt-get update -qq; '
-        'apt-get install -y git curl ca-certificates maven; '
+        'apt-get install -y git curl ca-certificates maven ripgrep; '
         'mkdir -p /opt/issue-jdk21 /workspace/repos/VotingPlugin; '
         "curl -fLsS --connect-timeout 15 --max-time 120 "
         "'https://api.adoptium.net/v3/binary/latest/21/ga/linux/x64/jdk/hotspot/normal/eclipse' "
