@@ -1,10 +1,11 @@
 # Investigate an issue with GitHub Actions
 
 The **Investigate issue** workflow runs the OpenAI-hosted issue investigation agent
-through curl. It is manual-only: it never comments, opens a PR, edits the repository,
-or starts automatically for public issue submissions. The GitHub token has only
-contents/issue read permissions and stays on the Actions runner. The OpenAI key is
-also kept on the runner, outside the hosted investigation environment.
+through curl. It is manual-only and does not start automatically for public issue
+submissions. Issue commenting is **off by default**. The investigation job has only
+contents/issue read permissions. An optional separate posting job has issue-write
+permission and receives no OpenAI key. Neither GitHub token nor the OpenAI key is
+supplied to the hosted investigation environment. No job opens PRs or edits repository files.
 
 ## Setup and use
 
@@ -16,6 +17,8 @@ also kept on the runner, outside the hosted investigation environment.
 3. After this workflow is merged to the default branch, open **Actions → Investigate
    issue → Run workflow**. Enter the issue number, select the environment containing
    the key, and optionally change the runtime limit (5–30 minutes; default 15).
+   Leave **post_comment** unchecked to keep results only in artifacts. Check it to
+   post the completed final report to that issue after a successful investigation.
 4. Download the `issue-investigation-<run-id>-<attempt>` artifact from the run page.
    It is retained for 14 days. `report.md` is the final response, `usage.json` is API
    accounting, and the session/turn/items JSON provides failure diagnostics. Published
@@ -73,3 +76,24 @@ python3 -m unittest discover -s .github/issue-investigation/tests -v
 ```
 
 These checks use fake API responses and local curl stubs, not a paid agent run.
+
+## Optional issue comment
+
+The `post_comment` checkbox authorizes posting for that manual run only. A separate
+job downloads the successful investigation's artifact by the producing job's ID
+(including on posting-only retries) and posts `report.md`, labeled
+as automated analysis, with the checkout SHA and a link to the run/full artifacts.
+The agent itself never gets write access. Failed, cancelled, incomplete, or empty
+investigations are not posted. A completed report can still describe blocked or
+failing tests; those limitations remain in the comment.
+
+The comment preserves the final report, converts sandbox source links to the exact
+GitHub commit, and links output files to the run artifacts. Reports over 55,000
+UTF-8 bytes are shortened with a link to the complete artifact. This is automatic
+publication when selected; there is no additional draft-approval step.
+
+Rerunning the same workflow run skips an existing report comment from
+`github-actions[bot]` with that run ID, including when a previous POST response was
+lost. It does not edit or replace that comment. A new manual workflow run can post a
+new report. If the posting job fails, the report artifacts remain available; rerun
+only the failed posting job to retry without paying for another investigation.
