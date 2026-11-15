@@ -491,17 +491,20 @@ class ProxyOriginProducerTest {
             else if (kind == 3) fields[0] = "v99";
             else if (kind == 4) fields[9] = "local-proxy-origin-v1";
             incoming.setTotals(kind == 5 ? new VoteTotalsSnapshot().toStorageString() : String.join("//", fields));
-            if (kind == 6) {
-                // setTotals intentionally preserves/canonicalizes occurrence tags.
-                // Set the raw fixture field to exercise truly malformed on-disk input.
+            if (kind >= 6) {
+                // setTotals deliberately normalizes an existing occurrence suffix.
+                // Inject raw storage fixtures so that all malformed cases survive,
+                // including a truncated but syntactically valid timestamp.
+                String malformed = incoming.getTotals();
+                if (kind == 6) malformed += "\n";
+                else if (kind == 7) malformed += "//adjacent";
+                else if (kind == 8) malformed = malformed.substring(0, malformed.length() - 1);
+                else malformed = malformed.replace("local-proxy-origin-v1:", "local-proxy-origin-v1:.");
                 var rawTotals = com.bencodez.votingplugin.timequeue.VoteTimeQueue.class.getDeclaredField("totals");
                 rawTotals.setAccessible(true);
-                rawTotals.set(incoming, incoming.getTotals() + "\n");
-                assertTrue(incoming.getTotals().endsWith("\n"));
+                rawTotals.set(incoming, malformed);
+                assertEquals(malformed, incoming.getTotals(), "preserve malformed fixture " + kind);
             }
-            if (kind == 7) incoming.setTotals(incoming.getTotals() + "//adjacent");
-            if (kind == 8) incoming.setTotals(incoming.getTotals().substring(0, incoming.getTotals().length() - 1));
-            if (kind == 9) incoming.setTotals(incoming.getTotals().replace("local-proxy-origin-v1:", "local-proxy-origin-v1:."));
             var recorded = new com.bencodez.votingplugin.timequeue.VoteTimeQueue(
                     pending.getVoteId(), "Synthetic", "fixture-site", 1234L);
             recorded.setTotals("previous totals"); assertTrue(cache.addTimeVoteToCache(recorded));

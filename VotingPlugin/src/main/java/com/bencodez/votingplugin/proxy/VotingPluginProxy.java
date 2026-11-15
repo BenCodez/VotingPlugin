@@ -6525,7 +6525,7 @@ return queued;
 		if (retry == null && !recovery.isVotePartyApplied() && !recovery.isTotalsApplied()
 				&& recovery.isRealVote() && !recovery.isWasOnlineKnown()
 				&& (recovery.getUuid() == null || recovery.getUuid().isEmpty())
-				&& isAdmissionOnlyRecoveryTotals(recovery.getTotals())) return true;
+				&& isAdmissionOnlyRecoveryTotals(recovery.getTotals(), recovery.getTime())) return true;
 		VoteTimeQueue state = retry == null ? recovery
 				: snapshotIncomingVoteForRestart(new PendingIncomingVote(recovery.getVoteId(), recovery.getName(),
 						recovery.getService(), recovery.getTime()));
@@ -6555,8 +6555,13 @@ return queued;
 		SUCCESS, RETRY, RETRY_NONBLOCKING, TERMINAL
 	}
 
-	private static boolean isAdmissionOnlyRecoveryTotals(String stored) {
+	private static boolean isAdmissionOnlyRecoveryTotals(String stored, long acceptedAt) {
 		if (!VoteOccurrenceMetadata.hasPayload(stored)) return true;
+		// A signed admission-only snapshot is created from the captured receipt time.
+		// Another occurrence timestamp (even a syntactically valid one) is not
+		// evidence that the record is still just admission, not a later checkpoint.
+		Long occurrence = VoteOccurrenceMetadata.read(stored);
+		if (acceptedAt <= 0L || occurrence == null || occurrence.longValue() != acceptedAt) return false;
 		String totals = VoteOccurrenceMetadata.stripCanonicalSuffix(stored);
 		VoteTotalsSnapshot parsed = VoteTotalsSnapshot.parseStorage(totals);
 		if (!parsed.isLocalProxyOrigin()
