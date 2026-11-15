@@ -53,7 +53,7 @@ def comment_body(report, repository, sha, run_id):
         report = encoded[:55000].decode('utf-8', errors='ignore') + '\n\n[Report shortened; download the complete report from the workflow artifacts.]'
     return (f'<!-- votingplugin-issue-investigation:{run_id} -->\n'
             '## Automated issue investigation\n\n'
-            f'[Workflow run and complete artifacts]({run_url}) · Checkout `{sha}`\n\n'
+            f'[Workflow run]({run_url}) · [Download investigation artifacts]({run_url}#artifacts) · Checkout `{sha}`\n\n'
             'This is an automated analysis, not confirmation that every check passed. '
             'Verification results and limitations are included below.\n\n' + report.strip())
 
