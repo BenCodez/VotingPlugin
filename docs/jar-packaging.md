@@ -17,7 +17,7 @@ rejects duplicate Rhino, raw Hikari/Folia, external crypto providers, uncommon
 SQLite native targets, and Checker Framework annotations. It creates both
 server and client TLS identities from the packaged JDK-only implementation.
 
-The universal plugin JAR is not a multi-release archive. Shader inputs are
+The universal plugin JAR is not a multi-release archive. Shade inputs are
 filtered to omit `META-INF/versions/**` entries that are never selected
 without a `Multi-Release: true` manifest; package tests enforce this
 contract. Compile-time-only `org/jspecify/**` annotations are also omitted,
