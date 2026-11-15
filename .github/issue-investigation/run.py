@@ -129,6 +129,33 @@ def session_payload(repository, sha):
             'stream': False}
 
 
+
+def limit_automatic_context(issue):
+    """Cap untrusted issue payload size before creating a billable session."""
+    result = dict(issue)
+    truncated = False
+    for key, limit in [('title', 300), ('body', 14000)]:
+        value = result.get(key)
+        if isinstance(value, str) and len(value) > limit:
+            result[key] = value[:limit] + '\n[Truncated for automatic investigation; see issue URL.]'
+            truncated = True
+    comments = result.get('comments') or []
+    if len(comments) > 5:
+        truncated = True
+    bounded = []
+    for comment in comments[:5]:
+        copy = dict(comment)
+        body = copy.get('body')
+        if isinstance(body, str) and len(body) > 2000:
+            copy['body'] = body[:2000] + '\n[Comment truncated; see linked comment.]'
+            truncated = True
+        bounded.append(copy)
+    result['comments'] = bounded
+    if truncated:
+        result['context_truncated'] = True
+    return result
+
+
 def session_input(sha, issue, minutes):
     return (f'Investigate this issue against checkout {sha} in /workspace/repos/VotingPlugin. '
             f'Finish within {max(1, minutes - 3)} minutes, leaving time to report. '
@@ -254,6 +281,8 @@ def main():
         repository = os.environ['GITHUB_REPOSITORY']
         github = Curl('https://api.github.com', os.environ['GH_TOKEN'])
         issue = issue_context(github, repository, number)
+        if os.environ.get('AUTOMATIC_INVESTIGATION') == 'true':
+            issue = limit_automatic_context(issue)
         payload = session_payload(repository, os.environ['GITHUB_SHA'])
         deadline = time.monotonic() + int(minutes) * 60
         session = api.request('POST', '/agents/sessions', payload)
