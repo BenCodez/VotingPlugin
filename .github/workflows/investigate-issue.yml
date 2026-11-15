@@ -114,7 +114,7 @@ jobs:
           artifact-ids: ${{ needs.investigate.outputs.artifact_id }}
           merge-multiple: true
           path: investigation-results/
-      - name: Post report only when explicitly selected
+      - name: Post completed report for issue openings or manual opt-in
         env:
           GH_TOKEN: ${{ github.token }}
           ISSUE_NUMBER: ${{ github.event_name == 'issues' && github.event.issue.number || inputs.issue_number }}
