@@ -94,6 +94,11 @@ class AutomaticIssueTests(unittest.TestCase):
             self.assertEqual(output_path.read_text(), 'allowed=true\n')
             self.assertEqual(len(self.github.calls), 1)
 
+    def test_agent_uses_luna_without_billable_web_search(self):
+        agent = json.loads((ROOT / 'agent.json').read_text(encoding='utf-8'))
+        self.assertEqual(agent['model'], 'gpt-6-luna')
+        self.assertEqual(agent['tools'], [])
+
     def test_workflow_keeps_model_key_out_of_admission_and_post_jobs(self):
         workflow = (ROOT.parent / 'workflows' / 'investigate-issue.yml').read_text(encoding='utf-8')
         self.assertIn('types: [opened]', workflow)
