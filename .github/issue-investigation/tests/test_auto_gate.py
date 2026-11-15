@@ -20,9 +20,18 @@ class Github:
         self.calls = []
         self.count = count
         self.response = response
+        self.environment_name = 'existing-environment'
+        self.environment_response = None
+        self.environment_error = None
 
     def request(self, method, path):
         self.calls.append((method, path))
+        if '/environments/' in path:
+            if self.environment_error is not None:
+                raise gate.ApiError(self.environment_error)
+            if self.environment_response is not None:
+                return self.environment_response
+            return {'name': self.environment_name}
         if self.response is not None:
             return self.response
         return {'total_count': self.count}
@@ -42,9 +51,10 @@ class AutomaticIssueTests(unittest.TestCase):
         allowed, reason = self.eligible()
         self.assertTrue(allowed)
         self.assertIn('1758', reason)
-        self.assertEqual(len(self.github.calls), 1)
-        self.assertIn('event=issues', self.github.calls[0][1])
-        self.assertIn('2026-11-15', self.github.calls[0][1])
+        self.assertEqual(len(self.github.calls), 2)
+        self.assertIn('/environments/existing-environment', self.github.calls[0][1])
+        self.assertIn('event=issues', self.github.calls[1][1])
+        self.assertIn('2026-11-15', self.github.calls[1][1])
 
     def test_limit_allows_fifth_run_but_skips_sixth(self):
         self.github.count = 5
@@ -73,6 +83,33 @@ class AutomaticIssueTests(unittest.TestCase):
             self.eligible()
         self.assertEqual(self.github.calls, [])
 
+    def test_missing_environment_is_skipped_before_count_or_model(self):
+        self.github.environment_error = 404
+        admitted, reason = self.eligible()
+        self.assertFalse(admitted)
+        self.assertIn('does not exist', reason)
+        self.assertEqual(len(self.github.calls), 1)
+        self.assertIn('/environments/existing-environment', self.github.calls[0][1])
+
+    def test_environment_permissions_error_fails_closed(self):
+        self.github.environment_error = 403
+        with self.assertRaises(gate.ApiError):
+            self.eligible()
+        self.assertEqual(len(self.github.calls), 1)
+
+    def test_invalid_environment_response_fails_closed(self):
+        for result in [{}, {'name': 'wrong-environment'}, None]:
+            self.github.environment_response = result if result is not None else []
+            with self.assertRaisesRegex(RuntimeError, 'Could not verify'):
+                self.eligible()
+        self.assertEqual(len(self.github.calls), 3)
+
+    def test_environment_name_is_safely_url_encoded(self):
+        self.github.environment_name = 'Prod / Review'
+        self.assertTrue(self.eligible('Prod / Review')[0])
+        self.assertIn('/environments/Prod%20%2F%20Review', self.github.calls[0][1])
+        self.assertEqual(len(self.github.calls), 2)
+
     def test_unavailable_or_unexpected_count_fails_closed(self):
         self.github.response = {}
         with self.assertRaisesRegex(RuntimeError, 'run count'):
@@ -92,7 +129,7 @@ class AutomaticIssueTests(unittest.TestCase):
             with patch.dict(os.environ, env, clear=True), patch.object(gate, 'Curl', return_value=self.github):
                 self.assertEqual(gate.main(), 0)
             self.assertEqual(output_path.read_text(), 'allowed=true\n')
-            self.assertEqual(len(self.github.calls), 1)
+            self.assertEqual(len(self.github.calls), 2)
 
     def test_agent_uses_luna_without_billable_web_search(self):
         agent = json.loads((ROOT / 'agent.json').read_text(encoding='utf-8'))
