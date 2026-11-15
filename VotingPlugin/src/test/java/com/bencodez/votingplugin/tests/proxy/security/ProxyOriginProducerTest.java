@@ -491,7 +491,14 @@ class ProxyOriginProducerTest {
             else if (kind == 3) fields[0] = "v99";
             else if (kind == 4) fields[9] = "local-proxy-origin-v1";
             incoming.setTotals(kind == 5 ? new VoteTotalsSnapshot().toStorageString() : String.join("//", fields));
-            if (kind == 6) incoming.setTotals(incoming.getTotals() + "\n");
+            if (kind == 6) {
+                // setTotals intentionally preserves/canonicalizes occurrence tags.
+                // Set the raw fixture field to exercise truly malformed on-disk input.
+                var rawTotals = com.bencodez.votingplugin.timequeue.VoteTimeQueue.class.getDeclaredField("totals");
+                rawTotals.setAccessible(true);
+                rawTotals.set(incoming, incoming.getTotals() + "\n");
+                assertTrue(incoming.getTotals().endsWith("\n"));
+            }
             if (kind == 7) incoming.setTotals(incoming.getTotals() + "//adjacent");
             if (kind == 8) incoming.setTotals(incoming.getTotals().substring(0, incoming.getTotals().length() - 1));
             if (kind == 9) incoming.setTotals(incoming.getTotals().replace("local-proxy-origin-v1:", "local-proxy-origin-v1:."));
@@ -525,6 +532,27 @@ class ProxyOriginProducerTest {
         assertEquals(uuid, recovered.getUuid()); assertTrue(recovered.isWasOnlineKnown());
         assertEquals(true, ReflectiveAccess.call(VotingPluginProxy.class.getName(), proxy,
                 "hasLocalOriginProof", new String[] {"VoteTimeQueue"}, new Object[] {recovered}));
+    }
+
+    @Test void timestampedPlatformIngressRetainsLocalOriginAndReceiptTimeAfterRetryFailure() throws Exception {
+        proxy = spy(proxy);
+        set("voteCacheHandler", durableCache()); set("enabled", true);
+        proxy.setMethod(BungeeMethod.MYSQL); proxy.setPlayerOnline(false);
+        when(proxy.getConfig().getOnlineMode()).thenReturn(true);
+        when(proxy.getConfig().getBlockedServers()).thenReturn(List.of());
+        doThrow(new IllegalStateException("synthetic party failure")).when(proxy).addVoteParty();
+        var id = java.util.UUID.randomUUID(); var uuid = java.util.UUID.randomUUID().toString();
+        long acceptedAt = 1234L;
+        long occurredAt = 5678L;
+        assertThrows(RuntimeException.class,
+                () -> proxy.vote("Alex", "fixture-site", true, false, acceptedAt, null, uuid, id, occurredAt));
+        var recovered = proxy.snapshotIncomingVoteForRestart(
+                new com.bencodez.votingplugin.proxy.PendingIncomingVote(id, "Alex", "fixture-site", acceptedAt));
+        assertEquals(uuid, recovered.getUuid());
+        assertEquals(occurredAt, recovered.getCanonicalOccurrenceTime());
+        assertEquals(true, ReflectiveAccess.call(VotingPluginProxy.class.getName(), proxy,
+                "hasLocalOriginProof", new String[] {"VoteTimeQueue"}, new Object[] {recovered}),
+                "a timestamped Votifier event must retain local admission on retry");
     }
 
     @Test void emergencySnapshotRestampsFinalFieldsWhenPartyFailureLeavesNoTotals() throws Exception {

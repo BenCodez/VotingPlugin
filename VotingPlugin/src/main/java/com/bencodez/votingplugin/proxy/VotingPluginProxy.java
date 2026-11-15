@@ -6424,8 +6424,10 @@ public abstract class VotingPluginProxy {
 	public synchronized void vote(String player, String service, boolean realVote, boolean timeQueue, long queueTime,
 			VoteTotalsSnapshot text, String uuid, UUID voteId, long occurredAt) {
 		VoteTimeQueue retained = findQueuedVote(voteId);
+		// Fresh platform Votifier ingress is locally admitted. A recovered queue row
+		// must instead verify its existing signed provenance before publication.
 		if (vote(player, service, realVote, timeQueue, queueTime, text, uuid, retained, voteId,
-				false, false, false, occurredAt) == QueuedVoteResult.RETRY) {
+				false, false, retained == null, occurredAt) == QueuedVoteResult.RETRY) {
 			throw new VoteRetryException();
 		}
 	}
