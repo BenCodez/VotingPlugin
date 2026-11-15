@@ -1,0 +1,68 @@
+name: Temporary three-project JAR compatibility test
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/slim-jar-cross-test.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  coordinated-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Check out VotingPlugin candidate
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Java 21
+        uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Check out upstream candidate branches
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch build/slim-full-jar-20261115 https://github.com/BenCodez/SimpleAPI.git ../SimpleAPI-candidate
+          git clone --depth 1 --branch build/slim-shaded-jar-20261115 https://github.com/BenCodez/AdvancedCore.git ../AdvancedCore-candidate
+          echo "VotingPlugin checked-out SHA: $(git rev-parse HEAD)"
+          echo "SimpleAPI source SHA: $(git -C ../SimpleAPI-candidate rev-parse HEAD)"
+          echo "AdvancedCore source SHA: $(git -C ../AdvancedCore-candidate rev-parse HEAD)"
+
+      - name: Build and install SimpleAPI candidate with full tests
+        run: mvn -B -ntp -nsu -f ../SimpleAPI-candidate/SimpleAPI/pom.xml clean install
+
+      - name: Build and install AdvancedCore candidate with full tests
+        run: mvn -B -ntp -nsu -f ../AdvancedCore-candidate/AdvancedCore/pom.xml clean install
+
+      - name: Build VotingPlugin candidate against both exact upstream candidates
+        run: mvn -B -ntp -nsu -f VotingPlugin/pom.xml clean package
+
+      - name: Report final connected JAR sizes
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          names = {
+              'SimpleAPI': Path('../SimpleAPI-candidate/SimpleAPI/target/SimpleAPI.jar'),
+              'AdvancedCore': Path('../AdvancedCore-candidate/AdvancedCore/target/AdvancedCore.jar'),
+              'VotingPlugin': Path('VotingPlugin/target/VotingPlugin.jar'),
+          }
+          report = ['## Coordinated size test', '', 'All three PR heads were compiled and packaged together in one runner.', '', '| Project | Bytes | MiB |', '|---|---:|---:|']
+          for name, path in names.items():
+              size = path.stat().st_size
+              line = f'| {name} | {size:,} | {size / 1048576:.3f} |'
+              print(f'[CROSS_REPO_SIZE] {name}: {size:,} bytes ({size / 1048576:.3f} MiB)')
+              report.append(line)
+          path = os.environ.get('GITHUB_STEP_SUMMARY')
+          if path:
+              with open(path, 'a', encoding='utf8') as output:
+                  output.write('\n'.join(report) + '\n')
+          PY
