@@ -17,6 +17,14 @@ rejects duplicate Rhino, raw Hikari/Folia, external crypto providers, uncommon
 SQLite native targets, and Checker Framework annotations. It creates both
 server and client TLS identities from the packaged JDK-only implementation.
 
+The universal plugin JAR is not a multi-release archive. Shader inputs are
+filtered to omit `META-INF/versions/**` entries that are never selected
+without a `Multi-Release: true` manifest; package tests enforce this
+contract. Compile-time-only `org/jspecify/**` annotations are also omitted,
+but real service descriptors, platform entry points, relocated Rhino,
+database drivers, and the common Linux SQLite native remain packaged.
+These are small conservative optimizations, not removal of supported features.
+
 SQLite keeps the Linux x86_64 native in the plugin for offline startup on the
 common server platform. When SQLite is selected on another supported target,
 VotingPlugin downloads the pinned `sqlite-jdbc` 3.53.4.0 artifact, verifies its
