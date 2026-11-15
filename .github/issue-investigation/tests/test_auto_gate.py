@@ -107,6 +107,7 @@ class AutomaticIssueTests(unittest.TestCase):
         self.assertNotIn('OPENAI_API_KEY', preflight)
         self.assertNotIn('OPENAI_API_KEY', posting)
         self.assertIn('actions: read', preflight)
+        self.assertIn("!cancelled() && needs.investigate.result == 'success'", posting)
         self.assertIn("github.event_name == 'issues' || inputs.post_comment", posting)
         self.assertIn('needs.auto-preflight.outputs.allowed', workflow)
 
