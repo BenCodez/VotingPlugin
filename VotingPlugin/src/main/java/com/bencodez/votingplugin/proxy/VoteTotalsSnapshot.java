@@ -96,7 +96,7 @@ public class VoteTotalsSnapshot {
 			return out;
 		}
 
-		String[] t = SEP_PATTERN.split(raw, -1);
+		String[] t = SEP_PATTERN.split(VoteOccurrenceMetadata.stripCanonicalSuffix(raw), -1);
 		if (t.length < 5) {
 			return out;
 		}

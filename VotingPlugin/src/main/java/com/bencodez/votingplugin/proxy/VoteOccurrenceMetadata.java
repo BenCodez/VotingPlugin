@@ -34,6 +34,22 @@ public final class VoteOccurrenceMetadata {
         return text + MARKER + (occurredAt > 0 ? occurredAt : -1L);
     }
 
+    /**
+     * Strip only a canonical trailing occurrence tag. Malformed, non-canonical, and
+     * repeated tags remain in the payload, so they cannot promote a vote's origin.
+     */
+    public static String stripCanonicalSuffix(String payload) {
+        if (payload == null) return null;
+        int marker = payload.indexOf(MARKER);
+        if (marker < 0 || marker != payload.lastIndexOf(MARKER)) return payload;
+        String encoded = payload.substring(marker + MARKER.length());
+        if (!"-1".equals(encoded)) {
+            long occurrence = parse(encoded);
+            if (occurrence <= 0 || !Long.toString(occurrence).equals(encoded)) return payload;
+        }
+        return payload.substring(0, marker);
+    }
+
     /** An occurrence tag alone does not represent a processed totals snapshot. */
     public static boolean hasPayload(String payload) {
         return payload != null && !payload.isEmpty() && !payload.startsWith(MARKER);

@@ -7,6 +7,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 import com.bencodez.votingplugin.proxy.VoteTotalsSnapshot;
+import com.bencodez.votingplugin.proxy.VoteOccurrenceMetadata;
 
 /**
  * Unit tests for versioned MySQL storage of VoteTotalsSnapshot.
@@ -39,6 +40,30 @@ public class VoteTotalsSnapshotStorageTest {
 		for (String malformed : new String[] {stored + "//extra", stored.replace("v2//", "v3//"),
 				stored.replace("local-proxy-origin-v1", "unknown"), stored + "\r\n"})
 			assertFalse(VoteTotalsSnapshot.parseStorage(malformed).isLocalProxyOrigin());
+	}
+
+	@Test
+	public void localAdmissionEvidenceSurvivesCanonicalOccurrenceTagsOnly() {
+		VoteTotalsSnapshot signed = new VoteTotalsSnapshot(9, 8, 7, 6, 5, 4, 3, 2);
+		signed.setLocalProxyOrigin(true);
+		signed.setLocalOriginProof("fixture.signature");
+		String original = signed.toStorageString();
+		for (long time : new long[] {1234L, -1L}) {
+			String tagged = VoteOccurrenceMetadata.store(original, time);
+			VoteTotalsSnapshot restored = VoteTotalsSnapshot.parseStorage(tagged);
+			assertTrue(restored.isLocalProxyOrigin(), "canonical occurrence " + time);
+			assertEquals(original, restored.toStorageString());
+		}
+		for (String malformed : new String[] {
+				original + "//vp-occurrence-time:0",
+				original + "//vp-occurrence-time:001234",
+				original + "//vp-occurrence-time:1234junk",
+				original + "//vp-occurrence-time:1234//vp-occurrence-time:5678",
+				original + "//vp-occurrence-time:1234//extra"
+		}) {
+			assertFalse(VoteTotalsSnapshot.parseStorage(malformed).isLocalProxyOrigin(),
+					"invalid occurrence must not promote proof: " + malformed);
+		}
 	}
 
 	@Test
