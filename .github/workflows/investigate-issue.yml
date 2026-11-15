@@ -1,6 +1,8 @@
 name: Investigate issue
 
 on:
+  issues:
+    types: [opened]
   workflow_dispatch:
     inputs:
       issue_number:
@@ -27,14 +29,36 @@ permissions:
   issues: read
 
 concurrency:
-  group: issue-investigation
+  group: issue-investigation-${{ github.event_name == 'issues' && github.event.issue.number || inputs.issue_number }}
   cancel-in-progress: false
 
 jobs:
+  auto-preflight:
+    if: ${{ github.event_name == 'issues' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      issues: read
+    outputs:
+      allowed: ${{ steps.gate.outputs.allowed }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Check automatic issue budget and configuration
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AUTO_ENVIRONMENT_NAME: ${{ vars.ISSUE_INVESTIGATION_ENVIRONMENT }}
+        run: python3 .github/issue-investigation/auto_gate.py
+
   investigate:
+    needs: auto-preflight
+    if: ${{ always() && !cancelled() && (github.event_name == 'workflow_dispatch' || (needs.auto-preflight.result == 'success' && needs.auto-preflight.outputs.allowed == 'true')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 50
-    environment: ${{ inputs.environment }}
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || vars.ISSUE_INVESTIGATION_ENVIRONMENT }}
     outputs:
       artifact_id: ${{ steps.upload.outputs.artifact-id }}
     steps:
@@ -47,8 +71,9 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_PROJECT_ID: ${{ vars.OPENAI_PROJECT_ID || 'proj_aRse4SXfv5N60VlakdZGzVV5' }}
           GH_TOKEN: ${{ github.token }}
-          ISSUE_NUMBER: ${{ inputs.issue_number }}
-          AGENT_TIMEOUT_MINUTES: ${{ inputs.timeout_minutes }}
+          ISSUE_NUMBER: ${{ github.event_name == 'issues' && github.event.issue.number || inputs.issue_number }}
+          AGENT_TIMEOUT_MINUTES: ${{ github.event_name == 'issues' && '10' || inputs.timeout_minutes }}
+          AUTOMATIC_INVESTIGATION: ${{ github.event_name == 'issues' }}
         run: python3 .github/issue-investigation/run.py
       - name: Retry session cleanup
         if: always()
@@ -69,7 +94,7 @@ jobs:
 
   post-report:
     needs: investigate
-    if: ${{ inputs.post_comment && needs.investigate.result == 'success' }}
+    if: ${{ needs.investigate.result == 'success' && (github.event_name == 'issues' || inputs.post_comment) }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -92,6 +117,6 @@ jobs:
       - name: Post report only when explicitly selected
         env:
           GH_TOKEN: ${{ github.token }}
-          ISSUE_NUMBER: ${{ inputs.issue_number }}
-          POST_COMMENT: ${{ inputs.post_comment }}
+          ISSUE_NUMBER: ${{ github.event_name == 'issues' && github.event.issue.number || inputs.issue_number }}
+          POST_COMMENT: ${{ github.event_name == 'issues' || inputs.post_comment }}
         run: python3 .github/issue-investigation/post_comment.py
