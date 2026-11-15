@@ -87,6 +87,34 @@ class PostingTests(unittest.TestCase):
         self.assertIn('/actions/runs/123#artifacts', body)
         self.assertNotIn('/workspace/', body)
 
+    def test_rewrites_angle_bracket_artifact_links_from_issue_1760(self):
+        report = '\n'.join([
+            '[Investigation report](</workspace/outputs/votingplugin-issue-1760-report.md>)',
+            '[Commands and observed results](</workspace/outputs/votingplugin-issue-1760-commands.txt>)',
+            '[Maven output](</workspace/outputs/votingplugin-issue-1760-maven.log>)',
+        ])
+        body = post.comment_body(report, 'BenCodez/VotingPlugin', 'a' * 40, '123')
+        url = 'https://github.com/BenCodez/VotingPlugin/actions/runs/123#artifacts'
+        for label in ['Investigation report', 'Commands and observed results', 'Maven output']:
+            self.assertIn('[' + label + '](' + url + ')', body)
+        self.assertNotIn('](</workspace/outputs/', body)
+        self.assertIn('[Download investigation artifacts](' + url + ')', body)
+
+    def test_rewrites_angle_bracket_source_links_with_lines_and_spaces(self):
+        text = '[Source](</workspace/repos/VotingPlugin/VotingPlugin/src/File name.java:42>)'
+        body = post.comment_body(text, 'BenCodez/VotingPlugin', 'a' * 40, '123')
+        self.assertIn('/blob/' + 'a' * 40 + '/VotingPlugin/src/File%20name.java#L42', body)
+        self.assertNotIn('/workspace/repos/', body)
+
+    def test_does_not_rewrite_external_or_traversal_source_links(self):
+        external = '[External](https://example.com/docs)'
+        traversal = '[Outside](</workspace/repos/VotingPlugin/../secret.txt>)'
+        body = post.comment_body(external + ' ' + traversal,
+                                 'BenCodez/VotingPlugin', 'a' * 40, '123')
+        self.assertIn(external, body)
+        self.assertIn(traversal, body)
+        self.assertNotIn('/blob/' + 'a' * 40 + '/../', body)
+
     def test_oversized_report_is_shortened_with_full_artifact_link(self):
         for text in ['x' * 70000, '\U0001f600' * 20000]:
             body = post.comment_body(text, 'BenCodez/VotingPlugin', 'a' * 40, '123')
