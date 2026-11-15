@@ -43,6 +43,13 @@ public class PackagedArtifactTest {
                     "sqlite-jdbc must retain its runtime version fallback");
             assertNull(artifact.getEntry("net/neoforged/neoforge/common/NeoForge.class"));
             assertFalse(artifact.stream().anyMatch(entry -> entry.getName().startsWith("org/checkerframework/")));
+            assertFalse(artifact.stream().anyMatch(entry -> entry.getName().startsWith("org/jspecify/")),
+                    "The final plugin should not ship compile-time JSpecify annotations");
+            assertNotNull(artifact.getManifest(), "The universal plugin must retain its manifest");
+            assertFalse("true".equalsIgnoreCase(artifact.getManifest().getMainAttributes()
+                    .getValue("Multi-Release")), "Do not strip versioned payload from a multi-release JAR");
+            assertFalse(artifact.stream().anyMatch(entry -> entry.getName().startsWith("META-INF/versions/")),
+                    "Versioned entries are unreachable in the non-multi-release distribution");
             assertNull(artifact.getEntry("org/slf4j/Logger.class"));
             assertNull(artifact.getEntry("com/bencodez/votingplugin/slf4j/Logger.class"));
             assertNull(artifact.getEntry("META-INF/services/org.slf4j.spi.SLF4JServiceProvider"));
