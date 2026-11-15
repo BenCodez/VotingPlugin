@@ -129,6 +129,17 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual((self.output / 'artifacts/artifact_1').read_bytes(), b'log')
         self.assertEqual(json.loads((self.output / 'usage.json').read_text())['usage']['total_tokens'], 120)
 
+    def test_agent_instructions_require_evidence_and_bounded_searches(self):
+        agent = json.loads((runner.ROOT / 'agent.json').read_text(encoding='utf-8'))
+        self.assertEqual(agent['model'], 'gpt-6-luna')
+        instructions = agent['instructions']
+        for heading in ('**Finding**', '**Evidence**', '**Verification**',
+                        '**Suggested next step**', '**Limitations**'):
+            self.assertIn(heading, instructions)
+        self.assertIn('12 shell commands', instructions)
+        self.assertIn('one focused Maven test command', instructions)
+        self.assertIn('Do not include raw sandbox output paths', instructions)
+
     def test_artifact_filenames_preserve_safe_names_only(self):
         self.assertEqual(runner.artifact_filename({
             'id': 'artifact_123', 'path': '/workspace/outputs/report.md'}), 'report.md')
