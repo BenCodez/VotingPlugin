@@ -106,6 +106,30 @@ class PostingTests(unittest.TestCase):
         self.assertIn('/blob/' + 'a' * 40 + '/VotingPlugin/src/File%20name.java#L42', body)
         self.assertNotIn('/workspace/repos/', body)
 
+    def test_preserves_github_single_line_and_line_range_anchors(self):
+        root = '/workspace/repos/VotingPlugin/VotingPlugin/src/'
+        for anchor in ('#L42', '#L42-L45'):
+            for suffix in (
+                    '[Source](' + root + 'Foo.java' + anchor + ')',
+                    '[Source](<' + root + 'Foo.java' + anchor + '>)'):
+                body = post.comment_body(suffix, 'BenCodez/VotingPlugin', 'a' * 40, '123')
+                expected = '/blob/' + 'a' * 40 + '/VotingPlugin/src/Foo.java' + anchor
+                self.assertIn(expected, body)
+                self.assertNotIn('%23L', body)
+                self.assertNotIn('/workspace/repos/', body)
+
+    def test_anchor_and_spaced_filename_are_preserved_together(self):
+        text = '[Source](</workspace/repos/VotingPlugin/VotingPlugin/src/File name.java#L5-L9>)'
+        body = post.comment_body(text, 'BenCodez/VotingPlugin', 'a' * 40, '123')
+        self.assertIn('/VotingPlugin/src/File%20name.java#L5-L9', body)
+        self.assertNotIn('%23', body)
+
+    def test_invalid_fragment_does_not_create_misleading_source_link(self):
+        text = '[Source](/workspace/repos/VotingPlugin/VotingPlugin/src/Foo.java#untrusted)'
+        body = post.comment_body(text, 'BenCodez/VotingPlugin', 'a' * 40, '123')
+        self.assertIn(text, body)
+        self.assertNotIn('%23untrusted', body)
+
     def test_does_not_rewrite_external_or_traversal_source_links(self):
         external = '[External](https://example.com/docs)'
         traversal = '[Outside](</workspace/repos/VotingPlugin/../secret.txt>)'
