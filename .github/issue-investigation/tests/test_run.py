@@ -151,7 +151,7 @@ class RunnerTests(unittest.TestCase):
         prompt = runner.session_input('a' * 40, issue, 10)
         self.assertIn('reports VotingPlugin 7.1.1', prompt)
         self.assertIn('first using its verified Git release tag', prompt)
-        self.assertIn('newer development comparison', prompt)
+        self.assertIn('separate development comparison', prompt)
         self.assertEqual(json.loads(prompt.split('\n', 1)[1]), issue)
 
     def test_unversioned_and_snapshot_issues_do_not_invent_release_tags(self):
