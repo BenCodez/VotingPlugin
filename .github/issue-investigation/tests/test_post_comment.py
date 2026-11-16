@@ -130,6 +130,56 @@ class PostingTests(unittest.TestCase):
         self.assertIn(text, body)
         self.assertNotIn('%23untrusted', body)
 
+    def test_existing_percent_escaped_spaces_are_not_double_encoded(self):
+        root = '/workspace/repos/VotingPlugin/VotingPlugin/src/'
+        examples = [
+            '[Source](' + root + 'File%20name.java:42)',
+            '[Source](<' + root + 'File%20name.java#L5-L9>)',
+            '[Source](<' + root + 'File name.java:42>)',
+        ]
+        for source in examples:
+            with self.subTest(source=source):
+                body = post.comment_body(source, 'BenCodez/VotingPlugin', 'a' * 40, '123')
+                self.assertIn('/VotingPlugin/src/File%20name.java#L', body)
+                self.assertNotIn('File%2520name', body)
+
+    def test_encoded_traversal_control_chars_and_bad_percent_escapes_are_rejected(self):
+        root = '/workspace/repos/VotingPlugin/'
+        invalid_paths = (
+            '%2e%2e/secret.txt',
+            'safe/%2e%2e/secret.txt',
+            'safe%2f..%2fsecret.txt',
+            'safe%5c..%5csecret.txt',
+            'safe/%0aevil.txt',
+            'safe/%ffevil.txt',
+            'safe/File%GGname.java',
+            'safe/%252e%252e/secret.txt',
+        )
+        for path in invalid_paths:
+            with self.subTest(path=path):
+                source = '[Source](' + root + path + ')'
+                self.assertIn(source, post.comment_body(source, 'BenCodez/VotingPlugin',
+                                                        'a' * 40, '123'))
+
+    def test_unfinished_angle_link_cannot_consume_following_paragraphs(self):
+        text = ('[Log](</workspace/outputs/run.log)\\n\\n'
+                '**Finding**: confirmed bug.\\n\\n'
+                '[Source](</workspace/repos/VotingPlugin/Foo.java:42>)\\n\\n'
+                'Final paragraph.')
+        body = post.comment_body(text, 'BenCodez/VotingPlugin', 'a' * 40, '123')
+        self.assertIn('[Log](</workspace/outputs/run.log)', body)
+        self.assertIn('**Finding**: confirmed bug.', body)
+        self.assertIn('/blob/' + 'a' * 40 + '/Foo.java#L42', body)
+        self.assertIn('Final paragraph.', body)
+        self.assertIn('**Finding**: confirmed bug.\\n\\n[Source]', text)
+
+    def test_nested_angle_brackets_do_not_absorb_later_links(self):
+        text = ('[Bad](</workspace/outputs/no<close>) '
+                '[Valid](/workspace/outputs/report.md)')
+        body = post.comment_body(text, 'BenCodez/VotingPlugin', 'a' * 40, '123')
+        self.assertIn('[Bad](</workspace/outputs/no<close>)', body)
+        self.assertIn('[Valid](https://github.com/BenCodez/VotingPlugin/actions/runs/123#artifacts)', body)
+
     def test_does_not_rewrite_external_or_traversal_source_links(self):
         external = '[External](https://example.com/docs)'
         traversal = '[Outside](</workspace/repos/VotingPlugin/../secret.txt>)'
