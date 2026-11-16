@@ -58,6 +58,16 @@ class PostingTests(unittest.TestCase):
         existing = '[Existing latest build](' + post.LATEST_BUILD_URL + ')'
         body = post.comment_body(existing, 'BenCodez/VotingPlugin', 'a' * 40, '123')
         self.assertEqual(body.count(post.LATEST_BUILD_URL), 1)
+        self.assertIn('Optional development-build retest', body)
+        self.assertIn('backed-up/staging server', body)
+        self.assertIn('This is a development build, not a verified fix or stable release.', body)
+        self.assertIn('build number and whether the same steps reproduce', body)
+        self.assertIn('mentioned above', body)
+
+        plain_url = 'I tested ' + post.LATEST_BUILD_URL
+        body = post.comment_body(plain_url, 'BenCodez/VotingPlugin', 'a' * 40, '123')
+        self.assertEqual(body.count(post.LATEST_BUILD_URL), 1)
+        self.assertIn('Optional development-build retest', body)
 
     def test_existing_bot_comment_prevents_duplicate_on_rerun(self):
         def reply(method, path, payload=None):
