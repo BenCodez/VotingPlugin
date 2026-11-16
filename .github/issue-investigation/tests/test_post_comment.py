@@ -48,6 +48,26 @@ class PostingTests(unittest.TestCase):
         self.assertTrue(payload['body'].startswith('<!-- votingplugin-issue-investigation:123 -->\n'))
         self.assertIn('no defect confirmed. Tests blocked.', payload['body'])
         self.assertIn('/actions/runs/123', payload['body'])
+        self.assertIn(post.LATEST_BUILD_URL, payload['body'])
+
+    def test_link_to_latest_successful_build_is_stable_and_not_duplicated(self):
+        body = post.comment_body('Reported release appears affected.', 'BenCodez/VotingPlugin', 'a' * 40, '123')
+        self.assertIn('[latest successful development build](' + post.LATEST_BUILD_URL + ')', body)
+        self.assertIn('backed-up/staging server', body)
+        self.assertIn('build number', body)
+        existing = '[Existing latest build](' + post.LATEST_BUILD_URL + ')'
+        body = post.comment_body(existing, 'BenCodez/VotingPlugin', 'a' * 40, '123')
+        self.assertEqual(body.count(post.LATEST_BUILD_URL), 1)
+        self.assertIn('Optional development-build retest', body)
+        self.assertIn('backed-up/staging server', body)
+        self.assertIn('This is a development build, not a verified fix or stable release.', body)
+        self.assertIn('build number and whether the same steps reproduce', body)
+        self.assertIn('mentioned above', body)
+
+        plain_url = 'I tested ' + post.LATEST_BUILD_URL
+        body = post.comment_body(plain_url, 'BenCodez/VotingPlugin', 'a' * 40, '123')
+        self.assertEqual(body.count(post.LATEST_BUILD_URL), 1)
+        self.assertIn('Optional development-build retest', body)
 
     def test_existing_bot_comment_prevents_duplicate_on_rerun(self):
         def reply(method, path, payload=None):

@@ -139,6 +139,59 @@ class RunnerTests(unittest.TestCase):
         self.assertIn('12 shell commands', instructions)
         self.assertIn('one focused Maven test command', instructions)
         self.assertIn('Do not include raw sandbox output paths', instructions)
+        self.assertIn('VERSION FIRST', instructions)
+        self.assertIn('reported version', instructions.lower())
+        self.assertIn('tag-or-commit', instructions)
+
+    def test_issue_1764_reported_release_is_primary_and_latest_sha_is_comparison(self):
+        issue = {'title': 'Globally linked Floodgate account',
+                 'body': '**Versions**\nVotingPlugin 7.1.1 | AdvancedCore 3.8.2-SNAPSHOT',
+                 'comments': []}
+        self.assertEqual(runner.reported_votingplugin_version(issue), '7.1.1')
+        prompt = runner.session_input('a' * 40, issue, 10)
+        self.assertIn('reports VotingPlugin 7.1.1', prompt)
+        self.assertIn('first using its verified Git release tag', prompt)
+        self.assertIn('separate development comparison', prompt)
+        self.assertEqual(json.loads(prompt.split('\n', 1)[1]), issue)
+
+    def test_unversioned_and_snapshot_issues_do_not_invent_release_tags(self):
+        self.assertIsNone(runner.reported_votingplugin_version({'body': 'Vote rewards do not run'}))
+        self.assertEqual(runner.reported_votingplugin_version(
+            {'body': 'VotingPlugin: 7.1.2-SNAPSHOT'}), '7.1.2-SNAPSHOT')
+        prompt = runner.session_input('b' * 40, {'body': 'No version'}, 10)
+        self.assertIn('Identify the reported plugin version/build first', prompt)
+
+    def test_custom_build_token_is_not_mistaken_for_base_release(self):
+        issue = {'body': 'VotingPlugin 7.1.1+custom.42 fails when voting'}
+        self.assertEqual(runner.reported_votingplugin_version(issue), '7.1.1+custom.42')
+        prompt = runner.session_input('a' * 40, issue, 10)
+        self.assertIn('VotingPlugin 7.1.1+custom.42', prompt)
+        self.assertIn('custom/prerelease build identifier', prompt)
+        self.assertIn('do not assume its base release tag is equivalent', prompt)
+        self.assertNotIn('reports VotingPlugin 7.1.1.', prompt)
+
+    def test_extra_dotted_version_is_not_partially_accepted(self):
+        issue = {'body': 'VotingPlugin 7.1.1.5 has an issue'}
+        self.assertIsNone(runner.reported_votingplugin_version(issue))
+        self.assertEqual(runner.reported_votingplugin_versions(issue), [])
+        self.assertIn('Identify the reported plugin version/build first',
+                      runner.session_input('a' * 40, issue, 10))
+
+    def test_upgrade_from_version_is_not_misidentified_as_deployed_version(self):
+        issue = {'body': 'After upgrading from VotingPlugin 7.1.0 to VotingPlugin 7.1.1, rewards fail'}
+        self.assertIsNone(runner.reported_votingplugin_version(issue))
+        self.assertEqual(runner.reported_votingplugin_versions(issue), ['7.1.0', '7.1.1'])
+        prompt = runner.session_input('a' * 40, issue, 10)
+        self.assertIn('multiple VotingPlugin versions (7.1.0, 7.1.1)', prompt)
+        self.assertIn('do NOT automatically select the first version', prompt)
+        self.assertNotIn('reports VotingPlugin 7.1.0.', prompt)
+        self.assertEqual(json.loads(prompt.split('\n', 1)[1]), issue)
+
+    def test_repeated_same_version_remains_unambiguous(self):
+        issue = {'title': 'VotingPlugin 7.1.1 bug',
+                 'body': 'VotingPlugin version 7.1.1 does not deliver offline rewards'}
+        self.assertEqual(runner.reported_votingplugin_version(issue), '7.1.1')
+        self.assertEqual(runner.reported_votingplugin_versions(issue), ['7.1.1'])
 
     def test_artifact_filenames_preserve_safe_names_only(self):
         self.assertEqual(runner.artifact_filename({

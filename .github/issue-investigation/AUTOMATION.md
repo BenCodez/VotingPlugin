@@ -23,7 +23,9 @@ Without the repository variable, automatic investigations **skip before calling 
 
 ## Quality of posted reports
 
-- The agent aims for a concise public reply with **Finding**, **Evidence** (pinned source/line links), **Verification**, **Suggested next step**, and **Limitations**. Findings remain source-supported hypotheses unless tests or runtime evidence verify them.
+- The agent evaluates the **reporter's VotingPlugin version first** (and related dependency versions when possible), using the matching Git tag or exact build/commit when available. It then compares that behavior with the pinned development checkout. If the reported source cannot be identified, the uncertainty must be explicit; development code alone cannot invalidate older logs.
+- The agent aims for a concise public reply with **Finding**, **Evidence** (version-specific source/line links), **Verification**, **Suggested next step**, and **Limitations**. Findings remain source-supported hypotheses unless tests or runtime evidence verify them.
+- Every published reply includes a durable Jenkins [latest successful development build](https://bencodez.com/job/VotingPlugin/lastSuccessfulBuild/) link for an **optional, backed-up/staging-server retest**. This is not a stable-release download or confirmation of a fix; users should share the Jenkins build number and reproduction result.
 - Published Markdown links to local checkout files are rewritten to pinned GitHub URLs. Links to generated sandbox reports/logs point to the workflow's **downloadable artifacts** instead of unusable `/workspace/outputs` paths. The ZIP keeps safe human-readable report/log filenames.
 - Investigations prefer focused searches and limited file excerpts. A target of 12 shell commands and 8 KiB per command is guidance, **not a guaranteed tool or spending limit**.
 - A relevant Maven test may be attempted once with a bounded timeout. If dependencies are unavailable, the report must say tests were **blocked**, not passed, and the agent should not retry the same failing resolution.
