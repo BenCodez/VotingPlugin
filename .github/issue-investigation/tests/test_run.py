@@ -145,14 +145,14 @@ class RunnerTests(unittest.TestCase):
 
     def test_issue_1764_reported_release_is_primary_and_latest_sha_is_comparison(self):
         issue = {'title': 'Globally linked Floodgate account',
-                 'body': '**Versions**\\nVotingPlugin 7.1.1 | AdvancedCore 3.8.2-SNAPSHOT',
+                 'body': '**Versions**\nVotingPlugin 7.1.1 | AdvancedCore 3.8.2-SNAPSHOT',
                  'comments': []}
         self.assertEqual(runner.reported_votingplugin_version(issue), '7.1.1')
         prompt = runner.session_input('a' * 40, issue, 10)
         self.assertIn('reports VotingPlugin 7.1.1', prompt)
         self.assertIn('first using its verified Git release tag', prompt)
         self.assertIn('newer development comparison', prompt)
-        self.assertEqual(json.loads(prompt.split('\\n', 1)[1]), issue)
+        self.assertEqual(json.loads(prompt.split('\n', 1)[1]), issue)
 
     def test_unversioned_and_snapshot_issues_do_not_invent_release_tags(self):
         self.assertIsNone(runner.reported_votingplugin_version({'body': 'Vote rewards do not run'}))
