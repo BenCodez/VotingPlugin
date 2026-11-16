@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 import re
 import sys
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 
 from run import Curl
 
@@ -40,15 +40,31 @@ def report_links(report, repository, sha, artifacts_url):
             if path_with_line:
                 path, line = path_with_line.group(1), '#L' + path_with_line.group(2)
 
-        # Do not construct misleading or traversal-based source links.
-        if not path or any(part in ('', '.', '..') for part in path.split('/')):
+        # Normalize existing percent escapes once, then re-encode the file path.
+        # Validate the decoded path so %2e%2e and %2f cannot bypass the
+        # traversal checks. Do not guess at ambiguous double-encoded paths.
+        if re.search(r'%(?![0-9A-Fa-f]{2})', path):
             return match.group(0)
-        url = f'https://github.com/{repository}/blob/{sha}/' + quote(path, safe='/._-~') + line
+        try:
+            decoded_path = unquote(path, encoding='utf-8', errors='strict')
+        except UnicodeDecodeError:
+            return match.group(0)
+        if (not decoded_path
+                or any(part in ('', '.', '..') for part in decoded_path.split('/'))
+                or any(ord(ch) < 32 or ord(ch) == 127 for ch in decoded_path)
+                or '\\' in decoded_path
+                or re.search(r'%[0-9A-Fa-f]{2}', decoded_path)):
+            return match.group(0)
+        url = (f'https://github.com/{repository}/blob/{sha}/'
+               + quote(decoded_path, safe='/._-~') + line)
         return '](' + url + ')'
 
-    # Bracketed URLs may contain spaces; ordinary Markdown URLs may not.
-    pattern = r'\]\((?:<(/workspace/(?:repos/VotingPlugin|outputs)/[^>]+)>|(/workspace/(?:repos/VotingPlugin|outputs)/[^\s)]+))\)'
-    return re.sub(pattern, rewrite, report)
+    # Bracketed URLs may contain spaces, but never consume another tag or
+    # paragraph if a closing > is missing; unbracketed URLs cannot contain spaces.
+    return re.sub(
+        r'\]\((?:<(/workspace/(?:repos/VotingPlugin|outputs)/[^<>\r\n]{1,2048})>'
+        r'|(/workspace/(?:repos/VotingPlugin|outputs)/[^\s)<>]{1,2048}))\)',
+        rewrite, report)
 
 
 def comment_body(report, repository, sha, run_id):
