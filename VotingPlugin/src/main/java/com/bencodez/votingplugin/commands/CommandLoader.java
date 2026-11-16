@@ -2086,7 +2086,9 @@ public class CommandLoader {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						plugin.getVoteParty().giveRewards(null, plugin.getBungeeSettings().isUseBungeecoord());
+						plugin.getVoteParty().giveRewards(null, plugin.getBungeeSettings().isUseBungeecoord(),
+								() -> plugin.getBukkitScheduler().runTask(plugin,
+										() -> sender.sendMessage("VoteParty is already preparing or resetting. Try again when it finishes.")));
 					}
 				});
 

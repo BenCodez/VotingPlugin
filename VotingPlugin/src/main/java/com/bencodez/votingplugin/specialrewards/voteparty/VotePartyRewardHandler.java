@@ -118,6 +118,7 @@ public final class VotePartyRewardHandler {
 
 	/** The owner identity travels with the list through delivery admission and reset. */
 	final class StoredRecipients {
+		private final long generation = voteParty.rewardGeneration();
 		private final UserDataManager manager;
 		private final UserStorageOwner owner;
 		private final List<String> ids;
@@ -140,12 +141,18 @@ public final class VotePartyRewardHandler {
 
 		boolean isCurrent() {
 			try {
-				return owner != null && sharedDataManager() == manager && manager.sharedNativeUserStorageOwner() == owner;
+				return isCurrentChecked();
 			} catch (RuntimeException unavailable) { return false; }
+		}
+
+		boolean isCurrentChecked() {
+			return generation == voteParty.rewardGeneration() && owner != null
+					&& sharedDataManager() == manager && manager.sharedNativeUserStorageOwner() == owner;
 		}
 
 		<T> T withCurrentOwner(Supplier<T> work) {
 			return manager.withSharedNativeUserStorage(current -> {
+				if (generation != voteParty.rewardGeneration()) return null;
 				if (current != owner) throw new IllegalStateException("Shared VoteParty storage owner changed");
 				return work.get();
 			});
@@ -157,7 +164,15 @@ public final class VotePartyRewardHandler {
 	}
 
 	void giveRewards(VotingPluginUser triggeringUser, boolean forceBungee, StoredRecipients storedRecipients) {
+		broadcastParty();
+		dispatchRewards(triggeringUser, forceBungee, storedRecipients);
+	}
+
+	void broadcastParty() {
 		MiscUtils.getInstance().broadcast(plugin.getSpecialRewardsConfig().getVotePartyBroadcast());
+	}
+
+	void dispatchRewards(VotingPluginUser triggeringUser, boolean forceBungee, StoredRecipients storedRecipients) {
 		dispatchGlobalCommands(voteParty.getRandomPlayerName());
 
 		if (plugin.getSpecialRewardsConfig().isVotePartyGiveAllPlayers()) {
@@ -234,10 +249,11 @@ public final class VotePartyRewardHandler {
 				}
 			}
 		};
-		Runnable storedRecipients = prepared == null ? recipients : () -> prepared.withCurrentOwner(() -> {
-			recipients.run();
-			return null;
-		});
+		Runnable storedRecipients = prepared == null ? recipients
+				: () -> voteParty.withPreparedVoteFence(() -> prepared.withCurrentOwner(() -> {
+					recipients.run();
+					return null;
+				}));
 		// UUID enumeration itself enters storage. Admit it after the online reads
 		// and before VoteParty queues its counter wipe on this same ordered worker.
 		if (manager != null && manager.deferSharedStorageWork(storedRecipients)) return;
@@ -316,9 +332,11 @@ public final class VotePartyRewardHandler {
 			if (manager.getPublishedCache(uuid) == null) manager.cacheUser(uuid, null);
 			if (manager.getPublishedCache(uuid) == null) return null;
 			// Read eligibility on the storage worker, before VoteParty resets counters.
-			return userVotesRequired > 0 ? user.getVotePartyVotes() : 0;
+			return userVotesRequired > 0
+					? (prepared == null ? user.getVotePartyVotes() : voteParty.preparedVotes(user)) : 0;
 		};
-		Supplier<Integer> populate = prepared == null ? read : () -> prepared.withCurrentOwner(read);
+		Supplier<Integer> populate = prepared == null ? read
+				: () -> voteParty.withPreparedVoteFence(() -> prepared.withCurrentOwner(read));
 		Consumer<Integer> success = votes -> {
 			if (prepared != null && !prepared.isCurrent()) return;
 			if (votes == null) {
