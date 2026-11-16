@@ -29,9 +29,16 @@ def report_links(report, repository, sha, artifacts_url):
             return match.group(0)
         path = target[len(prefix):]
         line = ''
-        path_with_line = re.fullmatch(r'(.+):([1-9][0-9]*)', path)
-        if path_with_line:
-            path, line = path_with_line.group(1), '#L' + path_with_line.group(2)
+        # GitHub-style fragments are anchors, not part of the filename to encode.
+        if '#' in path:
+            path, anchor = path.split('#', 1)
+            if not re.fullmatch(r'L[1-9][0-9]*(?:-L[1-9][0-9]*)?', anchor):
+                return match.group(0)
+            line = '#' + anchor
+        else:
+            path_with_line = re.fullmatch(r'(.+):([1-9][0-9]*)', path)
+            if path_with_line:
+                path, line = path_with_line.group(1), '#L' + path_with_line.group(2)
 
         # Do not construct misleading or traversal-based source links.
         if not path or any(part in ('', '.', '..') for part in path.split('/')):
