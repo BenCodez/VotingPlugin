@@ -87,6 +87,108 @@ class PostingTests(unittest.TestCase):
         self.assertIn('/actions/runs/123#artifacts', body)
         self.assertNotIn('/workspace/', body)
 
+    def test_rewrites_angle_bracket_artifact_links_from_issue_1760(self):
+        report = '\n'.join([
+            '[Investigation report](</workspace/outputs/votingplugin-issue-1760-report.md>)',
+            '[Commands and observed results](</workspace/outputs/votingplugin-issue-1760-commands.txt>)',
+            '[Maven output](</workspace/outputs/votingplugin-issue-1760-maven.log>)',
+        ])
+        body = post.comment_body(report, 'BenCodez/VotingPlugin', 'a' * 40, '123')
+        url = 'https://github.com/BenCodez/VotingPlugin/actions/runs/123#artifacts'
+        for label in ['Investigation report', 'Commands and observed results', 'Maven output']:
+            self.assertIn('[' + label + '](' + url + ')', body)
+        self.assertNotIn('](</workspace/outputs/', body)
+        self.assertIn('[Download investigation artifacts](' + url + ')', body)
+
+    def test_rewrites_angle_bracket_source_links_with_lines_and_spaces(self):
+        text = '[Source](</workspace/repos/VotingPlugin/VotingPlugin/src/File name.java:42>)'
+        body = post.comment_body(text, 'BenCodez/VotingPlugin', 'a' * 40, '123')
+        self.assertIn('/blob/' + 'a' * 40 + '/VotingPlugin/src/File%20name.java#L42', body)
+        self.assertNotIn('/workspace/repos/', body)
+
+    def test_preserves_github_single_line_and_line_range_anchors(self):
+        root = '/workspace/repos/VotingPlugin/VotingPlugin/src/'
+        for anchor in ('#L42', '#L42-L45'):
+            for suffix in (
+                    '[Source](' + root + 'Foo.java' + anchor + ')',
+                    '[Source](<' + root + 'Foo.java' + anchor + '>)'):
+                body = post.comment_body(suffix, 'BenCodez/VotingPlugin', 'a' * 40, '123')
+                expected = '/blob/' + 'a' * 40 + '/VotingPlugin/src/Foo.java' + anchor
+                self.assertIn(expected, body)
+                self.assertNotIn('%23L', body)
+                self.assertNotIn('/workspace/repos/', body)
+
+    def test_anchor_and_spaced_filename_are_preserved_together(self):
+        text = '[Source](</workspace/repos/VotingPlugin/VotingPlugin/src/File name.java#L5-L9>)'
+        body = post.comment_body(text, 'BenCodez/VotingPlugin', 'a' * 40, '123')
+        self.assertIn('/VotingPlugin/src/File%20name.java#L5-L9', body)
+        self.assertNotIn('%23', body)
+
+    def test_invalid_fragment_does_not_create_misleading_source_link(self):
+        text = '[Source](/workspace/repos/VotingPlugin/VotingPlugin/src/Foo.java#untrusted)'
+        body = post.comment_body(text, 'BenCodez/VotingPlugin', 'a' * 40, '123')
+        self.assertIn(text, body)
+        self.assertNotIn('%23untrusted', body)
+
+    def test_existing_percent_escaped_spaces_are_not_double_encoded(self):
+        root = '/workspace/repos/VotingPlugin/VotingPlugin/src/'
+        examples = [
+            '[Source](' + root + 'File%20name.java:42)',
+            '[Source](<' + root + 'File%20name.java#L5-L9>)',
+            '[Source](<' + root + 'File name.java:42>)',
+        ]
+        for source in examples:
+            with self.subTest(source=source):
+                body = post.comment_body(source, 'BenCodez/VotingPlugin', 'a' * 40, '123')
+                self.assertIn('/VotingPlugin/src/File%20name.java#L', body)
+                self.assertNotIn('File%2520name', body)
+
+    def test_encoded_traversal_control_chars_and_bad_percent_escapes_are_rejected(self):
+        root = '/workspace/repos/VotingPlugin/'
+        invalid_paths = (
+            '%2e%2e/secret.txt',
+            'safe/%2e%2e/secret.txt',
+            'safe%2f..%2fsecret.txt',
+            'safe%5c..%5csecret.txt',
+            'safe/%0aevil.txt',
+            'safe/%ffevil.txt',
+            'safe/File%GGname.java',
+            'safe/%252e%252e/secret.txt',
+        )
+        for path in invalid_paths:
+            with self.subTest(path=path):
+                source = '[Source](' + root + path + ')'
+                self.assertIn(source, post.comment_body(source, 'BenCodez/VotingPlugin',
+                                                        'a' * 40, '123'))
+
+    def test_unfinished_angle_link_cannot_consume_following_paragraphs(self):
+        text = ('[Log](</workspace/outputs/run.log)\n\n'
+                '**Finding**: confirmed bug.\n\n'
+                '[Source](</workspace/repos/VotingPlugin/Foo.java:42>)\n\n'
+                'Final paragraph.')
+        body = post.comment_body(text, 'BenCodez/VotingPlugin', 'a' * 40, '123')
+        self.assertIn('[Log](</workspace/outputs/run.log)', body)
+        self.assertIn('**Finding**: confirmed bug.', body)
+        self.assertIn('/blob/' + 'a' * 40 + '/Foo.java#L42', body)
+        self.assertIn('Final paragraph.', body)
+        self.assertIn('**Finding**: confirmed bug.\n\n[Source]', text)
+
+    def test_nested_angle_brackets_do_not_absorb_later_links(self):
+        text = ('[Bad](</workspace/outputs/no<close>) '
+                '[Valid](/workspace/outputs/report.md)')
+        body = post.comment_body(text, 'BenCodez/VotingPlugin', 'a' * 40, '123')
+        self.assertIn('[Bad](</workspace/outputs/no<close>)', body)
+        self.assertIn('[Valid](https://github.com/BenCodez/VotingPlugin/actions/runs/123#artifacts)', body)
+
+    def test_does_not_rewrite_external_or_traversal_source_links(self):
+        external = '[External](https://example.com/docs)'
+        traversal = '[Outside](</workspace/repos/VotingPlugin/../secret.txt>)'
+        body = post.comment_body(external + ' ' + traversal,
+                                 'BenCodez/VotingPlugin', 'a' * 40, '123')
+        self.assertIn(external, body)
+        self.assertIn(traversal, body)
+        self.assertNotIn('/blob/' + 'a' * 40 + '/../', body)
+
     def test_oversized_report_is_shortened_with_full_artifact_link(self):
         for text in ['x' * 70000, '\U0001f600' * 20000]:
             body = post.comment_body(text, 'BenCodez/VotingPlugin', 'a' * 40, '123')

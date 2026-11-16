@@ -20,6 +20,15 @@ Without the repository variable, automatic investigations **skip before calling 
 - Only completed, nonempty reports are published. The separate post-report job has `issues: write` permission and **no** OpenAI key. Run-ID markers prevent duplicate comments when rerunning the same workflow run.
 - Issue and comment text are untrusted evidence. The comment includes hypotheses and verification limits; it is not a confirmed fix. User-controlled issue text never enters workflow shell commands.
 
+
+## Quality of posted reports
+
+- The agent aims for a concise public reply with **Finding**, **Evidence** (pinned source/line links), **Verification**, **Suggested next step**, and **Limitations**. Findings remain source-supported hypotheses unless tests or runtime evidence verify them.
+- Published Markdown links to local checkout files are rewritten to pinned GitHub URLs. Links to generated sandbox reports/logs point to the workflow's **downloadable artifacts** instead of unusable `/workspace/outputs` paths. The ZIP keeps safe human-readable report/log filenames.
+- Investigations prefer focused searches and limited file excerpts. A target of 12 shell commands and 8 KiB per command is guidance, **not a guaranteed tool or spending limit**.
+- A relevant Maven test may be attempted once with a bounded timeout. If dependencies are unavailable, the report must say tests were **blocked**, not passed, and the agent should not retry the same failing resolution.
+- These changes don't require changing the existing `OPENAI_API_KEY` secret, its GitHub Environment, daily admission limit, or automatic-posting permissions.
+
 To pause automatic paid work without changing workflow code, remove the `ISSUE_INVESTIGATION_ENVIRONMENT` repository variable. Preflight skips paid automatic investigations; manual runs remain available.
 
 **Limitations:** Daily workflow-run counting is a soft admission throttle, not an account-wide spending cap. It counts all issue-triggered workflow runs, even skipped or failed ones, and can be affected by concurrent creation and GitHub API indexing delay. Use OpenAI project spend limits/alerts as an additional safeguard. Luna's lower cost does not guarantee the same investigation quality as Sol; compare actual reports before increasing the daily limit.
