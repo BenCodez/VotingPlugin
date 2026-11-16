@@ -180,8 +180,10 @@ authoritative.
 Legacy VoteLog read methods catch SQL failures and return empty/zero values, so the inspection layer must probe readability
 first. Preserve the 10-second JDBC statement timeout: summary/search/trace return `UNAVAILABLE` when logging is disabled,
 the adapter is missing, or the probe fails, while vote-site health exposes `voteLogReadable:false`, skips aggregates, and uses explicit unavailable or
-unreadable statuses instead of `NO_RECENT_VOTES`. The probe is point-in-time; legacy methods can still return empty if the
-database fails after it succeeds, so removing that race requires an explicit table error-result API.
+unreadable statuses instead of `NO_RECENT_VOTES`. During an inspection, preserve the worker-local strict read scope:
+a later SQL read failure returns `UNAVAILABLE`, never successful empty/zero data. Restore the prior scope on every exit
+and preserve legacy fallbacks outside inspections. The probe remains point-in-time and does not guarantee a transactional
+snapshot across multiple reads.
 
 VoteLog records selected events: vote receipt, vote milestone, vote-streak reward, top-voter reward, and vote-shop
 purchase. `IMMEDIATE` and `CACHED` describe processing status. A shared `voteId` correlates written rows, but the table is
