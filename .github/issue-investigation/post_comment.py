@@ -76,14 +76,17 @@ def comment_body(report, repository, sha, run_id):
     encoded = report.encode('utf-8')
     if len(encoded) > 55000:
         report = encoded[:55000].decode('utf-8', errors='ignore') + '\n\n[Report shortened; download the complete report from the workflow artifacts.]'
-    # Every published report supplies an evergreen Jenkins permalink rather than
-    # a stale build number or a guessed artifact filename. The same permalink is
-    # used by VotingPlugin-Control's Jenkins artifact integration.
-    retest = '' if LATEST_BUILD_URL in report else (
+    # Keep the development-build retest guidance even when the model already
+    # linked the permalink. Omit only the duplicate URL in that case.
+    if LATEST_BUILD_URL in report:
+        build_reference = 'the latest successful development build mentioned above'
+    else:
+        build_reference = (f'the [latest successful development build]({LATEST_BUILD_URL}) '
+                           f'([build history]({JENKINS_JOB_URL}))')
+    retest = (
         '\n\n**Optional development-build retest:** If you can safely test on a '
-        'backed-up/staging server, download the VotingPlugin JAR under the '
-        f'[latest successful development build]({LATEST_BUILD_URL}) '
-        f'([build history]({JENKINS_JOB_URL})). '
+        'backed-up/staging server, download the VotingPlugin JAR from '
+        + build_reference + '. '
         'This is a development build, not a verified fix or stable release. '
         'Check plugin compatibility and fully restart before retesting; '
         'please share the build number and whether the same steps reproduce.')
