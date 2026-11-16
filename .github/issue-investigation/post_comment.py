@@ -86,7 +86,7 @@ def comment_body(report, repository, sha, run_id):
     retest = (
         '\n\n**Optional development-build retest:** If you can safely test on a '
         'backed-up/staging server, download the VotingPlugin JAR from '
-        + build_reference + '. '
+        f'{build_reference}. '
         'This is a development build, not a verified fix or stable release. '
         'Check plugin compatibility and fully restart before retesting; '
         'please share the build number and whether the same steps reproduce.')
