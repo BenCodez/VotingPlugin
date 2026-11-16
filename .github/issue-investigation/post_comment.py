@@ -89,7 +89,7 @@ def comment_body(report, repository, sha, run_id):
         'please share the build number and whether the same steps reproduce.')
     return (f'<!-- votingplugin-issue-investigation:{run_id} -->\n'
             '## Automated issue investigation\n\n'
-            f'[Workflow run]({run_url}) · [Download investigation artifacts]({run_url}#artifacts) · Checkout `{sha}`\n\n'
+            f'[Workflow run]({run_url}) · [Download investigation artifacts]({run_url}#artifacts) · Development checkout `{sha}` (not necessarily the reported version)\n\n'
             'This is an automated analysis, not confirmation that every check passed. '
             'Verification results and limitations are included below.\n\n'
             + report.strip() + retest)
