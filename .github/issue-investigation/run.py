@@ -156,30 +156,51 @@ def limit_automatic_context(issue):
     return result
 
 
-def reported_votingplugin_version(issue):
-    """Identify a reported version for prioritizing analysis, never for shell commands."""
+def reported_votingplugin_versions(issue):
+    """Find distinct, complete VotingPlugin version tokens without guessing which is deployed."""
+    pattern = re.compile(
+        r'\bVotingPlugin(?:\s+version)?\s*[:=]?\s*v?'
+        r'(\d{1,3}\.\d{1,3}(?:\.\d{1,3})?'
+        r'(?:[-+][A-Za-z0-9][A-Za-z0-9._+-]{0,63})?)'
+        r'(?![A-Za-z0-9._+-])',
+        re.IGNORECASE)
+    versions = {}
     for field in ('body', 'title'):
         content = issue.get(field)
-        if not isinstance(content, str):
-            continue
-        match = re.search(
-            r'\bVotingPlugin(?:\s+version)?\s*[:=]?\s*v?'
-            r'(\d{1,3}\.\d{1,3}(?:\.\d{1,3})?'
-            r'(?:-[A-Za-z0-9][A-Za-z0-9.-]{0,31})?)\b',
-            content, re.IGNORECASE)
-        if match:
-            return match.group(1)
-    return None
+        if isinstance(content, str):
+            for match in pattern.finditer(content):
+                version = match.group(1)
+                versions.setdefault(version.lower(), version)
+    return list(versions.values())
+
+
+def reported_votingplugin_version(issue):
+    """Return a single unambiguous reported version; never use this in shell commands."""
+    versions = reported_votingplugin_versions(issue)
+    return versions[0] if len(versions) == 1 else None
 
 
 def session_input(sha, issue, minutes):
-    version = reported_votingplugin_version(issue)
-    focus = (f'The issue reports VotingPlugin {version}. Investigate THAT reported build '
-             'first using its verified Git release tag or build metadata; '
-             'if source cannot be matched, disclose the limitation. '
-             if version else
-             'Identify the reported plugin version/build first, and disclose any '
-             'unavailable matching source. ')
+    versions = reported_votingplugin_versions(issue)
+    if len(versions) > 1:
+        focus = ('The issue mentions multiple VotingPlugin versions (' + ', '.join(versions)
+                 + '). Determine which version actually exhibits the issue from the report; '
+                 'do NOT automatically select the first version as the installed build. '
+                 'Investigate version-specific behavior and disclose any ambiguity. ')
+    elif versions:
+        version = versions[0]
+        if '+' in version or '-' in version:
+            focus = (f'The issue mentions VotingPlugin {version}, a custom/prerelease '
+                     'build identifier. Identify the exact deployed build/commit first; '
+                     'do not assume its base release tag is equivalent. '
+                     'Disclose the limitation if the artifact cannot be matched. ')
+        else:
+            focus = (f'The issue reports VotingPlugin {version}. Investigate THAT reported build '
+                     'first using its verified Git release tag or build metadata; '
+                     'if source cannot be matched, disclose the limitation. ')
+    else:
+        focus = ('Identify the reported plugin version/build first, and disclose any '
+                 'unavailable matching source. ')
     return (focus + f'The pinned checkout {sha} in /workspace/repos/VotingPlugin '
             'is a separate development comparison, not necessarily the deployed code. '
             'Never rule out a report using only newer source. '
