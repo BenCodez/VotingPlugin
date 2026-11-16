@@ -162,16 +162,16 @@ class PostingTests(unittest.TestCase):
                                                         'a' * 40, '123'))
 
     def test_unfinished_angle_link_cannot_consume_following_paragraphs(self):
-        text = ('[Log](</workspace/outputs/run.log)\\n\\n'
-                '**Finding**: confirmed bug.\\n\\n'
-                '[Source](</workspace/repos/VotingPlugin/Foo.java:42>)\\n\\n'
+        text = ('[Log](</workspace/outputs/run.log)\n\n'
+                '**Finding**: confirmed bug.\n\n'
+                '[Source](</workspace/repos/VotingPlugin/Foo.java:42>)\n\n'
                 'Final paragraph.')
         body = post.comment_body(text, 'BenCodez/VotingPlugin', 'a' * 40, '123')
         self.assertIn('[Log](</workspace/outputs/run.log)', body)
         self.assertIn('**Finding**: confirmed bug.', body)
         self.assertIn('/blob/' + 'a' * 40 + '/Foo.java#L42', body)
         self.assertIn('Final paragraph.', body)
-        self.assertIn('**Finding**: confirmed bug.\\n\\n[Source]', text)
+        self.assertIn('**Finding**: confirmed bug.\n\n[Source]', text)
 
     def test_nested_angle_brackets_do_not_absorb_later_links(self):
         text = ('[Bad](</workspace/outputs/no<close>) '
