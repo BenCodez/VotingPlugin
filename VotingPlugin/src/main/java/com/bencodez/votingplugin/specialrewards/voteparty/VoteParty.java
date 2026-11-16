@@ -4,6 +4,12 @@ package com.bencodez.votingplugin.specialrewards.voteparty;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.BiConsumer;
+import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
 
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
@@ -29,6 +35,39 @@ public class VoteParty implements Listener {
 	private VotingPluginMain plugin;
 	private final VotePartyState state;
 	private final VotePartyRewardHandler rewardHandler;
+	private final AtomicLong rewardGeneration = new AtomicLong();
+	private record NewPartyVotes(VotingPluginUser user, int count) { }
+	private final HashMap<String, NewPartyVotes> votesAfterCommit = new HashMap<>();
+	private Object counterResetAttempt;
+	private record ScalarRollback(Object attempt, List<String> voters, int total, int extra, int day, int week) { }
+	private final AtomicReference<ScalarRollback> pendingScalarRollback = new AtomicReference<>();
+	private final AtomicReference<Runnable> pendingCounterReset = new AtomicReference<>();
+
+	long rewardGeneration() { return rewardGeneration.get(); }
+
+	<T> T withPreparedVoteFence(Supplier<T> work) {
+		synchronized (this) {
+			stateCommit.lock();
+			try { return work.get(); }
+			finally { stateCommit.unlock(); }
+		}
+	}
+
+	int preparedVotes(VotingPluginUser user) {
+		NewPartyVotes delta = counterResetAttempt == storedPreparation.get()
+				? votesAfterCommit.get(user.getUUID()) : null;
+		return Math.max(0, user.getVotePartyVotes() - (delta == null ? 0 : delta.count()));
+	}
+
+
+	private final AtomicReference<Object> storedPreparation = new AtomicReference<>();
+	private record PendingCheck(Object attempt, long generation, Runnable action) { }
+	private final AtomicReference<PendingCheck> pendingStoredCheck = new AtomicReference<>();
+	// Workers may hold this permit across storage; the platform only tries it.
+	// Order: worker monitor -> stateCommit -> scalarCommit; platform only tries the last two.
+	// Scalar commands take scalarCommit alone and release it before user storage.
+	private final ReentrantLock stateCommit = new ReentrantLock();
+	private final ReentrantLock scalarCommit = new ReentrantLock();
 
 	/**
 	 * Constructs a new VoteParty.
@@ -46,10 +85,20 @@ public class VoteParty implements Listener {
 	 *
 	 * @param user the voting plugin user
 	 */
-	public void addTotal(VotingPluginUser user) {
-		setTotalVotes(getTotalVotes() + 1);
-		user.setVotePartyVotes(user.getVotePartyVotes() + 1);
-		plugin.getPlaceholders().onVotePartyUpdate();
+	public synchronized void addTotal(VotingPluginUser user) {
+		stateCommit.lock();
+		try {
+			if (!recoverScalarState()) throw new IllegalStateException("VoteParty state recovery is still unavailable");
+			scalarCommit.lock();
+			try { state.setTotalVotes(getTotalVotes() + 1); }
+			finally { scalarCommit.unlock(); }
+			user.setVotePartyVotes(user.getVotePartyVotes() + 1);
+			if (counterResetAttempt != null && counterResetAttempt == storedPreparation.get()) {
+				NewPartyVotes previous = votesAfterCommit.get(user.getUUID());
+				votesAfterCommit.put(user.getUUID(), new NewPartyVotes(user, previous == null ? 1 : previous.count() + 1));
+			}
+			plugin.getPlaceholders().onVotePartyUpdate();
+		} finally { stateCommit.unlock(); }
 	}
 
 	/**
@@ -58,12 +107,15 @@ public class VoteParty implements Listener {
 	 * @param user the user
 	 */
 	public void addVotePlayer(VotingPluginUser user) {
-		String uuid = user.getUUID();
-		List<String> voted = getVotedUsers();
-		if (!voted.contains(uuid)) {
-			voted.add(uuid);
-			setVotedUsers(voted);
-		}
+		scalarCommit.lock();
+		try {
+			String uuid = user.getUUID();
+			List<String> voted = getVotedUsers();
+			if (!voted.contains(uuid)) {
+				voted.add(uuid);
+				setVotedUsers(voted);
+			}
+		} finally { scalarCommit.unlock(); }
 	}
 
 	/**
@@ -72,44 +124,95 @@ public class VoteParty implements Listener {
 	 * @param user        the voting plugin user
 	 * @param forceBungee whether to force Bungee processing
 	 */
-	public void check(VotingPluginUser user, boolean forceBungee) {
+	public synchronized void check(VotingPluginUser user, boolean forceBungee) {
+		stateCommit.lock();
+		try {
+			if (!recoverScalarState()) return;
+			Object active = storedPreparation.get();
+			if (active != null) {
+				retryPendingCounterReset();
+				registerPendingCheck(active, rewardGeneration.get(), () -> check(user, forceBungee));
+				return;
+			}
+			// A period-limited party cannot use stored recipients. Avoid occupying
+			// the persistence worker with an enumeration that cannot start a party.
+			if ((plugin.getSpecialRewardsConfig().isVotePartyOnlyOncePerDay()
+					&& plugin.getServerData().isLastVotePartySameDay())
+					|| (plugin.getSpecialRewardsConfig().isVotePartyOnlyOncePerWeek()
+							&& plugin.getServerData().isLastVotePartySameWeek())) return;
+			if (getTotalVotes() >= getVotesRequired()
+					&& prepareStoredParty((ids, finished) -> checkPrepared(user, forceBungee, ids, finished))) return;
+			checkPrepared(user, forceBungee, null, null);
+		} finally { stateCommit.unlock(); }
+	}
+
+	private void checkPrepared(VotingPluginUser user, boolean forceBungee, VotePartyRewardHandler.StoredRecipients storedIds,
+			Object attempt) {
+		if (attempt != null && !plugin.getSpecialRewardsConfig().isVotePartyEnabled()) {
+			finishStoredParty(attempt);
+			return;
+		}
 		if (getTotalVotes() < getVotesRequired()) {
 			plugin.extraDebug("Not enough votes for vote party: " + getTotalVotes() + " / " + getVotesRequired());
+			finishStoredParty(attempt);
 			return;
 		}
 
 		if (plugin.getSpecialRewardsConfig().isVotePartyOnlyOncePerDay()
 				&& plugin.getServerData().isLastVotePartySameDay()) {
 			plugin.extraDebug("Already had vote party today");
+			finishStoredParty(attempt);
 			return;
 		}
 		if (plugin.getSpecialRewardsConfig().isVotePartyOnlyOncePerWeek()
 				&& plugin.getServerData().isLastVotePartySameWeek()) {
 			plugin.extraDebug("Already had vote party this week");
+			finishStoredParty(attempt);
 			return;
 		}
-		if (plugin.getSpecialRewardsConfig().isVotePartyResetCount()) {
+		if (storedIds == null && plugin.getSpecialRewardsConfig().isVotePartyResetCount()) {
 			setTotalVotes(getTotalVotes() - getVotesRequired());
 		}
 
 		VotePartyEvent event = new VotePartyEvent();
 		Bukkit.getPluginManager().callEvent(event);
 		if (event.isCancelled()) {
+			finishStoredParty(attempt);
 			return;
 		}
 
-		giveRewards(user, forceBungee);
-
-		if (plugin.getSpecialRewardsConfig().getVotePartyIncreaseVotesRequired() > 0) {
-			plugin.getServerData().setVotePartyExtraRequired(plugin.getServerData().getVotePartyExtraRequired()
-					+ plugin.getSpecialRewardsConfig().getVotePartyIncreaseVotesRequired());
+		if (storedIds != null) {
+			dispatchPreparedRewards(user, forceBungee, storedIds,
+					() -> plugin.getSpecialRewardsConfig().isVotePartyEnabled() && getTotalVotes() >= getVotesRequired()
+					&& (!plugin.getSpecialRewardsConfig().isVotePartyOnlyOncePerDay()
+							|| !plugin.getServerData().isLastVotePartySameDay())
+					&& (!plugin.getSpecialRewardsConfig().isVotePartyOnlyOncePerWeek()
+							|| !plugin.getServerData().isLastVotePartySameWeek()), () -> {
+				if (plugin.getSpecialRewardsConfig().isVotePartyResetCount())
+					state.setTotalVotes(getTotalVotes() - getVotesRequired());
+				completePartyMetadata();
+			}, attempt);
+		} else {
+			giveRewards(user, forceBungee);
+			completePartyMetadata();
+			finishStoredParty(attempt);
 		}
+	}
 
-		plugin.getServerData().updateLastVoteParty();
+	private void completePartyMetadata() {
+		scalarCommit.lock();
+		try {
+			if (plugin.getSpecialRewardsConfig().getVotePartyIncreaseVotesRequired() > 0) {
+				plugin.getServerData().setVotePartyExtraRequired(plugin.getServerData().getVotePartyExtraRequired()
+						+ plugin.getSpecialRewardsConfig().getVotePartyIncreaseVotesRequired());
+			}
 
-		if (plugin.getSpecialRewardsConfig().isVotePartyOnlyOncePerWeek()) {
-			plugin.getServerData().updateLastVotePartyWeek();
-		}
+			plugin.getServerData().updateLastVoteParty();
+
+			if (plugin.getSpecialRewardsConfig().isVotePartyOnlyOncePerWeek()) {
+				plugin.getServerData().updateLastVotePartyWeek();
+			}
+		} finally { scalarCommit.unlock(); }
 	}
 
 	/**
@@ -243,17 +346,275 @@ public class VoteParty implements Listener {
 	 * @param forceBungee whether to force Bungee processing
 	 */
 	public void giveRewards(VotingPluginUser orgUser, boolean forceBungee) {
+		giveRewards(orgUser, forceBungee,
+				() -> plugin.getLogger().warning("VoteParty force request not started: another party is pending"));
+	}
+
+	/**
+	 * Requests forced delivery. The busy callback reports rejected admission; returning
+	 * from this method does not confirm reward completion.
+	 */
+	public void giveRewards(VotingPluginUser orgUser, boolean forceBungee, Runnable busy) {
+		if (prepareStoredParty((ids, finished) ->
+				dispatchPreparedRewards(orgUser, forceBungee, ids, () -> true, () -> { }, finished), busy)) return;
 		rewardHandler.giveRewards(orgUser, forceBungee);
-		// Clear this party's recipient list immediately, as before. Delaying it
-		// would risk wiping voters recorded for the next party.
 		setVotedUsers(new ArrayList<>());
-		// Shared-MySQL recipients capture eligibility on AdvancedCore's ordered
-		// storage worker. Only the persisted per-user counter wipe must run
-		// behind those reads; it must not overtake deferred eligibility checks.
 		com.bencodez.advancedcore.api.user.usercache.UserDataManager manager =
 				plugin.getUserManager().getDataManager();
 		if (manager != null && manager.deferSharedStorageWork(this::resetVotePartyCount)) return;
 		resetVotePartyCount();
+	}
+
+	/** One pending preparation/reset at a time; its native query is always queued. */
+	private boolean prepareStoredParty(BiConsumer<VotePartyRewardHandler.StoredRecipients, Object> action) {
+		return prepareStoredParty(action, () -> { });
+	}
+
+	private boolean prepareStoredParty(BiConsumer<VotePartyRewardHandler.StoredRecipients, Object> action,
+			Runnable busy) {
+		if (storedPreparation.get() != null) { busy.run(); return true; }
+		if (!rewardHandler.needsStoredPreparation()) return false;
+		Object attempt = new Object();
+		if (!storedPreparation.compareAndSet(null, attempt)) { busy.run(); return true; }
+		try {
+			if (rewardHandler.prepareStoredRecipients(ids -> {
+				try {
+					plugin.getVoteTimer().execute(() -> {
+						synchronized (VoteParty.this) {
+							stateCommit.lock();
+							try {
+								if (storedPreparation.get() != attempt) return;
+								if (!ids.isCurrent()) { finishStoredParty(attempt); return; }
+								try { action.accept(ids, attempt); }
+								catch (RuntimeException | Error error) { finishStoredParty(attempt); throw error; }
+							} finally { stateCommit.unlock(); }
+						}
+					});
+				} catch (RuntimeException | Error error) {
+					finishStoredParty(attempt);
+					rewardHandler.logPreparationFailure(error);
+				}
+			}, error -> {
+				if (storedPreparation.get() == attempt) {
+					rewardHandler.logPreparationFailure(error);
+					finishStoredParty(attempt);
+				}
+			})) return true;
+		} catch (RuntimeException | Error error) {
+			finishStoredParty(attempt);
+			throw error;
+		}
+		finishStoredParty(attempt);
+		return false;
+	}
+
+
+	private void registerPendingCheck(Object active, long generation, Runnable action) {
+		PendingCheck pending = new PendingCheck(active, generation, action);
+		pendingStoredCheck.set(pending);
+		if (storedPreparation.get() != active && pendingStoredCheck.compareAndSet(pending, null))
+			schedulePendingCheck(pending);
+	}
+
+	private void finishStoredParty(Object attempt) {
+		if (attempt != null && storedPreparation.compareAndSet(attempt, null)) {
+			PendingCheck pending = pendingStoredCheck.get();
+			if (pending != null && pending.attempt() == attempt
+					&& pendingStoredCheck.compareAndSet(pending, null)) schedulePendingCheck(pending);
+		}
+	}
+
+
+	private void schedulePendingCheck(PendingCheck pending) {
+		try {
+			plugin.getVoteTimer().execute(() -> {
+				if (pending.generation() == rewardGeneration.get()) pending.action().run();
+			});
+		} catch (RuntimeException error) {
+			pendingStoredCheck.compareAndSet(null, pending);
+			rewardHandler.logPreparationFailure(error);
+			Runnable fallback = () -> {
+				if (pendingStoredCheck.compareAndSet(pending, null)
+						&& pending.generation() == rewardGeneration.get()) pending.action().run();
+			};
+			try {
+				var manager = plugin.getUserManager().getDataManager();
+				if (!manager.deferSharedStorageWork(fallback) && !manager.isPlatformOwnedThread()) fallback.run();
+			} catch (RuntimeException fallbackFailure) {
+				rewardHandler.logPreparationFailure(fallbackFailure);
+			}
+		}
+	}
+
+	/** Wait for a contended vote on the worker, then retry platform capture without blocking it. */
+	private void retryPreparedDispatch(VotingPluginUser user, boolean forceBungee,
+			VotePartyRewardHandler.StoredRecipients ids, BooleanSupplier canCommit,
+			Runnable commitState, Object attempt) {
+		try {
+			plugin.getVoteTimer().execute(() -> {
+				synchronized (VoteParty.this) {
+					stateCommit.lock();
+					try {
+						scalarCommit.lock();
+						try {
+							if (storedPreparation.get() == attempt)
+								dispatchPreparedRewards(user, forceBungee, ids, canCommit, commitState, attempt);
+						} finally { scalarCommit.unlock(); }
+					} finally { stateCommit.unlock(); }
+				}
+			});
+		} catch (RuntimeException error) {
+			finishStoredParty(attempt);
+			rewardHandler.logPreparationFailure(error);
+		}
+	}
+
+	/** Commit scalar party state with vote(), then capture platform input on its owner. */
+	private void dispatchPreparedRewards(VotingPluginUser user, boolean forceBungee,
+			VotePartyRewardHandler.StoredRecipients storedIds, BooleanSupplier canCommit,
+			Runnable commitState, Object attempt) {
+		try {
+			plugin.getBukkitScheduler().runTask(plugin, () -> {
+				VotePartyRewardHandler.StoredRecipients dispatch;
+				if (!stateCommit.tryLock()) {
+					retryPreparedDispatch(user, forceBungee, storedIds, canCommit, commitState, attempt);
+					return;
+				}
+				try {
+					if (!scalarCommit.tryLock()) {
+						retryPreparedDispatch(user, forceBungee, storedIds, canCommit, commitState, attempt);
+						return;
+					}
+					try {
+						if (storedPreparation.get() != attempt || !storedIds.isCurrent()
+								|| !rewardHandler.needsStoredPreparation() || !canCommit.getAsBoolean()) {
+							finishStoredParty(attempt);
+							return;
+						}
+						dispatch = storedIds.forDispatch();
+						List<String> voters = new ArrayList<>(state.getVotedUsers());
+						int total = getTotalVotes();
+						int extra = plugin.getServerData().getVotePartyExtraRequired();
+						int day = plugin.getServerData().getData().getInt("LastVoteParty", 0);
+						int week = plugin.getServerData().getData().getInt("LastVotePartyWeek", -1);
+						try {
+							state.setVotedUsers(new ArrayList<>());
+							commitState.run();
+							rewardHandler.broadcastParty();
+							counterResetAttempt = attempt;
+							votesAfterCommit.clear();
+						} catch (RuntimeException | Error error) {
+							try {
+								state.setVotedUsers(voters);
+								state.setTotalVotes(total);
+								plugin.getServerData().setVotePartyExtraRequired(extra);
+								plugin.getServerData().setInt("LastVoteParty", day);
+								plugin.getServerData().setInt("LastVotePartyWeek", week);
+								finishStoredParty(attempt);
+							} catch (RuntimeException | Error rollbackFailure) {
+								pendingScalarRollback.set(new ScalarRollback(attempt, voters, total, extra, day, week));
+								plugin.getLogger().warning("VoteParty state restoration retained for a later check");
+								error.addSuppressed(rollbackFailure);
+							}
+							rewardHandler.logPreparationFailure(error);
+							return;
+						}
+					} finally { scalarCommit.unlock(); }
+				} catch (RuntimeException | Error error) {
+					finishStoredParty(attempt);
+					rewardHandler.logPreparationFailure(error);
+					return;
+				} finally { stateCommit.unlock(); }
+				try {
+					rewardHandler.dispatchRewards(user, forceBungee, dispatch);
+					Runnable reset = () -> resetPreparedCounters(dispatch, attempt);
+					if (!plugin.getUserManager().getDataManager().deferSharedStorageWork(reset)) {
+						pendingCounterReset.set(reset);
+						plugin.getLogger().warning("VoteParty counter reset is pending storage admission");
+					}
+				} catch (RuntimeException | Error error) {
+					pendingCounterReset.set(() -> resetPreparedCounters(dispatch, attempt));
+					rewardHandler.logPreparationFailure(error);
+				}
+			});
+		} catch (RuntimeException | Error error) {
+			finishStoredParty(attempt);
+			rewardHandler.logPreparationFailure(error);
+		}
+	}
+
+
+	/** Restore a failed pre-dispatch commit before another vote mutates its state. */
+	private boolean recoverScalarState() {
+		scalarCommit.lock();
+		try {
+			ScalarRollback rollback = pendingScalarRollback.get();
+			if (rollback == null) return true;
+			if (storedPreparation.get() != rollback.attempt()) {
+				pendingScalarRollback.compareAndSet(rollback, null);
+				return true;
+			}
+			try {
+				state.setVotedUsers(rollback.voters());
+				state.setTotalVotes(rollback.total());
+				plugin.getServerData().setVotePartyExtraRequired(rollback.extra());
+				plugin.getServerData().setInt("LastVoteParty", rollback.day());
+				plugin.getServerData().setInt("LastVotePartyWeek", rollback.week());
+				pendingScalarRollback.compareAndSet(rollback, null);
+				finishStoredParty(rollback.attempt());
+				return true;
+			} catch (RuntimeException error) {
+				plugin.getLogger().warning("VoteParty state restoration remains pending");
+				return false;
+			}
+		} finally { scalarCommit.unlock(); }
+	}
+
+	private void retryPendingCounterReset() {
+		Runnable reset = pendingCounterReset.getAndSet(null);
+		if (reset == null) return;
+		try {
+			plugin.getVoteTimer().execute(() -> {
+				try {
+					if (!plugin.getUserManager().getDataManager().deferSharedStorageWork(reset)) reset.run();
+				} catch (RuntimeException error) {
+					pendingCounterReset.compareAndSet(null, reset);
+					rewardHandler.logPreparationFailure(error);
+				}
+			});
+		} catch (RuntimeException error) {
+			pendingCounterReset.compareAndSet(null, reset);
+			rewardHandler.logPreparationFailure(error);
+		}
+	}
+
+	private void resetPreparedCounters(VotePartyRewardHandler.StoredRecipients dispatch, Object attempt) {
+		try {
+			synchronized (this) {
+				stateCommit.lock();
+				try {
+					if (!dispatch.isCurrentChecked()) {
+						finishStoredParty(attempt);
+						return;
+					}
+					dispatch.withCurrentOwner(() -> {
+						if (storedPreparation.get() == attempt && counterResetAttempt == attempt) {
+							resetVotePartyCount();
+							for (NewPartyVotes delta : votesAfterCommit.values())
+								delta.user().setVotePartyVotes(delta.count());
+							votesAfterCommit.clear();
+							counterResetAttempt = null;
+						}
+						return null;
+					});
+				} finally { stateCommit.unlock(); }
+			}
+			finishStoredParty(attempt);
+		} catch (RuntimeException error) {
+			if (storedPreparation.get() == attempt)
+				pendingCounterReset.set(() -> resetPreparedCounters(dispatch, attempt));
+			plugin.getLogger().warning("VoteParty counter reset failed; retained for a later check");
+		}
 	}
 
 	/**
@@ -325,10 +686,16 @@ public class VoteParty implements Listener {
 	 * @param override whether to override total votes to zero
 	 */
 	public void reset(boolean override) {
-		if (override) {
-			setTotalVotes(0);
-		}
-		setVotedUsers(new ArrayList<>());
+		scalarCommit.lock();
+		try {
+			rewardGeneration.incrementAndGet();
+			pendingScalarRollback.set(null);
+			pendingCounterReset.set(null);
+			storedPreparation.set(null);
+			pendingStoredCheck.set(null);
+			if (override) state.setTotalVotes(0);
+			state.setVotedUsers(new ArrayList<>());
+		} finally { scalarCommit.unlock(); }
 		resetVotePartyCount();
 	}
 
@@ -345,7 +712,10 @@ public class VoteParty implements Listener {
 	 * @param value the new total votes
 	 */
 	public void setTotalVotes(int value) {
-		state.setTotalVotes(value);
+		scalarCommit.lock();
+		try {
+			state.setTotalVotes(value);
+		} finally { scalarCommit.unlock(); }
 	}
 
 	/**
@@ -354,7 +724,10 @@ public class VoteParty implements Listener {
 	 * @param value the new voted users
 	 */
 	public void setVotedUsers(List<String> value) {
-		state.setVotedUsers(value);
+		scalarCommit.lock();
+		try {
+			state.setVotedUsers(value);
+		} finally { scalarCommit.unlock(); }
 	}
 
 	/**
@@ -365,7 +738,10 @@ public class VoteParty implements Listener {
 	 * @param forceBungee whether to force Bungee processing
 	 */
 	public synchronized void vote(VotingPluginUser user, boolean realVote, boolean forceBungee) {
-		vote(user, realVote, forceBungee, user.isOnline());
+		stateCommit.lock();
+		try {
+			vote(user, realVote, forceBungee, user.isOnline());
+		} finally { stateCommit.unlock(); }
 	}
 
 	/**
@@ -381,15 +757,18 @@ public class VoteParty implements Listener {
 	 */
 	public synchronized void vote(VotingPluginUser user, boolean realVote, boolean forceBungee,
 			boolean onlineAtVoteTime) {
-		if (plugin.getSpecialRewardsConfig().isVotePartyEnabled()) {
-			if (plugin.getSpecialRewardsConfig().isVotePartyCountFakeVotes() || realVote) {
-				if (plugin.getSpecialRewardsConfig().isVotePartyCountOfflineVotes() || onlineAtVoteTime) {
-					addTotal(user);
-					addVotePlayer(user);
-					check(user, forceBungee);
-					checkVoteReminder(user);
+		stateCommit.lock();
+		try {
+			if (plugin.getSpecialRewardsConfig().isVotePartyEnabled()) {
+				if (plugin.getSpecialRewardsConfig().isVotePartyCountFakeVotes() || realVote) {
+					if (plugin.getSpecialRewardsConfig().isVotePartyCountOfflineVotes() || onlineAtVoteTime) {
+						addTotal(user);
+						addVotePlayer(user);
+						check(user, forceBungee);
+						checkVoteReminder(user);
+					}
 				}
 			}
-		}
+		} finally { stateCommit.unlock(); }
 	}
 }
