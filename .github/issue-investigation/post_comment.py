@@ -80,18 +80,18 @@ def comment_body(report, repository, sha, run_id):
     # a stale build number or a guessed artifact filename. The same permalink is
     # used by VotingPlugin-Control's Jenkins artifact integration.
     retest = '' if LATEST_BUILD_URL in report else (
-        '\\n\\n**Optional development-build retest:** If you can safely test on a '
+        '\n\n**Optional development-build retest:** If you can safely test on a '
         'backed-up/staging server, download the VotingPlugin JAR under the '
         f'[latest successful development build]({LATEST_BUILD_URL}) '
         f'([build history]({JENKINS_JOB_URL})). '
         'This is a development build, not a verified fix or stable release. '
         'Check plugin compatibility and fully restart before retesting; '
         'please share the build number and whether the same steps reproduce.')
-    return (f'<!-- votingplugin-issue-investigation:{run_id} -->\\n'
-            '## Automated issue investigation\\n\\n'
-            f'[Workflow run]({run_url}) · [Download investigation artifacts]({run_url}#artifacts) · Checkout `{sha}`\\n\\n'
+    return (f'<!-- votingplugin-issue-investigation:{run_id} -->\n'
+            '## Automated issue investigation\n\n'
+            f'[Workflow run]({run_url}) · [Download investigation artifacts]({run_url}#artifacts) · Checkout `{sha}`\n\n'
             'This is an automated analysis, not confirmation that every check passed. '
-            'Verification results and limitations are included below.\\n\\n'
+            'Verification results and limitations are included below.\n\n'
             + report.strip() + retest)
 
 
