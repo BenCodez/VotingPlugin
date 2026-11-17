@@ -68,6 +68,16 @@ class BackendProxyMessageRouterTest {
 	@BeforeEach
 	void setUp() {
 		plugin = mock(VotingPluginMain.class);
+		var partyAdmission = mock(com.bencodez.votingplugin.specialrewards.voteparty.VoteParty.class);
+		when(plugin.getVoteParty()).thenReturn(partyAdmission);
+		when(partyAdmission.tryWithVoteAdmission(any(Runnable.class))).thenAnswer(call -> {
+			call.getArgument(0, Runnable.class).run();
+			return true;
+		});
+		when(partyAdmission.tryDispatchVoteEvent(any(Runnable.class))).thenAnswer(call -> {
+			call.getArgument(0, Runnable.class).run();
+			return true;
+		});
 		voteSiteManager = mock(VoteSiteManager.class);
 		UserManager votingUserManager = mock(UserManager.class);
 		coreUserManager = mock(com.bencodez.advancedcore.api.user.UserManager.class);
@@ -838,6 +848,39 @@ class BackendProxyMessageRouterTest {
 				"known.example", LAST_VOTE_TIME, ""), outcome::set);
 		assertEquals(OrderedVoteOutcome.QUARANTINE, outcome.get());
 		verify(user, never()).setTime(any(), anyLong());
+	}
+
+	@Test
+	void partyAdmissionRefusalRetainsWireVoteBeforeReplayReservationAndEffects() {
+		UUID voteId = UUID.randomUUID();
+		ProcessedVoteCache cache = mock(ProcessedVoteCache.class);
+		when(cache.reserveWithOutcome(voteId)).thenReturn(Reservation.RESERVED);
+		when(plugin.getBungeeSettings()).thenReturn(mock(BungeeSettings.class));
+		when(plugin.getVotingPluginUserManager().getVotingPluginUser(PLAYER_UUID, "Player")).thenReturn(user);
+		when(plugin.getServerData()).thenReturn(mock(ServerData.class));
+		BackendProxyMessageRouter voteRouter = new BackendProxyMessageRouter(plugin,
+				mock(BackendPresenceManager.class), mock(BackendGlobalDataSync.class),
+				mock(BackendVotePartySync.class), cache);
+		var vote = VotingPluginWire.vote("Player", PLAYER_UUID.toString(), "known.example", LAST_VOTE_TIME,
+				true, true, "", voteId, false, false, 1, 1);
+		AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
+		var refusedAdmission = plugin.getVoteParty();
+		org.mockito.Mockito.doReturn(false).when(refusedAdmission).tryWithVoteAdmission(any(Runnable.class));
+		voteRouter.handleOrderedVote(vote, outcome::set);
+		assertEquals(OrderedVoteOutcome.RETRY, outcome.get());
+		verify(cache, never()).reserveWithOutcome(any());
+		verify(user, never()).cache();
+		verify(user, never()).bungeeVotePluginMessagingEvent(any(), anyLong(), any(), anyBoolean(), anyBoolean(),
+				anyBoolean(), anyInt(), anyBoolean(), anyBoolean(), anyBoolean(), any(), anyBoolean());
+		var admission = plugin.getVoteParty();
+		org.mockito.Mockito.doAnswer(call -> {
+			call.getArgument(0, Runnable.class).run();
+			return true;
+		}).when(admission).tryWithVoteAdmission(any(Runnable.class));
+		voteRouter.handleOrderedVote(vote, outcome::set);
+		assertEquals(OrderedVoteOutcome.COMPLETE, outcome.get());
+		verify(user, times(1)).bungeeVotePluginMessagingEvent(any(), anyLong(), any(), anyBoolean(), anyBoolean(),
+				anyBoolean(), anyInt(), anyBoolean(), anyBoolean(), anyBoolean(), any(), anyBoolean());
 	}
 
 	@Test

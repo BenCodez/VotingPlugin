@@ -21,6 +21,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
+import java.util.function.BiPredicate;
 
 import org.bukkit.configuration.file.YamlConfiguration;
 
@@ -42,7 +43,7 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 	private static final String QUEUE_FILE = "VotifierVoteQueue.yml";
 
 	private final VotingPluginMain plugin;
-	private final BiConsumer<String, String> processor;
+	private final BiPredicate<String, String> processor;
 	private final Path file;
 	private final ScheduledThreadPoolExecutor worker;
 	private final Object lock = new Object();
@@ -63,6 +64,25 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 	 * @param processor callback receiving service site and player name
 	 */
 	public VotifierVoteOverflowQueue(VotingPluginMain plugin, BiConsumer<String, String> processor) {
+		this(plugin, (site, username) -> {
+			processor.accept(site, username);
+			return true;
+		}, true);
+	}
+
+	/**
+	 * Creates an internal completion-aware queue. A false result is permitted only
+	 * before processing effects begin: it retains the same entry for bounded retry.
+	 * Exceptions retain the legacy terminal behavior because effects may already
+	 * have occurred. This is admission feedback, not transactional reward execution.
+	 */
+	static VotifierVoteOverflowQueue withAdmission(VotingPluginMain plugin,
+			BiPredicate<String, String> processor) {
+		return new VotifierVoteOverflowQueue(plugin, processor, true);
+	}
+
+	private VotifierVoteOverflowQueue(VotingPluginMain plugin,
+			BiPredicate<String, String> processor, boolean completionAware) {
 		this.plugin = plugin;
 		this.processor = processor;
 		this.file = new File(plugin.getDataFolder(), QUEUE_FILE).toPath();
@@ -152,10 +172,12 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 					// Serialize admission with enqueue so the version proven durable
 					// above cannot change in the gap before submit accepts this vote.
 					plugin.getVoteTimer().submit(() -> {
+						boolean completed = true;
 						try {
-							processor.accept(pending.serviceSite, pending.username);
+							completed = processor.test(pending.serviceSite, pending.username);
 						} finally {
-							acknowledge(pending);
+							if (completed) acknowledge(pending);
+							else retryAdmission(pending);
 						}
 					});
 				} catch (RejectedExecutionException rejected) {
@@ -169,6 +191,22 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 					}
 					return;
 				}
+			}
+		}
+	}
+
+	private void retryAdmission(PendingVote pending) {
+		synchronized (lock) {
+			if (closed) return;
+			try {
+				worker.schedule(() -> {
+					synchronized (lock) {
+						pending.submitted = false;
+						scheduleDrainLocked();
+					}
+				}, RETRY_DELAY_MILLIS, TimeUnit.MILLISECONDS);
+			} catch (RejectedExecutionException ignored) {
+				// Retain the persisted entry for restart when the worker is closing.
 			}
 		}
 	}

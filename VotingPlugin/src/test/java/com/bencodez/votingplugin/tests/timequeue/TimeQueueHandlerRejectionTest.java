@@ -42,6 +42,10 @@ class TimeQueueHandlerRejectionTest {
 	@BeforeEach
 	void setUp() {
 		plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+		when(plugin.getVoteParty().tryDispatchVoteEvent(any(Runnable.class))).thenAnswer(call -> {
+			call.getArgument(0, Runnable.class).run();
+			return true;
+		});
 		serverData = mock(ServerData.class);
 		voteTimer = mock(ScheduledExecutorService.class);
 		logger = mock(Logger.class);
@@ -75,6 +79,27 @@ class TimeQueueHandlerRejectionTest {
 		assertDoesNotThrow(() -> handler.postTimeChange((DateChangedEvent) null));
 		assertEquals(2, handler.getTimeChangeQueue().size());
 		verify(logger, org.mockito.Mockito.atLeastOnce()).warning(anyString());
+	}
+
+	@Test
+	void partyAdmissionRefusalRetainsTimedVoteBeforeDispatchJournalAndEffects() {
+		TimeQueueHandler handler = new TimeQueueHandler(plugin);
+		var manager = plugin.getServer().getPluginManager();
+		var admission = plugin.getVoteParty();
+		org.mockito.Mockito.doReturn(false).when(admission).tryDispatchVoteEvent(any(Runnable.class));
+		handler.processQueue();
+		assertEquals(1, handler.getTimeChangeQueue().size());
+		verify(manager, never()).callEvent(any(PlayerVoteEvent.class));
+		verify(serverData, never()).prepareTimedVoteDispatch(any(), any(), any());
+		verify(serverData, never()).completeTimedVoteDispatch(any());
+		org.mockito.Mockito.doAnswer(call -> {
+			call.getArgument(0, Runnable.class).run();
+			return true;
+		}).when(admission).tryDispatchVoteEvent(any(Runnable.class));
+		handler.processQueue();
+		assertEquals(0, handler.getTimeChangeQueue().size());
+		verify(manager, org.mockito.Mockito.times(1)).callEvent(any(PlayerVoteEvent.class));
+		verify(serverData, org.mockito.Mockito.times(1)).completeTimedVoteDispatch(any());
 	}
 
 	@Test

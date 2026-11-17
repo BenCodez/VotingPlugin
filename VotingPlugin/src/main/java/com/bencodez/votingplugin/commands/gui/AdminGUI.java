@@ -329,7 +329,7 @@ public class AdminGUI {
 
 										@Override
 										public void run() {
-											plugin.getServer().getPluginManager().callEvent(voteEvent);
+											VoteTaskAdmission.dispatchManualVote(plugin, voteEvent, player, null);
 										}
 									})) {
 										player.sendMessage(

@@ -53,6 +53,8 @@ class VotePartyStoredRecipientFailureTest {
     private static final UUID ID = UUID.fromString("9345fd57-4cc0-4492-ad39-0bbea6ca7525");
     private final ArrayDeque<Runnable> storage = new ArrayDeque<>();
     private final ArrayDeque<Runnable> voteTasks = new ArrayDeque<>();
+    private final List<java.util.concurrent.ScheduledFuture<?>> storageWakeups = new ArrayList<>();
+    private final List<java.util.concurrent.ScheduledFuture<?>> voteWakeups = new ArrayList<>();
     private final AtomicReference<UserStorageOwner> currentOwner = new AtomicReference<>();
     private final ArrayDeque<Runnable> platform = new ArrayDeque<>();
     private final AtomicInteger votes = new AtomicInteger(2);
@@ -61,6 +63,9 @@ class VotePartyStoredRecipientFailureTest {
     private final java.util.concurrent.atomic.AtomicBoolean lastParty = new java.util.concurrent.atomic.AtomicBoolean();
     private VotingPluginMain plugin;
     private UserDataManager manager;
+    private ScheduledExecutorService persistence;
+    private com.bencodez.simpleapi.folialib.impl.PlatformScheduler commitScheduler;
+    private final List<com.bencodez.simpleapi.folialib.wrapper.task.WrappedTask> commitWakeups = new ArrayList<>();
     private MySQL mysql;
     private SpecialRewardsConfig config;
     private ServerData serverData;
@@ -157,6 +162,19 @@ class VotePartyStoredRecipientFailureTest {
         when(votingUsers.getAllUUIDs()).thenReturn(new ArrayList<>());
         BukkitScheduler scheduler = mock(BukkitScheduler.class);
         when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+        var folia = mock(com.bencodez.simpleapi.folialib.FoliaLib.class);
+        commitScheduler = mock(com.bencodez.simpleapi.folialib.impl.PlatformScheduler.class);
+        when(scheduler.getFoliaLib()).thenReturn(folia);
+        when(folia.getScheduler()).thenReturn(commitScheduler);
+        when(commitScheduler.runLater(any(Runnable.class), eq(1L))).thenAnswer(c -> {
+            var cancelled = new java.util.concurrent.atomic.AtomicBoolean();
+            var task = mock(com.bencodez.simpleapi.folialib.wrapper.task.WrappedTask.class);
+            when(task.isCancelled()).thenAnswer(ignored -> cancelled.get());
+            doAnswer(ignored -> { cancelled.set(true); return null; }).when(task).cancel();
+            commitWakeups.add(task);
+            platform.add(c.getArgument(0));
+            return task;
+        });
         doAnswer(c -> { platform.add(c.getArgument(1)); return null; }).when(scheduler)
                 .runTask(eq(plugin), any(Runnable.class));
         doAnswer(c -> { platform.add(c.getArgument(1)); return null; }).when(scheduler)
@@ -175,6 +193,19 @@ class VotePartyStoredRecipientFailureTest {
         ScheduledExecutorService voteTimer = mock(ScheduledExecutorService.class);
         when(plugin.getVoteTimer()).thenReturn(voteTimer);
         doAnswer(c -> { voteTasks.add(c.getArgument(0)); return null; }).when(voteTimer).execute(any());
+        doAnswer(c -> {
+            var future = enqueueWakeup(voteTasks, c.getArgument(0));
+            voteWakeups.add(future);
+            return future;
+        }).when(voteTimer)
+                .schedule(any(Runnable.class), anyLong(), any(java.util.concurrent.TimeUnit.class));
+        persistence = mock(ScheduledExecutorService.class);
+        when(manager.getTimer()).thenReturn(persistence);
+        doAnswer(c -> {
+            var future = enqueueWakeup(storage, c.getArgument(0));
+            storageWakeups.add(future);
+            return future;
+        }).when(persistence).schedule(any(Runnable.class), anyLong(), any(java.util.concurrent.TimeUnit.class));
         misc = mockStatic(MiscUtils.class);
         misc.when(MiscUtils::getInstance).thenReturn(mock(MiscUtils.class));
         party = new VoteParty(plugin);
@@ -183,8 +214,24 @@ class VotePartyStoredRecipientFailureTest {
     @AfterEach
     void closeStatics() { misc.close(); bukkit.close(); }
 
-    private void drain() {
-        for (int phase = 0; phase < 12 && (!storage.isEmpty() || !platform.isEmpty() || !voteTasks.isEmpty()); phase++) {
+    private java.util.concurrent.ScheduledFuture<?> enqueueWakeup(ArrayDeque<Runnable> queue, Runnable work) {
+        var cancelled = new java.util.concurrent.atomic.AtomicBoolean();
+        var completed = new java.util.concurrent.atomic.AtomicBoolean();
+        java.util.concurrent.ScheduledFuture<?> future = mock(java.util.concurrent.ScheduledFuture.class);
+        when(future.cancel(anyBoolean())).thenAnswer(c -> { cancelled.set(true); return true; });
+        when(future.isCancelled()).thenAnswer(c -> cancelled.get());
+        when(future.isDone()).thenAnswer(c -> cancelled.get() || completed.get());
+        queue.add(() -> {
+            if (cancelled.get()) return;
+            try { work.run(); } finally { completed.set(true); }
+        });
+        return future;
+    }
+
+    private void drain() { drain(12); }
+
+    private void drain(int maxPhases) {
+        for (int phase = 0; phase < maxPhases && (!storage.isEmpty() || !platform.isEmpty() || !voteTasks.isEmpty()); phase++) {
             while (!voteTasks.isEmpty()) {
                 worker = true;
                 try { voteTasks.remove().run(); } finally { worker = false; }
@@ -486,9 +533,8 @@ class VotePartyStoredRecipientFailureTest {
     @Test
     void rejectedPlatformDispatchRetainsCountsVotersAndFirstPartyMetadata() {
         when(mysql.getRowsQuery()).thenReturn(new ArrayList<>());
-        BukkitScheduler scheduler = plugin.getBukkitScheduler();
         doThrow(new RejectedExecutionException("synthetic platform stopped"))
-                .when(scheduler).runTask(eq(plugin), any(Runnable.class));
+                .when(commitScheduler).runLater(any(Runnable.class), eq(1L));
         party.check(user, false);
         drain();
         assertUnconsumed();
@@ -557,8 +603,378 @@ class VotePartyStoredRecipientFailureTest {
 
 
     @Test
+    void wholeVoteRefusalPrecedesMutationAndOriginalOwnerCanRetry() {
+        when(mysql.getRowsQuery()).thenReturn(new ArrayList<>());
+        when(user.getUUID()).thenReturn(ID.toString());
+        party.check(user, false);
+        for (int index = 0; index < 511; index++) party.addTotal(user);
+        int global = party.getTotalVotes();
+        int personal = votes.get();
+        AtomicInteger eventEffects = new AtomicInteger();
+        assertFalse(party.tryWithVoteAdmission(eventEffects::incrementAndGet));
+        assertThrows(RejectedExecutionException.class, () -> party.vote(user, true, false, true));
+        assertEquals(0, eventEffects.get());
+        assertEquals(global, party.getTotalVotes());
+        assertEquals(personal, votes.get());
+        party.reset(true);
+        assertTrue(party.tryWithVoteAdmission(() -> {
+            eventEffects.incrementAndGet();
+            party.vote(user, true, false, true);
+        }));
+        assertEquals(1, eventEffects.get());
+        assertEquals(1, party.getTotalVotes());
+    }
+
+    @Test
+    void saturatedAcceptedContributionsDrainWithoutAnotherVoteAndReleaseAdmission() {
+        when(mysql.getRowsQuery()).thenReturn(new ArrayList<>());
+        when(user.getUUID()).thenReturn(ID.toString());
+        party.check(user, false);
+        for (int index = 0; index < 512; index++) party.addTotal(user);
+        assertThrows(RejectedExecutionException.class, () -> party.addTotal(user));
+        drain(2048);
+        assertEquals(2, party.getTotalVotes());
+        assertEquals(2, votes.get());
+        verify(serverData, times(171)).updateLastVoteParty();
+        verify(apiRewards, times(171)).giveReward(eq(user), eq(rewards), anyString(), any(RewardOptions.class));
+        assertTrue(party.tryWithVoteAdmission(() -> party.vote(user, true, false, true)));
+        drain();
+        assertEquals(0, party.getTotalVotes());
+        assertEquals(0, votes.get());
+        verify(apiRewards, times(172)).giveReward(eq(user), eq(rewards), anyString(), any(RewardOptions.class));
+    }
+
+    @Test
+    void subthresholdCreditHistoryDoesNotBlockTheNextVoteAtLargeThreshold() {
+        when(config.getVotePartyVotesRequired()).thenReturn(1000);
+        state.set("VoteParty.Total", 1000);
+        votes.set(1000);
+        when(user.getUUID()).thenReturn(ID.toString());
+        when(mysql.getRowsQuery()).thenReturn(new ArrayList<>());
+        party.check(user, false);
+        for (int index = 0; index < 512; index++) party.addTotal(user);
+        drain();
+        assertEquals(512, party.getTotalVotes());
+        assertEquals(512, votes.get());
+        assertTrue(party.tryDispatchVoteEvent(() -> party.vote(user, true, false, true)));
+        assertEquals(513, party.getTotalVotes());
+        assertEquals(513, votes.get());
+        verify(apiRewards, times(1)).giveReward(eq(user), eq(rewards), anyString(), any(RewardOptions.class));
+    }
+
+    @Test
+    void dailyLimitDoesNotTurnRetainedCreditsIntoWholeVoteBackpressure() {
+        assertPeriodLimitDoesNotBlockOrdinaryVotes(false);
+    }
+
+    @Test
+    void weeklyLimitDoesNotTurnRetainedCreditsIntoWholeVoteBackpressure() {
+        assertPeriodLimitDoesNotBlockOrdinaryVotes(true);
+    }
+
+    private void assertPeriodLimitDoesNotBlockOrdinaryVotes(boolean weekly) {
+        when(user.getUUID()).thenReturn(ID.toString());
+        when(mysql.getRowsQuery()).thenReturn(new ArrayList<>());
+        if (weekly) {
+            when(config.isVotePartyOnlyOncePerWeek()).thenReturn(true);
+            when(serverData.isLastVotePartySameWeek()).thenAnswer(c -> lastParty.get());
+        } else when(config.isVotePartyOnlyOncePerDay()).thenReturn(true);
+        votes.set(3);
+        party.check(user, false);
+        for (int index = 0; index < 512; index++) party.addTotal(user);
+        drain();
+        assertEquals(512, party.getTotalVotes());
+        assertEquals(512, votes.get());
+        assertTrue(party.tryDispatchVoteEvent(() -> party.vote(user, true, false, true)));
+        assertEquals(513, party.getTotalVotes());
+        assertEquals(513, votes.get());
+        verify(serverData, times(1)).updateLastVoteParty();
+        verify(apiRewards, times(1)).giveReward(eq(user), eq(rewards), anyString(), any(RewardOptions.class));
+    }
+
+    @Test
+    void fullRetainedBoundaryCanResumeAfterAutomaticPartiesAreReenabled() {
+        when(user.getUUID()).thenReturn(ID.toString());
+        when(mysql.getRowsQuery()).thenReturn(new ArrayList<>());
+        votes.set(3);
+        party.check(user, false);
+        for (int index = 0; index < 512; index++) party.addTotal(user);
+        when(config.isVotePartyEnabled()).thenReturn(false);
+        drain();
+        when(config.isVotePartyEnabled()).thenReturn(true);
+        AtomicInteger incomingEffects = new AtomicInteger();
+        assertFalse(party.tryDispatchVoteEvent(() -> {
+            incomingEffects.incrementAndGet();
+            party.vote(user, true, false, true);
+        }));
+        assertEquals(0, incomingEffects.get());
+        drain(2048);
+        assertEquals(2, party.getTotalVotes(), "retained eligible work must resume before accepting a new vote");
+        assertTrue(party.tryDispatchVoteEvent(() -> {
+            incomingEffects.incrementAndGet();
+            party.vote(user, true, false, true);
+        }));
+        drain();
+        assertEquals(1, incomingEffects.get());
+        assertEquals(0, party.getTotalVotes());
+        verify(apiRewards, times(172)).giveReward(eq(user), eq(rewards), anyString(), any(RewardOptions.class));
+    }
+
+    @Test
+    void loweringCountBelowThresholdRetainsCreditsWithoutStrandingAdmission() {
+        when(user.getUUID()).thenReturn(ID.toString());
+        when(mysql.getRowsQuery()).thenReturn(new ArrayList<>());
+        votes.set(3);
+        party.check(user, false);
+        for (int index = 0; index < 512; index++) party.addTotal(user);
+        party.setTotalVotes(2);
+        drain();
+        assertEquals(2, party.getTotalVotes());
+        assertEquals(515, votes.get(), "the invalidated attempt did not spend personal credit");
+        verify(apiRewards, never()).giveReward(eq(user), eq(rewards), anyString(), any(RewardOptions.class));
+        assertTrue(party.tryDispatchVoteEvent(() -> party.vote(user, true, false, true)));
+        drain();
+        assertEquals(0, party.getTotalVotes());
+        assertEquals(0, votes.get());
+        verify(apiRewards, times(1)).giveReward(eq(user), eq(rewards), anyString(), any(RewardOptions.class));
+    }
+
+    @Test
+    void nonResettingCheckOwnsEveryContributionAdmittedBeforeThatCheck() {
+        when(config.isVotePartyResetCount()).thenReturn(false);
+        when(user.getUUID()).thenReturn(ID.toString());
+        when(mysql.getRowsQuery()).thenReturn(new ArrayList<>());
+        party.check(user, false);
+        for (int index = 0; index < 3; index++) party.addTotal(user);
+        party.check(user, false);
+        drain();
+        assertEquals(6, party.getTotalVotes());
+        assertEquals(0, votes.get());
+        verify(serverData, times(2)).updateLastVoteParty();
+        verify(apiRewards, times(2)).giveReward(eq(user), eq(rewards), anyString(), any(RewardOptions.class));
+    }
+
+    @Test
+    void preparationFailureDoesNotWaitForContendedScalarCommitOnPlatform() throws Exception {
+        party.check(user, false);
+        var field = VoteParty.class.getDeclaredField("scalarCommit");
+        field.setAccessible(true);
+        var lock = (java.util.concurrent.locks.ReentrantLock) field.get(party);
+        var held = new java.util.concurrent.CountDownLatch(1);
+        var release = new java.util.concurrent.CountDownLatch(1);
+        var returned = new java.util.concurrent.CountDownLatch(1);
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        Thread holder = new Thread(() -> {
+            lock.lock();
+            try {
+                held.countDown();
+                try { release.await(); } catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
+            } finally { lock.unlock(); }
+        });
+        Thread callback = new Thread(() -> {
+            try { firstFailure.accept(new IllegalStateException("synthetic query failure")); }
+            catch (Throwable problem) { failure.set(problem); }
+            finally { returned.countDown(); }
+        });
+        boolean nonblocking;
+        holder.start();
+        try {
+            assertTrue(held.await(2, java.util.concurrent.TimeUnit.SECONDS));
+            callback.start();
+            nonblocking = returned.await(1, java.util.concurrent.TimeUnit.SECONDS);
+        } finally {
+            release.countDown();
+            holder.join(2000);
+            callback.join(2000);
+        }
+        assertNull(failure.get());
+        assertTrue(nonblocking, "preparation failure must defer rather than wait on the platform owner");
+        when(mysql.getRowsQuery()).thenReturn(new ArrayList<>());
+        drain();
+        party.check(user, false);
+        drain();
+        verify(serverData, times(1)).updateLastVoteParty();
+        verify(apiRewards, times(1)).giveReward(eq(user), eq(rewards), anyString(), any(RewardOptions.class));
+    }
+
+    @Test
+    void rejectedContinuationResumesOnLaterCheckWithoutReplayingOldParty() {
+        when(config.isVotePartyResetCount()).thenReturn(false);
+        when(user.getUUID()).thenReturn(ID.toString());
+        when(mysql.getRowsQuery()).thenReturn(new ArrayList<>());
+        ScheduledExecutorService timer = plugin.getVoteTimer();
+        AtomicInteger resets = new AtomicInteger();
+        doAnswer(c -> {
+            votes.set(0);
+            if (resets.incrementAndGet() == 1) {
+                doThrow(new RejectedExecutionException("synthetic timer rejection"))
+                        .when(timer).execute(any());
+                doThrow(new RejectedExecutionException("synthetic timer rejection")).when(timer)
+                        .schedule(any(Runnable.class), anyLong(), any(java.util.concurrent.TimeUnit.class));
+                doThrow(new RejectedExecutionException("synthetic persistence rejection"))
+                        .when(persistence).schedule(any(Runnable.class), anyLong(), any(java.util.concurrent.TimeUnit.class));
+            }
+            return null;
+        }).when(coreUsers).removeAllKeyValues("VotePartyVotes", DataType.INTEGER);
+        party.check(user, false);
+        party.addTotal(user);
+        party.check(user, false);
+        drain();
+        verify(serverData, times(1)).updateLastVoteParty();
+        doAnswer(c -> { voteTasks.add(c.getArgument(0)); return null; }).when(timer).execute(any());
+        doAnswer(c -> enqueueWakeup(voteTasks, c.getArgument(0))).when(timer)
+                .schedule(any(Runnable.class), anyLong(), any(java.util.concurrent.TimeUnit.class));
+        doAnswer(c -> enqueueWakeup(storage, c.getArgument(0))).when(persistence)
+                .schedule(any(Runnable.class), anyLong(), any(java.util.concurrent.TimeUnit.class));
+        party.check(user, false);
+        drain();
+        assertEquals(0, votes.get());
+        verify(serverData, times(3)).updateLastVoteParty();
+        verify(apiRewards, times(1)).giveReward(eq(user), eq(rewards), anyString(), any(RewardOptions.class));
+    }
+
+    @Test
+    void newerVoteCannotOvertakeAnAcceptedFiniteCheckContinuation() {
+        when(config.isVotePartyResetCount()).thenReturn(false);
+        when(user.getUUID()).thenReturn(ID.toString());
+        when(mysql.getRowsQuery()).thenReturn(new ArrayList<>());
+        AtomicInteger resets = new AtomicInteger();
+        doAnswer(c -> { votes.set(0); resets.incrementAndGet(); return null; }).when(coreUsers)
+                .removeAllKeyValues("VotePartyVotes", DataType.INTEGER);
+        party.check(user, false);
+        for (int index = 0; index < 3; index++) { party.addTotal(user); party.check(user, false); }
+        for (int step = 0; step < 100 && resets.get() == 0; step++) {
+            if (!voteTasks.isEmpty()) {
+                worker = true;
+                try { voteTasks.remove().run(); } finally { worker = false; }
+            } else if (!storage.isEmpty()) {
+                worker = true;
+                try { storage.remove().run(); } finally { worker = false; }
+            } else if (!platform.isEmpty()) platform.remove().run();
+            else fail("first party did not reach its counter-reset handoff");
+        }
+        assertEquals(1, resets.get());
+        assertFalse(voteTasks.isEmpty(), "a finite continuation is queued but has not run");
+        worker = true;
+        try { party.vote(user, true, false, true); } finally { worker = false; }
+        drain();
+        assertEquals(7, party.getTotalVotes());
+        assertEquals(0, votes.get());
+        verify(serverData, times(5)).updateLastVoteParty();
+        verify(apiRewards, times(1)).giveReward(eq(user), eq(rewards), anyString(), any(RewardOptions.class));
+    }
+
+    @Test
+    void zeroThresholdRetainsFiniteExplicitCheckBoundaries() {
+        when(config.getVotePartyVotesRequired()).thenReturn(0);
+        when(user.getUUID()).thenReturn(ID.toString());
+        when(mysql.getRowsQuery()).thenReturn(new ArrayList<>());
+        party.check(user, false);
+        for (int index = 0; index < 3; index++) { party.addTotal(user); party.check(user, false); }
+        drain();
+        assertEquals(6, party.getTotalVotes());
+        assertEquals(0, votes.get());
+        verify(serverData, times(4)).updateLastVoteParty();
+        verify(apiRewards, times(1)).giveReward(eq(user), eq(rewards), anyString(), any(RewardOptions.class));
+    }
+
+    @Test
+    void recipientModeRefreshDoesNotRepeatPartyEventOrCommands() throws Exception {
+        when(plugin.isEnabled()).thenReturn(true);
+        when(mysql.getRowsQuery()).thenReturn(new ArrayList<>());
+        when(config.getVotePartyGlobalCommands()).thenReturn(new ArrayList<>(List.of("synthetic-voteparty-command")));
+        Server commandServer = mock(Server.class);
+        bukkit.when(Bukkit::getServer).thenReturn(commandServer);
+        AtomicInteger approvals = new AtomicInteger();
+        var registered = new org.bukkit.plugin.RegisteredListener(new org.bukkit.event.Listener() { },
+                (listener, event) -> { approvals.incrementAndGet(); }, org.bukkit.event.EventPriority.MONITOR, plugin, false);
+        com.bencodez.votingplugin.events.VotePartyEvent.getHandlerList().register(registered);
+        try {
+            party.check(user, false);
+            when(config.isVotePartyGiveOnlinePlayersOnly()).thenReturn(true);
+            worker = true;
+            try { storage.remove().run(); } finally { worker = false; }
+            platform.remove().run();
+            when(config.isVotePartyGiveOnlinePlayersOnly()).thenReturn(false);
+            drain();
+            assertEquals(1, approvals.get());
+            verify(mysql, times(1)).getRowsQuery();
+            verify(commandServer, times(1)).dispatchCommand(nullable(org.bukkit.command.CommandSender.class), eq("synthetic-voteparty-command"));
+            verify(apiRewards, times(1)).giveReward(eq(user), eq(rewards), anyString(), any(RewardOptions.class));
+        } finally { org.bukkit.event.HandlerList.unregisterAll(plugin); }
+    }
+
+    @Test
+    void onlineOnlyModeChangeDrainsAcceptedBoundariesAndReleasesAdmission() {
+        assertModeChangeDrainsAcceptedBoundaries(true);
+    }
+
+    @Test
+    void votedPlayersModeChangeDrainsAcceptedBoundariesAndReleasesAdmission() {
+        assertModeChangeDrainsAcceptedBoundaries(false);
+    }
+
+    private void assertModeChangeDrainsAcceptedBoundaries(boolean onlineOnly) {
+        when(mysql.getRowsQuery()).thenReturn(new ArrayList<>());
+        when(user.getUUID()).thenReturn(ID.toString());
+        votes.set(3);
+        party.check(user, false);
+        for (int index = 0; index < 3; index++) {
+            party.addTotal(user);
+            party.check(user, false);
+        }
+        if (onlineOnly) when(config.isVotePartyGiveOnlinePlayersOnly()).thenReturn(true);
+        else when(config.isVotePartyGiveAllPlayers()).thenReturn(false);
+        drain();
+        assertEquals(0, party.getTotalVotes(), "both accepted thresholds still complete under the new recipient policy");
+        assertEquals(0, votes.get());
+        verify(apiRewards, times(2)).giveReward(eq(user), eq(rewards), anyString(), any(RewardOptions.class));
+        verify(mysql, never()).getRowsQuery();
+        when(config.isVotePartyGiveAllPlayers()).thenReturn(true);
+        when(config.isVotePartyGiveOnlinePlayersOnly()).thenReturn(false);
+        party.setTotalVotes(3);
+        party.check(user, false);
+        assertDoesNotThrow(() -> {
+            for (int index = 0; index < 512; index++) party.addTotal(user);
+        }, "completed records must not retain admission slots");
+        assertEquals(515, party.getTotalVotes());
+        assertEquals(512, votes.get());
+    }
+
+    @Test
+    void disabledPartyDoesNotBlockOrdinaryIngressBehindRetainedPartyWork() {
+        party.check(user, false);
+        for (int index = 0; index < 512; index++) party.addTotal(user);
+        when(config.isVotePartyEnabled()).thenReturn(false);
+        AtomicInteger ordinaryEffects = new AtomicInteger();
+        assertTrue(party.tryWithVoteAdmission(() -> {
+            ordinaryEffects.incrementAndGet();
+            party.vote(user, true, false, true);
+        }));
+        assertEquals(1, ordinaryEffects.get());
+        assertEquals(515, party.getTotalVotes(), "disabled party counting stays inactive");
+    }
+
+    @Test
+    void saturatedContributionOwnershipRejectsBeforeEitherCounterMutation() {
+        when(mysql.getRowsQuery()).thenReturn(new ArrayList<>());
+        when(user.getUUID()).thenReturn(ID.toString());
+        party.check(user, false);
+        for (int index = 0; index < 512; index++) party.addTotal(user);
+        int acceptedGlobal = party.getTotalVotes();
+        int acceptedPersonal = votes.get();
+        assertThrows(RejectedExecutionException.class, () -> party.addTotal(user));
+        assertEquals(acceptedGlobal, party.getTotalVotes());
+        assertEquals(acceptedPersonal, votes.get());
+        party.reset(true);
+        assertDoesNotThrow(() -> party.addTotal(user), "manual reset releases old metadata ownership");
+    }
+
+    @Test
     void votesAccumulatedDuringStoredPreparationTriggerNextPartyWithoutAnotherVote() {
         when(mysql.getRowsQuery()).thenReturn(new ArrayList<>());
+        when(user.getUUID()).thenReturn(ID.toString());
+        votes.set(3); // The first three accepted votes belong to the first party.
 
         // The first threshold starts asynchronous stored-recipient preparation.
         party.check(user, false);
@@ -579,7 +995,9 @@ class VotePartyStoredRecipientFailureTest {
 
         assertEquals(0, party.getTotalVotes(),
                 "remaining eligible votes must be rechecked when stored preparation finishes");
+        assertEquals(0, votes.get(), "both completed parties consume only their own personal contributions");
         verify(serverData, times(2)).updateLastVoteParty();
+        verify(apiRewards, times(2)).giveReward(eq(user), eq(rewards), anyString(), any(RewardOptions.class));
     }
 
 
@@ -777,12 +1195,10 @@ class VotePartyStoredRecipientFailureTest {
         when(mysql.getRowsQuery()).thenReturn(new ArrayList<>());
         AtomicInteger admissions = new AtomicInteger();
         doAnswer(c -> {
-            if (admissions.incrementAndGet() == 2)
+            if (admissions.incrementAndGet() == 1)
                 throw new java.util.concurrent.RejectedExecutionException("reset rejected");
-            if (worker) return false;
-            storage.add(c.getArgument(0));
-            return true;
-        }).when(manager).deferSharedStorageWork(any());
+            return enqueueWakeup(storage, c.getArgument(0));
+        }).when(persistence).schedule(any(Runnable.class), anyLong(), any(java.util.concurrent.TimeUnit.class));
         party.check(user, false);
         drain();
         party.check(user, false);
@@ -837,15 +1253,70 @@ class VotePartyStoredRecipientFailureTest {
     }
 
     @Test
+    void resetReleasesCancelledScheduledCheckAdmission() throws Exception {
+        AtomicInteger oldEffects = new AtomicInteger();
+        registerCheck(new Object(), oldEffects::incrementAndGet);
+        assertEquals(1, voteTasks.size());
+        voteTasks.clear(); // The executor accepted, then cancelled, the callback.
+        party.reset(true);
+        party.setTotalVotes(3);
+        party.check(user, false);
+        for (int index = 0; index < 512; index++) party.addTotal(user);
+        assertEquals(515, party.getTotalVotes(), "cancelled old work must not exhaust replacement ownership");
+        assertEquals(0, oldEffects.get());
+    }
+
+    @Test
+    void resetDuringCheckRegistrationCannotRelabelOldCheckAsNewGeneration() {
+        when(mysql.getRowsQuery()).thenReturn(new ArrayList<>());
+        party.check(user, false);
+        java.util.concurrent.atomic.AtomicBoolean resetOnce = new java.util.concurrent.atomic.AtomicBoolean();
+        when(config.isVotePartyResetCount()).thenAnswer(c -> {
+            if (!resetOnce.getAndSet(true)) {
+                party.reset(true);
+                party.setTotalVotes(8);
+            }
+            return false;
+        });
+        party.check(user, false);
+        drain();
+        assertEquals(8, party.getTotalVotes());
+        verify(serverData, never()).updateLastVoteParty();
+        verify(apiRewards, never()).giveReward(eq(user), eq(rewards), anyString(), any(RewardOptions.class));
+    }
+
+    @Test
+    void rejectedOldCheckCannotBeLostBehindReplacementCheck() throws Exception {
+        Object replacement = new Object();
+        AtomicInteger oldChecks = new AtomicInteger();
+        AtomicInteger replacementChecks = new AtomicInteger();
+        java.util.concurrent.atomic.AtomicBoolean firstSubmission = new java.util.concurrent.atomic.AtomicBoolean(true);
+        var timer = plugin.getVoteTimer();
+        doAnswer(c -> {
+            if (firstSubmission.getAndSet(false)) {
+                privateAttemptReference("storedPreparation").set(replacement);
+                registerCheck(replacement, replacementChecks::incrementAndGet);
+            }
+            throw new RejectedExecutionException("synthetic admission refused");
+        }).when(timer).schedule(any(Runnable.class), anyLong(), any(java.util.concurrent.TimeUnit.class));
+        registerCheck(new Object(), oldChecks::incrementAndGet);
+        finishAttempt(replacement);
+        drain();
+        assertEquals(1, oldChecks.get(), "a rejected old callback keeps its own completion ownership");
+        assertEquals(1, replacementChecks.get(), "replacement context must remain independent");
+    }
+
+    @Test
     void rejectedRecheckRetainsItsContext() throws Exception {
         Object attempt = new Object();
         AtomicInteger checks = new AtomicInteger();
         var timer = plugin.getVoteTimer();
         doThrow(new java.util.concurrent.RejectedExecutionException("recheck rejected"))
-                .when(timer).execute(any(Runnable.class));
+                .when(timer).schedule(any(Runnable.class), anyLong(), any(java.util.concurrent.TimeUnit.class));
         registerCheck(attempt, checks::incrementAndGet);
-        Object retained = privateAttemptReference("pendingStoredCheck").get();
-        assertNotNull(retained);
+        var ownedField = VoteParty.class.getDeclaredField("scheduledChecks");
+        ownedField.setAccessible(true);
+        assertEquals(1, ((java.util.Set<?>) ownedField.get(party)).size(), "the rejected check remains owned");
         assertEquals(1, storage.size(), "production must provide a fallback wakeup");
         drain();
         assertEquals(1, checks.get());
@@ -909,6 +1380,471 @@ class VotePartyStoredRecipientFailureTest {
         party.check(user, false);
         drain();
         assertEquals(1, party.getTotalVotes());
+        verify(apiRewards, times(1)).giveReward(eq(user), eq(rewards), anyString(), any(RewardOptions.class));
+    }
+
+    @Test
+    void fourAccumulatedPartiesDrainAndRetainEachRewardEligibility() {
+        when(mysql.getRowsQuery()).thenReturn(new ArrayList<>());
+        when(user.getUUID()).thenReturn(ID.toString());
+        party.check(user, false);
+        for (int i = 0; i < 9; i++) {
+            party.addTotal(user);
+            party.check(user, false);
+        }
+        assertEquals(12, party.getTotalVotes());
+        drain();
+        assertEquals(0, party.getTotalVotes(), "every accumulated threshold must drain");
+        verify(serverData, times(4)).updateLastVoteParty();
+        verify(apiRewards, times(4)).giveReward(eq(user), eq(rewards), anyString(), any(RewardOptions.class));
+    }
+
+    @Test
+    void forceRequestAdvancesRetainedResetWhenAutomaticPartiesAreDisabled() {
+        when(config.isVotePartyEnabled()).thenReturn(false);
+        when(config.getVotePartyGlobalCommands()).thenReturn(new ArrayList<>(List.of("synthetic-voteparty-command")));
+        Server commandServer = mock(Server.class);
+        bukkit.when(Bukkit::getServer).thenReturn(commandServer);
+        when(mysql.getRowsQuery()).thenReturn(new ArrayList<>());
+        java.util.concurrent.atomic.AtomicBoolean fail = new java.util.concurrent.atomic.AtomicBoolean(true);
+        doAnswer(c -> {
+            if (fail.getAndSet(false)) throw new IllegalStateException("temporary wipe failure");
+            votes.set(0);
+            return null;
+        }).when(coreUsers).removeAllKeyValues("VotePartyVotes", DataType.INTEGER);
+        party.giveRewards(user, false);
+        drain();
+        party.giveRewards(user, false);
+        drain();
+        verify(coreUsers, times(2)).removeAllKeyValues("VotePartyVotes", DataType.INTEGER);
+        verify(apiRewards, times(1)).giveReward(eq(user), eq(rewards), anyString(), any(RewardOptions.class));
+        verify(commandServer, times(1)).dispatchCommand(nullable(org.bukkit.command.CommandSender.class), eq("synthetic-voteparty-command"));
+        party.giveRewards(user, false); // Cleanup is now complete: this is a genuinely new force request.
+        drain();
+        verify(commandServer, times(2)).dispatchCommand(nullable(org.bukkit.command.CommandSender.class), eq("synthetic-voteparty-command"));
+        verify(coreUsers, times(3)).removeAllKeyValues("VotePartyVotes", DataType.INTEGER);
+    }
+
+    @Test
+    void eventAdapterReusesOnlyAnUnclaimedReservationAndBoundsNestedEvents() {
+        party.check(user, false);
+        for (int index = 0; index < 510; index++) party.addTotal(user);
+        AtomicInteger effects = new AtomicInteger();
+        assertTrue(party.tryWithVoteAdmission(() -> {
+            assertTrue(party.tryDispatchVoteEvent(() -> {
+                effects.incrementAndGet();
+                assertFalse(party.tryDispatchVoteEvent(effects::incrementAndGet));
+            }));
+        }));
+        assertEquals(1, effects.get());
+        assertTrue(party.tryDispatchVoteEvent(effects::incrementAndGet));
+        assertEquals(2, effects.get(), "completed scopes release unused reservation slots");
+    }
+
+    @Test
+    void directRewardHandlerCannotRelabelPreResetPreparationAsCurrent() throws Exception {
+        when(mysql.getRowsQuery()).thenReturn(new ArrayList<>());
+        var field = VoteParty.class.getDeclaredField("rewardHandler");
+        field.setAccessible(true);
+        var handler = (com.bencodez.votingplugin.specialrewards.voteparty.VotePartyRewardHandler) field.get(party);
+        handler.giveRewards(user, false);
+        worker = true;
+        try { party.reset(true); } finally { worker = false; }
+        votes.set(4); // Replacement-generation personal state.
+        drain();
+        assertEquals(4, votes.get());
+        verify(apiRewards, never()).giveReward(eq(user), eq(rewards), anyString(), any(RewardOptions.class));
+        verify(mysql, never()).getRowsQuery();
+    }
+
+    @Test
+    void legacyProxyEventApiRejectsBeforeUserStorageAndEventDispatchWhenFull() throws Exception {
+        when(plugin.getVoteParty()).thenReturn(party);
+        var settings = mock(com.bencodez.votingplugin.config.BungeeSettings.class);
+        when(settings.isUseBungeecoord()).thenReturn(true);
+        when(plugin.getBungeeSettings()).thenReturn(settings);
+        when(plugin.getVoteSiteManager()).thenReturn(mock(com.bencodez.votingplugin.votesites.VoteSiteManager.class));
+        Server server = mock(Server.class);
+        PluginManager dispatcher = mock(PluginManager.class);
+        when(server.getPluginManager()).thenReturn(dispatcher);
+        when(plugin.getServer()).thenReturn(server);
+        var pluginField = VotingPluginUser.class.getDeclaredField("plugin");
+        pluginField.setAccessible(true);
+        pluginField.set(user, plugin);
+        doCallRealMethod().when(user).bungeeVotePluginMessagingEvent(any(), anyLong(), any(), anyBoolean(),
+                anyBoolean(), anyBoolean(), anyInt(), anyBoolean(), anyBoolean(), anyBoolean(), any(), anyBoolean());
+        party.check(user, false);
+        for (int index = 0; index < 512; index++) party.addTotal(user);
+        clearInvocations(user);
+        worker = true;
+        try {
+            assertThrows(RejectedExecutionException.class, () -> user.bungeeVotePluginMessagingEvent(
+                    "votes.example", 123L, null, true, true, true, 1, false, true, true, UUID.randomUUID(), false));
+        } finally { worker = false; }
+        verify(user, never()).getPlayerName();
+        verify(dispatcher, never()).callEvent(any());
+    }
+
+    @Test
+    void unresolvedRollbackRejectsIngressBeforeEffectsAndSchedulesOneRecovery() throws Exception {
+        when(mysql.getRowsQuery()).thenReturn(new ArrayList<>());
+        AtomicInteger writes = new AtomicInteger();
+        doAnswer(c -> {
+            state.set(c.getArgument(0), c.getArgument(1));
+            if (writes.incrementAndGet() <= 2) throw new IllegalStateException("temporary save outage");
+            return null;
+        }).when(serverData).setInt(anyString(), anyInt());
+        party.check(user, false);
+        drain();
+        assertNotNull(privateAttemptReference("pendingScalarRollback").get());
+        AtomicInteger effects = new AtomicInteger();
+        for (int index = 0; index < 10; index++)
+            assertFalse(party.tryWithVoteAdmission(effects::incrementAndGet));
+        assertEquals(0, effects.get());
+        assertEquals(1, voteTasks.size(), "repeated refusal owns one recovery wakeup");
+        drain();
+        assertTrue(party.tryWithVoteAdmission(effects::incrementAndGet));
+        assertEquals(1, effects.get());
+        assertEquals(3, party.getTotalVotes());
+        verify(apiRewards, never()).giveReward(eq(user), eq(rewards), anyString(), any(RewardOptions.class));
+    }
+
+    @Test
+    void platformCommitCannotAdmitIngressBetweenItsScalarWrites() {
+        when(mysql.getRowsQuery()).thenReturn(new ArrayList<>());
+        AtomicReference<Boolean> admitted = new AtomicReference<>();
+        AtomicInteger effects = new AtomicInteger();
+        doAnswer(c -> {
+            if (admitted.get() == null)
+                admitted.set(party.tryWithVoteAdmission(effects::incrementAndGet));
+            state.set(c.getArgument(0), c.getArgument(1));
+            return null;
+        }).when(serverData).setInt(anyString(), anyInt());
+        party.check(user, false);
+        drain();
+        assertEquals(Boolean.FALSE, admitted.get());
+        assertEquals(0, effects.get());
+        verify(serverData, times(1)).updateLastVoteParty();
+    }
+
+    @Test
+    void admittedIngressDefersPlatformCommitUntilItsScopeCloses() {
+        when(mysql.getRowsQuery()).thenReturn(new ArrayList<>());
+        party.check(user, false);
+        assertTrue(party.tryWithVoteAdmission(() -> {
+            worker = true;
+            try { storage.remove().run(); } finally { worker = false; }
+            platform.remove().run();
+            worker = true;
+            try { voteTasks.remove().run(); } finally { worker = false; }
+            platform.remove().run();
+            verify(serverData, never()).updateLastVoteParty();
+        }));
+        drain();
+        verify(serverData, times(1)).updateLastVoteParty();
+        verify(apiRewards, times(1)).giveReward(eq(user), eq(rewards), anyString(), any(RewardOptions.class));
+    }
+
+    @Test
+    void voteAfterFailedPreparationRetainsNextPartyPersonalBoundary() {
+        UUID otherId = UUID.fromString("00000000-0000-0000-0000-000000000003");
+        VotingPluginUser other = mock(VotingPluginUser.class);
+        AtomicInteger otherVotes = new AtomicInteger();
+        when(other.getPlugin()).thenReturn(plugin);
+        when(other.getUUID()).thenReturn(otherId.toString());
+        when(other.getJavaUUID()).thenReturn(otherId);
+        when(other.getVotePartyVotes()).thenAnswer(c -> otherVotes.get());
+        doAnswer(c -> { otherVotes.set(c.getArgument(0)); return null; }).when(other).setVotePartyVotes(anyInt());
+        when(manager.getPublishedCache(otherId)).thenReturn(mock(UserDataCache.class));
+        when(plugin.getVotingPluginUserManager().getVotingPluginUser(otherId, true)).thenReturn(other);
+        when(user.getUUID()).thenReturn(ID.toString());
+        when(config.isVotePartyCountOfflineVotes()).thenReturn(true);
+        doAnswer(c -> { votes.set(0); otherVotes.set(0); return null; }).when(coreUsers)
+                .removeAllKeyValues("VotePartyVotes", DataType.INTEGER);
+        votes.set(3);
+        when(mysql.getRowsQuery()).thenReturn(null);
+        party.check(user, false);
+        drain();
+        when(mysql.getRowsQuery()).thenReturn(new ArrayList<>(List.of(
+                new Column("uuid", new DataValueString(otherId.toString())))));
+        party.vote(other, true, false, false); // The first vote after the failed attempt has been cleared.
+        party.vote(other, true, false, false); // Preparation is now pending again.
+        party.vote(user, true, false, true);
+        drain();
+        assertEquals(0, party.getTotalVotes());
+        assertEquals(0, votes.get());
+        assertEquals(0, otherVotes.get());
+        verify(serverData, times(2)).updateLastVoteParty();
+        verify(apiRewards, times(1)).giveReward(eq(user), eq(rewards), anyString(), any(RewardOptions.class));
+        verify(apiRewards, times(1)).giveReward(eq(other), eq(rewards), anyString(), any(RewardOptions.class));
+    }
+
+    @Test
+    void genuineForceIncludesRetainedPersonalCreditsButPreservesLaterArrivals() {
+        UUID otherId = UUID.fromString("00000000-0000-0000-0000-000000000004");
+        VotingPluginUser other = mock(VotingPluginUser.class);
+        AtomicInteger otherVotes = new AtomicInteger();
+        when(other.getPlugin()).thenReturn(plugin);
+        when(other.getUUID()).thenReturn(otherId.toString());
+        when(other.getJavaUUID()).thenReturn(otherId);
+        when(other.getVotePartyVotes()).thenAnswer(c -> otherVotes.get());
+        doAnswer(c -> { otherVotes.set(c.getArgument(0)); return null; }).when(other).setVotePartyVotes(anyInt());
+        when(manager.getPublishedCache(otherId)).thenReturn(mock(UserDataCache.class));
+        when(plugin.getVotingPluginUserManager().getVotingPluginUser(otherId, true)).thenReturn(other);
+        when(user.getUUID()).thenReturn(ID.toString());
+        doAnswer(c -> { votes.set(0); otherVotes.set(0); return null; }).when(coreUsers)
+                .removeAllKeyValues("VotePartyVotes", DataType.INTEGER);
+        when(mysql.getRowsQuery()).thenReturn(null);
+        party.check(user, false);
+        drain();
+        for (int index = 0; index < 3; index++) party.addTotal(other);
+        when(mysql.getRowsQuery()).thenReturn(new ArrayList<>(List.of(
+                new Column("uuid", new DataValueString(otherId.toString())))));
+        party.giveRewards(user, false);
+        party.addTotal(other); // This contribution belongs after force admission.
+        drain();
+        assertEquals(7, party.getTotalVotes());
+        assertEquals(1, otherVotes.get());
+        verify(apiRewards, times(1)).giveReward(eq(other), eq(rewards), anyString(), any(RewardOptions.class));
+        verify(apiRewards, times(1)).giveReward(eq(user), eq(rewards), anyString(), any(RewardOptions.class));
+    }
+
+    @Test
+    void acceptedExtraRequiredEditSurvivesRetainedRollbackRecovery() {
+        when(mysql.getRowsQuery()).thenReturn(new ArrayList<>());
+        AtomicInteger extra = new AtomicInteger();
+        when(serverData.getVotePartyExtraRequired()).thenAnswer(c -> extra.get());
+        doAnswer(c -> { extra.set(c.getArgument(0)); return null; })
+                .when(serverData).setVotePartyExtraRequired(anyInt());
+        AtomicInteger writes = new AtomicInteger();
+        doAnswer(c -> {
+            state.set(c.getArgument(0), c.getArgument(1));
+            if (writes.incrementAndGet() <= 2) throw new IllegalStateException("temporary save outage");
+            return null;
+        }).when(serverData).setInt(anyString(), anyInt());
+        party.check(user, false);
+        drain();
+        party.setExtraVotesRequired(8); // Coordinated SetExtraRequired command path.
+        party.addTotal(user);
+        assertEquals(8, extra.get());
+        assertEquals(4, party.getTotalVotes());
+        verify(apiRewards, never()).giveReward(eq(user), eq(rewards), anyString(), any(RewardOptions.class));
+    }
+
+    @Test
+    void cancelledInitialResetRemainsOwnedForLaterForceCleanup() {
+        when(mysql.getRowsQuery()).thenReturn(new ArrayList<>());
+        party.giveRewards(user, false);
+        worker = true;
+        try { storage.remove().run(); } finally { worker = false; }
+        platform.remove().run();
+        worker = true;
+        try { voteTasks.remove().run(); } finally { worker = false; }
+        platform.remove().run();
+        assertFalse(storage.isEmpty(), "reset was accepted but has not executed");
+        storage.removeLast(); // Keep earlier eligibility reads; cancel only the accepted reset.
+        storageWakeups.get(storageWakeups.size() - 1).cancel(false);
+        when(config.isVotePartyEnabled()).thenReturn(false);
+        party.giveRewards(user, false);
+        drain();
+        assertEquals(0, votes.get());
+        verify(coreUsers, times(1)).removeAllKeyValues("VotePartyVotes", DataType.INTEGER);
+        verify(apiRewards, times(1)).giveReward(eq(user), eq(rewards), anyString(), any(RewardOptions.class));
+    }
+
+    @Test
+    void repeatedForceCleanupRequestsKeepOneOrderedWakeup() {
+        when(mysql.getRowsQuery()).thenReturn(new ArrayList<>());
+        party.giveRewards(user, false);
+        worker = true;
+        try { storage.remove().run(); } finally { worker = false; }
+        platform.remove().run();
+        worker = true;
+        try { voteTasks.remove().run(); } finally { worker = false; }
+        platform.remove().run();
+        int owned = storage.size();
+        for (int index = 0; index < 1000; index++) party.giveRewards(user, false);
+        assertEquals(owned, storage.size(), "pending cleanup must not enqueue one retry per force request");
+        assertTrue(voteTasks.isEmpty());
+        drain();
+        verify(coreUsers, times(1)).removeAllKeyValues("VotePartyVotes", DataType.INTEGER);
+        verify(apiRewards, times(1)).giveReward(eq(user), eq(rewards), anyString(), any(RewardOptions.class));
+    }
+
+    @Test
+    void cancelledResetRetryCanResumeOnReplacementWorker() {
+        when(mysql.getRowsQuery()).thenReturn(new ArrayList<>());
+        AtomicInteger resets = new AtomicInteger();
+        doAnswer(c -> {
+            if (resets.incrementAndGet() == 1) throw new IllegalStateException("temporary reset failure");
+            votes.set(0);
+            return null;
+        }).when(coreUsers).removeAllKeyValues("VotePartyVotes", DataType.INTEGER);
+        party.giveRewards(user, false);
+        drain();
+        party.giveRewards(user, false);
+        assertFalse(storage.isEmpty());
+        storage.clear(); // Accepted retry cancelled when its executor is retired.
+        ScheduledExecutorService replacement = mock(ScheduledExecutorService.class);
+        doAnswer(c -> enqueueWakeup(storage, c.getArgument(0))).when(replacement)
+                .schedule(any(Runnable.class), anyLong(), any(java.util.concurrent.TimeUnit.class));
+        when(manager.getTimer()).thenReturn(replacement);
+        party.giveRewards(user, false);
+        drain();
+        assertEquals(0, votes.get());
+        assertEquals(2, resets.get());
+        verify(apiRewards, times(1)).giveReward(eq(user), eq(rewards), anyString(), any(RewardOptions.class));
+    }
+
+    @Test
+    void repeatedChecksKeepOnePendingPlatformCommit() {
+        when(mysql.getRowsQuery()).thenReturn(new ArrayList<>());
+        party.check(user, false);
+        worker = true;
+        try { storage.remove().run(); } finally { worker = false; }
+        platform.remove().run();
+        worker = true;
+        try { voteTasks.remove().run(); } finally { worker = false; }
+        assertEquals(1, platform.size());
+        for (int index = 0; index < 1000; index++) party.check(user, false);
+        assertEquals(1, platform.size());
+        assertEquals(1, voteTasks.size(), "only one commit-resumption wakeup may be pending");
+        drain();
+        assertEquals(1, commitWakeups.size(), "an accepted live platform task must not be duplicated");
+        verify(serverData, times(1)).updateLastVoteParty();
+        verify(apiRewards, times(1)).giveReward(eq(user), eq(rewards), anyString(), any(RewardOptions.class));
+    }
+
+    @Test
+    void cancelledScalarRecoveryRemainsBoundedAndCanResume() {
+        when(mysql.getRowsQuery()).thenReturn(new ArrayList<>());
+        AtomicInteger writes = new AtomicInteger();
+        doAnswer(c -> {
+            state.set(c.getArgument(0), c.getArgument(1));
+            if (writes.incrementAndGet() <= 2) throw new IllegalStateException("temporary save outage");
+            return null;
+        }).when(serverData).setInt(anyString(), anyInt());
+        party.check(user, false);
+        drain();
+        AtomicInteger effects = new AtomicInteger();
+        for (int index = 0; index < 1000; index++) assertFalse(party.tryWithVoteAdmission(effects::incrementAndGet));
+        assertEquals(1, voteTasks.size());
+        voteWakeups.get(voteWakeups.size() - 1).cancel(false);
+        voteTasks.clear();
+        assertFalse(party.tryWithVoteAdmission(effects::incrementAndGet));
+        assertEquals(1, voteTasks.size());
+        drain();
+        assertTrue(party.tryWithVoteAdmission(effects::incrementAndGet));
+        assertEquals(1, effects.get());
+        assertEquals(3, party.getTotalVotes());
+        verify(apiRewards, never()).giveReward(eq(user), eq(rewards), anyString(), any(RewardOptions.class));
+    }
+
+    @Test
+    void cancelledInitialPlatformCommitResumesWithoutDuplicateEffects() {
+        when(mysql.getRowsQuery()).thenReturn(new ArrayList<>());
+        when(config.getVotePartyGlobalCommands()).thenReturn(new ArrayList<>(List.of("synthetic-party-command")));
+        Server commandServer = mock(Server.class);
+        bukkit.when(Bukkit::getServer).thenReturn(commandServer);
+        party.check(user, false);
+        worker = true;
+        try { storage.remove().run(); } finally { worker = false; }
+        platform.remove().run();
+        worker = true;
+        try { voteTasks.remove().run(); } finally { worker = false; }
+        Runnable cancelled = platform.remove(); // Accepted platform commit is cancelled before execution.
+        commitWakeups.get(commitWakeups.size() - 1).cancel();
+        party.check(user, false);
+        drain();
+        assertEquals(0, party.getTotalVotes());
+        assertEquals(0, votes.get());
+        cancelled.run(); // Even a late callback from the cancelled handoff must be harmless.
+        drain();
+        verify(serverData, times(1)).updateLastVoteParty();
+        verify(commandServer, times(1)).dispatchCommand(any(), eq("synthetic-party-command"));
+        verify(apiRewards, times(1)).giveReward(eq(user), eq(rewards), anyString(), any(RewardOptions.class));
+    }
+
+    @Test
+    void cancelledContendedCommitCanResumeOnReplacementWorker() {
+        when(mysql.getRowsQuery()).thenReturn(new ArrayList<>());
+        party.check(user, false);
+        worker = true;
+        try { storage.remove().run(); } finally { worker = false; }
+        platform.remove().run();
+        worker = true;
+        try { voteTasks.remove().run(); } finally { worker = false; }
+        assertTrue(party.tryWithVoteAdmission(platform.remove())); // Commit loses the ingress fence without waiting.
+        assertFalse(voteTasks.isEmpty());
+        voteTasks.clear(); // The retired executor never runs its accepted commit wakeup.
+        ScheduledExecutorService replacement = mock(ScheduledExecutorService.class);
+        doAnswer(c -> { voteTasks.add(c.getArgument(0)); return null; }).when(replacement).execute(any());
+        doAnswer(c -> enqueueWakeup(voteTasks, c.getArgument(0))).when(replacement)
+                .schedule(any(Runnable.class), anyLong(), any(java.util.concurrent.TimeUnit.class));
+        when(plugin.getVoteTimer()).thenReturn(replacement);
+        party.check(user, false);
+        drain();
+        assertEquals(0, party.getTotalVotes());
+        assertEquals(0, votes.get());
+        verify(serverData, times(1)).updateLastVoteParty();
+        verify(apiRewards, times(1)).giveReward(eq(user), eq(rewards), anyString(), any(RewardOptions.class));
+    }
+
+    @Test
+    void acceptedScalarCommandSurvivesRetainedRollbackRecovery() {
+        when(mysql.getRowsQuery()).thenReturn(new ArrayList<>());
+        AtomicInteger writes = new AtomicInteger();
+        doAnswer(c -> {
+            state.set(c.getArgument(0), c.getArgument(1));
+            if (writes.incrementAndGet() <= 2) throw new IllegalStateException("temporary save outage");
+            return null;
+        }).when(serverData).setInt(anyString(), anyInt());
+        party.check(user, false);
+        drain();
+        party.setTotalVotes(8);
+        party.addTotal(user);
+        assertEquals(9, party.getTotalVotes());
+        verify(apiRewards, never()).giveReward(eq(user), eq(rewards), anyString(), any(RewardOptions.class));
+    }
+
+    @Test
+    void failedPreparationPreservesOriginalBoundaryWhenRetryIncludesNewVotes() {
+        when(user.getUUID()).thenReturn(ID.toString());
+        when(mysql.getRowsQuery()).thenReturn(null);
+        party.check(user, false);
+        for (int i = 0; i < 3; i++) party.addTotal(user);
+        drain();
+        assertEquals(6, party.getTotalVotes());
+        when(mysql.getRowsQuery()).thenReturn(new ArrayList<>());
+        party.check(user, false);
+        drain();
+        assertEquals(0, party.getTotalVotes());
+        verify(apiRewards, times(2)).giveReward(eq(user), eq(rewards), anyString(), any(RewardOptions.class));
+    }
+
+    @Test
+    void zeroThresholdDoesNotCreateUnboundedAutomaticFollowups() {
+        when(config.getVotePartyVotesRequired()).thenReturn(0);
+        when(mysql.getRowsQuery()).thenReturn(new ArrayList<>());
+        party.check(user, false);
+        drain();
+        verify(serverData, times(1)).updateLastVoteParty();
+        assertEquals(3, party.getTotalVotes());
+    }
+
+    @Test
+    void nonResettingPartyRetainsFiniteExplicitChecks() {
+        when(config.isVotePartyResetCount()).thenReturn(false);
+        when(user.getUUID()).thenReturn(ID.toString());
+        when(mysql.getRowsQuery()).thenReturn(new ArrayList<>());
+        party.check(user, false);
+        for (int i = 0; i < 3; i++) {
+            party.addTotal(user);
+            party.check(user, false);
+        }
+        drain();
+        assertEquals(6, party.getTotalVotes());
+        verify(serverData, times(4)).updateLastVoteParty();
         verify(apiRewards, times(1)).giveReward(eq(user), eq(rewards), anyString(), any(RewardOptions.class));
     }
 

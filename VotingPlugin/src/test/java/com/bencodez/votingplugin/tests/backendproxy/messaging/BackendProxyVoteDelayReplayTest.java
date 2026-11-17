@@ -235,6 +235,14 @@ class BackendProxyVoteDelayReplayTest {
 
         private Fixture(Path receipts) throws Exception {
             this.receipts = receipts;
+            when(plugin.getVoteParty().tryWithVoteAdmission(any(Runnable.class))).thenAnswer(call -> {
+                call.getArgument(0, Runnable.class).run();
+                return true;
+            });
+            when(plugin.getVoteParty().tryDispatchVoteEvent(any(Runnable.class))).thenAnswer(call -> {
+                call.getArgument(0, Runnable.class).run();
+                return true;
+            });
             when(plugin.isEnabled()).thenReturn(true);
             when(plugin.getOptions().isProcessRewards()).thenReturn(true);
             when(plugin.getBungeeSettings().isUseBungeecoord()).thenReturn(true);

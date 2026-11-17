@@ -1590,7 +1590,7 @@ public class CommandLoader {
 													+ voteEvent.getServiceSite() + "?");
 								}
 							}
-							plugin.getServer().getPluginManager().callEvent(voteEvent);
+							VoteTaskAdmission.dispatchManualVote(plugin, voteEvent, sender, null);
 						}
 					})) {
 						rejected++;
@@ -1629,7 +1629,7 @@ public class CommandLoader {
 
 						@Override
 						public void run() {
-							plugin.getServer().getPluginManager().callEvent(voteEvent);
+							VoteTaskAdmission.dispatchManualVote(plugin, voteEvent, sender, null);
 						}
 					})) {
 						sendMessage(sender, "&cCould not trigger the vote because vote processing is busy; please try again later.");
@@ -1667,7 +1667,7 @@ public class CommandLoader {
 
 							@Override
 							public void run() {
-								plugin.getServer().getPluginManager().callEvent(voteEvent);
+								VoteTaskAdmission.dispatchManualVote(plugin, voteEvent, sender, null);
 							}
 						})) {
 							sendMessage(sender, "&cCould not trigger the vote because vote processing is busy; please try again later.");
@@ -1716,7 +1716,7 @@ public class CommandLoader {
 													+ voteEvent.getServiceSite() + "?");
 								}
 							}
-							plugin.getServer().getPluginManager().callEvent(voteEvent);
+							VoteTaskAdmission.dispatchManualVote(plugin, voteEvent, sender, null);
 						}
 
 						if (plugin.isYmlError()) {
@@ -1745,7 +1745,7 @@ public class CommandLoader {
 												+ voteEvent.getServiceSite() + "?");
 							}
 						}
-						plugin.getServer().getPluginManager().callEvent(voteEvent);
+						VoteTaskAdmission.dispatchManualVote(plugin, voteEvent, sender, null);
 
 					}
 				});
@@ -2127,7 +2127,7 @@ public class CommandLoader {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						plugin.getServerData().setVotePartyExtraRequired(Integer.parseInt(args[2]));
+						plugin.getVoteParty().setExtraVotesRequired(Integer.parseInt(args[2]));
 						sendMessage(sender, "&cSet VotePartyExtraRequired to " + args[2]);
 					}
 				});
@@ -3445,11 +3445,8 @@ public class CommandLoader {
 																plugin.getVoteSiteManager()
 																		.getVoteSiteServiceSite(value),
 																false);
-														plugin.getServer().getPluginManager().callEvent(voteEvent);
-
-														player.sendMessage("Forced vote for "
-																+ UserGUI.getInstance().getCurrentPlayer(player)
-																+ " on " + value);
+														VoteTaskAdmission.dispatchManualVote(plugin, voteEvent, player,
+																"Forced vote for " + UserGUI.getInstance().getCurrentPlayer(player) + " on " + value);
 													}
 												});
 

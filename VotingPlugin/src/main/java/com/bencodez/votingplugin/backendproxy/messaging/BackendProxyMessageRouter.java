@@ -686,6 +686,16 @@ public class BackendProxyMessageRouter {
 		VoteTotalsSnapshot totals = VoteTotalsSnapshot.parseStorage(vote.totals == null ? "" : vote.totals);
 		@SuppressWarnings("deprecation")
 		UUID voteId = vote.voteId != null ? vote.voteId : totals.getVoteUUID();
+		WireVoteResult[] result = new WireVoteResult[1];
+		var party = plugin.getVoteParty();
+		if (party == null || !party.tryWithVoteAdmission(
+				() -> result[0] = handleAdmittedWireVote(msg, vote, totals, voteId)))
+			return new WireVoteResult(voteId, false, true);
+		return result[0];
+	}
+
+	private WireVoteResult handleAdmittedWireVote(JsonEnvelope msg, VotingPluginWire.Vote vote,
+			VoteTotalsSnapshot totals, UUID voteId) {
 		Reservation reservation = processedVoteCache.reserveWithOutcome(voteId);
 		if (reservation == Reservation.SATURATED) {
 			if (voteReplayCacheSaturationLogged.compareAndSet(false, true)) {
@@ -715,10 +725,16 @@ public class BackendProxyMessageRouter {
 		user.cache();
 		boolean wasOnline = vote.wasOnlineKnown ? vote.wasOnline : user.isOnline();
 		boolean queuedDelivery = vote.queuedDeliveryKnown ? vote.queuedDelivery : vote.delayValidated;
-		var event = user.bungeeVotePluginMessagingEvent(vote.service, vote.time, totals, !vote.manageTotals,
-				wasOnline, vote.broadcast, vote.num, queuedDelivery, vote.delayValidationKnown,
-				vote.queuedDeliveryKnown, voteId,
-				VotingPluginWire.SUB_VOTE_ONLINE.equals(msg.getSubChannel()));
+		com.bencodez.votingplugin.events.PlayerVoteEvent event;
+		try {
+			event = user.bungeeVotePluginMessagingEvent(vote.service, vote.time, totals, !vote.manageTotals,
+					wasOnline, vote.broadcast, vote.num, queuedDelivery, vote.delayValidationKnown,
+					vote.queuedDeliveryKnown, voteId,
+					VotingPluginWire.SUB_VOTE_ONLINE.equals(msg.getSubChannel()));
+		} catch (com.bencodez.votingplugin.specialrewards.voteparty.VoteParty.AdmissionRejectedException refused) {
+			processedVoteCache.cancelReservation(voteId);
+			return new WireVoteResult(voteId, false, true);
+		}
 		if ((event == null || !event.isCancelled()) && plugin.getBungeeSettings().isPerServerPoints()) {
 			user.addPoints(plugin.getConfigFile().getPointsOnVote());
 		}

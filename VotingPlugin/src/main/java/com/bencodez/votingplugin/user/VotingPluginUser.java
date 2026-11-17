@@ -1091,6 +1091,23 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			boolean wasOnline, boolean broadcast, int num, boolean queuedProxyVote,
 			boolean proxyDelayValidationKnown, boolean proxyQueueClassificationKnown, UUID proxyVoteId,
 			boolean targetedProxyVote) {
+		if (!plugin.getBungeeSettings().isUseBungeecoord()) return null;
+		var manager = plugin.getUserManager().getDataManager();
+		if (manager != null && manager.isPlatformOwnedThread())
+			throw new IllegalStateException("Proxy vote events require a storage worker");
+		PlayerVoteEvent[] dispatched = new PlayerVoteEvent[1];
+		var party = plugin.getVoteParty();
+		if (party == null || !party.tryDispatchVoteEvent(() ->
+				dispatched[0] = dispatchBungeeVotePluginMessagingEvent(service, time, text, setTotals, wasOnline, broadcast, num, queuedProxyVote,
+						proxyDelayValidationKnown, proxyQueueClassificationKnown, proxyVoteId, targetedProxyVote)))
+			throw new com.bencodez.votingplugin.specialrewards.voteparty.VoteParty.AdmissionRejectedException();
+		return dispatched[0];
+	}
+
+	private PlayerVoteEvent dispatchBungeeVotePluginMessagingEvent(String service, long time, VoteTotalsSnapshot text, boolean setTotals,
+			boolean wasOnline, boolean broadcast, int num, boolean queuedProxyVote,
+			boolean proxyDelayValidationKnown, boolean proxyQueueClassificationKnown, UUID proxyVoteId,
+			boolean targetedProxyVote) {
 			if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			plugin.debug("Pluginmessaging vote for " + getPlayerName() + " on " + service);
 

@@ -30,6 +30,105 @@ import com.bencodez.votingplugin.listeners.VotifierVoteOverflowQueue;
 
 class VotifierVoteOverflowQueueTest {
 	@Test
+	void preMutationAdmissionRejectionMustRetainAcceptedOverflowVote(@TempDir Path dataFolder) throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+		ScheduledExecutorService timer = mock(ScheduledExecutorService.class);
+		java.util.concurrent.atomic.AtomicReference<Runnable> callback = new java.util.concurrent.atomic.AtomicReference<>();
+		java.util.concurrent.atomic.AtomicInteger mutations = new java.util.concurrent.atomic.AtomicInteger();
+		CountDownLatch submitted = new CountDownLatch(1);
+		CountDownLatch retried = new CountDownLatch(2);
+		when(plugin.getDataFolder()).thenReturn(dataFolder.toFile());
+		when(plugin.getVoteTimer()).thenReturn(timer);
+		doAnswer(c -> { callback.set(c.getArgument(0)); submitted.countDown(); retried.countDown(); return null; })
+				.when(timer).submit(any(Runnable.class));
+		// A saturated admission fake rejects before applying any party mutation.
+		java.util.concurrent.atomic.AtomicBoolean admitted = new java.util.concurrent.atomic.AtomicBoolean();
+		java.lang.reflect.Method factory = VotifierVoteOverflowQueue.class.getDeclaredMethod(
+				"withAdmission", VotingPluginMain.class, java.util.function.BiPredicate.class);
+		factory.setAccessible(true);
+		VotifierVoteOverflowQueue queue = (VotifierVoteOverflowQueue) factory.invoke(null, plugin,
+				(java.util.function.BiPredicate<String, String>) (site, user) -> {
+					if (!admitted.get()) return false;
+					mutations.incrementAndGet();
+					return true;
+				});
+		try {
+			assertTrue(queue.enqueue("SyntheticVoter", "votes.example"));
+			queue.start();
+			assertTrue(submitted.await(2, TimeUnit.SECONDS));
+			callback.get().run();
+			assertEquals(0, mutations.get());
+			assertEquals(1, queue.size(), "a pre-mutation rejection must not acknowledge accepted work");
+			admitted.set(true);
+			assertTrue(retried.await(2, TimeUnit.SECONDS));
+			callback.get().run();
+			assertEquals(1, mutations.get());
+			assertEquals(0, queue.size());
+		} finally { queue.close(); }
+	}
+
+
+	@Test
+	void refusedAdmissionsRemainBoundedAndSurviveQueueClose(@TempDir Path dataFolder) throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+		ScheduledExecutorService timer = mock(ScheduledExecutorService.class);
+		java.util.List<Runnable> callbacks = new java.util.concurrent.CopyOnWriteArrayList<>();
+		CountDownLatch submitted = new CountDownLatch(256);
+		when(plugin.getDataFolder()).thenReturn(dataFolder.toFile());
+		when(plugin.getVoteTimer()).thenReturn(timer);
+		doAnswer(c -> { callbacks.add(c.getArgument(0)); submitted.countDown(); return null; })
+				.when(timer).submit(any(Runnable.class));
+		java.lang.reflect.Method factory = VotifierVoteOverflowQueue.class.getDeclaredMethod(
+				"withAdmission", VotingPluginMain.class, java.util.function.BiPredicate.class);
+		factory.setAccessible(true);
+		VotifierVoteOverflowQueue queue = (VotifierVoteOverflowQueue) factory.invoke(null, plugin,
+				(java.util.function.BiPredicate<String, String>) (site, user) -> false);
+		try {
+			for (int index = 0; index < 256; index++)
+				assertTrue(queue.enqueue("SyntheticVoter", "votes.example"));
+			assertEquals(false, queue.enqueue("AnotherVoter", "votes.example"));
+			queue.start();
+			assertTrue(submitted.await(5, TimeUnit.SECONDS));
+			// Run one refused attempt per owned entry; scheduled wakeups do not own it.
+			for (Runnable callback : java.util.List.copyOf(callbacks)) callback.run();
+			assertEquals(256, queue.size());
+		} finally { queue.close(); }
+		VotifierVoteOverflowQueue recovered = new VotifierVoteOverflowQueue(plugin, (site, user) -> { });
+		try { assertEquals(256, recovered.size()); }
+		finally { recovered.close(); }
+	}
+
+	@Test
+	void completionFailureMustNotReplayPossiblyAppliedEffects(@TempDir Path dataFolder) throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+		ScheduledExecutorService timer = mock(ScheduledExecutorService.class);
+		java.util.concurrent.atomic.AtomicReference<Runnable> callback = new java.util.concurrent.atomic.AtomicReference<>();
+		java.util.concurrent.atomic.AtomicInteger effects = new java.util.concurrent.atomic.AtomicInteger();
+		CountDownLatch submitted = new CountDownLatch(1);
+		when(plugin.getDataFolder()).thenReturn(dataFolder.toFile());
+		when(plugin.getVoteTimer()).thenReturn(timer);
+		doAnswer(c -> { callback.set(c.getArgument(0)); submitted.countDown(); return null; })
+				.when(timer).submit(any(Runnable.class));
+		java.lang.reflect.Method factory = VotifierVoteOverflowQueue.class.getDeclaredMethod(
+				"withAdmission", VotingPluginMain.class, java.util.function.BiPredicate.class);
+		factory.setAccessible(true);
+		VotifierVoteOverflowQueue queue = (VotifierVoteOverflowQueue) factory.invoke(null, plugin,
+				(java.util.function.BiPredicate<String, String>) (site, user) -> {
+					effects.incrementAndGet();
+					throw new RejectedExecutionException("downstream effect admission failed");
+				});
+		try {
+			assertTrue(queue.enqueue("SyntheticVoter", "votes.example"));
+			queue.start();
+			assertTrue(submitted.await(2, TimeUnit.SECONDS));
+			assertThrows(RejectedExecutionException.class, () -> callback.get().run());
+			assertEquals(1, effects.get());
+			assertEquals(0, queue.size(), "an exception after effects is not a pre-mutation refusal");
+		} finally { queue.close(); }
+	}
+
+
+	@Test
 	void enqueueCannotChangeVersionDuringDurableAdmission(@TempDir Path dataFolder) throws Exception {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
 		ScheduledExecutorService voteTimer = mock(ScheduledExecutorService.class);

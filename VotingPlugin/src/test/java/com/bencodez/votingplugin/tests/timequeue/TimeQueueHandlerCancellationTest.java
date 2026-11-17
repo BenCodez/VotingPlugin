@@ -35,6 +35,10 @@ class TimeQueueHandlerCancellationTest {
     @Test
     void cancelledFirstVoteDoesNotStrandAcceptedVoteInScheduledDrain() {
         VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+        when(plugin.getVoteParty().tryDispatchVoteEvent(any(Runnable.class))).thenAnswer(call -> {
+            call.getArgument(0, Runnable.class).run();
+            return true;
+        });
         ScheduledExecutorService voteTimer = mock(ScheduledExecutorService.class);
         PluginManager manager = plugin.getServer().getPluginManager();
         VoteSite site = mock(VoteSite.class);

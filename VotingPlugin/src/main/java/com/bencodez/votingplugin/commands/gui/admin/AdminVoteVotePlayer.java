@@ -12,6 +12,7 @@ import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.inventory.editgui.EditGUI;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
+import com.bencodez.votingplugin.util.VoteTaskAdmission;
 import com.bencodez.votingplugin.votesites.VoteSite;
 
 /**
@@ -69,7 +70,7 @@ public class AdminVoteVotePlayer extends GUIHandler {
 											+ voteEvent.getServiceSite() + "?");
 						}
 					}
-					plugin.getServer().getPluginManager().callEvent(voteEvent);
+					VoteTaskAdmission.dispatchManualVote(plugin, voteEvent, clickEvent.getPlayer(), null);
 
 					if (plugin.isYmlError()) {
 						sendMessage(clickEvent.getPlayer(),

@@ -18,6 +18,10 @@ import com.bencodez.votingplugin.timequeue.TimeQueueHandler;
 class TimeQueueCheckpointRetryTest {
     @Test void repeatedStorageFailuresBackOffAndRepairResumesTheSameOccurrence() {
         VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+        when(plugin.getVoteParty().tryDispatchVoteEvent(any(Runnable.class))).thenAnswer(call -> {
+            call.getArgument(0, Runnable.class).run();
+            return true;
+        });
         ServerData data = mock(ServerData.class);
         when(plugin.getServerData()).thenReturn(data);
         when(data.getTimedVoteCacheKeys()).thenReturn(Set.of());
@@ -49,6 +53,10 @@ class TimeQueueCheckpointRetryTest {
     @Test void scheduledPreparationAndCompletionFailuresEachRetryWithoutRepeatingDeliveredEvents() {
         for (String phase : List.of("prepare", "complete")) {
             VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+            when(plugin.getVoteParty().tryDispatchVoteEvent(any(Runnable.class))).thenAnswer(call -> {
+                call.getArgument(0, Runnable.class).run();
+                return true;
+            });
             ServerData data = mock(ServerData.class);
             when(plugin.getServerData()).thenReturn(data);
             when(data.getTimedVoteCacheKeys()).thenReturn(Set.of());
