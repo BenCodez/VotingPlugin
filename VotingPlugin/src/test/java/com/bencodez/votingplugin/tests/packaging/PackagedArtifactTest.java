@@ -30,8 +30,8 @@ public class PackagedArtifactTest {
 
     @Test
     void recompressionPreservesEveryEntryAndStreamingManifest() throws Exception {
-        Path input = Path.of(System.getProperty("votingplugin.precompressionJar"));
         Path output = packagedJar();
+        Path input = Path.of(System.getProperty("votingplugin.precompressionJar"));
         try (JarFile before = new JarFile(input.toFile()); JarFile after = new JarFile(output.toFile())) {
             var beforeNames = before.stream().map(entry -> entry.getName()).collect(Collectors.toList());
             var afterNames = after.stream().map(entry -> entry.getName()).collect(Collectors.toList());
