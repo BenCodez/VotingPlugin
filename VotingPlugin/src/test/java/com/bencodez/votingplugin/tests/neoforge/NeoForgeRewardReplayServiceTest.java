@@ -1093,6 +1093,48 @@ class NeoForgeRewardReplayServiceTest {
     }
 
     @Test
+    void shutdownAfterRewardSelectionRetainsOriginalVoteForRestartReplay() throws Exception {
+        writeConfiguration(false);
+        UUID playerId = UUID.randomUUID();
+        UUID voteId = UUID.randomUUID();
+        RecordingActions cancelled = new RecordingActions();
+        try (NeoForgeRuntime runtime = NeoForgeRuntimeAccess.start(directory);
+                NeoForgeRewardReplayService replay = service(runtime, cancelled)) {
+            NeoForgePlayerDirectoryAccess.joined(runtime.players(), new SharedVoteIdentity(playerId, "Alex", true));
+            retain(runtime, voteId, playerId, "Service");
+            var result = replay.replayOnce();
+            assertTrue(cancelled.scheduled.await(5, TimeUnit.SECONDS));
+            Runnable selected = NeoForgeServerSchedulerShutdownTest.removeNextTask(runtime.scheduler());
+            runtime.scheduler().close();
+            selected.run();
+            assertEquals(NeoForgeRewardReplayService.Status.REWARD_FAILED,
+                    result.get(5, TimeUnit.SECONDS).get(0).status());
+            assertTrue(cancelled.rendered.isEmpty());
+            assertEquals(voteId, runtime.deferredVotes().pending(playerId).get(0).voteId());
+            assertEquals(0, runtime.accounting().load(playerId).orElseThrow().allTimeTotal());
+        }
+        RecordingActions recovered = new RecordingActions();
+        try (NeoForgeRuntime runtime = NeoForgeRuntimeAccess.start(directory);
+                NeoForgeRewardReplayService replay = service(runtime, recovered)) {
+            assertEquals(voteId, runtime.deferredVotes().pending(playerId).get(0).voteId());
+            NeoForgePlayerDirectoryAccess.joined(runtime.players(), new SharedVoteIdentity(playerId, "Alex", true));
+            var result = replay.replayOnce();
+            assertTrue(recovered.scheduled.await(5, TimeUnit.SECONDS));
+            runtime.scheduler().onServerTick();
+            assertEquals(NeoForgeRewardReplayService.Status.COMPLETED,
+                    result.get(5, TimeUnit.SECONDS).get(0).status());
+            assertEquals(1, recovered.rendered.size());
+            assertEquals(1, runtime.accounting().load(playerId).orElseThrow().allTimeTotal());
+        }
+        try (NeoForgeRuntime runtime = NeoForgeRuntimeAccess.start(directory);
+                NeoForgeRewardReplayService replay = service(runtime, new RecordingActions())) {
+            assertTrue(replay.replayOnce().get(5, TimeUnit.SECONDS).isEmpty());
+            assertTrue(runtime.deferredVotes().pending(playerId).isEmpty());
+            assertEquals(1, runtime.accounting().load(playerId).orElseThrow().allTimeTotal());
+        }
+    }
+
+    @Test
     void shutdownRejectsQueuedRewardAndLeavesVoteRecoverable() throws Exception {
         writeConfiguration(false);
         UUID playerId = UUID.randomUUID();

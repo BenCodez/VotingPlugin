@@ -46,7 +46,7 @@ public final class NeoForgeServerScheduler implements AutoCloseable {
         while ((task = pending.poll()) != null) task.completion.completeExceptionally(stopped);
     }
 
-    private static final class ScheduledTask implements Runnable {
+    private final class ScheduledTask implements Runnable {
         private final Runnable task;
         private final boolean propagateFailure;
         private final CompletableFuture<Void> completion = new CompletableFuture<>();
@@ -57,6 +57,19 @@ public final class NeoForgeServerScheduler implements AutoCloseable {
         }
 
         @Override public void run() {
+            synchronized (NeoForgeServerScheduler.this) {
+                if (!open) {
+                    completion.completeExceptionally(
+                            new RejectedExecutionException("NeoForge runtime has stopped"));
+                    return;
+                }
+                // A tick may have removed this task before shutdown drained the queue.
+                // Fence task execution and close together so teardown cannot overtake it.
+                runWhileOpen();
+            }
+        }
+
+        private void runWhileOpen() {
             try {
                 task.run();
                 completion.complete(null);
