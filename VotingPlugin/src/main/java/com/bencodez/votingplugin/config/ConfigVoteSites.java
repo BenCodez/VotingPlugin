@@ -27,6 +27,31 @@ public class ConfigVoteSites extends YMLFile {
 
 	private VotingPluginMain plugin;
 
+	/** Internal scalar reads retain the already selected native section and file policy. */
+	private ScalarReads scalarReads(String site) {
+		return new ScalarReads(getData(site), isIgnoreCase());
+	}
+
+	private record ScalarReads(ConfigurationSection section, boolean folded) {
+		private String key(String leaf) {
+			// Leaf names are constants. Preserve native path semantics for unusual separators.
+			if (folded && leaf.indexOf(section.getRoot().options().pathSeparator()) < 0) {
+				for (String candidate : section.getKeys(false)) {
+					if (candidate.equalsIgnoreCase(leaf)) return candidate;
+				}
+			}
+			return leaf;
+		}
+		String getString(String leaf) { return section.getString(key(leaf)); }
+		String getString(String leaf, String fallback) { return section.getString(key(leaf), fallback); }
+		int getInt(String leaf) { return section.getInt(key(leaf)); }
+		int getInt(String leaf, int fallback) { return section.getInt(key(leaf), fallback); }
+		double getDouble(String leaf, double fallback) { return section.getDouble(key(leaf), fallback); }
+		boolean getBoolean(String leaf) { return section.getBoolean(key(leaf)); }
+		boolean getBoolean(String leaf, boolean fallback) { return section.getBoolean(key(leaf), fallback); }
+		boolean isString(String leaf) { return section.isString(key(leaf)); }
+	}
+
 	/**
 	 * Constructs a new ConfigVoteSites.
 	 *
@@ -194,7 +219,7 @@ public class ConfigVoteSites extends YMLFile {
 	 * @return the display name
 	 */
 	public String getDisplayName(String site) {
-		return getData(site).getString("Name");
+		return scalarReads(site).getString("Name");
 	}
 
 	/**
@@ -226,7 +251,7 @@ public class ConfigVoteSites extends YMLFile {
 	 * @return the permission to view
 	 */
 	public String getPermissionToView(String siteName) {
-		return getData(siteName).getString("PermissionToView", "");
+		return scalarReads(siteName).getString("PermissionToView", "");
 	}
 
 	/**
@@ -236,7 +261,7 @@ public class ConfigVoteSites extends YMLFile {
 	 * @return the priority
 	 */
 	public int getPriority(String siteName) {
-		return getData(siteName).getInt("Priority");
+		return scalarReads(siteName).getInt("Priority");
 	}
 
 	/**
@@ -266,7 +291,7 @@ public class ConfigVoteSites extends YMLFile {
 	 * @return the service site
 	 */
 	public String getServiceSite(String siteName) {
-		return getData(siteName).getString("ServiceSite");
+		return scalarReads(siteName).getString("ServiceSite");
 	}
 
 	/**
@@ -276,7 +301,7 @@ public class ConfigVoteSites extends YMLFile {
 	 * @return the vote delay
 	 */
 	public ParsedDuration getVoteDelay(String site) {
-		ConfigurationSection sec = getData(site);
+		ScalarReads sec = scalarReads(site);
 
 		// NEW FORMAT (string)
 		if (sec.isString("VoteDelay")) {
@@ -299,7 +324,7 @@ public class ConfigVoteSites extends YMLFile {
 	 * @return the vote delay daily hour
 	 */
 	public int getVoteDelayDailyHour(String siteName) {
-		return getData(siteName).getInt("VoteDelayDailyHour", 0);
+		return scalarReads(siteName).getInt("VoteDelayDailyHour", 0);
 	}
 
 	/**
@@ -309,7 +334,7 @@ public class ConfigVoteSites extends YMLFile {
 	 * @return the vote site enabled
 	 */
 	public boolean getVoteSiteEnabled(String siteName) {
-		return getData(siteName).getBoolean("Enabled");
+		return scalarReads(siteName).getBoolean("Enabled");
 	}
 
 	/**
@@ -340,7 +365,8 @@ public class ConfigVoteSites extends YMLFile {
 	 * @return true if rewards should be given offline
 	 */
 	public boolean getVoteSiteGiveOffline(String site) {
-		return getData(site).getBoolean("ForceOffline", getData(site).getBoolean("GiveOffline"));
+		ScalarReads reads = scalarReads(site);
+		return reads.getBoolean("ForceOffline", reads.getBoolean("GiveOffline"));
 	}
 
 	/**
@@ -350,7 +376,7 @@ public class ConfigVoteSites extends YMLFile {
 	 * @return true if the site is hidden
 	 */
 	public boolean getVoteSiteHidden(String siteName) {
-		return getData(siteName).getBoolean("Hidden");
+		return scalarReads(siteName).getBoolean("Hidden");
 	}
 
 	/**
@@ -360,7 +386,7 @@ public class ConfigVoteSites extends YMLFile {
 	 * @return true if can vote check should be ignored
 	 */
 	public boolean getVoteSiteIgnoreCanVote(String siteName) {
-		return getData(siteName).getBoolean("IgnoreCanVote");
+		return scalarReads(siteName).getBoolean("IgnoreCanVote");
 	}
 
 	/**
@@ -370,7 +396,7 @@ public class ConfigVoteSites extends YMLFile {
 	 * @return true if vote delay resets daily
 	 */
 	public boolean getVoteSiteResetVoteDelayDaily(String siteName) {
-		return getData(siteName).getBoolean("VoteDelayDaily");
+		return scalarReads(siteName).getBoolean("VoteDelayDaily");
 	}
 
 	/**
@@ -474,7 +500,7 @@ public class ConfigVoteSites extends YMLFile {
 	 * @return the vote URL
 	 */
 	public String getVoteURL(String siteName) {
-		return getData(siteName).getString("VoteURL", "");
+		return scalarReads(siteName).getString("VoteURL", "");
 	}
 
 	/**
@@ -484,7 +510,7 @@ public class ConfigVoteSites extends YMLFile {
 	 * @return true if should wait until vote delay
 	 */
 	public boolean getWaitUntilVoteDelay(String siteName) {
-		return getData(siteName).getBoolean("WaitUntilVoteDelay", false);
+		return scalarReads(siteName).getBoolean("WaitUntilVoteDelay", false);
 	}
 
 	/**
