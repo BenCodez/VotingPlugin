@@ -39,6 +39,7 @@ record FabricVoteSites(List<FabricVoteSite> sites, boolean ambiguousAliases) {
     private static final Set<String> FIELDS = Set.of("Enabled", "ServiceSite", "Name", "Priority",
             "WaitUntilVoteDelay", "VoteDelay", "VoteDelayMin", "VoteDelayDaily", "VoteDelayDailyHour");
     private static final Pattern DURATION_PART = Pattern.compile("([0-9]+)\\s*([a-z]+)");
+    private static final Pattern INTEGER = Pattern.compile("[+-]?(?:0|[1-9][0-9]*)");
     private static final Pattern DECIMAL = Pattern.compile("[0-9]+(?:\\.[0-9]+)?");
 
     FabricVoteSites {
@@ -72,7 +73,7 @@ record FabricVoteSites(List<FabricVoteSite> sites, boolean ambiguousAliases) {
         Node root;
         try {
             root = new Yaml(options).compose(new StringReader(text));
-        } catch (YAMLException malformed) {
+        } catch (YAMLException | IllegalArgumentException malformed) {
             throw invalid("invalid YAML document");
         }
         if (root == null) return EMPTY;
@@ -157,8 +158,10 @@ record FabricVoteSites(List<FabricVoteSite> sites, boolean ambiguousAliases) {
     }
 
     private static int integer(Map<String, Node> fields, String key) throws IOException {
+        String value = scalar(fields, key, Tag.INT, "0");
+        if (!INTEGER.matcher(value).matches()) throw invalid("expected a decimal integer setting");
         try {
-            return Integer.parseInt(scalar(fields, key, Tag.INT, "0"));
+            return Integer.parseInt(value);
         } catch (NumberFormatException invalidInteger) {
             throw invalid("invalid integer setting");
         }
@@ -184,7 +187,10 @@ record FabricVoteSites(List<FabricVoteSite> sites, boolean ambiguousAliases) {
         if (node == null) return 0L;
         Tag tag = Tag.INT.equals(node.getTag()) ? Tag.INT : Tag.FLOAT;
         String value = scalar(node, tag);
-        if (value.length() > 32 || !DECIMAL.matcher(value).matches()) throw invalid("invalid numeric vote delay");
+        Pattern syntax = Tag.INT.equals(tag) ? INTEGER : DECIMAL;
+        if (value.length() > 32 || value.startsWith("-") || !syntax.matcher(value).matches()) {
+            throw invalid("expected a nonnegative decimal vote delay");
+        }
         return new BigDecimal(value).multiply(BigDecimal.valueOf(unit)).setScale(0, RoundingMode.DOWN).longValueExact();
     }
 

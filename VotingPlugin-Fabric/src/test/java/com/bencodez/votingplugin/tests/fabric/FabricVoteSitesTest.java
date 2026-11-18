@@ -83,6 +83,21 @@ class FabricVoteSitesTest {
     }
 
     @Test
+    void rejectsOutOfRangeYamlUnicodeEscapesWithASafeDiagnostic() throws IOException {
+        write("VoteSites: {Example: {Name: \"\\UFFFFFFFF\"}}");
+        IOException failure = assertThrows(IOException.class, this::load);
+        assertEquals("invalid YAML document", failure.getMessage());
+    }
+
+    @Test
+    void rejectsNonDecimalYamlIntegersInsteadOfChangingTheirMeaning() throws IOException {
+        for (String field : List.of("Priority", "VoteDelay", "VoteDelayMin", "VoteDelayDailyHour")) {
+            write("VoteSites: {Example: {" + field + ": 010}}");
+            assertThrows(IOException.class, this::load, field);
+        }
+    }
+
+    @Test
     void rejectsNonUtf8AndSymlinkInputsWithoutWritingThem() throws IOException {
         Path file = write("");
         Files.write(file, new byte[] {(byte) 0xc3, 0x28});

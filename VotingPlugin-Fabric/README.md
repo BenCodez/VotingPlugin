@@ -50,7 +50,9 @@ using descending priority and declaration order for ties. Case-variant site
 keys are rejected. Ambiguous aliases produce a warning and still follow the
 same ordering.
 
-Numeric `VoteDelay` is hours and numeric `VoteDelayMin` is minutes. A formatted
+Numeric `VoteDelay` is hours and numeric `VoteDelayMin` is minutes. Use decimal
+integers without leading zeros, since YAML allows other bases for integer
+scalars. A formatted
 `VoteDelay` such as `1h 30m` takes precedence. Duration strings support
 milliseconds, seconds, minutes, hours, days, weeks, and 30-day months. The
 read-only delay gate allows the first vote and requires the configured boundary
