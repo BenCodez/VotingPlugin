@@ -12,6 +12,8 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <build.number>NOTSET</build.number>
         <packaged.jar.name>${project.name}</packaged.jar.name>
+        <!-- Shade and recompression must always start from a fresh project JAR. -->
+        <maven.jar.forceCreation>true</maven.jar.forceCreation>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <maven.compiler.release>21</maven.compiler.release>
@@ -270,6 +272,37 @@
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>3.2.0</version>
+                <executions>
+                    <execution>
+                        <id>recompress-downloadable-jar</id>
+                        <phase>package</phase>
+                        <goals><goal>run</goal></goals>
+                        <configuration>
+                            <target>
+                                <!-- Retain the shaded input for the entry-by-entry package check. -->
+                                <copy file="${project.build.directory}/${packaged.jar.name}.jar"
+                                      tofile="${project.build.directory}/jar-recompression-input.jar" overwrite="true" />
+                                <delete file="${project.build.directory}/jar-recompression-staged.jar" />
+                                <zip destfile="${project.build.directory}/jar-recompression-staged.jar"
+                                     level="9" keepcompression="false" encoding="UTF8"
+                                     duplicate="fail" defaultexcludes="false">
+                                    <!-- JarInputStream requires the manifest before other files. -->
+                                    <zipfileset src="${project.build.directory}/jar-recompression-input.jar"
+                                                includes="META-INF/MANIFEST.MF" defaultexcludes="false" />
+                                    <zipfileset src="${project.build.directory}/jar-recompression-input.jar"
+                                                excludes="META-INF/MANIFEST.MF" defaultexcludes="false" />
+                                </zip>
+                                <move file="${project.build.directory}/jar-recompression-staged.jar"
+                                      tofile="${project.build.directory}/${packaged.jar.name}.jar" overwrite="true" />
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.6.1</version>
                 <executions>
@@ -290,6 +323,7 @@
                             <reportsDirectory>${project.build.directory}/packaged-artifact-reports</reportsDirectory>
                             <systemPropertyVariables>
                                 <votingplugin.packagedJar>${project.build.directory}/${packaged.jar.name}.jar</votingplugin.packagedJar>
+                                <votingplugin.precompressionJar>${project.build.directory}/jar-recompression-input.jar</votingplugin.precompressionJar>
                             </systemPropertyVariables>
                         </configuration>
                     </execution>
