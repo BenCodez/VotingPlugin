@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.logging.Logger;
 
 import org.spongepowered.configurate.ConfigurationNode;
 import org.spongepowered.configurate.yaml.YamlConfigurationLoader;
@@ -98,6 +99,13 @@ public final class NeoForgeRuntime implements AutoCloseable {
         ConfigurationNode voteSites = YamlConfigurationLoader.builder().path(voteSitesFile).build().load();
         ConfigurationNode specialRewards = YamlConfigurationLoader.builder().path(specialRewardsFile).build().load();
         ConfigurationNode bungeeSettings = YamlConfigurationLoader.builder().path(bungeeSettingsFile).build().load();
+        String rewardBlocker = new NeoForgeRewardConfiguration(config, voteSites, specialRewards)
+                .unsupportedGlobalBehavior();
+        if (rewardBlocker != null) {
+            Logger.getLogger(NeoForgeRuntime.class.getName()).warning("NeoForge reward configuration: "
+                    + rewardBlocker + "; affected votes remain pending. Review the NeoForge setup guide;"
+                    + " existing configuration files are not changed.");
+        }
         NeoForgeVoteConfiguration voteConfiguration = NeoForgeVoteConfiguration.load(config, voteSites);
         NeoForgeProxySocketConfiguration proxyConfiguration;
         try {
@@ -136,8 +144,12 @@ public final class NeoForgeRuntime implements AutoCloseable {
     private static Path installDefault(Path directory, String name) throws IOException {
         Path target = directory.resolve(name);
         if (Files.notExists(target)) {
-            try (InputStream resource = NeoForgeRuntime.class.getClassLoader().getResourceAsStream(name)) {
-                if (resource == null) throw new IOException("Missing packaged configuration: " + name);
+            String resourceName = switch (name) {
+                case "Config.yml", "VoteSites.yml", "SpecialRewards.yml" -> "neoforge/" + name;
+                default -> name;
+            };
+            try (InputStream resource = NeoForgeRuntime.class.getClassLoader().getResourceAsStream(resourceName)) {
+                if (resource == null) throw new IOException("Missing packaged configuration: " + resourceName);
                 try {
                     Files.copy(resource, target);
                 } catch (FileAlreadyExistsException ignored) {

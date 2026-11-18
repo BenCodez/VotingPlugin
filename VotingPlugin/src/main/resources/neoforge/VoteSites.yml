@@ -1,0 +1,17 @@
+# Configure ServiceSite to match your proxy vote service, then enable the site.
+# NeoForge supports ONE plain player message OR console command per vote.
+# Do not combine actions, Bukkit formatting, items or special reward trees.
+VoteSites:
+  ExampleVoteSite:
+    Enabled: false
+    Name: ExampleVoteSite
+    ServiceSite: PlanetMinecraft.com
+    VoteURL: https://example.org/vote
+    VoteDelay: 24h
+    WaitUntilVoteDelay: false
+    # This console command can run while the player is offline.
+    GiveOffline: true
+    Rewards:
+      Commands:
+        - 'say %player% voted on %SiteName%'
+EverySiteReward: {}

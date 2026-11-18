@@ -1,0 +1,23 @@
+# NeoForge first-run settings for Minecraft 1.21.1 / Java 21.
+# Existing files are never replaced. Changes take effect after a server restart.
+# See docs/neoforge-bootstrap.md for proxy authentication and reward limitations.
+DataStorage: SQLITE
+AllowUnjoined: false
+AllowUnJoinedCheckServer: true
+AddTotals: true
+AddTotalsOffline: true
+CountFakeVotes: true
+ProcessRewards: true
+PointsOnVote: 1
+LimitVotePoints: -1
+
+# These Bukkit features are not supported by NeoForge reward replay.
+# Enabling them retains affected votes instead of silently omitting their effects.
+CloseInventoryOnVote: false
+UseVoteStreaks: false
+PerSiteCoolDownEvents: false
+LimitMonthlyVotes: false
+OfflineVotesLimit:
+  Enabled: false
+VoteBroadcast:
+  Type: NONE

@@ -82,7 +82,7 @@ final class NeoForgeRewardConfiguration {
                 .replace("%ServiceSite%", serviceSite).replace("%servicesite%", serviceSite));
     }
 
-    private String unsupportedGlobalBehavior() {
+    String unsupportedGlobalBehavior() {
         if (node(config, ignoreCase, "CloseInventoryOnVote").getBoolean(true)) {
             return "CloseInventoryOnVote is not supported by NeoForge replay yet";
         }
