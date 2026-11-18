@@ -179,20 +179,21 @@ public final class ControlInspectionService {
 		for (String name : configuredNames.stream().limit(MAX_ROWS).toList()) {
 			ConfigurationSection site = root == null ? null : root.getConfigurationSection(name);
 			if (site == null) continue;
-			String fullService = scalarReads(site).getString("ServiceSite", "");
+			ScalarReads reads = scalarReads(site);
+			String fullService = reads.getString("ServiceSite", "");
 			String service = safe(fullService, 64);
 			ServiceHealth health = logged.get(lower(fullService));
 			JsonObject row = new JsonObject();
 			row.addProperty("key", safe(name, 64));
 			row.addProperty("displayName", safe(site.getString("Name", name), 100));
 			row.addProperty("serviceSite", service);
-			row.addProperty("enabled", site.getBoolean("Enabled", true));
+			row.addProperty("enabled", reads.getBoolean("Enabled", true));
 			row.addProperty("hidden", site.getBoolean("Hidden", false));
 			row.addProperty("priority", site.getInt("Priority", 5));
 			row.addProperty("voteDelay", safe(String.valueOf(site.get("VoteDelay", "24h")), 80));
 			row.addProperty("hasRewards", hasRewardConfiguration(site));
 			if (voteLogReadable) addHealth(row, health);
-			row.addProperty("status", !site.getBoolean("Enabled", true) ? "DISABLED"
+			row.addProperty("status", !reads.getBoolean("Enabled", true) ? "DISABLED"
 					: fullService.isBlank() ? "SERVICE_SITE_MISSING"
 					: !voteLoggingAvailable ? "VOTE_LOG_UNAVAILABLE"
 					: !voteLogReadable ? "VOTE_LOG_UNREADABLE"
@@ -619,8 +620,11 @@ public final class ControlInspectionService {
 	private record ScalarReads(ConfigurationSection section, boolean folded) {
 		private String key(String leaf) {
 			if (folded && leaf.indexOf(section.getRoot().options().pathSeparator()) < 0) {
-				for (String candidate : section.getKeys(false)) {
-					if (candidate.equalsIgnoreCase(leaf)) return candidate;
+				var keys = section.getKeys(false);
+				// The null fallback checks configured values even when keys include defaults.
+				if (section.get(leaf, null) != null) return leaf;
+				for (String candidate : keys) {
+					if (candidate.equalsIgnoreCase(leaf) && section.get(candidate, null) != null) return candidate;
 				}
 			}
 			return leaf;

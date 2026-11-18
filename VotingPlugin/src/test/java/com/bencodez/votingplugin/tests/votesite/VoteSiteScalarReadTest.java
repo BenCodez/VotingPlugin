@@ -84,7 +84,7 @@ class VoteSiteScalarReadTest {
             site.set("Name", null);
             site.set("name", "first");
             site.set("Name", "second");
-            assertEquals(folded ? "first" : "second", config.getDisplayName("Example"));
+            assertEquals("second", config.getDisplayName("Example"));
         }
     }
 
@@ -213,5 +213,95 @@ class VoteSiteScalarReadTest {
         config.reloadData();
         assertNull(config.getDisplayName("Example"));
         assertEquals(bytes, java.nio.file.Files.readString(file));
+    }
+
+    @Test void scalarSetterReadbackRemainsEffectiveWithExistingLowercaseLeaf() {
+        for (boolean folded : new boolean[] {false, true}) {
+            for (boolean lower : new boolean[] {false, true}) {
+                YamlConfiguration yaml = new YamlConfiguration();
+                yaml.set("VoteSites.Example." + (lower ? "enabled" : "Enabled"), true);
+                ConfigVoteSites config = config(yaml, folded);
+                doNothing().when(config).saveData();
+                config.setEnabled("Example", false);
+                assertFalse(yaml.getBoolean("VoteSites.Example.Enabled"), "native exact setter wrote false");
+                assertFalse(config.getVoteSiteEnabled("Example"), "setter/readback must agree");
+                if (lower) assertTrue(yaml.getBoolean("VoteSites.Example.enabled"), "exact writes retain sibling");
+            }
+        }
+    }
+
+    @Test void canonicalKeysWinWithoutRewritingEarlierFoldedSiblings() {
+        YamlConfiguration yaml = new YamlConfiguration();
+        var site = yaml.createSection("VoteSites.Example");
+        site.set("name", "lower");
+        site.set("Name", "canonical");
+        site.set("priority", 7);
+        site.set("Priority", "invalid number");
+        ConfigVoteSites config = config(yaml, true);
+        String before = yaml.saveToString();
+        assertEquals("canonical", config.getDisplayName("Example"));
+        assertEquals(0, config.getPriority("Example"), "wrong canonical type must not select a folded sibling");
+        assertEquals(before, yaml.saveToString());
+        site.set("Name", null);
+        site.set("NAME", "later folded");
+        assertEquals("lower", config.getDisplayName("Example"));
+        site.set("name", null);
+        assertEquals("later folded", config.getDisplayName("Example"));
+    }
+
+    @Test void nativeDefaultIsFallbackRatherThanAnExplicitCanonicalLeaf() {
+        for (boolean copyDefaults : new boolean[] {false, true}) {
+            YamlConfiguration yaml = new YamlConfiguration();
+            var site = yaml.createSection("VoteSites.Example");
+            yaml.addDefault("VoteSites.Example.Name", "native default");
+            yaml.options().copyDefaults(copyDefaults);
+            site.set("name", "configured lower");
+            ConfigVoteSites config = config(yaml, true);
+            assertNull(site.get("Name", null), "native explicit-value lookup excludes defaults");
+            assertEquals("configured lower", config.getDisplayName("Example"));
+            site.set("name", null);
+            assertEquals("native default", config.getDisplayName("Example"));
+        }
+    }
+
+    @Test void scalarSetterFamilyRetainsExactWritesAndCanonicalReadback() {
+        for (boolean folded : new boolean[] {false, true}) {
+            YamlConfiguration yaml = new YamlConfiguration();
+            var site = yaml.createSection("VoteSites.Example");
+            site.set("name", "previous");
+            site.set("servicesite", "previous.example");
+            site.set("priority", 9);
+            site.set("forceoffline", true);
+            site.set("votedelay", "9h");
+            site.set("voteurl", "previous");
+            site.set("votedelaydailyhour", 9);
+            site.set("votedelaydaily", true);
+            ConfigVoteSites config = config(yaml, folded);
+            doNothing().when(config).saveData();
+            config.setDisplayName("Example", "current");
+            config.setServiceSite("Example", "current.example");
+            config.setPriority("Example", 3);
+            config.setForceOffline("Example", false);
+            config.setVoteDelay("Example", "2h");
+            config.setVoteURL("Example", "https://voting.example/vote");
+            config.setVoteDelayDailyHour("Example", 2);
+            config.setVoteDelayDaily("Example", false);
+            assertEquals("current", config.getDisplayName("Example"));
+            assertEquals("current.example", config.getServiceSite("Example"));
+            assertEquals(3, config.getPriority("Example"));
+            assertFalse(config.getVoteSiteGiveOffline("Example"));
+            assertEquals(7_200_000L, config.getVoteDelay("Example").getMillis());
+            assertEquals("https://voting.example/vote", config.getVoteURL("Example"));
+            assertEquals(2, config.getVoteDelayDailyHour("Example"));
+            assertFalse(config.getVoteSiteResetVoteDelayDaily("Example"));
+            assertEquals("previous", site.getString("name"));
+            assertEquals("previous.example", site.getString("servicesite"));
+            assertEquals(9, site.getInt("priority"));
+            assertTrue(site.getBoolean("forceoffline"));
+            assertEquals("9h", site.getString("votedelay"));
+            assertEquals("previous", site.getString("voteurl"));
+            assertEquals(9, site.getInt("votedelaydailyhour"));
+            assertTrue(site.getBoolean("votedelaydaily"));
+        }
     }
 }

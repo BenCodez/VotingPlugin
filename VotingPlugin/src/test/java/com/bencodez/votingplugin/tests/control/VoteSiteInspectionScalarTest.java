@@ -118,4 +118,54 @@ class VoteSiteInspectionScalarTest {
             assertEquals(before, f.yaml.saveToString());
         }
     }
+
+    @Test void healthEnabledAndStatusAgreeWithCanonicalKey() {
+        for (boolean enabled : new boolean[] {false, true}) {
+            Fixture f = fixture(true);
+            f.yaml.set("VoteSites.Example.ServiceSite", "route.example");
+            f.yaml.set("VoteSites.Example.enabled", !enabled);
+            f.yaml.set("VoteSites.Example.Enabled", enabled);
+            JsonObject row = f.inspect("vote-site-health").getAsJsonArray("sites").get(0).getAsJsonObject();
+            assertEquals(enabled, f.sites.getVoteSiteEnabled("Example"));
+            assertEquals(enabled, row.get("enabled").getAsBoolean());
+            assertEquals(enabled ? "VOTE_LOG_UNAVAILABLE" : "DISABLED", row.get("status").getAsString());
+            f.yaml.set("VoteSites.Example.Enabled", null);
+            f.yaml.set("VoteSites.Example.enabled", false);
+            row = f.inspect("vote-site-health").getAsJsonArray("sites").get(0).getAsJsonObject();
+            assertFalse(row.get("enabled").getAsBoolean());
+            assertEquals("DISABLED", row.get("status").getAsString());
+        }
+    }
+
+    @Test void networkCanonicalWrongTypeIsNotReplacedByValidFoldedSibling() {
+        Fixture f = fixture(true);
+        f.yaml.set("VoteSites.Example.enabled", true);
+        f.yaml.set("VoteSites.Example.Enabled", "invalid boolean");
+        f.yaml.set("VoteSites.Example.servicesite", "lower.example");
+        f.yaml.set("VoteSites.Example.ServiceSite", "canonical.example");
+        JsonObject result = f.inspect("network-health");
+        JsonObject row = result.getAsJsonArray("voteSites").get(0).getAsJsonObject();
+        assertFalse(row.has("enabled"));
+        assertFalse(result.get("voteSitesComplete").getAsBoolean());
+        assertEquals("canonical.example", row.get("serviceSite").getAsString());
+        assertFalse(f.sites.getVoteSiteEnabled("Example"));
+    }
+
+    @Test void inspectionDefaultsDoNotHideConfiguredFoldedValuesWhenCopied() {
+        for (boolean copyDefaults : new boolean[] {false, true}) {
+            Fixture f = fixture(true);
+            f.yaml.set("VoteSites.Example.servicesite", "configured.example");
+            f.yaml.set("VoteSites.Example.enabled", false);
+            f.yaml.addDefault("VoteSites.Example.ServiceSite", "default.example");
+            f.yaml.addDefault("VoteSites.Example.Enabled", true);
+            f.yaml.options().copyDefaults(copyDefaults);
+            JsonObject row = f.inspect("vote-site-health").getAsJsonArray("sites").get(0).getAsJsonObject();
+            assertEquals("configured.example", row.get("serviceSite").getAsString());
+            assertFalse(row.get("enabled").getAsBoolean());
+            assertEquals("DISABLED", row.get("status").getAsString());
+            row = f.inspect("network-health").getAsJsonArray("voteSites").get(0).getAsJsonObject();
+            assertEquals("configured.example", row.get("serviceSite").getAsString());
+            assertFalse(row.get("enabled").getAsBoolean());
+        }
+    }
 }

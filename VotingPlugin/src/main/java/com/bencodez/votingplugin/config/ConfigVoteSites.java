@@ -36,8 +36,11 @@ public class ConfigVoteSites extends YMLFile {
 		private String key(String leaf) {
 			// Leaf names are constants. Preserve native path semantics for unusual separators.
 			if (folded && leaf.indexOf(section.getRoot().options().pathSeparator()) < 0) {
-				for (String candidate : section.getKeys(false)) {
-					if (candidate.equalsIgnoreCase(leaf)) return candidate;
+				var keys = section.getKeys(false);
+				// The null fallback checks configured values even when keys include defaults.
+				if (section.get(leaf, null) != null) return leaf;
+				for (String candidate : keys) {
+					if (candidate.equalsIgnoreCase(leaf) && section.get(candidate, null) != null) return candidate;
 				}
 			}
 			return leaf;
