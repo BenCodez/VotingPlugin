@@ -35,6 +35,7 @@ public final class NeoForgeRewardReplayService implements AutoCloseable {
     private final NeoForgePlayerDirectory players;
     private final NeoForgeRewardActions actions;
     private final ScheduledExecutorService worker;
+    private volatile Thread workerThread;
     private final AtomicBoolean scanning = new AtomicBoolean();
     private final AtomicBoolean open = new AtomicBoolean(true);
     private final ConcurrentHashMap<UUID, Long> retryAfter = new ConcurrentHashMap<>();
@@ -55,6 +56,7 @@ public final class NeoForgeRewardReplayService implements AutoCloseable {
         ThreadFactory factory = task -> {
             Thread thread = new Thread(task, "VotingPlugin-NeoForge-Replay");
             thread.setDaemon(true);
+            workerThread = thread;
             return thread;
         };
         worker = Executors.newSingleThreadScheduledExecutor(factory);
@@ -116,7 +118,7 @@ public final class NeoForgeRewardReplayService implements AutoCloseable {
                     }
                     if (!users.isEmpty()) userOffset = (start + visited) % users.size();
                     CompletableFuture.allOf(work.toArray(CompletableFuture[]::new))
-                            .whenCompleteAsync((ignored, failure) -> {
+                            .whenComplete((ignored, failure) -> {
                                 try {
                                     ArrayList<ReplayResult> completed = new ArrayList<>(work.size());
                                     for (CompletableFuture<ReplayResult> item : work) completed.add(item.join());
@@ -126,7 +128,7 @@ public final class NeoForgeRewardReplayService implements AutoCloseable {
                                     scanning.set(false);
                                     result.completeExceptionally(completionFailure.getCause());
                                 }
-                            }, worker);
+                            });
                 } catch (Throwable failure) {
                     scanning.set(false);
                     result.completeExceptionally(failure);
@@ -246,6 +248,12 @@ public final class NeoForgeRewardReplayService implements AutoCloseable {
         try {
             worker.execute(finish);
         } catch (RuntimeException stopped) {
+            if (Thread.currentThread() == workerThread) {
+                // Shutdown can win between action admission and callback registration.
+                // This callback still owns the storage worker; finish before it exits.
+                finish.run();
+                return;
+            }
             claim.close();
             completion.completeExceptionally(stopped);
         }

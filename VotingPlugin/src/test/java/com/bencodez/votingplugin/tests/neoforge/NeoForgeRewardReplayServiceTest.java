@@ -1093,6 +1093,82 @@ class NeoForgeRewardReplayServiceTest {
     }
 
     @Test
+    void shutdownBeforeActionCallbackRegistrationClearsNeverStartedFenceOnWorker() throws Exception {
+        writeConfiguration(false);
+        UUID playerId = UUID.randomUUID();
+        UUID voteId = UUID.randomUUID();
+        AtomicInteger effects = new AtomicInteger();
+        AtomicReference<NeoForgeRewardReplayService> owner = new AtomicReference<>();
+        try (NeoForgeRuntime runtime = NeoForgeRuntimeAccess.start(directory);
+                NeoForgeRewardReplayService replay = service(runtime, (vote, plan) -> {
+                    var scheduled = NeoForgeServerSchedulerAccess.executeAsync(runtime.scheduler(), effects::incrementAndGet);
+                    runtime.scheduler().close();
+                    try {
+                        var field = NeoForgeRewardReplayService.class.getDeclaredField("worker");
+                        field.setAccessible(true);
+                        ((java.util.concurrent.ScheduledExecutorService) field.get(owner.get())).shutdown();
+                    } catch (ReflectiveOperationException failure) {
+                        throw new AssertionError(failure);
+                    }
+                    return scheduled;
+                })) {
+            owner.set(replay);
+            NeoForgePlayerDirectoryAccess.joined(runtime.players(), new SharedVoteIdentity(playerId, "Alex", true));
+            retain(runtime, voteId, playerId, "Service");
+            assertEquals(NeoForgeRewardReplayService.Status.REWARD_FAILED,
+                    replay.replayOnce().get(5, TimeUnit.SECONDS).get(0).status());
+            assertEquals(0, effects.get());
+            var retained = runtime.deferredVotes().pending(playerId).get(0);
+            assertEquals(voteId, retained.voteId());
+            assertFalse(retained.quarantined());
+            assertEquals(0, runtime.accounting().load(playerId).orElseThrow().allTimeTotal());
+        }
+    }
+
+    @Test
+    void fullRuntimeShutdownRejectsSelectedRewardBeforeClosingReplayAndStorage() throws Exception {
+        writeConfiguration(false);
+        UUID playerId = UUID.randomUUID();
+        UUID voteId = UUID.randomUUID();
+        RecordingActions cancelled = new RecordingActions();
+        NeoForgeRuntime runtime = NeoForgeRuntimeAccess.start(directory);
+        NeoForgeRewardReplayService replay = service(runtime, cancelled);
+        // Headless startup omits native replay. Install this test executor in the
+        // same lifecycle slot so runtime.close exercises the real teardown order.
+        var replayField = NeoForgeRuntime.class.getDeclaredField("rewardReplay");
+        replayField.setAccessible(true);
+        replayField.set(runtime, replay);
+        try (runtime) {
+            NeoForgePlayerDirectoryAccess.joined(runtime.players(), new SharedVoteIdentity(playerId, "Alex", true));
+            retain(runtime, voteId, playerId, "Service");
+            var result = replay.replayOnce();
+            assertTrue(cancelled.scheduled.await(5, TimeUnit.SECONDS));
+            Runnable selected = NeoForgeServerSchedulerShutdownTest.removeNextTask(runtime.scheduler());
+            runtime.close();
+            assertTrue(result.isDone(), "Close must resolve selected work before stopping replay and storage");
+            assertEquals(NeoForgeRewardReplayService.Status.REWARD_FAILED,
+                    result.get(5, TimeUnit.SECONDS).get(0).status());
+            selected.run();
+            assertTrue(cancelled.rendered.isEmpty());
+        }
+        RecordingActions recovered = new RecordingActions();
+        try (NeoForgeRuntime reopened = NeoForgeRuntimeAccess.start(directory);
+                NeoForgeRewardReplayService nextReplay = service(reopened, recovered)) {
+            var retained = reopened.deferredVotes().pending(playerId).get(0);
+            assertEquals(voteId, retained.voteId());
+            assertFalse(retained.quarantined(), "A never-started action must remain automatically replayable");
+            NeoForgePlayerDirectoryAccess.joined(reopened.players(), new SharedVoteIdentity(playerId, "Alex", true));
+            var result = nextReplay.replayOnce();
+            assertTrue(recovered.scheduled.await(5, TimeUnit.SECONDS));
+            reopened.scheduler().onServerTick();
+            assertEquals(NeoForgeRewardReplayService.Status.COMPLETED,
+                    result.get(5, TimeUnit.SECONDS).get(0).status());
+            assertEquals(1, recovered.rendered.size());
+            assertEquals(1, reopened.accounting().load(playerId).orElseThrow().allTimeTotal());
+        }
+    }
+
+    @Test
     void shutdownAfterRewardSelectionRetainsOriginalVoteForRestartReplay() throws Exception {
         writeConfiguration(false);
         UUID playerId = UUID.randomUUID();

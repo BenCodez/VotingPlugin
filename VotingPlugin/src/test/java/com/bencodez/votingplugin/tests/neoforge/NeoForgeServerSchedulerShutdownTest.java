@@ -11,6 +11,26 @@ import com.bencodez.votingplugin.neoforge.NeoForgeServerScheduler;
 
 class NeoForgeServerSchedulerShutdownTest {
     @Test
+    void closeRejectsSelectedAndQueuedTasksBeforeTickResumes() throws Exception {
+        var scheduler = new NeoForgeServerScheduler();
+        AtomicInteger effects = new AtomicInteger();
+        var first = NeoForgeServerSchedulerAccess.executeAsync(scheduler, effects::incrementAndGet);
+        var second = NeoForgeServerSchedulerAccess.executeAsync(scheduler, effects::incrementAndGet);
+        var queued = NeoForgeServerSchedulerAccess.executeAsync(scheduler, effects::incrementAndGet);
+        Runnable selectedFirst = removeNextTask(scheduler);
+        Runnable selectedSecond = removeNextTask(scheduler);
+        scheduler.close();
+        for (var result : java.util.List.of(first, second, queued)) {
+            assertTrue(result.isDone(), "Shutdown must resolve tasks without waiting for the tick to resume");
+            var failure = assertThrows(java.util.concurrent.CompletionException.class, result::join);
+            assertInstanceOf(java.util.concurrent.RejectedExecutionException.class, failure.getCause());
+        }
+        selectedFirst.run();
+        selectedSecond.run();
+        assertEquals(0, effects.get());
+    }
+
+    @Test
     void closeFromRunningTaskCancelsRemainingTasksWithoutDeadlock() {
         var scheduler = new NeoForgeServerScheduler();
         AtomicInteger effects = new AtomicInteger();
