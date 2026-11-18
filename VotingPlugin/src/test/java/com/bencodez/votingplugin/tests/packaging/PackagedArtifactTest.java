@@ -34,7 +34,7 @@ public class PackagedArtifactTest {
             assertNotNull(artifact.getEntry("plugin.yml"));
             assertNotNull(artifact.getEntry("META-INF/neoforge.mods.toml"));
             for (String name : java.util.List.of("Config.yml", "VoteSites.yml", "SpecialRewards.yml")) {
-                assertNotNull(artifact.getEntry("neoforge/" + name));
+                assertNotNull(artifact.getEntry(name));
             }
             String modMetadata = new String(artifact.getInputStream(
                     artifact.getEntry("META-INF/neoforge.mods.toml")).readAllBytes(), StandardCharsets.UTF_8);

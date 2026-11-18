@@ -2,6 +2,7 @@ package com.bencodez.votingplugin.neoforge;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.ByteArrayInputStream;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -144,14 +145,11 @@ public final class NeoForgeRuntime implements AutoCloseable {
     private static Path installDefault(Path directory, String name) throws IOException {
         Path target = directory.resolve(name);
         if (Files.notExists(target)) {
-            String resourceName = switch (name) {
-                case "Config.yml", "VoteSites.yml", "SpecialRewards.yml" -> "neoforge/" + name;
-                default -> name;
-            };
-            try (InputStream resource = NeoForgeRuntime.class.getClassLoader().getResourceAsStream(resourceName)) {
-                if (resource == null) throw new IOException("Missing packaged configuration: " + resourceName);
+            try (InputStream resource = NeoForgeRuntime.class.getClassLoader().getResourceAsStream(name)) {
+                if (resource == null) throw new IOException("Missing packaged configuration: " + name);
+                byte[] initial = NeoForgeConfigurationDefaults.fromShared(name, resource.readAllBytes());
                 try {
-                    Files.copy(resource, target);
+                    Files.copy(new ByteArrayInputStream(initial), target);
                 } catch (FileAlreadyExistsException ignored) {
                     // Another bootstrap installed the same file; load the installed file below.
                 }

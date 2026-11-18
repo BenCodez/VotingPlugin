@@ -30,6 +30,8 @@ class NeoForgeFirstRunConfigurationTest {
             assertFalse(runtime.config().node("UseVoteStreaks").getBoolean(true));
             assertEquals("NONE", runtime.config().node("VoteBroadcast", "Type").getString());
             assertTrue(runtime.voteConfiguration().voteSites().stream().noneMatch(NeoForgeVoteSite::enabled));
+            assertTrue(runtime.voteConfiguration().voteSites().stream().noneMatch(NeoForgeVoteSite::giveOfflineRewards));
+            assertFalse(runtime.voteSites().node("VoteSites", "ExampleVoteSite", "GiveOffline").getBoolean(true));
         }
         Path sitesFile = directory.resolve("VoteSites.yml");
         var loader = YamlConfigurationLoader.builder().path(sitesFile).build();
@@ -45,6 +47,19 @@ class NeoForgeFirstRunConfigurationTest {
                             true, true, true, NeoForgeVoteRequest.Scope.COMPLETE)).status());
             assertEquals(vote, runtime.deferredVotes().pending(player).get(0).voteId());
         }
+        try (NeoForgeRuntime runtime = NeoForgeRuntimeAccess.start(directory);
+                NeoForgeRewardReplayService replay = NeoForgeRewardReplayServiceAccess.create(
+                        runtime.voteConfiguration(), new NeoForgeRewardConfigurationAccess(runtime.config(),
+                                runtime.voteSites(), runtime.specialRewards()), runtime.accounting(),
+                        runtime.deferredVotes(), runtime.players(), (occurrence, plan) -> {
+                            fail("The default console reward must wait while the player is offline");
+                            return CompletableFuture.completedFuture(null);
+                        })) {
+            assertEquals(NeoForgeRewardReplayService.Status.WAITING_FOR_PLAYER,
+                    replay.replayOnce().get(5, TimeUnit.SECONDS).get(0).status());
+            assertEquals(vote, runtime.deferredVotes().pending(player).get(0).voteId());
+            assertEquals(0, runtime.accounting().load(player).map(NeoForgeVoteAccount::allTimeTotal).orElse(0));
+        }
         AtomicInteger actions = new AtomicInteger();
         try (NeoForgeRuntime runtime = NeoForgeRuntimeAccess.start(directory);
                 NeoForgeRewardReplayService replay = NeoForgeRewardReplayServiceAccess.create(
@@ -57,6 +72,7 @@ class NeoForgeFirstRunConfigurationTest {
                             actions.incrementAndGet();
                             return CompletableFuture.completedFuture(null);
                         })) {
+            NeoForgePlayerDirectoryAccess.joined(runtime.players(), new SharedVoteIdentity(player, "Alex", true));
             assertEquals(NeoForgeRewardReplayService.Status.COMPLETED,
                     replay.replayOnce().get(5, TimeUnit.SECONDS).get(0).status());
             assertEquals(1, actions.get());
@@ -160,5 +176,78 @@ class NeoForgeFirstRunConfigurationTest {
         assertTrue(config.node("UseVoteStreaks").getBoolean());
         assertEquals("EVERY_VOTE", config.node("VoteBroadcast", "Type").getString());
         assertTrue(rewards.node("VoteMilestones", "FirstVoteAllTime", "Enabled").getBoolean());
+    }
+
+    @Test
+    void freshFilesReuseSupportedSharedTemplateValues() throws Exception {
+        Path sharedFile = directory.resolve("shared.yml");
+        try (var resource = getClass().getClassLoader().getResourceAsStream("Config.yml")) {
+            Files.copy(resource, sharedFile);
+        }
+        var shared = YamlConfigurationLoader.builder().path(sharedFile).build().load();
+        var overridden = java.util.Set.of("CloseInventoryOnVote", "UseVoteStreaks", "PerSiteCoolDownEvents",
+                "LimitMonthlyVotes", "OfflineVotesLimit", "VoteBroadcast");
+        try (NeoForgeRuntime runtime = NeoForgeRuntimeAccess.start(directory)) {
+            for (var entry : shared.childrenMap().entrySet()) {
+                if (!overridden.contains(String.valueOf(entry.getKey()))) {
+                    assertEquals(entry.getValue().raw(), runtime.config().node(entry.getKey()).raw(),
+                            "Shared supported setting: " + entry.getKey());
+                }
+            }
+            assertEquals(shared.node("OfflineVotesLimit", "Amount").raw(),
+                    runtime.config().node("OfflineVotesLimit", "Amount").raw());
+            assertEquals(shared.node("VoteBroadcast", "Format").raw(),
+                    runtime.config().node("VoteBroadcast", "Format").raw());
+        }
+    }
+
+    @Test
+    void copiedBukkitFilesAndExplicitOfflineChoicesArePreserved() throws Exception {
+        for (String name : List.of("Config.yml", "VoteSites.yml", "SpecialRewards.yml")) {
+            try (var resource = getClass().getClassLoader().getResourceAsStream(name)) {
+                Files.copy(resource, directory.resolve(name));
+            }
+        }
+        Path sitesFile = directory.resolve("VoteSites.yml");
+        var loader = YamlConfigurationLoader.builder().path(sitesFile).build();
+        var sites = loader.load();
+        sites.node("VoteSites", "ExampleVoteSite", "ForceOffline").set(true);
+        sites.node("VoteSites", "ExampleVoteSite", "GiveOffline").set(false);
+        loader.save(sites);
+        var originals = new java.util.HashMap<String, String>();
+        for (String name : List.of("Config.yml", "VoteSites.yml", "SpecialRewards.yml")) {
+            originals.put(name, Files.readString(directory.resolve(name)));
+        }
+        for (int restart = 0; restart < 2; restart++) {
+            try (NeoForgeRuntime runtime = NeoForgeRuntimeAccess.start(directory)) {
+                var site = runtime.voteConfiguration().voteSites().stream()
+                        .filter(value -> value.key().equals("ExampleVoteSite")).findFirst().orElseThrow();
+                assertTrue(site.giveOfflineRewards(), "Explicit canonical key takes precedence over legacy alias");
+                for (var entry : originals.entrySet()) {
+                    assertEquals(entry.getValue(), Files.readString(directory.resolve(entry.getKey())));
+                }
+            }
+        }
+    }
+
+    @Test
+    void omittedOfflineKeysDefaultFalseAndLegacyAliasMatchesBukkitPrecedence() throws Exception {
+        String[] options = { "", "    GiveOffline: false\n", "    GiveOffline: true\n",
+                "    GiveOffline: true\n    ForceOffline: false\n",
+                "    GiveOffline: false\n    ForceOffline: true\n" };
+        boolean[] expected = { false, false, true, false, true };
+        for (int i = 0; i < options.length; i++) {
+            Path installation = directory.resolve("case" + i);
+            Files.createDirectories(installation);
+            String yaml = "VoteSites:\n  ExampleVoteSite:\n    Enabled: true\n    ServiceSite: PlanetMinecraft.com\n"
+                    + options[i];
+            Files.writeString(installation.resolve("VoteSites.yml"), yaml);
+            try (NeoForgeRuntime runtime = NeoForgeRuntimeAccess.start(installation)) {
+                var site = runtime.voteConfiguration().resolveEnabledSite("PlanetMinecraft.com").orElseThrow();
+                assertEquals(expected[i], site.giveOfflineRewards());
+                assertEquals(expected[i], runtime.voteConfiguration().policyFor(site).giveOfflineRewards());
+            }
+            assertEquals(yaml, Files.readString(installation.resolve("VoteSites.yml")));
+        }
     }
 }
