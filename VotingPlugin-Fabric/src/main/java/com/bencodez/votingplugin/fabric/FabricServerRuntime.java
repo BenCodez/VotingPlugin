@@ -22,11 +22,18 @@ final class FabricServerRuntime implements AutoCloseable {
     private final BooleanSupplier onServerThread;
     private final Function<UUID, Optional<SharedVoteIdentity>> lookup;
     private final Queue<Request> pending = new ArrayDeque<>();
+    private final FabricVoteSites voteSites;
     private boolean closed;
 
-    FabricServerRuntime(BooleanSupplier onServerThread, Function<UUID, Optional<SharedVoteIdentity>> lookup) {
+    FabricServerRuntime(BooleanSupplier onServerThread, Function<UUID, Optional<SharedVoteIdentity>> lookup,
+            FabricVoteSites voteSites) {
         this.onServerThread = onServerThread;
         this.lookup = lookup;
+        this.voteSites = voteSites;
+    }
+
+    Optional<FabricVoteSite> resolveVoteSite(String identifier) {
+        return voteSites.resolve(identifier);
     }
 
     synchronized CompletableFuture<Optional<SharedVoteIdentity>> onlinePlayer(UUID uuid) {

@@ -32,8 +32,9 @@ public final class FabricVotingPlugin implements DedicatedServerModInitializer {
             throw new UncheckedIOException("VotingPlugin Fabric configuration initialization failed", failure);
         }
 
+        FabricVoteSites voteSites = loadVoteSites();
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
-            runtime = new FabricServerRuntime(server::isSameThread, uuid -> findPlayer(server, uuid));
+            runtime = new FabricServerRuntime(server::isSameThread, uuid -> findPlayer(server, uuid), voteSites);
             if (configuration.logLifecycle()) {
                 LOGGER.info("VotingPlugin Fabric started (bootstrap only; voting, persistence, commands, proxy delivery and rewards unavailable)");
             }
@@ -54,6 +55,24 @@ public final class FabricVotingPlugin implements DedicatedServerModInitializer {
                 }
             }
         });
+    }
+
+    private static FabricVoteSites loadVoteSites() {
+        try {
+            FabricVoteSites sites = FabricVoteSites.load(FabricLoader.getInstance().getConfigDir());
+            if (sites.ambiguousAliases()) {
+                LOGGER.warn("VotingPlugin Fabric VoteSites.yml contains ambiguous aliases; priority and file order determine matches");
+            }
+            if (!sites.sites().isEmpty()) {
+                LOGGER.info("VotingPlugin Fabric loaded {} read-only vote site rules", sites.sites().size());
+            }
+            return sites;
+        } catch (FabricVoteSites.InvalidSitesException invalid) {
+            LOGGER.warn("VotingPlugin Fabric rejected VoteSites.yml ({}); vote site rules disabled", invalid.getMessage());
+        } catch (IOException unreadable) {
+            LOGGER.warn("VotingPlugin Fabric could not read VoteSites.yml; vote site rules disabled");
+        }
+        return FabricVoteSites.EMPTY;
     }
 
     CompletableFuture<Optional<SharedVoteIdentity>> onlinePlayer(UUID uuid) {

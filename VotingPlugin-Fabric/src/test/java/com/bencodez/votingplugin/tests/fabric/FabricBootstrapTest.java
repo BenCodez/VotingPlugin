@@ -56,14 +56,17 @@ class FabricBootstrapTest {
         Thread owner = Thread.currentThread();
         UUID player = UUID.randomUUID();
         var identity = new SharedVoteIdentity(player, "ExamplePlayer", true);
+        var sitesType = Class.forName(PACKAGE + "FabricVoteSites");
+        var empty = sitesType.getDeclaredField("EMPTY");
+        empty.setAccessible(true);
         var constructor = Class.forName(PACKAGE + "FabricServerRuntime")
-                .getDeclaredConstructor(BooleanSupplier.class, Function.class);
+                .getDeclaredConstructor(BooleanSupplier.class, Function.class, sitesType);
         constructor.setAccessible(true);
         Object runtime = constructor.newInstance((BooleanSupplier) () -> Thread.currentThread() == owner,
                 (Function<UUID, Optional<SharedVoteIdentity>>) uuid -> {
                     assertSame(owner, Thread.currentThread());
                     return player.equals(uuid) ? Optional.of(identity) : Optional.empty();
-                });
+                }, empty.get(null));
 
         var submitted = new AtomicReference<CompletableFuture<?>>();
         var failure = new AtomicReference<Throwable>();
