@@ -37,7 +37,9 @@ final class NeoForgeConfigurationDefaults {
                 for (var site : node.node("VoteSites").childrenMap().values()) {
                     site.node("ForceOffline").set(false);
                     site.node("GiveOffline").set(false);
-                    site.node("Rewards").set(java.util.Map.of("Commands", List.of("say %player% voted")));
+                    var commands = site.node("Rewards", "Commands").copy();
+                    site.node("Rewards").set(java.util.Map.of());
+                    site.node("Rewards", "Commands").set(commands);
                 }
             }
             default -> throw new IllegalStateException("Unexpected default template");

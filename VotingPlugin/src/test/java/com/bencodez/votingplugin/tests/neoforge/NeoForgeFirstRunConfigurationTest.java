@@ -185,6 +185,11 @@ class NeoForgeFirstRunConfigurationTest {
             Files.copy(resource, sharedFile);
         }
         var shared = YamlConfigurationLoader.builder().path(sharedFile).build().load();
+        Path sharedSitesFile = directory.resolve("shared-sites.yml");
+        try (var resource = getClass().getClassLoader().getResourceAsStream("VoteSites.yml")) {
+            Files.copy(resource, sharedSitesFile);
+        }
+        var sharedSites = YamlConfigurationLoader.builder().path(sharedSitesFile).build().load();
         var overridden = java.util.Set.of("CloseInventoryOnVote", "UseVoteStreaks", "PerSiteCoolDownEvents",
                 "LimitMonthlyVotes", "OfflineVotesLimit", "VoteBroadcast");
         try (NeoForgeRuntime runtime = NeoForgeRuntimeAccess.start(directory)) {
@@ -198,6 +203,18 @@ class NeoForgeFirstRunConfigurationTest {
                     runtime.config().node("OfflineVotesLimit", "Amount").raw());
             assertEquals(shared.node("VoteBroadcast", "Format").raw(),
                     runtime.config().node("VoteBroadcast", "Format").raw());
+            for (var entry : sharedSites.node("VoteSites").childrenMap().entrySet()) {
+                var actual = runtime.voteSites().node("VoteSites", entry.getKey());
+                assertEquals(entry.getValue().node("Rewards", "Commands").raw(),
+                        actual.node("Rewards", "Commands").raw(), "Preserve supported shared commands");
+                assertEquals(java.util.Set.of("Commands"), actual.node("Rewards").childrenMap().keySet());
+                for (var field : entry.getValue().childrenMap().entrySet()) {
+                    if (!java.util.Set.of("Rewards", "ForceOffline", "GiveOffline").contains(field.getKey())) {
+                        assertEquals(field.getValue().raw(), actual.node(field.getKey()).raw(),
+                                "Preserve shared site field: " + field.getKey());
+                    }
+                }
+            }
         }
     }
 
