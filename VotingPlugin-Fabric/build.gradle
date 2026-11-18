@@ -27,6 +27,11 @@ tasks.withType(JavaCompile).configureEach {
     options.release = 21
 }
 
+// Compile only the platform-neutral identity shared with the other adapters.
+tasks.named('compileJava', JavaCompile) {
+    source('../VotingPlugin/src/main/java/com/bencodez/votingplugin/core/vote/SharedVoteIdentity.java')
+}
+
 processResources {
     inputs.property 'version', project.version
     filesMatching('fabric.mod.json') {

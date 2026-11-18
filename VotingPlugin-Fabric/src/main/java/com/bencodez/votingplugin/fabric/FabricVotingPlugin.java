@@ -7,6 +7,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.RejectedExecutionException;
 
+import com.bencodez.votingplugin.core.vote.SharedVoteIdentity;
+
 import net.fabricmc.api.DedicatedServerModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
@@ -54,7 +56,7 @@ public final class FabricVotingPlugin implements DedicatedServerModInitializer {
         });
     }
 
-    CompletableFuture<Optional<FabricServerRuntime.PlayerIdentity>> onlinePlayer(UUID uuid) {
+    CompletableFuture<Optional<SharedVoteIdentity>> onlinePlayer(UUID uuid) {
         FabricServerRuntime active = runtime;
         if (active == null) {
             return CompletableFuture.failedFuture(new RejectedExecutionException("Fabric server runtime is inactive"));
@@ -62,9 +64,9 @@ public final class FabricVotingPlugin implements DedicatedServerModInitializer {
         return active.onlinePlayer(uuid);
     }
 
-    private static Optional<FabricServerRuntime.PlayerIdentity> findPlayer(MinecraftServer server, UUID uuid) {
+    private static Optional<SharedVoteIdentity> findPlayer(MinecraftServer server, UUID uuid) {
         ServerPlayer player = server.getPlayerList().getPlayer(uuid);
         return Optional.ofNullable(player)
-                .map(online -> new FabricServerRuntime.PlayerIdentity(online.getUUID(), online.getGameProfile().getName()));
+                .map(online -> new SharedVoteIdentity(online.getUUID(), online.getGameProfile().getName(), true));
     }
 }

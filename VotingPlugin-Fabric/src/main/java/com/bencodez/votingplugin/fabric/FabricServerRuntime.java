@@ -12,28 +12,30 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 
+import com.bencodez.votingplugin.core.vote.SharedVoteIdentity;
+
 /** Runs live player lookups on the owning server's tick thread. */
 final class FabricServerRuntime implements AutoCloseable {
     private static final int MAX_PENDING = 256;
     private static final int LOOKUPS_PER_TICK = 32;
 
     private final BooleanSupplier onServerThread;
-    private final Function<UUID, Optional<PlayerIdentity>> lookup;
+    private final Function<UUID, Optional<SharedVoteIdentity>> lookup;
     private final Queue<Request> pending = new ArrayDeque<>();
     private boolean closed;
 
-    FabricServerRuntime(BooleanSupplier onServerThread, Function<UUID, Optional<PlayerIdentity>> lookup) {
+    FabricServerRuntime(BooleanSupplier onServerThread, Function<UUID, Optional<SharedVoteIdentity>> lookup) {
         this.onServerThread = onServerThread;
         this.lookup = lookup;
     }
 
-    synchronized CompletableFuture<Optional<PlayerIdentity>> onlinePlayer(UUID uuid) {
+    synchronized CompletableFuture<Optional<SharedVoteIdentity>> onlinePlayer(UUID uuid) {
         Objects.requireNonNull(uuid, "uuid");
         if (closed || pending.size() >= MAX_PENDING) {
             return CompletableFuture.failedFuture(new RejectedExecutionException(
                     closed ? "Fabric server runtime has stopped" : "Fabric player lookup queue is full"));
         }
-        var result = new CompletableFuture<Optional<PlayerIdentity>>();
+        var result = new CompletableFuture<Optional<SharedVoteIdentity>>();
         pending.add(new Request(uuid, result));
         return result;
     }
@@ -78,9 +80,6 @@ final class FabricServerRuntime implements AutoCloseable {
         }
     }
 
-    record PlayerIdentity(UUID uuid, String name) {
-    }
-
-    private record Request(UUID uuid, CompletableFuture<Optional<PlayerIdentity>> result) {
+    private record Request(UUID uuid, CompletableFuture<Optional<SharedVoteIdentity>> result) {
     }
 }

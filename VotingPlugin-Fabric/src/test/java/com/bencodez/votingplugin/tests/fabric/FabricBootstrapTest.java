@@ -15,6 +15,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 
+import com.bencodez.votingplugin.core.vote.SharedVoteIdentity;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -53,15 +55,12 @@ class FabricBootstrapTest {
     void dispatchesIdentityLookupOnOwnerAndRejectsUnfinishedWorkOnStop() throws Throwable {
         Thread owner = Thread.currentThread();
         UUID player = UUID.randomUUID();
-        var identityConstructor = Class.forName(PACKAGE + "FabricServerRuntime$PlayerIdentity")
-                .getDeclaredConstructor(UUID.class, String.class);
-        identityConstructor.setAccessible(true);
-        Object identity = identityConstructor.newInstance(player, "ExamplePlayer");
+        var identity = new SharedVoteIdentity(player, "ExamplePlayer", true);
         var constructor = Class.forName(PACKAGE + "FabricServerRuntime")
                 .getDeclaredConstructor(BooleanSupplier.class, Function.class);
         constructor.setAccessible(true);
         Object runtime = constructor.newInstance((BooleanSupplier) () -> Thread.currentThread() == owner,
-                (Function<UUID, Optional<?>>) uuid -> {
+                (Function<UUID, Optional<SharedVoteIdentity>>) uuid -> {
                     assertSame(owner, Thread.currentThread());
                     return player.equals(uuid) ? Optional.of(identity) : Optional.empty();
                 });
