@@ -27,6 +27,7 @@ final class NeoForgeConfigurationDefaults {
             }
             case "SpecialRewards.yml" -> {
                 node.node("VoteParty", "Enabled").set(false);
+                node.node("EnableMonthlyAwards").set(false);
                 for (String key : List.of("AnySiteRewards", "VoteCoolDownEndedReward", "VoteMilestones",
                         "VoteStreaks", "VoteStreak", "Cumulative", "MileStones", "FirstVote",
                         "FirstVoteToday", "AllSites", "AlmostAllSites")) node.node(key).set(java.util.Map.of());

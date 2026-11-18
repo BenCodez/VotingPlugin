@@ -28,6 +28,7 @@ class NeoForgeFirstRunConfigurationTest {
         try (NeoForgeRuntime runtime = NeoForgeRuntimeAccess.start(directory)) {
             assertFalse(runtime.config().node("CloseInventoryOnVote").getBoolean(true));
             assertFalse(runtime.config().node("UseVoteStreaks").getBoolean(true));
+            assertFalse(runtime.specialRewards().node("EnableMonthlyAwards").getBoolean(true));
             assertEquals("NONE", runtime.config().node("VoteBroadcast", "Type").getString());
             assertTrue(runtime.voteConfiguration().voteSites().stream().noneMatch(NeoForgeVoteSite::enabled));
             assertTrue(runtime.voteConfiguration().voteSites().stream().noneMatch(NeoForgeVoteSite::giveOfflineRewards));
@@ -93,7 +94,8 @@ class NeoForgeFirstRunConfigurationTest {
         String config = "# Operator configuration\nDataStorage: SQLITE\nCloseInventoryOnVote: true\n";
         Files.writeString(directory.resolve("Config.yml"), config);
         Files.writeString(directory.resolve("VoteSites.yml"), "# Existing sites\nVoteSites: {}\n");
-        Files.writeString(directory.resolve("SpecialRewards.yml"), "# Existing rewards\nFirstVote: {}\n");
+        Files.writeString(directory.resolve("SpecialRewards.yml"),
+                "# Existing rewards\nEnableMonthlyAwards: true\nFirstVote: {}\n");
         List<Path> files = List.of(directory.resolve("Config.yml"), directory.resolve("VoteSites.yml"),
                 directory.resolve("SpecialRewards.yml"));
         List<String> before = files.stream().map(path -> {
@@ -103,6 +105,7 @@ class NeoForgeFirstRunConfigurationTest {
             try (NeoForgeRuntime runtime = NeoForgeRuntimeAccess.start(directory)) {
                 assertTrue(runtime.config().node("CloseInventoryOnVote").getBoolean());
                 assertTrue(runtime.specialRewards().node("VoteMilestones").virtual());
+                assertTrue(runtime.specialRewards().node("EnableMonthlyAwards").getBoolean());
             }
         }
         for (int i = 0; i < files.size(); i++) assertEquals(before.get(i), Files.readString(files.get(i)));
@@ -176,6 +179,7 @@ class NeoForgeFirstRunConfigurationTest {
         assertTrue(config.node("UseVoteStreaks").getBoolean());
         assertEquals("EVERY_VOTE", config.node("VoteBroadcast", "Type").getString());
         assertTrue(rewards.node("VoteMilestones", "FirstVoteAllTime", "Enabled").getBoolean());
+        assertTrue(rewards.node("EnableMonthlyAwards").getBoolean());
     }
 
     @Test
