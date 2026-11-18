@@ -175,6 +175,8 @@ class VoteSiteScalarReadTest {
         site.set("votedelaymin", 30);
         assertEquals(5_400_000L,
                 config.getVoteDelay("Example").getMillis());
+        site.set("votedelay", "nonsense");
+        assertTrue(assertDoesNotThrow(() -> config.getVoteDelay("Example")).isEmpty());
     }
 
     @Test void exactConfigWritesStillSelectNativeRewardsAndNeverFoldLeafTargets() {
@@ -223,7 +225,7 @@ class VoteSiteScalarReadTest {
                 ConfigVoteSites config = config(yaml, folded);
                 doNothing().when(config).saveData();
                 config.setEnabled("Example", false);
-                assertFalse(yaml.getBoolean("VoteSites.Example.Enabled"), "native exact setter wrote false");
+                assertEquals(Boolean.FALSE, yaml.get("VoteSites.Example.Enabled", null), "native exact setter wrote false");
                 assertFalse(config.getVoteSiteEnabled("Example"), "setter/readback must agree");
                 if (lower) assertTrue(yaml.getBoolean("VoteSites.Example.enabled"), "exact writes retain sibling");
             }

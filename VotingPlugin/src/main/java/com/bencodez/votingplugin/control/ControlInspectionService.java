@@ -183,17 +183,19 @@ public final class ControlInspectionService {
 			String fullService = reads.getString("ServiceSite", "");
 			String service = safe(fullService, 64);
 			ServiceHealth health = logged.get(lower(fullService));
+			Object enabledValue = reads.get("Enabled");
+			boolean enabled = enabledValue == null || Boolean.TRUE.equals(enabledValue);
 			JsonObject row = new JsonObject();
 			row.addProperty("key", safe(name, 64));
-			row.addProperty("displayName", safe(site.getString("Name", name), 100));
+			row.addProperty("displayName", safe(reads.getString("Name", name), 100));
 			row.addProperty("serviceSite", service);
-			row.addProperty("enabled", reads.getBoolean("Enabled", true));
-			row.addProperty("hidden", site.getBoolean("Hidden", false));
-			row.addProperty("priority", site.getInt("Priority", 5));
-			row.addProperty("voteDelay", safe(String.valueOf(site.get("VoteDelay", "24h")), 80));
+			row.addProperty("enabled", enabled);
+			row.addProperty("hidden", reads.getBoolean("Hidden", false));
+			row.addProperty("priority", reads.getInt("Priority", 5));
+			row.addProperty("voteDelay", safe(String.valueOf(reads.get("VoteDelay", "24h")), 80));
 			row.addProperty("hasRewards", hasRewardConfiguration(site));
 			if (voteLogReadable) addHealth(row, health);
-			row.addProperty("status", !reads.getBoolean("Enabled", true) ? "DISABLED"
+			row.addProperty("status", !enabled ? "DISABLED"
 					: fullService.isBlank() ? "SERVICE_SITE_MISSING"
 					: !voteLoggingAvailable ? "VOTE_LOG_UNAVAILABLE"
 					: !voteLogReadable ? "VOTE_LOG_UNREADABLE"
@@ -632,9 +634,11 @@ public final class ControlInspectionService {
 		String getString(String leaf, String fallback) { return section.getString(key(leaf), fallback); }
 		boolean getBoolean(String leaf) { return section.getBoolean(key(leaf)); }
 		boolean getBoolean(String leaf, boolean fallback) { return section.getBoolean(key(leaf), fallback); }
+		int getInt(String leaf, int fallback) { return section.getInt(key(leaf), fallback); }
 		boolean contains(String leaf) { return section.contains(key(leaf)); }
 		boolean isBoolean(String leaf) { return section.isBoolean(key(leaf)); }
 		Object get(String leaf) { return section.get(key(leaf)); }
+		Object get(String leaf, Object fallback) { return section.get(key(leaf), fallback); }
 		private com.bencodez.simpleapi.time.ParsedDuration voteDelay() {
 			if (section.isString(key("VoteDelay"))) {
 				return com.bencodez.simpleapi.time.ParsedDuration.parse(

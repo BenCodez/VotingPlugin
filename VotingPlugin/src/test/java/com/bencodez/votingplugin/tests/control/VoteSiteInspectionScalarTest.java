@@ -168,4 +168,52 @@ class VoteSiteInspectionScalarTest {
             assertFalse(row.get("enabled").getAsBoolean());
         }
     }
+
+    @Test void healthScalarFieldsFollowFilePolicyAndKeepRawDelayFormat() {
+        for (boolean folded : new boolean[] {false, true}) {
+            for (boolean lower : new boolean[] {false, true}) {
+                for (Object rawDelay : new Object[] {"2h", 2, true}) {
+                    Fixture f = fixture(folded);
+                    var site = f.yaml.createSection("VoteSites.Example");
+                    site.set("ServiceSite", "route.example");
+                    site.set(lower ? "name" : "Name", "Public label");
+                    site.set(lower ? "hidden" : "Hidden", true);
+                    site.set(lower ? "priority" : "Priority", 7);
+                    site.set(lower ? "votedelay" : "VoteDelay", rawDelay);
+                    String before = f.yaml.saveToString();
+                    JsonObject row = f.inspect("vote-site-health").getAsJsonArray("sites").get(0).getAsJsonObject();
+                    boolean found = folded || !lower;
+                    assertEquals(found ? "Public label" : "Example", row.get("displayName").getAsString());
+                    assertEquals(found, row.get("hidden").getAsBoolean());
+                    assertEquals(found ? 7 : 5, row.get("priority").getAsInt());
+                    assertEquals(found ? String.valueOf(rawDelay) : "24h", row.get("voteDelay").getAsString());
+                    assertEquals(before, f.yaml.saveToString());
+                }
+            }
+        }
+    }
+
+    @Test void healthInvalidEnabledIsDisabledButAbsentKeepsTrueFallback() {
+        for (boolean folded : new boolean[] {false, true}) {
+            Fixture f = fixture(folded);
+            var site = f.yaml.createSection("VoteSites.Example");
+            site.set("ServiceSite", "route.example");
+            for (Object invalid : new Object[] {"invalid boolean", 0, List.of(true)}) {
+                site.set(folded ? "enabled" : "Enabled", invalid);
+                JsonObject row = f.inspect("vote-site-health").getAsJsonArray("sites").get(0).getAsJsonObject();
+                assertFalse(f.sites.getVoteSiteEnabled("Example"));
+                assertFalse(row.get("enabled").getAsBoolean());
+                assertEquals("DISABLED", row.get("status").getAsString());
+            }
+            site.set("enabled", true);
+            site.set("Enabled", "invalid boolean");
+            JsonObject row = f.inspect("vote-site-health").getAsJsonArray("sites").get(0).getAsJsonObject();
+            assertFalse(row.get("enabled").getAsBoolean(), "invalid canonical key must not select valid folded sibling");
+            site.set("enabled", null);
+            site.set("Enabled", null);
+            row = f.inspect("vote-site-health").getAsJsonArray("sites").get(0).getAsJsonObject();
+            assertTrue(row.get("enabled").getAsBoolean());
+            assertEquals("VOTE_LOG_UNAVAILABLE", row.get("status").getAsString());
+        }
+    }
 }
