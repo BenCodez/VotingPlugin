@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "votingplugin",
+  "version": "${version}",
+  "name": "VotingPlugin Fabric Bootstrap",
+  "description": "Dedicated server lifecycle, configuration, and online player identity for VotingPlugin.",
+  "environment": "server",
+  "entrypoints": {
+    "server": ["com.bencodez.votingplugin.fabric.FabricVotingPlugin"]
+  },
+  "depends": {
+    "java": ">=21",
+    "minecraft": "1.21.1",
+    "fabricloader": ">=0.16.14",
+    "fabric-api": ">=0.116.5+1.21.1"
+  }
+}
