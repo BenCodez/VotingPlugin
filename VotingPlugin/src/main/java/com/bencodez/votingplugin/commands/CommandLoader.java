@@ -2211,6 +2211,47 @@ public class CommandLoader {
 					});
 		}
 
+		// /av votemilestone check <player>
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(plugin, new String[] { "VoteMilestone&VM", "Check", "(player)" },
+						"VotingPlugin.Commands.AdminVote.VoteMilestone.Check|" + adminPerm,
+						"Check current vote totals for eligible milestone rewards (respects limits)") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						String player = args[2];
+						try {
+							plugin.getUserManager().getDataManager().getTimer().execute(() -> {
+								try {
+									if (!plugin.isEnabled()) return;
+									if (plugin.getBungeeSettings().isUseBungeecoord()) {
+										runForCommandSender(sender, () -> sendMessage(sender,
+												"&cMilestone checks are unavailable in proxy mode; local totals are not authoritative."));
+										return;
+									}
+									VoteMilestonesManager vm = plugin.getVoteMilestonesManager();
+									if (vm == null) {
+										runForCommandSender(sender, () -> sendMessage(sender, "&cVoteMilestonesManager is not available"));
+										return;
+									}
+									VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
+									vm.checkCurrentVoteTotals(user);
+									runForCommandSender(sender, () -> sendMessage(sender,
+											"&aMilestone eligibility checked at current totals. This does not confirm reward delivery."));
+								} catch (RuntimeException failure) {
+									plugin.debug(failure);
+									runForCommandSender(sender, () -> sendMessage(sender,
+											"&cMilestone check failed; rewards may have been submitted. Check console before retrying."));
+								}
+							});
+						} catch (RuntimeException failure) {
+							plugin.debug(failure);
+							runForCommandSender(sender, () -> sendMessage(sender,
+									"&cUnable to schedule milestone check; no check was performed."));
+						}
+					}
+				});
+
 		// /av votemilestone forcegroup <player> <group>
 		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(plugin,
