@@ -6,7 +6,7 @@ license="CC BY 3.0"
 modId="votingplugin"
 version="${project.version}"
 displayName="VotingPlugin"
-description="VotingPlugin NeoForge bootstrap (vote processing is not available yet)."
+description="Experimental VotingPlugin NeoForge support for authenticated proxy votes and limited reward replay."
 
 [[dependencies.votingplugin]]
 modId="neoforge"
