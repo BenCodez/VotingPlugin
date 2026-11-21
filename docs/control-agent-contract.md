@@ -229,11 +229,11 @@ Content-Type: application/json
 ```
 
 A `204` means no work. A `200` task contains `deploymentId`, `artifactId`, lowercase SHA-256 `sha256`, byte
-`size`, and `attemptId`. Artifact size is limited to 64 MiB. The node downloads the exact leased artifact with:
+`size`, and `attemptId`. Artifact size is limited to 64 MiB. The node downloads the exact leased artifact using its
+node-bound bearer authentication and these session/attempt headers:
 
 ```http
 GET /api/v1/nodes/{nodeId}/deployments/{deploymentId}/artifact
-Authorization: Bearer <node credential>
 X-Node-Session: <connector-session-uuid>
 X-Deployment-Attempt: <attemptId>
 ```
@@ -535,7 +535,7 @@ Untrustworthy task identifiers remain protocol failures and are never used for r
 ## VoteLog interpretation
 
 VoteLogging is optional and SQL-backed; a dependent query returns `UNAVAILABLE` when it is disabled, lacks an initialized
-adapter, or fails its readability probe. The quick setup updates and reloads `Config.yml`, but it does not recreate or
+adapter, fails its readability probe, or a subsequent bounded VoteLog query fails. The quick setup updates and reloads `Config.yml`, but it does not recreate or
 close the runtime VoteLog manager. A server restart is therefore required after either `VoteLogging.Enabled` transition.
 Until then, disabling immediately gates any stale adapter and reports unavailable/readable false, while enabling a
 previously disabled instance can report enabled true but available false.
@@ -543,11 +543,12 @@ The exposed rows are selected **logged events**: `VOTE_RECEIVED`, `VOTEMILESTONE
 `TOP_VOTER_REWARD`, and `VOTESHOP_PURCHASE`. `IMMEDIATE` and `CACHED` describe recorded processing status.
 
 `overview`, `diagnostics`, and vote-site health distinguish configured, enabled-and-adapter-available, and currently readable state.
-`voteLogReadable` runs a bounded probe with a 10-second JDBC statement timeout. Existing VoteLog table methods catch SQL
-failures and return empty/zero values, so the inspection layer probes first: summary/search/trace fail `UNAVAILABLE` when
-the probe fails, and health skips aggregates and labels each applicable row unavailable/unreadable. The probe is
-point-in-time; a later SQL failure can still trigger a legacy empty/zero fallback, so it is not a transactional health
-guarantee.
+`voteLogReadable` runs a bounded probe with a 10-second JDBC statement timeout. The inspection layer probes first: summary/search/trace fail `UNAVAILABLE` when
+the probe fails, and health skips aggregates and labels each applicable row unavailable/unreadable. During an inspection,
+a later SQL read failure also returns `UNAVAILABLE` rather than serializing an empty list or zero aggregate as successful
+data. The strict read scope is confined to the calling inspection worker and is restored on every exit; ordinary VoteLog
+callers retain their existing empty/zero fallbacks. A genuine empty query remains a successful empty result. The probe
+remains point-in-time and does not promise a transactional snapshot across multiple queries.
 
 A `voteId` correlates rows written with the same identifier. It is not a complete delivery trace: VoteLog does not promise
 an entry for every validation rejection, network hop, duplicate decision, reward command, command outcome, or expiry. UI

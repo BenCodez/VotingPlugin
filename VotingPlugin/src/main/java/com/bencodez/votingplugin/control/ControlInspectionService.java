@@ -75,7 +75,7 @@ public final class ControlInspectionService {
 		String kind = requiredString(query, "kind", 64);
 		if (!KINDS.contains(kind)) throw new IllegalArgumentException("inspection kind is unsupported");
 		JsonObject filters = optionalObject(query, "filters");
-		JsonObject result = switch (kind) {
+		JsonObject result = com.bencodez.votingplugin.votelog.VoteLogReadScope.read(() -> switch (kind) {
 		case "overview" -> overview(filters);
 		case "vote-site-health" -> voteSiteHealth(filters);
 		case "player" -> player(filters);
@@ -88,7 +88,7 @@ public final class ControlInspectionService {
 		case "diagnostics" -> diagnostics(filters);
 		case "network-health" -> networkHealth(filters);
 		default -> throw new IllegalArgumentException("inspection kind is unsupported");
-		};
+		}, () -> { throw new InspectionUnavailableException("vote log query is unavailable"); });
 		JsonObject envelope = new JsonObject();
 		envelope.addProperty("schemaVersion", SCHEMA_VERSION);
 		envelope.addProperty("kind", kind);

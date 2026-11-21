@@ -181,6 +181,7 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 				return out;
 			}
 		} catch (SQLException e) {
+			VoteLogReadScope.queryFailed();
 			debug(e);
 			return java.util.Collections.emptyList();
 		}
@@ -262,6 +263,7 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 			rs.close();
 			return out;
 		} catch (SQLException e) {
+			VoteLogReadScope.queryFailed();
 			debug(e);
 			return java.util.Collections.emptyList();
 		}
@@ -859,6 +861,7 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 				return out;
 			}
 		} catch (SQLException e) {
+			VoteLogReadScope.queryFailed();
 			debug(e);
 			return java.util.Collections.emptyList();
 		}
@@ -896,6 +899,7 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 				return List.copyOf(result);
 			}
 		} catch (SQLException e) {
+			VoteLogReadScope.queryFailed();
 			debug(e);
 			return List.of();
 		}
@@ -941,6 +945,7 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 				return List.copyOf(result);
 			}
 		} catch (SQLException e) {
+			VoteLogReadScope.queryFailed();
 			debug(e);
 			return List.of();
 		}
@@ -1263,6 +1268,7 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 				}
 			}
 		} catch (SQLException e) {
+			VoteLogReadScope.queryFailed();
 			debug(e);
 		}
 
@@ -1311,6 +1317,7 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 				}
 			}
 		} catch (SQLException e) {
+			VoteLogReadScope.queryFailed();
 			debug(e);
 		}
 		return 0;
@@ -1367,6 +1374,7 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 			rs.close();
 			return out;
 		} catch (SQLException e) {
+			VoteLogReadScope.queryFailed();
 			debug(e);
 			return java.util.Collections.emptyList();
 		}
@@ -1404,6 +1412,7 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 			rs.close();
 			return out;
 		} catch (SQLException e) {
+			VoteLogReadScope.queryFailed();
 			debug(e);
 			return java.util.Collections.emptyList();
 		}
