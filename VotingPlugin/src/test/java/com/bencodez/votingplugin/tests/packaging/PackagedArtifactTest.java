@@ -17,6 +17,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.jar.JarFile;
+import java.util.jar.JarInputStream;
+import java.util.stream.Collectors;
 import javax.tools.ToolProvider;
 
 import org.junit.jupiter.api.Test;
@@ -25,6 +27,33 @@ import org.junit.jupiter.api.io.TempDir;
 /** Package-phase checks for the actual downloadable plugin artifact. */
 public class PackagedArtifactTest {
     private static final long ARTIFACT_SIZE_TARGET_BYTES = 10L * 1024L * 1024L;
+
+    @Test
+    void recompressionPreservesEveryEntryAndStreamingManifest() throws Exception {
+        Path output = packagedJar();
+        Path input = Path.of(System.getProperty("votingplugin.precompressionJar"));
+        try (JarFile before = new JarFile(input.toFile()); JarFile after = new JarFile(output.toFile())) {
+            var beforeNames = before.stream().map(entry -> entry.getName()).collect(Collectors.toList());
+            var afterNames = after.stream().map(entry -> entry.getName()).collect(Collectors.toList());
+            assertEquals(beforeNames.size(), new java.util.HashSet<>(beforeNames).size(),
+                    "The shaded input must not contain duplicate entry names");
+            assertEquals(afterNames.size(), new java.util.HashSet<>(afterNames).size(),
+                    "Recompression must not create duplicate entry names");
+            assertEquals(new java.util.HashSet<>(beforeNames), new java.util.HashSet<>(afterNames),
+                    "Recompression must retain every class, directory and resource");
+            for (String name : beforeNames) {
+                try (var original = before.getInputStream(before.getEntry(name));
+                        var recompressed = after.getInputStream(after.getEntry(name))) {
+                    assertArrayEquals(original.readAllBytes(), recompressed.readAllBytes(), name);
+                }
+            }
+            assertEquals(before.getComment(), after.getComment(), "The archive comment must be retained");
+        }
+        try (JarInputStream streaming = new JarInputStream(Files.newInputStream(output))) {
+            assertNotNull(streaming.getManifest(), "Streaming readers must see the manifest first");
+        }
+        System.out.printf("Lossless JAR recompression: %,d -> %,d bytes%n", Files.size(input), Files.size(output));
+    }
 
     @Test
     void containsOneRelocatedRuntimeWithoutUnusedHttpCrypto() throws Exception {
@@ -58,6 +87,10 @@ public class PackagedArtifactTest {
                     "com/bencodez/votingplugin/simpleapi/scheduler/BukkitScheduler.class"));
             assertNotNull(artifact.getEntry(
                     "com/bencodez/votingplugin/simpleapi/hikari/HikariDataSource.class"));
+            assertNotNull(artifact.getEntry("com/bencodez/simpleapi/configurate/ConfigurationNode.class"));
+            assertFalse(artifact.stream().anyMatch(entry -> entry.getName()
+                    .startsWith("com/bencodez/votingplugin/simpleapi/configurate/")),
+                    "A repeated package must not shade the previous output into a second Configurate namespace");
 
             assertNull(artifact.getEntry("org/mozilla/javascript/Context.class"));
             assertNull(artifact.getEntry("com/zaxxer/hikari/HikariDataSource.class"));
