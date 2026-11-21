@@ -154,7 +154,7 @@ public final class ControlInspectionService {
 		for (int index = 0; index < configuredNames.size(); index++) {
 			ConfigurationSection site = root == null ? null : root.getConfigurationSection(configuredNames.get(index));
 			if (site == null) continue;
-			String service = site.getString("ServiceSite", "");
+			String service = scalarReads(site).getString("ServiceSite", "");
 			if (service.isBlank()) continue;
 			configuredServices.add(lower(service));
 			if (index < MAX_ROWS) displayedServices.add(lower(service));
@@ -179,20 +179,23 @@ public final class ControlInspectionService {
 		for (String name : configuredNames.stream().limit(MAX_ROWS).toList()) {
 			ConfigurationSection site = root == null ? null : root.getConfigurationSection(name);
 			if (site == null) continue;
-			String fullService = site.getString("ServiceSite", "");
+			ScalarReads reads = scalarReads(site);
+			String fullService = reads.getString("ServiceSite", "");
 			String service = safe(fullService, 64);
 			ServiceHealth health = logged.get(lower(fullService));
+			Object enabledValue = reads.get("Enabled");
+			boolean enabled = enabledValue == null || Boolean.TRUE.equals(enabledValue);
 			JsonObject row = new JsonObject();
 			row.addProperty("key", safe(name, 64));
-			row.addProperty("displayName", safe(site.getString("Name", name), 100));
+			row.addProperty("displayName", safe(reads.getString("Name", name), 100));
 			row.addProperty("serviceSite", service);
-			row.addProperty("enabled", site.getBoolean("Enabled", true));
-			row.addProperty("hidden", site.getBoolean("Hidden", false));
-			row.addProperty("priority", site.getInt("Priority", 5));
-			row.addProperty("voteDelay", safe(String.valueOf(site.get("VoteDelay", "24h")), 80));
+			row.addProperty("enabled", enabled);
+			row.addProperty("hidden", reads.getBoolean("Hidden", false));
+			row.addProperty("priority", reads.getInt("Priority", 5));
+			row.addProperty("voteDelay", safe(String.valueOf(reads.get("VoteDelay", "24h")), 80));
 			row.addProperty("hasRewards", hasRewardConfiguration(site));
 			if (voteLogReadable) addHealth(row, health);
-			row.addProperty("status", !site.getBoolean("Enabled", true) ? "DISABLED"
+			row.addProperty("status", !enabled ? "DISABLED"
 					: fullService.isBlank() ? "SERVICE_SITE_MISSING"
 					: !voteLoggingAvailable ? "VOTE_LOG_UNAVAILABLE"
 					: !voteLogReadable ? "VOTE_LOG_UNREADABLE"
@@ -439,9 +442,9 @@ public final class ControlInspectionService {
 					.getConfigurationSection("VoteSites." + key);
 			result.addProperty("key", safe(key, 64));
 			if (section != null) {
-				result.addProperty("displayName", safe(section.getString("Name", key), 100));
-				result.addProperty("configuredServiceSite", safe(section.getString("ServiceSite", ""), 64));
-				result.addProperty("enabled", section.getBoolean("Enabled", true));
+				result.addProperty("displayName", safe(scalarReads(section).getString("Name", key), 100));
+				result.addProperty("configuredServiceSite", safe(scalarReads(section).getString("ServiceSite", ""), 64));
+				result.addProperty("enabled", scalarReads(section).getBoolean("Enabled", true));
 			}
 		}
 		result.addProperty("wouldAutoCreate", unconfigured && plugin.getConfigFile().isAutoCreateVoteSites());
@@ -559,21 +562,22 @@ public final class ControlInspectionService {
 			for (String name : allConfiguredVoteSiteNames().stream().limit(MAX_ROWS).toList()) {
 				ConfigurationSection site = root.getConfigurationSection(name);
 				if (site == null) continue;
+                ScalarReads reads = scalarReads(site);
 				JsonObject item = new JsonObject();
                 if (name.length() > 80 || name.codePoints().anyMatch(Character::isISOControl)) { siteComplete = false; continue; }
                 item.addProperty("name", name);
-				String service = site.getString("ServiceSite", "");
+				String service = reads.getString("ServiceSite", "");
                 if (service.length() <= 160 && service.codePoints().noneMatch(Character::isISOControl)) item.addProperty("serviceSite", service);
                 else siteComplete = false;
-				if (!site.contains("Enabled") || site.isBoolean("Enabled")) item.addProperty("enabled", plugin.getConfigVoteSites().getVoteSiteEnabled(name));
+				if (!reads.contains("Enabled") || reads.isBoolean("Enabled")) item.addProperty("enabled", reads.getBoolean("Enabled"));
                 else { siteComplete = false; NetworkHealthConfigFacts.invalid(result, "VoteSites.Enabled"); }
-                if (site.isBoolean("AutoCreated")) item.addProperty("autoCreated", site.getBoolean("AutoCreated"));
+                if (reads.isBoolean("AutoCreated")) item.addProperty("autoCreated", reads.getBoolean("AutoCreated"));
 				item.addProperty("hasRewards", hasRewardConfiguration(site));
                 try {
-                    NetworkHealthConfigFacts.addDelay(item, site.get("VoteDelay"), site.get("VoteDelayMin"),
-                            plugin.getConfigVoteSites().getVoteDelay(name));
+                    NetworkHealthConfigFacts.addDelay(item, reads.get("VoteDelay"), reads.get("VoteDelayMin"),
+                            reads.voteDelay());
                 } catch (IllegalArgumentException failure) { item.addProperty("delayValid", false); }
-                String url = site.getString("VoteURL", "");
+                String url = reads.getString("VoteURL", "");
 				item.addProperty("voteUrlState", url.isBlank() ? "BLANK"
 						: url.toLowerCase(Locale.ROOT).contains("example") ? "EXAMPLE" : validVoteUrl(url) ? "VALID" : "INVALID");
 				sites.add(item);
@@ -608,6 +612,43 @@ public final class ControlInspectionService {
 		String normalized = value.trim().toUpperCase(Locale.ROOT);
 		return Set.of("PLUGINMESSAGING", "HTTP", "REDIS", "MQTT", "SOCKETS", "MYSQL").contains(normalized)
 				? normalized : "INVALID";
+	}
+
+	private ScalarReads scalarReads(ConfigurationSection section) {
+		return new ScalarReads(section, plugin.getConfigVoteSites().isIgnoreCase());
+	}
+
+	/** Inspection predicates and values share the file's policy without wrapping native sections. */
+	private record ScalarReads(ConfigurationSection section, boolean folded) {
+		private String key(String leaf) {
+			if (folded && leaf.indexOf(section.getRoot().options().pathSeparator()) < 0) {
+				var keys = section.getKeys(false);
+				// The null fallback checks configured values even when keys include defaults.
+				if (section.get(leaf, null) != null) return leaf;
+				for (String candidate : keys) {
+					if (candidate.equalsIgnoreCase(leaf) && section.get(candidate, null) != null) return candidate;
+				}
+			}
+			return leaf;
+		}
+		String getString(String leaf, String fallback) { return section.getString(key(leaf), fallback); }
+		boolean getBoolean(String leaf) { return section.getBoolean(key(leaf)); }
+		boolean getBoolean(String leaf, boolean fallback) { return section.getBoolean(key(leaf), fallback); }
+		int getInt(String leaf, int fallback) { return section.getInt(key(leaf), fallback); }
+		boolean contains(String leaf) { return section.contains(key(leaf)); }
+		boolean isBoolean(String leaf) { return section.isBoolean(key(leaf)); }
+		Object get(String leaf) { return section.get(key(leaf)); }
+		Object get(String leaf, Object fallback) { return section.get(key(leaf), fallback); }
+		private com.bencodez.simpleapi.time.ParsedDuration voteDelay() {
+			if (section.isString(key("VoteDelay"))) {
+				return com.bencodez.simpleapi.time.ParsedDuration.parse(
+						section.getString(key("VoteDelay")), java.util.concurrent.TimeUnit.HOURS);
+			}
+			double hours = section.getDouble(key("VoteDelay"), 0);
+			double minutes = section.getDouble(key("VoteDelayMin"), 0);
+			return com.bencodez.simpleapi.time.ParsedDuration.ofMillis(
+					(long) (hours * 60 * 60 * 1000) + (long) (minutes * 60 * 1000));
+		}
 	}
 
 	private List<String> allConfiguredVoteSiteNames() {
