@@ -632,6 +632,7 @@ public class CommandLoader {
 	private void loadAdminVoteCommand() {
 		plugin.setAdminVoteCommand(new ArrayList<>());
         DateVoteMilestoneCommands.register(plugin, adminPerm);
+        VoteMilestoneCheckCommands.register(plugin, adminPerm);
 
 		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "CurrentPluginTime" },
 				"VotingPlugin.Commands.AdminVote.CurrentPluginTime|" + adminPerm, "Current plugin time") {

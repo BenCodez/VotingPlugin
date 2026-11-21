@@ -416,6 +416,23 @@ public class VoteMilestonesManager {
 
 	public void handleVote(VotingPluginUser user, VoteTotalsSnapshot bungeeMessageData, boolean forceBungee,
 			UUID voteUUID, Map<String, String> contextPlaceholders) {
+		evaluate(user, bungeeMessageData, forceBungee, voteUUID, contextPlaceholders, false);
+	}
+
+	/** Evaluate only vote-total milestones, without manufacturing a vote or site completion. */
+	public void checkCurrentVoteTotals(VotingPluginUser user) {
+		evaluate(user, null, false, null, null, true);
+	}
+
+	private boolean isVoteTotalMilestone(VoteMilestone m) {
+		String path = m.getRewardPath();
+		if (path == null || (!path.startsWith("VoteMilestones.") && !path.startsWith("MileStones."))) return false;
+		return m.getTotal() == VoteMilestoneTotal.ALLTIME_VOTES || m.getTotal() == VoteMilestoneTotal.DAILY_VOTES
+				|| m.getTotal() == VoteMilestoneTotal.WEEKLY_VOTES || m.getTotal() == VoteMilestoneTotal.MONTHLY_VOTES;
+	}
+
+	private void evaluate(VotingPluginUser user, VoteTotalsSnapshot bungeeMessageData, boolean forceBungee,
+			UUID voteUUID, Map<String, String> contextPlaceholders, boolean totalsOnly) {
 		if (config == null || config.getMilestones() == null || config.getMilestones().isEmpty()) {
 			return;
 		}
@@ -433,7 +450,7 @@ public class VoteMilestonesManager {
 
 		for (VoteMilestone m : config.getMilestones().values()) {
 			order++;
-			if (m == null) {
+			if (m == null || (totalsOnly && !isVoteTotalMilestone(m))) {
 				continue;
 			}
 
@@ -474,6 +491,7 @@ public class VoteMilestonesManager {
 				continue;
 			}
 
+			if (!valueOk && totalsOnly) throw new IllegalStateException("Unable to read milestone total", valueErr);
 			if (!valueOk) {
 				plugin.debug("[VoteMilestones] VoteCheck player=" + playerName + "/" + uuid + " id=" + m.getId()
 						+ " group=" + groupId + " enabled=true total="
@@ -496,6 +514,7 @@ public class VoteMilestonesManager {
 			matchedByGroup.computeIfAbsent(groupId, k -> new ArrayList<>()).add(mr);
 		}
 
+		RuntimeException evaluationFailure = null;
 		for (Map.Entry<String, List<MatchResult>> e : matchedByGroup.entrySet()) {
 			String groupId = e.getKey();
 			List<MatchResult> matches = e.getValue();
@@ -554,6 +573,7 @@ public class VoteMilestonesManager {
 							+ " id=" + m.getId() + " value=" + value + " matchedBy=" + mr.matchedBy.name() + " path="
 							+ safe(m.getRewardPath()));
 				} catch (Exception ex) {
+					if (totalsOnly) evaluationFailure = new IllegalStateException("Milestone evaluation may have submitted rewards", ex);
 					plugin.debug("[VoteMilestones] Execute fail player=" + playerName + "/" + uuid + " group=" + groupId
 							+ " id=" + m.getId() + " value=" + value + " matchedBy=" + mr.matchedBy.name() + " path="
 							+ safe(m.getRewardPath()) + " error=" + ex.getClass().getSimpleName() + ":"
@@ -566,10 +586,12 @@ public class VoteMilestonesManager {
 			try {
 				limitStore.saveToUser(user);
 			} catch (Exception ex) {
+				if (totalsOnly) throw new IllegalStateException("Milestone limit save failed after evaluation", ex);
 				plugin.debug("[VoteMilestones] LimitSave fail player=" + playerName + "/" + uuid + " error="
 						+ ex.getClass().getSimpleName() + ":" + safe(ex.getMessage()));
 			}
 		}
+		if (evaluationFailure != null) throw evaluationFailure;
 	}
 
 	/*
