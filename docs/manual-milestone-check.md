@@ -1,14 +1,18 @@
 # Check milestone eligibility after editing totals
 
-Run `/av User <exact-player-name-or-UUID> CheckMilestones` to evaluate the player's
+Run `/av votemilestone check <player>` to evaluate the player's
 current stored vote totals now. Permission:
-`VotingPlugin.Commands.AdminVote.CheckMilestones` (or `VotingPlugin.Admin`).
-Console and offline players are supported. Names are exact lookup inputs; the
-command does not autocomplete a partial player name or accept selectors.
+`VotingPlugin.Commands.AdminVote.VoteMilestone.Check` (or `VotingPlugin.Admin`).
+Console and offline player names are supported. The normal `VoteMilestone`/`VM`
+aliases, case-insensitive invocation and `(player)` argument resolution/tab
+completion match the neighboring milestone commands. `/av vm check <player>` is
+the short form. The player-name argument is required.
 
 This checks legacy `MileStones` and new `VoteMilestones` using all-time, daily,
 weekly or monthly vote totals. The existing evaluator applies Enabled, At/Every,
-group selection and configured Limit rules. An exact `At: 100` checks 100, not
+group selection and configured Limit rules. Checks and normal milestone evaluation
+share the same per-user limit fence, including force/reset operations, so overlapping
+evaluations cannot both consume an unused configured limit. An exact `At: 100` checks 100, not
 101 or all earlier thresholds. Legacy `ResetMilestonesMonthly` remains effective.
 "Check" means evaluate eligibility; it does not bypass limits, reset award state,
 force every milestone, or confirm that an external reward command succeeded.

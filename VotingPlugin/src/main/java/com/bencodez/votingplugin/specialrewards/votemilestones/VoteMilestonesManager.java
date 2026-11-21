@@ -38,6 +38,22 @@ public class VoteMilestonesManager {
 
 	private final VotingPluginMain plugin;
 
+	// Bounded, stable fences also cover different user wrappers for the same UUID.
+	// Do not use UserDataCache's monitor while accessing storage or rewards.
+	private final Object[] evaluationLocks = createEvaluationLocks();
+
+	private static Object[] createEvaluationLocks() {
+		Object[] locks = new Object[64];
+		for (int i = 0; i < locks.length; i++) locks[i] = new Object();
+		return locks;
+	}
+
+	private Object evaluationLock(VotingPluginUser user) {
+		int hash = user == null ? 0 : user.getJavaUUID().hashCode();
+		return evaluationLocks[(hash & Integer.MAX_VALUE) % evaluationLocks.length];
+	}
+
+
 	@Getter
 	private VoteMilestonesConfig config;
 
@@ -433,6 +449,13 @@ public class VoteMilestonesManager {
 
 	private void evaluate(VotingPluginUser user, VoteTotalsSnapshot bungeeMessageData, boolean forceBungee,
 			UUID voteUUID, Map<String, String> contextPlaceholders, boolean totalsOnly) {
+		synchronized (evaluationLock(user)) {
+			evaluateLocked(user, bungeeMessageData, forceBungee, voteUUID, contextPlaceholders, totalsOnly);
+		}
+	}
+
+	private void evaluateLocked(VotingPluginUser user, VoteTotalsSnapshot bungeeMessageData, boolean forceBungee,
+			UUID voteUUID, Map<String, String> contextPlaceholders, boolean totalsOnly) {
 		if (config == null || config.getMilestones() == null || config.getMilestones().isEmpty()) {
 			return;
 		}
@@ -601,6 +624,12 @@ public class VoteMilestonesManager {
 	 */
 
 	public int forceGroup(VotingPluginUser user, String groupId, boolean bypassLimits, VoteTotalsSnapshot bungeeData) {
+		synchronized (evaluationLock(user)) {
+			return forceGroupLocked(user, groupId, bypassLimits, bungeeData);
+		}
+	}
+
+	private int forceGroupLocked(VotingPluginUser user, String groupId, boolean bypassLimits, VoteTotalsSnapshot bungeeData) {
 		if (user == null || groupId == null || groupId.trim().isEmpty()) {
 			return 0;
 		}
@@ -673,6 +702,13 @@ public class VoteMilestonesManager {
 	}
 
 	public boolean forceMilestone(VotingPluginUser user, String milestoneId, boolean bypassLimits,
+			VoteTotalsSnapshot bungeeData) {
+		synchronized (evaluationLock(user)) {
+			return forceMilestoneLocked(user, milestoneId, bypassLimits, bungeeData);
+		}
+	}
+
+	private boolean forceMilestoneLocked(VotingPluginUser user, String milestoneId, boolean bypassLimits,
 			VoteTotalsSnapshot bungeeData) {
 		if (user == null || milestoneId == null || milestoneId.trim().isEmpty()) {
 			return false;
@@ -1034,6 +1070,12 @@ public class VoteMilestonesManager {
 	 */
 
 	public int resetLimits(VotingPluginUser user, String groupId) {
+		synchronized (evaluationLock(user)) {
+			return resetLimitsLocked(user, groupId);
+		}
+	}
+
+	private int resetLimitsLocked(VotingPluginUser user, String groupId) {
 		if (user == null) {
 			return 0;
 		}
