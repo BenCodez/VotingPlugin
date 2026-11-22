@@ -16,7 +16,7 @@
         <maven.compiler.target>21</maven.compiler.target>
         <maven.compiler.release>21</maven.compiler.release>
         <velocity.version>3.4.0</velocity.version>
-        <neoforge.version>21.1.211</neoforge.version>
+        <neoforge.version>21.1.267</neoforge.version>
     </properties>
     <build>
         <resources>
@@ -225,24 +225,8 @@
                                         <exclude>META-INF/versions/**</exclude>
                                     </excludes>
                                 </filter>
-                                <filter>
-                                    <artifact>org.xerial:sqlite-jdbc</artifact>
-                                    <excludes>
-                                        <!-- Keep the common Linux x86_64 native for offline startup. Other
-                                             targets are fetched with a pinned digest only when SQLite is selected. -->
-                                        <exclude>org/sqlite/native/FreeBSD/**</exclude>
-                                        <exclude>org/sqlite/native/Linux-Musl/**</exclude>
-                                        <exclude>org/sqlite/native/Linux/aarch64/**</exclude>
-                                        <exclude>org/sqlite/native/Linux/arm/**</exclude>
-                                        <exclude>org/sqlite/native/Linux/armv6/**</exclude>
-                                        <exclude>org/sqlite/native/Linux/armv7/**</exclude>
-                                        <exclude>org/sqlite/native/Linux/ppc64/**</exclude>
-                                        <exclude>org/sqlite/native/Linux/riscv64/**</exclude>
-                                        <exclude>org/sqlite/native/Linux/x86/**</exclude>
-                                        <exclude>org/sqlite/native/Mac/**</exclude>
-                                        <exclude>org/sqlite/native/Windows/**</exclude>
-                                    </excludes>
-                                </filter>
+                                <!-- Retain every official SQLite native for offline drop-in upgrades.
+                                     PackagedArtifactTest checks every target against the pinned driver. -->
                                 <filter>
                                     <artifact>*:*</artifact>
                                     <excludes>
@@ -396,7 +380,7 @@
         <dependency>
             <groupId>org.xerial</groupId>
             <artifactId>sqlite-jdbc</artifactId>
-            <version>3.53.4.0</version>
+            <version>3.54.1.0</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.checkerframework</groupId>
