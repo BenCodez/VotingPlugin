@@ -152,73 +152,12 @@ public class PackagedArtifactTest {
 
     @Test
     void packagedNeoForgeRuntimeStartsAndClosesWithoutTestDependencies(@TempDir Path directory) throws Exception {
-        URL jar = packagedJar().toUri().toURL();
-        URL platformSlf4j = org.slf4j.Logger.class.getProtectionDomain().getCodeSource().getLocation();
-        Path unusableTemp = directory.resolve("not-a-directory");
-        Files.writeString(unusableTemp, "synthetic unusable temp directory");
-        String oldJavaTemp = System.getProperty("java.io.tmpdir");
-        String oldSqliteTemp = System.getProperty("org.sqlite.tmpdir");
-        try {
-            System.setProperty("java.io.tmpdir", unusableTemp.toString());
-            System.setProperty("org.sqlite.tmpdir", unusableTemp.toString());
-            try (URLClassLoader loader = new URLClassLoader(new URL[] { jar, platformSlf4j },
-                    ClassLoader.getPlatformClassLoader())) {
-                Class<?> runtime = Class.forName("com.bencodez.votingplugin.neoforge.NeoForgeRuntime", true, loader);
-                try (AutoCloseable instance = (AutoCloseable) runtime.getMethod("start", Path.class).invoke(null, directory)) {
-                    assertTrue(Files.isRegularFile(directory.resolve("VotingPlugin.db")));
-                    assertTrue(Files.isDirectory(directory.resolve("libraries/sqlite-native")));
-                }
-            }
-        } finally {
-            if (oldJavaTemp == null) System.clearProperty("java.io.tmpdir");
-            else System.setProperty("java.io.tmpdir", oldJavaTemp);
-            if (oldSqliteTemp == null) System.clearProperty("org.sqlite.tmpdir");
-            else System.setProperty("org.sqlite.tmpdir", oldSqliteTemp);
-        }
+        com.bencodez.votingplugin.tests.util.NativeSqliteProcess.run("runtime", directory, packagedJar());
     }
 
     @Test
     void packagedSqliteHonorsACustomNameWithoutANativePath(@TempDir Path directory) throws Exception {
-        URL jar = packagedJar().toUri().toURL();
-        URL logging = org.slf4j.Logger.class.getProtectionDomain().getCodeSource().getLocation();
-        String nativeName = System.mapLibraryName("sqlitejdbc-custom");
-        String resource = "org/sqlite/native/" + org.sqlite.util.OSInfo.getNativeLibFolderPathForCurrentOS()
-                + "/" + System.mapLibraryName("sqlitejdbc");
-        try (JarFile artifact = new JarFile(packagedJar().toFile());
-                var input = artifact.getInputStream(artifact.getEntry(resource))) {
-            Files.copy(input, directory.resolve(nativeName));
-        }
-        java.util.Map<String, String> previous = new java.util.HashMap<>();
-        for (String key : java.util.List.of("org.sqlite.lib.path", "org.sqlite.lib.name", "java.library.path")) {
-            previous.put(key, System.getProperty(key));
-        }
-        try {
-            System.clearProperty("org.sqlite.lib.path");
-            System.setProperty("org.sqlite.lib.name", nativeName);
-            System.setProperty("java.library.path", directory.toString());
-            Path libraries = directory.resolve("plugin-libraries");
-            try (URLClassLoader loader = new URLClassLoader(new URL[] { jar, logging },
-                    ClassLoader.getPlatformClassLoader())) {
-                Class.forName("com.bencodez.votingplugin.util.SqliteNativeLibrary", true, loader)
-                        .getMethod("ensureAvailable", Path.class).invoke(null, libraries);
-                java.sql.Driver jdbc = (java.sql.Driver) Class.forName("org.sqlite.JDBC", true, loader)
-                        .getConstructor().newInstance();
-                try (var connection = jdbc.connect("jdbc:sqlite::memory:", new java.util.Properties());
-                        var statement = connection.createStatement();
-                        var rows = statement.executeQuery("SELECT 42")) {
-                    assertTrue(rows.next());
-                    assertEquals(42, rows.getInt(1));
-                }
-            }
-            assertFalse(Files.exists(libraries), "custom name must select the existing library");
-            assertEquals(nativeName, System.getProperty("org.sqlite.lib.name"));
-            assertNull(System.getProperty("org.sqlite.lib.path"));
-        } finally {
-            previous.forEach((key, value) -> {
-                if (value == null) System.clearProperty(key);
-                else System.setProperty(key, value);
-            });
-        }
+        com.bencodez.votingplugin.tests.util.NativeSqliteProcess.run("packaged-name", directory, packagedJar());
     }
 
     @Test

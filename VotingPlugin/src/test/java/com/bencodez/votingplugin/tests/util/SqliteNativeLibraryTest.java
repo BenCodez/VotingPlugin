@@ -89,62 +89,7 @@ class SqliteNativeLibraryTest {
     @TestFactory
     Stream<DynamicTest> preservesExplicitNativeSelectionAcrossOverrideModes() {
         return Stream.of("path-only", "name-only", "both", "standard-name").map(mode ->
-                DynamicTest.dynamicTest(mode, () -> {
-                    Path caseDirectory = Files.createDirectory(directory.resolve(mode));
-                    Path customDirectory = Files.createDirectory(caseDirectory.resolve("custom-native"));
-                    String standardName = System.mapLibraryName("sqlitejdbc");
-                    String nativeName = mode.equals("path-only") || mode.equals("standard-name") ? standardName
-                            : System.mapLibraryName("sqlitejdbc-test-" + mode);
-                    String resource = "org/sqlite/native/"
-                            + org.sqlite.util.OSInfo.getNativeLibFolderPathForCurrentOS() + "/" + standardName;
-                    try (InputStream bytes = SqliteNativeLibrary.class.getClassLoader().getResourceAsStream(resource)) {
-                        assertNotNull(bytes);
-                        Files.copy(bytes, customDirectory.resolve(nativeName));
-                    }
-                    Path badTemp = caseDirectory.resolve("not-a-directory");
-                    Files.writeString(badTemp, "synthetic unusable temp directory");
-                    java.util.Map<String, String> previous = new java.util.HashMap<>();
-                    for (String key : java.util.List.of("org.sqlite.lib.path", "org.sqlite.lib.name",
-                            "java.library.path", "org.sqlite.tmpdir", "java.io.tmpdir")) {
-                        previous.put(key, System.getProperty(key));
-                    }
-                    URL code = SqliteNativeLibrary.class.getProtectionDomain().getCodeSource().getLocation();
-                    URL driver = org.sqlite.JDBC.class.getProtectionDomain().getCodeSource().getLocation();
-                    URL logging = org.slf4j.Logger.class.getProtectionDomain().getCodeSource().getLocation();
-                    try {
-                        System.clearProperty("org.sqlite.lib.path");
-                        System.clearProperty("org.sqlite.lib.name");
-                        System.setProperty("java.io.tmpdir", badTemp.toString());
-                        System.setProperty("org.sqlite.tmpdir", badTemp.toString());
-                        System.setProperty("java.library.path", mode.equals("name-only")
-                                ? customDirectory.toString() : badTemp.toString());
-                        if (mode.equals("path-only") || mode.equals("both")) {
-                            System.setProperty("org.sqlite.lib.path", customDirectory.toString());
-                        }
-                        if (!mode.equals("path-only")) System.setProperty("org.sqlite.lib.name", nativeName);
-                        Path libraries = caseDirectory.resolve("plugin-libraries");
-                        try (URLClassLoader isolated = new URLClassLoader(new URL[] { code, driver, logging },
-                                ClassLoader.getPlatformClassLoader())) {
-                            Class<?> preparation = Class.forName(SqliteNativeLibrary.class.getName(), true, isolated);
-                            preparation.getMethod("ensureAvailable", Path.class).invoke(null, libraries);
-                            java.sql.Driver jdbc = (java.sql.Driver) Class.forName("org.sqlite.JDBC", true, isolated)
-                                    .getConstructor().newInstance();
-                            try (var connection = jdbc.connect("jdbc:sqlite::memory:", new java.util.Properties());
-                                    var statement = connection.createStatement();
-                                    var rows = statement.executeQuery("SELECT 42")) {
-                                assertTrue(rows.next());
-                                org.junit.jupiter.api.Assertions.assertEquals(42, rows.getInt(1));
-                            }
-                        }
-                        if (mode.equals("standard-name")) assertTrue(Files.isDirectory(libraries.resolve("sqlite-native")));
-                        else assertTrue(Files.notExists(libraries), "explicit selection must not be replaced by embedded native");
-                        if (!mode.equals("path-only")) {
-                            org.junit.jupiter.api.Assertions.assertEquals(nativeName, System.getProperty("org.sqlite.lib.name"));
-                        }
-                    } finally {
-                        previous.forEach(SqliteNativeLibraryTest::restoreProperty);
-                    }
-                }));
+                DynamicTest.dynamicTest(mode, () -> NativeSqliteProcess.run(mode, directory.resolve(mode), null)));
     }
 
     @TestFactory
