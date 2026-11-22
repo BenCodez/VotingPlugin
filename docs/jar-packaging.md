@@ -18,6 +18,13 @@ Framework annotations. It verifies every SQLite native target against the pinned
 official driver artifact. It creates both
 server and client TLS identities from the packaged JDK-only implementation.
 
+The universal plugin JAR is not a multi-release archive. Shade inputs omit
+`META-INF/versions/**` entries that are never selected without a
+`Multi-Release: true` manifest; package tests enforce this contract. Compile-time
+`org/jspecify/**` annotations are also omitted. Service descriptors, platform entry
+points, relocated Rhino, database drivers and all supported SQLite natives remain
+packaged. These optimizations preserve supported runtime features.
+
 SQLite retains all 20 native targets from the official `sqlite-jdbc` 3.54.1.0
 artifact in the downloadable plugin. Windows, macOS, Linux (including ARM and
 musl), and FreeBSD installations can replace the plugin JAR and start offline;

@@ -19,6 +19,7 @@
         <neoforge.version>21.1.267</neoforge.version>
     </properties>
     <build>
+        <finalName>${packaged.jar.name}</finalName>
         <resources>
             <resource>
                 <directory>src/main/resources</directory>
@@ -233,6 +234,10 @@
                                         <!-- AdvancedCore and SimpleAPI also embed these classes. -->
                                         <exclude>org/slf4j/**</exclude>
                                         <exclude>org/checkerframework/**</exclude>
+                                        <!-- Compile-time-only JSpecify classes are not required by the runtime. -->
+                                        <exclude>org/jspecify/**</exclude>
+                                        <!-- The final universal plugin is not a multi-release JAR. -->
+                                        <exclude>META-INF/versions/**</exclude>
                                         <exclude>META-INF/services/org.slf4j.spi.SLF4JServiceProvider</exclude>
                                         <!-- Keep non-POM runtime metadata such as sqlite-jdbc's VERSION fallback. -->
                                         <exclude>META-INF/maven/**/pom.xml</exclude>
@@ -580,7 +585,6 @@
                                     <paperweight-mappings-namespace>mojang</paperweight-mappings-namespace>
                                 </manifestEntries>
                             </archive>
-                            <finalName>${project.name}</finalName>
                         </configuration>
                     </plugin>
                 </plugins>
@@ -614,8 +618,6 @@
                                     <paperweight-mappings-namespace>mojang</paperweight-mappings-namespace>
                                 </manifestEntries>
                             </archive>
-                            <finalName>
-                                ${project.name}-${build.number}</finalName>
                         </configuration>
                     </plugin>
                     <plugin>
@@ -692,7 +694,6 @@
                                     <paperweight-mappings-namespace>mojang</paperweight-mappings-namespace>
                                 </manifestEntries>
                             </archive>
-                            <finalName>${project.name}</finalName>
                         </configuration>
                     </plugin>
                     <plugin>
@@ -755,7 +756,6 @@
                                     <paperweight-mappings-namespace>mojang</paperweight-mappings-namespace>
                                 </manifestEntries>
                             </archive>
-                            <finalName>${project.name}</finalName>
                         </configuration>
                     </plugin>
                     <plugin>
@@ -814,7 +814,6 @@
                                     <paperweight-mappings-namespace>mojang</paperweight-mappings-namespace>
                                 </manifestEntries>
                             </archive>
-                            <finalName>${project.name}</finalName>
                         </configuration>
                     </plugin>
                     <plugin>

@@ -24,6 +24,16 @@ jobs:
           cache: maven
       - name: Build with Maven
         run: mvn -B -f VotingPlugin/pom.xml package
+      - name: Verify numbered deploy-snapshot JAR
+        run: |
+          set -euo pipefail
+          artifact="VotingPlugin/target/VotingPlugin-98765.jar"
+          rm -f "$artifact"
+          # Package only; never invoke 'deploy' or publish to Nexus.
+          mvn -B -f VotingPlugin/pom.xml -Pdeploy-snapshot -Dbuild.number=98765 -DskipTests package
+          test -s "$artifact"
+          unzip -t "$artifact" >/dev/null
+          echo "Verified numbered snapshot artifact: $artifact"
 
   dependency-submission:
     if: github.event_name == 'push'
