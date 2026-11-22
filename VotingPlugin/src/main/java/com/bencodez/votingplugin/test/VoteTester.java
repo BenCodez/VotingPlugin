@@ -115,7 +115,11 @@ public class VoteTester {
 						public void run() {
 							PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSiteManager().getVoteSite(site, false), name,
 									plugin.getVoteSiteManager().getVoteSiteServiceSite(site), false);
-							plugin.getServer().getPluginManager().callEvent(voteEvent);
+							if (!plugin.getVoteParty().tryDispatchVoteEvent(() ->
+									plugin.getServer().getPluginManager().callEvent(voteEvent))
+									&& rejectionLogged.compareAndSet(false, true)) {
+								plugin.getLogger().warning("One or more spam-test votes were not admitted because vote processing is busy.");
+							}
 						}
 					}) && rejectionLogged.compareAndSet(false, true)) {
 						plugin.getLogger().warning("One or more spam-test votes could not be submitted because vote processing is busy.");
@@ -137,7 +141,11 @@ public class VoteTester {
 					long start1 = System.currentTimeMillis();
 					PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSiteManager().getVoteSite(site, false), name,
 							plugin.getVoteSiteManager().getVoteSiteServiceSite(site), false);
-					plugin.getServer().getPluginManager().callEvent(voteEvent);
+					if (!plugin.getVoteParty().tryDispatchVoteEvent(() ->
+							plugin.getServer().getPluginManager().callEvent(voteEvent))) {
+						plugin.getLogger().warning("Vote test stopped because vote processing is busy; remaining votes were not admitted.");
+						return;
+					}
 					long start2 = System.currentTimeMillis();
 					timesPerVote.add(start2 - start1);
 				}

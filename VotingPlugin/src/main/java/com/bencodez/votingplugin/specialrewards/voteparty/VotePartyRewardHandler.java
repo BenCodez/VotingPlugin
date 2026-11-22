@@ -59,27 +59,55 @@ public final class VotePartyRewardHandler {
 	}
 
 	public void giveRewards(VotingPluginUser triggeringUser, boolean forceBungee) {
-		if (prepareStoredRecipients(ids -> giveRewards(triggeringUser, forceBungee, ids.forDispatch()),
+		if (prepareStoredRecipients(ids -> dispatchPreparedWhenCurrent(triggeringUser, forceBungee, ids),
 				this::logPreparationFailure)) return;
 		giveRewards(triggeringUser, forceBungee, null);
+	}
+
+	private void dispatchPreparedWhenCurrent(VotingPluginUser user, boolean forceBungee, StoredRecipients prepared) {
+		if (!prepared.isCurrent()) return;
+		try { giveRewards(user, forceBungee, prepared.forDispatch()); }
+		catch (RecipientEnumerationRequired changed) {
+			if (!prepareStoredRecipients(ids -> dispatchPreparedWhenCurrent(user, forceBungee, ids),
+					this::logPreparationFailure, prepared.generation)) logPreparationFailure(changed);
+		}
+	}
+
+	private record RecipientPolicy(boolean giveAll, boolean onlineOnly) { }
+	private RecipientPolicy recipientPolicy() {
+		var config = plugin.getSpecialRewardsConfig();
+		return new RecipientPolicy(config.isVotePartyGiveAllPlayers(), config.isVotePartyGiveOnlinePlayersOnly());
+	}
+	static final class RecipientEnumerationRequired extends IllegalStateException {
+		private static final long serialVersionUID = 1L;
 	}
 
 	/** True only for the shared-MySQL path that needs stored recipients. */
 	boolean needsStoredPreparation() {
 		return sharedDataManager() != null && plugin.getStorageType() == UserStorage.MYSQL
-				&& plugin.getSpecialRewardsConfig().isVotePartyGiveAllPlayers()
-				&& !plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayersOnly();
+				&& ((plugin.getSpecialRewardsConfig().isVotePartyGiveAllPlayers()
+						&& !plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayersOnly())
+						|| voteParty.hasRetainedPreparationBoundary());
 	}
 
 	/** Prepare a complete recipient list before any party effects or counter reset. */
 	boolean prepareStoredRecipients(Consumer<StoredRecipients> success, Consumer<Throwable> failure) {
+		return prepareStoredRecipients(success, failure, voteParty.rewardGeneration());
+	}
+
+	boolean prepareStoredRecipients(Consumer<StoredRecipients> success, Consumer<Throwable> failure, long generation) {
+		if (generation != voteParty.rewardGeneration()) {
+			failure.accept(new IllegalStateException("VoteParty preparation was reset"));
+			return true;
+		}
 		if (!needsStoredPreparation()) return false;
 		UserDataManager manager = sharedDataManager();
 		AtomicBoolean completed = new AtomicBoolean();
 		AtomicReference<UserStorageOwner> capturedOwner = new AtomicReference<>();
+		AtomicBoolean enumerated = new AtomicBoolean();
 		Consumer<List<String>> ready = ids -> {
 			if (!completed.compareAndSet(false, true)) return;
-			StoredRecipients prepared = new StoredRecipients(manager, capturedOwner.get(), ids, false, 0);
+			StoredRecipients prepared = new StoredRecipients(manager, capturedOwner.get(), ids, generation, enumerated.get(), false, 0, null);
 			if (prepared.isCurrent()) success.accept(prepared);
 			else failure.accept(new IllegalStateException("Shared VoteParty storage changed after enumeration"));
 		};
@@ -87,9 +115,13 @@ public final class VotePartyRewardHandler {
 			if (completed.compareAndSet(false, true)) failure.accept(error);
 		};
 		Supplier<List<String>> query = () -> manager.withSharedNativeUserStorage(owner -> {
+			if (generation != voteParty.rewardGeneration()) throw new IllegalStateException("VoteParty preparation was reset");
 			if (owner == null || owner.storageType() != UserStorage.MYSQL || owner.mysql() == null) {
 				throw new IllegalStateException("Shared VoteParty storage owner is unavailable");
 			}
+			capturedOwner.set(owner);
+			RecipientPolicy policy = recipientPolicy();
+			if (!policy.giveAll() || policy.onlineOnly()) return List.of();
 			// The legacy UUID-list API converts this query's null failure to an empty
 			// list. Use the existing public nullable query under current-owner admission.
 			ArrayList<Column> rows = owner.mysql().getRowsQuery();
@@ -101,7 +133,7 @@ public final class VotePartyRewardHandler {
 				}
 				ids.add(UUID.fromString(row.getValue().getString()).toString());
 			}
-			capturedOwner.set(owner);
+			enumerated.set(true);
 			return List.copyOf(ids);
 		});
 		try {
@@ -118,6 +150,9 @@ public final class VotePartyRewardHandler {
 
 	/** The owner identity travels with the list through delivery admission and reset. */
 	final class StoredRecipients {
+		private final long generation;
+		private final boolean enumerated;
+		private final RecipientPolicy policy;
 		private final UserDataManager manager;
 		private final UserStorageOwner owner;
 		private final List<String> ids;
@@ -125,7 +160,10 @@ public final class VotePartyRewardHandler {
 		private final int userVotesRequired;
 
 		private StoredRecipients(UserDataManager manager, UserStorageOwner owner, List<String> ids,
-				boolean firstPartyToday, int userVotesRequired) {
+				long generation, boolean enumerated, boolean firstPartyToday, int userVotesRequired, RecipientPolicy policy) {
+			this.generation = generation;
+			this.enumerated = enumerated;
+			this.policy = policy;
 			this.manager = manager;
 			this.owner = owner;
 			this.ids = ids;
@@ -134,18 +172,28 @@ public final class VotePartyRewardHandler {
 		}
 
 		StoredRecipients forDispatch() {
-			return new StoredRecipients(manager, owner, ids, !plugin.getServerData().isLastVotePartySameDay(),
-					plugin.getSpecialRewardsConfig().getVotePartyUserVotesRequired());
+			RecipientPolicy policy = recipientPolicy();
+			if (policy.giveAll() && !policy.onlineOnly() && !enumerated) throw new RecipientEnumerationRequired();
+			List<String> recipients = policy.giveAll() ? ids : List.copyOf(voteParty.getVotedUsers());
+			return new StoredRecipients(manager, owner, recipients, generation, enumerated,
+					!plugin.getServerData().isLastVotePartySameDay(),
+					plugin.getSpecialRewardsConfig().getVotePartyUserVotesRequired(), policy);
 		}
 
 		boolean isCurrent() {
 			try {
-				return owner != null && sharedDataManager() == manager && manager.sharedNativeUserStorageOwner() == owner;
+				return isCurrentChecked();
 			} catch (RuntimeException unavailable) { return false; }
+		}
+
+		boolean isCurrentChecked() {
+			return generation == voteParty.rewardGeneration() && owner != null
+					&& sharedDataManager() == manager && manager.sharedNativeUserStorageOwner() == owner;
 		}
 
 		<T> T withCurrentOwner(Supplier<T> work) {
 			return manager.withSharedNativeUserStorage(current -> {
+				if (generation != voteParty.rewardGeneration()) return null;
 				if (current != owner) throw new IllegalStateException("Shared VoteParty storage owner changed");
 				return work.get();
 			});
@@ -157,13 +205,21 @@ public final class VotePartyRewardHandler {
 	}
 
 	void giveRewards(VotingPluginUser triggeringUser, boolean forceBungee, StoredRecipients storedRecipients) {
+		broadcastParty();
+		dispatchRewards(triggeringUser, forceBungee, storedRecipients);
+	}
+
+	void broadcastParty() {
 		MiscUtils.getInstance().broadcast(plugin.getSpecialRewardsConfig().getVotePartyBroadcast());
+	}
+
+	void dispatchRewards(VotingPluginUser triggeringUser, boolean forceBungee, StoredRecipients storedRecipients) {
 		dispatchGlobalCommands(voteParty.getRandomPlayerName());
 
-		if (plugin.getSpecialRewardsConfig().isVotePartyGiveAllPlayers()) {
+		if (storedRecipients == null ? plugin.getSpecialRewardsConfig().isVotePartyGiveAllPlayers() : storedRecipients.policy.giveAll()) {
 			giveAllPlayers(triggeringUser, forceBungee, storedRecipients);
 		} else {
-			giveVotedPlayers(triggeringUser, forceBungee);
+			giveVotedPlayers(triggeringUser, forceBungee, storedRecipients);
 		}
 	}
 
@@ -203,10 +259,11 @@ public final class VotePartyRewardHandler {
 
 	private void giveAllPlayers(VotingPluginUser triggeringUser, boolean forceBungee, StoredRecipients prepared) {
 		plugin.debug("Trying to give all players vote party");
+		boolean onlineOnly = prepared == null ? plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayersOnly() : prepared.policy.onlineOnly();
 		ArrayList<String> alreadyGiven = new ArrayList<>();
 		for (Player player : Bukkit.getOnlinePlayers()) {
 			VotingPluginUser user = resolveUser(triggeringUser, player.getUniqueId(), player);
-			if (!plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayersOnly() || user.isOnline()) {
+			if (!onlineOnly || user.isOnline()) {
 				if (prepared == null) giveRewardWhenLoaded(user, forceBungee, player);
 				else giveRewardWhenLoaded(user, forceBungee, player, prepared.firstPartyToday,
 						prepared.userVotesRequired, prepared);
@@ -215,7 +272,7 @@ public final class VotePartyRewardHandler {
 		}
 
 		UserDataManager manager = sharedDataManager();
-		if (manager != null && plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayersOnly()) {
+		if (manager != null && onlineOnly) {
 			// Every live player was considered above. No stored-user query is needed.
 			return;
 		}
@@ -229,15 +286,16 @@ public final class VotePartyRewardHandler {
 					continue;
 				}
 				VotingPluginUser user = resolveUser(triggeringUser, UUID.fromString(uuid), null);
-				if (!plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayersOnly() || user.isOnline()) {
+				if (!onlineOnly || user.isOnline()) {
 					giveRewardWhenLoaded(user, forceBungee, null, firstPartyToday, userVotesRequired, prepared);
 				}
 			}
 		};
-		Runnable storedRecipients = prepared == null ? recipients : () -> prepared.withCurrentOwner(() -> {
-			recipients.run();
-			return null;
-		});
+		Runnable storedRecipients = prepared == null ? recipients
+				: () -> voteParty.withPreparedVoteFence(() -> prepared.withCurrentOwner(() -> {
+					recipients.run();
+					return null;
+				}));
 		// UUID enumeration itself enters storage. Admit it after the online reads
 		// and before VoteParty queues its counter wipe on this same ordered worker.
 		if (manager != null && manager.deferSharedStorageWork(storedRecipients)) return;
@@ -246,17 +304,22 @@ public final class VotePartyRewardHandler {
 
 	/** Dispatch to users recorded for this party before its voter list is reset. */
 	private void giveVotedPlayers(VotingPluginUser triggeringUser, boolean forceBungee) {
+		giveVotedPlayers(triggeringUser, forceBungee, null);
+	}
+
+	private void giveVotedPlayers(VotingPluginUser triggeringUser, boolean forceBungee, StoredRecipients prepared) {
 		plugin.debug("Trying to give all voted players vote party");
 		plugin.debug(ArrayUtils.makeStringList(voteParty.getVotedUsers()));
-		for (String uuid : voteParty.getVotedUsers()) {
+		for (String uuid : prepared == null ? voteParty.getVotedUsers() : prepared.ids) {
 			VotingPluginUser user = resolveUser(triggeringUser, UUID.fromString(uuid), null);
-			if (!plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayersOnly() || user.isOnline()) {
+			if (!(prepared == null ? plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayersOnly() : prepared.policy.onlineOnly()) || user.isOnline()) {
 				// Capture a live player only on a platform-owned thread. The vote path
 				// can also originate from a storage worker, where Bukkit lookups are unsafe.
 				UserDataManager manager = sharedDataManager();
 				Player owner = manager != null && manager.isPlatformOwnedThread()
 						? Bukkit.getPlayer(user.getJavaUUID()) : null;
-				giveRewardWhenLoaded(user, forceBungee, owner);
+				if (prepared == null) giveRewardWhenLoaded(user, forceBungee, owner);
+				else giveRewardWhenLoaded(user, forceBungee, owner, prepared.firstPartyToday, prepared.userVotesRequired, prepared);
 			}
 		}
 	}
@@ -316,9 +379,11 @@ public final class VotePartyRewardHandler {
 			if (manager.getPublishedCache(uuid) == null) manager.cacheUser(uuid, null);
 			if (manager.getPublishedCache(uuid) == null) return null;
 			// Read eligibility on the storage worker, before VoteParty resets counters.
-			return userVotesRequired > 0 ? user.getVotePartyVotes() : 0;
+			return userVotesRequired > 0
+					? (prepared == null ? user.getVotePartyVotes() : voteParty.preparedVotes(user)) : 0;
 		};
-		Supplier<Integer> populate = prepared == null ? read : () -> prepared.withCurrentOwner(read);
+		Supplier<Integer> populate = prepared == null ? read
+				: () -> voteParty.withPreparedVoteFence(() -> prepared.withCurrentOwner(read));
 		Consumer<Integer> success = votes -> {
 			if (prepared != null && !prepared.isCurrent()) return;
 			if (votes == null) {

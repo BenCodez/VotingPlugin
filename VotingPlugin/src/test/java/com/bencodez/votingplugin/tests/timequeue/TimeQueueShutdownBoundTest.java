@@ -16,6 +16,10 @@ import com.bencodez.votingplugin.timequeue.TimeQueueHandler;
 class TimeQueueShutdownBoundTest {
     @Test void storageFailureAfterTimeoutIsReportedAndCanRetryAtTheSameIndex() throws Exception {
         VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+        when(plugin.getVoteParty().tryDispatchVoteEvent(any(Runnable.class))).thenAnswer(call -> {
+            call.getArgument(0, Runnable.class).run();
+            return true;
+        });
         // Resolve logging before parallel callbacks; avoid lazy deep-stub creation racing the interrupted caller.
         when(plugin.getLogger()).thenReturn(mock(java.util.logging.Logger.class));
         ServerData data = mock(ServerData.class);
@@ -60,6 +64,10 @@ class TimeQueueShutdownBoundTest {
 
     @Test void interruptedWaitPreservesTheFlagAndLeavesPersistenceOwned() throws Exception {
         VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+        when(plugin.getVoteParty().tryDispatchVoteEvent(any(Runnable.class))).thenAnswer(call -> {
+            call.getArgument(0, Runnable.class).run();
+            return true;
+        });
         // Resolve logging before parallel callbacks; avoid lazy deep-stub creation racing the interrupted caller.
         when(plugin.getLogger()).thenReturn(mock(java.util.logging.Logger.class));
         ServerData data = mock(ServerData.class);
@@ -100,6 +108,10 @@ class TimeQueueShutdownBoundTest {
 
     private void exerciseStalledWrite(String phase) throws Exception {
         VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+        when(plugin.getVoteParty().tryDispatchVoteEvent(any(Runnable.class))).thenAnswer(call -> {
+            call.getArgument(0, Runnable.class).run();
+            return true;
+        });
         // Resolve logging before parallel callbacks; avoid lazy deep-stub creation racing the interrupted caller.
         when(plugin.getLogger()).thenReturn(mock(java.util.logging.Logger.class));
         ServerData data = mock(ServerData.class);

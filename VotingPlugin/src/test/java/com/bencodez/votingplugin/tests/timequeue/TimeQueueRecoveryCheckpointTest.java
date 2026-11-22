@@ -356,6 +356,10 @@ class TimeQueueRecoveryCheckpointTest {
 
         Fixture(Path path) throws Exception {
             this.path = path;
+            when(plugin.getVoteParty().tryDispatchVoteEvent(any(Runnable.class))).thenAnswer(call -> {
+                call.getArgument(0, Runnable.class).run();
+                return true;
+            });
             yaml = spy(java.nio.file.Files.exists(path) ? YamlConfiguration.loadConfiguration(path.toFile())
                     : new YamlConfiguration());
             yaml.set("Adjacent.Value", "keep");

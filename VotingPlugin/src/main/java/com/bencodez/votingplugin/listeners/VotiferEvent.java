@@ -35,6 +35,20 @@ public class VotiferEvent implements Listener {
 	 * @param voteUsername the validated player name
 	 */
 	public void processVote(String voteSite, String voteUsername) {
+		if (!tryProcessVote(voteSite, voteUsername))
+			throw new java.util.concurrent.RejectedExecutionException("Vote was not admitted before processing");
+	}
+
+	/** Creates the owned ingress queue with explicit pre-mutation admission feedback. */
+	public VotifierVoteOverflowQueue createOverflowQueue() {
+		return VotifierVoteOverflowQueue.withAdmission(plugin, this::tryProcessVote);
+	}
+
+	private boolean tryProcessVote(String voteSite, String voteUsername) {
+		return plugin.getVoteParty().tryDispatchVoteEvent(() -> processAdmittedVote(voteSite, voteUsername));
+	}
+
+	private void processAdmittedVote(String voteSite, String voteUsername) {
 		try {
 			plugin.getServerData().addServiceSite(voteSite);
 			if (plugin.getBungeeSettings().isUseBungeecoord() && !plugin.getBungeeSettings().isVotifierBypass()
@@ -134,15 +148,12 @@ public class VotiferEvent implements Listener {
 		plugin.debug("VoteSite: " + voteSite);
 		plugin.debug("IP: " + IP);
 
-		if (!com.bencodez.votingplugin.util.VoteTaskAdmission.trySubmit(plugin.getVoteTimer(),
-				() -> processVote(voteSite, voteUsername))) {
-			VotifierVoteOverflowQueue overflow = plugin.getVotifierVoteOverflowQueue();
-			if (overflow == null || !overflow.enqueue(voteUsername, voteSite)) {
-				plugin.getLogger().severe("Votifier vote queue is full; vote was not admitted for "
-						+ MinecraftUsernameValidator.sanitizeForLog(voteUsername));
-			} else {
-				plugin.getLogger().warning("Vote executor saturated; queued Votifier vote for retry");
-			}
+		// Own the occurrence before any cancellable executor/event handoff. The
+		// drain reserves party metadata before invoking any event listeners.
+		VotifierVoteOverflowQueue overflow = plugin.getVotifierVoteOverflowQueue();
+		if (overflow == null || !overflow.enqueue(voteUsername, voteSite)) {
+			plugin.getLogger().severe("Votifier vote queue is full; vote was not admitted for "
+					+ MinecraftUsernameValidator.sanitizeForLog(voteUsername));
 		}
 	}
 }

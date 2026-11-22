@@ -145,53 +145,10 @@ public class TimeQueueHandler implements Listener {
 					vote = timeChangeQueue.peek();
 				}
 				if (vote == null) return;
-				PlayerVoteEvent voteEvent = new PlayerVoteEvent(
-						plugin.getVoteSiteManager().getVoteSite(plugin.getVoteSiteManager().getVoteSiteName(true, vote.getService()), true), vote.getName(),
-						vote.getService(), true);
-				voteEvent.setTime(vote.getTime());
-				synchronized (persistenceLock) {
-					if (stopping) return;
-					if (timeChangeQueue.peek() != vote) continue;
-					dispatchingVote = vote;
-					if (vote.getVoteId() == null) vote.setVoteId(UUID.randomUUID());
-					dispatchId = vote.getVoteId();
-					dispatchEnded = false;
-					try {
-						plugin.getServerData().prepareTimedVoteDispatch(dispatchId, vote,
-								timeChangeQueue.stream().filter(pending -> pending != vote).toList());
-					} catch (RuntimeException | Error failure) {
-						clearDispatch();
-						throw failure;
-					}
-					// A preparation resumed after stop is still eligible for normal recovery.
-					if (stopping) return;
-					dispatchStarted = true;
-				}
-				try {
-					plugin.getServer().getPluginManager().callEvent(voteEvent);
-				} catch (RuntimeException | Error failure) {
-					synchronized (persistenceLock) {
-						dispatchEnded = true;
-						try {
-							retainUncertainDispatch();
-							clearDispatch();
-							if (!stopping) checkpointPendingVotes();
-						} catch (RuntimeException | Error persistenceFailure) {
-							if (failure != persistenceFailure) failure.addSuppressed(persistenceFailure);
-						}
-					}
-					throw failure;
-				}
-				synchronized (persistenceLock) {
-					dispatchEnded = true;
-					if (!stopping) plugin.getServerData().completeTimedVoteDispatch(dispatchId);
-					timeChangeQueue.remove(vote);
-					clearDispatch();
-					if (voteEvent.isCancelled() && !stopping) checkpointPendingVotes();
-				}
-				if (voteEvent.isCancelled()) {
-					plugin.debug("Vote cancelled");
-					continue;
+				var party = plugin.getVoteParty();
+				if (party == null || !party.tryDispatchVoteEvent(() -> dispatchVote(vote))) {
+					retry = !stopping;
+					return;
 				}
 			}
 		} catch (RuntimeException | Error failure) {
@@ -201,6 +158,58 @@ public class TimeQueueHandler implements Listener {
 			processing.set(false);
 			if (retry) scheduleRetry();
 			else retryAttempts.set(0);
+		}
+	}
+
+	/** Called only after pre-event admission; the timed queue owns a refused vote. */
+	private void dispatchVote(VoteTimeQueue vote) {
+		PlayerVoteEvent voteEvent = new PlayerVoteEvent(
+				plugin.getVoteSiteManager().getVoteSite(plugin.getVoteSiteManager().getVoteSiteName(true, vote.getService()), true), vote.getName(),
+				vote.getService(), true);
+		voteEvent.setTime(vote.getTime());
+		synchronized (persistenceLock) {
+			if (stopping) return;
+			if (timeChangeQueue.peek() != vote) return;
+			dispatchingVote = vote;
+			if (vote.getVoteId() == null) vote.setVoteId(UUID.randomUUID());
+			dispatchId = vote.getVoteId();
+			dispatchEnded = false;
+			try {
+				plugin.getServerData().prepareTimedVoteDispatch(dispatchId, vote,
+						timeChangeQueue.stream().filter(pending -> pending != vote).toList());
+			} catch (RuntimeException | Error failure) {
+				clearDispatch();
+				throw failure;
+			}
+			// A preparation resumed after stop is still eligible for normal recovery.
+			if (stopping) return;
+			dispatchStarted = true;
+		}
+		try {
+			plugin.getServer().getPluginManager().callEvent(voteEvent);
+		} catch (RuntimeException | Error failure) {
+			synchronized (persistenceLock) {
+				dispatchEnded = true;
+				try {
+					retainUncertainDispatch();
+					clearDispatch();
+					if (!stopping) checkpointPendingVotes();
+				} catch (RuntimeException | Error persistenceFailure) {
+					if (failure != persistenceFailure) failure.addSuppressed(persistenceFailure);
+				}
+			}
+			throw failure;
+		}
+		synchronized (persistenceLock) {
+			dispatchEnded = true;
+			if (!stopping) plugin.getServerData().completeTimedVoteDispatch(dispatchId);
+			timeChangeQueue.remove(vote);
+			clearDispatch();
+			if (voteEvent.isCancelled() && !stopping) checkpointPendingVotes();
+		}
+		if (voteEvent.isCancelled()) {
+			plugin.debug("Vote cancelled");
+			return;
 		}
 	}
 

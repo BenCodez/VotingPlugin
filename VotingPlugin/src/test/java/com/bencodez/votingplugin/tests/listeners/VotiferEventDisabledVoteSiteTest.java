@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -82,7 +83,19 @@ public class VotiferEventDisabledVoteSiteTest {
 			return CompletableFuture.completedFuture(null);
 		}).when(voteTimer).submit(any(Runnable.class));
 
+		when(plugin.getVoteParty().tryDispatchVoteEvent(any(Runnable.class))).thenAnswer(c -> {
+			((Runnable) c.getArgument(0)).run();
+			return true;
+		});
 		listener = new VotiferEvent(plugin);
+		// The owned ingress now precedes submission. Keep this fixture's controlled
+		// executor and preserve its existing site-resolution/effect assertions.
+		when(overflowQueue.enqueue(anyString(), anyString())).thenAnswer(c -> {
+			String username = c.getArgument(0);
+			String service = c.getArgument(1);
+			voteTimer.submit(() -> listener.processVote(service, username));
+			return true;
+		});
 	}
 
 	/**
@@ -102,6 +115,15 @@ public class VotiferEventDisabledVoteSiteTest {
 		when(event.getVote()).thenReturn(vote);
 		return event;
 	}
+
+    @Test
+    void partyAdmissionRefusalPrecedesStorageAndEventEffects() {
+        when(plugin.getVoteParty().tryDispatchVoteEvent(any(Runnable.class))).thenReturn(false);
+        org.junit.jupiter.api.Assertions.assertThrows(RejectedExecutionException.class,
+                () -> listener.processVote(SERVICE_SITE, "Steve"));
+        verify(plugin.getServerData(), never()).addServiceSite(anyString());
+        verify(pluginManager, never()).callEvent(any(PlayerVoteEvent.class));
+    }
 
     @Test
     void rejectsStructurallyInvalidServiceNamesBeforeSchedulingOrAutomaticCreation() {
@@ -160,7 +182,7 @@ public class VotiferEventDisabledVoteSiteTest {
 	public void testVoteIsQueuedWhenBoundedExecutorRejectsIt() {
 		doThrow(new RejectedExecutionException("capacity exhausted"))
 				.when(voteTimer).submit(any(Runnable.class));
-		when(overflowQueue.enqueue("Steve", SERVICE_SITE)).thenReturn(true);
+		doReturn(true).when(overflowQueue).enqueue("Steve", SERVICE_SITE);
 
 		listener.onVotiferEvent(createVoteEvent(SERVICE_SITE));
 
@@ -171,7 +193,7 @@ public class VotiferEventDisabledVoteSiteTest {
 	@Test
 	void unavailableTimerUsesTheSameOverflowAdmissionPath() {
 		when(plugin.getVoteTimer()).thenReturn(null);
-		when(overflowQueue.enqueue("Steve", SERVICE_SITE)).thenReturn(true);
+		doReturn(true).when(overflowQueue).enqueue("Steve", SERVICE_SITE);
 		listener.onVotiferEvent(createVoteEvent(SERVICE_SITE));
 		verify(overflowQueue).enqueue("Steve", SERVICE_SITE);
 		verify(pluginManager, never()).callEvent(any(PlayerVoteEvent.class));

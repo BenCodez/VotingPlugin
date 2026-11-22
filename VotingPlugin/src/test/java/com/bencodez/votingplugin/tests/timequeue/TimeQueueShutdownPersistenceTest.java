@@ -18,6 +18,10 @@ class TimeQueueShutdownPersistenceTest {
     private record Fixture(VotingPluginMain plugin, ServerData data, TimeQueueHandler handler) {}
     private Fixture fixture() {
         VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+        when(plugin.getVoteParty().tryDispatchVoteEvent(any(Runnable.class))).thenAnswer(call -> {
+            call.getArgument(0, Runnable.class).run();
+            return true;
+        });
         ServerData data = mock(ServerData.class);
         when(plugin.getServerData()).thenReturn(data);
         when(data.getTimedVoteCacheKeys()).thenReturn(Set.of());
