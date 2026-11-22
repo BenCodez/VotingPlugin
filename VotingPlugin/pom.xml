@@ -19,6 +19,7 @@
         <neoforge.version>21.1.211</neoforge.version>
     </properties>
     <build>
+        <finalName>${packaged.jar.name}</finalName>
         <resources>
             <resource>
                 <directory>src/main/resources</directory>
@@ -596,7 +597,6 @@
                                     <paperweight-mappings-namespace>mojang</paperweight-mappings-namespace>
                                 </manifestEntries>
                             </archive>
-                            <finalName>${project.name}</finalName>
                         </configuration>
                     </plugin>
                 </plugins>
@@ -630,8 +630,6 @@
                                     <paperweight-mappings-namespace>mojang</paperweight-mappings-namespace>
                                 </manifestEntries>
                             </archive>
-                            <finalName>
-                                ${project.name}-${build.number}</finalName>
                         </configuration>
                     </plugin>
                     <plugin>
@@ -708,7 +706,6 @@
                                     <paperweight-mappings-namespace>mojang</paperweight-mappings-namespace>
                                 </manifestEntries>
                             </archive>
-                            <finalName>${project.name}</finalName>
                         </configuration>
                     </plugin>
                     <plugin>
@@ -771,7 +768,6 @@
                                     <paperweight-mappings-namespace>mojang</paperweight-mappings-namespace>
                                 </manifestEntries>
                             </archive>
-                            <finalName>${project.name}</finalName>
                         </configuration>
                     </plugin>
                     <plugin>
@@ -830,7 +826,6 @@
                                     <paperweight-mappings-namespace>mojang</paperweight-mappings-namespace>
                                 </manifestEntries>
                             </archive>
-                            <finalName>${project.name}</finalName>
                         </configuration>
                     </plugin>
                     <plugin>
