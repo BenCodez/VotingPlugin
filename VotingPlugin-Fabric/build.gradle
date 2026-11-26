@@ -49,6 +49,9 @@ jar {
     reproducibleFileOrder = true
 }
 
+sourceSets.test.java.setSrcDirs(['../VotingPlugin/src/test/java'])
+sourceSets.test.java.include('com/bencodez/votingplugin/tests/fabric/**')
+
 test {
     useJUnitPlatform()
 }
