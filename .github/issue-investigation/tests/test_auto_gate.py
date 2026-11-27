@@ -45,7 +45,7 @@ class AutomaticIssueTests(unittest.TestCase):
 
     def eligible(self, environment='existing-environment'):
         return gate.eligible(self.event, self.github, 'BenCodez/VotingPlugin',
-                             environment, date(2026, 11, 15))
+                             environment, date(2026, 11, 15), owner='github')
 
     def test_new_human_issue_is_admitted_below_limit(self):
         allowed, reason = self.eligible()
@@ -125,7 +125,7 @@ class AutomaticIssueTests(unittest.TestCase):
             event_path.write_text(json.dumps(self.event), encoding='utf-8')
             env = {'GITHUB_EVENT_PATH': str(event_path), 'GITHUB_OUTPUT': str(output_path),
                    'GH_TOKEN': 'test', 'GITHUB_REPOSITORY': 'BenCodez/VotingPlugin',
-                   'AUTO_ENVIRONMENT_NAME': 'existing-environment'}
+                   'AUTO_ENVIRONMENT_NAME': 'existing-environment', 'ISSUE_INVESTIGATION_OWNER': 'github'}
             with patch.dict(os.environ, env, clear=True), patch.object(gate, 'Curl', return_value=self.github):
                 self.assertEqual(gate.main(), 0)
             self.assertEqual(output_path.read_text(), 'allowed=true\n')
@@ -136,17 +136,14 @@ class AutomaticIssueTests(unittest.TestCase):
         self.assertEqual(agent['model'], 'gpt-6-luna')
         self.assertEqual(agent['tools'], [])
 
-    def test_workflow_keeps_model_key_out_of_admission_and_post_jobs(self):
+    def test_workflow_is_manual_offline_without_issue_write_or_model_access(self):
         workflow = (ROOT.parent / 'workflows' / 'investigate-issue.yml').read_text(encoding='utf-8')
-        self.assertIn('types: [opened]', workflow)
-        preflight = workflow.split('  auto-preflight:', 1)[1].split('  investigate:', 1)[0]
-        posting = workflow.split('  post-report:', 1)[1]
-        self.assertNotIn('OPENAI_API_KEY', preflight)
-        self.assertNotIn('OPENAI_API_KEY', posting)
-        self.assertIn('actions: read', preflight)
-        self.assertIn("!cancelled() && needs.investigate.result == 'success'", posting)
-        self.assertIn("github.event_name == 'issues' || inputs.post_comment", posting)
-        self.assertIn('needs.auto-preflight.outputs.allowed', workflow)
+        self.assertIn('workflow_dispatch:', workflow)
+        self.assertNotIn('  issues:', workflow)
+        self.assertNotIn('  issue_comment:', workflow)
+        self.assertNotIn('OPENAI_API_KEY', workflow)
+        self.assertNotIn('issues: write', workflow)
+        self.assertIn('unittest discover', workflow)
 
 
 if __name__ == '__main__':
