@@ -84,13 +84,13 @@ public final class VotingPluginConfigHealth {
 
 	private static boolean hasReward(ConfigurationSection data, String path) {
 		if (data.isList(path)) {
-			return data.getStringList(path).stream().anyMatch(name -> !name.isBlank());
+			return data.getStringList(path).stream().anyMatch(name -> !name.isEmpty());
 		}
 		ConfigurationSection section = data.getConfigurationSection(path);
 		if (section != null) {
 			return !section.getKeys(false).isEmpty();
 		}
-		return !data.getString(path, "").isBlank();
+		return !data.getString(path, "").isEmpty();
 	}
 
 	private static AwardRange positiveRankRange(String place) {

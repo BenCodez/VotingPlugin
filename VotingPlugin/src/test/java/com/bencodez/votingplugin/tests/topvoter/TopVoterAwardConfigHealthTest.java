@@ -80,6 +80,14 @@ class TopVoterAwardConfigHealthTest {
 	}
 
 	@Test
+	void warnsForSpaceOnlyRewardName() {
+		rewardData.set("EnableWeeklyAwards", true);
+		rewardData.set("WeeklyAwards.1.Rewards", List.of(" "));
+
+		checkSingleWarning("Weekly");
+	}
+
+	@Test
 	void ignoresPackagedDefaults() throws Exception {
 		check(loadDefaults("Config.yml"), loadDefaults("SpecialRewards.yml"));
 
