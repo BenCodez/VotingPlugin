@@ -214,8 +214,14 @@ def limit_automatic_context(issue):
             copy['body'] = body
         if isinstance(body, str) and len(body) > 2000:
             matches = list(re.finditer(r'(?im)^.*(?:version correction|actually running|stack trace|actual result).*$', body))
-            if matches and matches[-1].start() > 1000:
-                start = max(0, matches[-1].start() - 100)
+            corrections = [match for match in matches if any(
+                mention['correction'] for profile_name in PROFILES
+                for mention in version_mentions(
+                    {'author': issue.get('author'), 'comments': [{**comment, 'body': match.group()}]},
+                    profile_name))]
+            relevant = corrections or matches
+            if relevant and relevant[-1].start() > 1000:
+                start = max(0, relevant[-1].start() - 100)
                 copy['body'] = body[:800] + '\n[Excerpt]\n' + body[start:start + 1100]
             else:
                 copy['body'] = body[:1900]
@@ -258,8 +264,6 @@ def session_input(sha, issue, minutes, metadata=None, profile=None):
                  'documentation': profile['docs'], 'release_lookup': profile['releases'],
                  'development': profile['development'], 'related_checkouts': profile['related_checkouts'],
                  'issue_url': 'https://github.com/' + profile['repository'] + '/issues/' + metadata['number']}
-        if metadata['reported']['reported_version']:
-            facts['reported_version_candidate'] = metadata['reported']['reported_version']
         focus += 'Runner-resolved metadata: ' + json.dumps(facts) + ' '
         focus += 'Allowed build/test commands and runtime scope: ' + json.dumps(
             {key: profile[key] for key in ('build', 'test', 'runtime')}) + ' '
@@ -366,12 +370,20 @@ def interrupted(signum, frame):
 
 
 def check_upload():
-    receipt = json.loads((RESULTS / 'draft-receipt.json').read_bytes())
-    draft = (RESULTS / 'draft.md').read_bytes()
-    if receipt.get('status') != 'draft' or receipt.get('draft_sha256') != hashlib.sha256(draft).hexdigest():
-        raise RuntimeError('Draft receipt does not match the draft')
-    for name in ('draft-receipt.json', 'evidence.json', 'draft.md', 'turn.json', 'usage.json'):
-        require_disclosure((RESULTS / name).read_bytes(), 'github-artifact:' + name)
+    files = {name: (RESULTS / name).read_bytes()
+             for name in ('draft-receipt.json', 'evidence.json', 'draft.md', 'turn.json', 'usage.json')}
+    receipt = json.loads(files['draft-receipt.json'])
+    evidence = json.loads(files['evidence.json'])
+    turn = json.loads(files['turn.json'])
+    if (receipt.get('status') != 'draft'
+            or receipt.get('draft_sha256') != hashlib.sha256(files['draft.md']).hexdigest()
+            or not re.fullmatch(r'[a-f0-9]{64}', receipt.get('revision') or '')
+            or receipt['revision'] != evidence.get('revision')
+            or not re.fullmatch(r'[a-f0-9]{64}', receipt.get('turn') or '')
+            or turn.get('status') != 'completed' or receipt['turn'] != turn.get('digest')):
+        raise RuntimeError('Draft receipt does not match the draft, evidence, or completed turn')
+    for name, content in files.items():
+        require_disclosure(content, 'github-artifact:' + name)
 
 
 def main():

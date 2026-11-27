@@ -104,8 +104,11 @@ Cezar Job1 have no shared ledger in this pilot.
 
 ## Offline runner
 
-Use a sanitized GitHub-shaped issue JSON fixture and a trusted local Git
-checkout of the selected repository. For example:
+Use a sanitized issue JSON fixture and a trusted local Git
+checkout of the selected repository. A full GitHub snapshot contains an
+`issue` record and full REST `comments` and `events` arrays. A bare REST issue
+record is accepted only if it has no comments. The compact normalized fixture
+shape used in earlier pilots is still accepted. For example:
 
 ```sh
 python3 .github/issue-investigation/offline.py \

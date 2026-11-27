@@ -165,7 +165,7 @@ class RunnerTests(unittest.TestCase):
         self.assertIn('Do not include raw sandbox output paths', instructions)
         self.assertIn('VERSION FIRST', instructions)
         self.assertIn('reported version', instructions.lower())
-        self.assertIn('tag-or-commit', instructions)
+        self.assertIn('full verified commit SHAs', instructions)
 
     def test_issue_1764_reported_release_is_primary_and_latest_sha_is_comparison(self):
         issue = {'title': 'Globally linked Floodgate account',
@@ -177,6 +177,15 @@ class RunnerTests(unittest.TestCase):
         self.assertIn('first using its verified Git release tag', prompt)
         self.assertIn('separate development comparison', prompt)
         self.assertEqual(json.loads(prompt.split('\n', 1)[1]), issue)
+
+    def test_prompt_does_not_reinsert_version_from_unsanitized_metadata(self):
+        profile = runner.profile_for('BenCodez/VotingPlugin')
+        metadata = {'mode': 'bug', 'number': '42',
+                    'reported': {'reported_version': '7.1.1+removed-marker', 'commit': 'b' * 40}}
+        prompt = runner.session_input('a' * 40, {'body': 'VotingPlugin 7.1.1'}, 10, metadata, profile)
+        self.assertNotIn('removed-marker', prompt)
+        self.assertIn('b' * 40, prompt)
+        self.assertIn('VotingPlugin 7.1.1', prompt)
 
     def test_unversioned_and_snapshot_issues_do_not_invent_release_tags(self):
         self.assertIsNone(unique_version({'body': 'Vote rewards do not run'}))
@@ -230,16 +239,19 @@ class RunnerTests(unittest.TestCase):
 
         draft = b'# Draft'
         (self.output / 'draft.md').write_bytes(draft)
-        receipt = {'status': 'draft', 'draft_sha256': hashlib.sha256(draft).hexdigest()}
+        receipt = {'status': 'draft', 'draft_sha256': hashlib.sha256(draft).hexdigest(),
+                   'revision': 'a' * 64, 'turn': 'b' * 64}
         receipt_path = self.output / 'draft-receipt.json'
         runner.save(receipt_path, receipt)
-        for name in ('evidence.json', 'turn.json', 'usage.json'):
-            runner.save(self.output / name, {})
+        runner.save(self.output / 'evidence.json', {'revision': receipt['revision']})
+        runner.save(self.output / 'turn.json', {'status': 'completed', 'digest': receipt['turn']})
+        runner.save(self.output / 'usage.json', {})
         runner.check_upload()
         self.assertEqual(self.checker.call_count, 5)
-        runner.save(receipt_path, {**receipt, 'status': 'completed'})
-        with self.assertRaisesRegex(RuntimeError, 'Draft receipt'):
-            runner.check_upload()
+        for changed in ({'status': 'completed'}, {'revision': 'c' * 64}, {'turn': 'c' * 64}):
+            runner.save(receipt_path, {**receipt, **changed})
+            with self.assertRaisesRegex(RuntimeError, 'Draft receipt'):
+                runner.check_upload()
         self.assertEqual(self.checker.call_count, 5)
 
     def test_missing_usage_remains_unknown(self):
@@ -314,7 +326,7 @@ class RunnerTests(unittest.TestCase):
         api = FakeApi(reply)
         env = {'OPENAI_API_KEY': 'test', 'GH_TOKEN': 'test', 'ISSUE_NUMBER': '1747',
                'GITHUB_REPOSITORY': 'BenCodez/VotingPlugin', 'GITHUB_SHA': 'a' * 40}
-        with patch.dict(os.environ, env), patch.object(runner.sys, 'argv', ['run.py']), \
+        with patch.dict(os.environ, env, clear=True), patch.object(runner.sys, 'argv', ['run.py']), \
              patch.object(runner, 'Curl', return_value=api), patch.object(runner, 'issue_context', return_value={}), \
              patch.object(runner.signal, 'signal'):
             self.assertEqual(runner.main(), 1)
@@ -335,9 +347,12 @@ class RunnerTests(unittest.TestCase):
              patch.object(runner, 'issue_context', return_value={'body': 'Fictional prohibited input'}), \
              patch.object(runner.signal, 'signal'):
             self.assertEqual(runner.main(), 1)
+        payload, destination = self.checker.call_args.args
+        self.assertEqual(destination, 'openai-investigation-input')
+        self.assertIn(b'Fictional prohibited input', payload)
         self.assertFalse(api.calls)
         self.assertNotIn('Fictional', (self.output / 'evidence.json').read_text())
-        self.assertFalse((self.output / 'completed.json').exists())
+        self.assertFalse((self.output / 'draft-receipt.json').exists())
 
     def test_lost_create_response_never_submits_task(self):
         def reply(method, path, payload):
@@ -347,7 +362,7 @@ class RunnerTests(unittest.TestCase):
         api = FakeApi(reply)
         env = {'OPENAI_API_KEY': 'test', 'GH_TOKEN': 'test', 'ISSUE_NUMBER': '1747',
                'GITHUB_REPOSITORY': 'BenCodez/VotingPlugin', 'GITHUB_SHA': 'a' * 40}
-        with patch.dict(os.environ, env), patch.object(runner.sys, 'argv', ['run.py']), \
+        with patch.dict(os.environ, env, clear=True), patch.object(runner.sys, 'argv', ['run.py']), \
              patch.object(runner, 'Curl', return_value=api), patch.object(runner, 'issue_context', return_value={}), \
              patch.object(runner.signal, 'signal'):
             self.assertEqual(runner.main(), 1)
@@ -367,7 +382,7 @@ class RunnerTests(unittest.TestCase):
         api = FakeApi(reply)
         env = {'OPENAI_API_KEY': 'test', 'GH_TOKEN': 'test', 'ISSUE_NUMBER': '1747',
                'GITHUB_REPOSITORY': 'BenCodez/VotingPlugin', 'GITHUB_SHA': 'a' * 40}
-        with patch.dict(os.environ, env), patch.object(runner.sys, 'argv', ['run.py']), \
+        with patch.dict(os.environ, env, clear=True), patch.object(runner.sys, 'argv', ['run.py']), \
              patch.object(runner, 'Curl', return_value=api), patch.object(runner, 'issue_context', return_value={}), \
              patch.object(runner.signal, 'signal'):
             self.assertEqual(runner.main(), 1)

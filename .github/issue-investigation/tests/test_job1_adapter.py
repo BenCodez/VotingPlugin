@@ -37,6 +37,10 @@ class OfflineIngressTests(unittest.TestCase):
             with self.subTest(owner=owner), ThreadPoolExecutor(max_workers=4) as pool:
                 snapshot = fixture()
                 snapshot['issue'].update(number=number, html_url=f'https://github.com/{REPO}/issues/{number}')
+                wrong = 'github' if owner == 'cezar' else 'cezar'
+                unused = Claims(self.folder / f'nonowner-{number}.sqlite3')
+                self.assertEqual(admit(snapshot, REPO, number, owner, wrong, unused)['status'], 'skipped')
+                self.assertFalse(unused.path.exists())
                 barrier = threading.Barrier(4)
 
                 def delivery(ingress):

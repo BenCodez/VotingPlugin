@@ -9,7 +9,7 @@ import sqlite3
 import subprocess
 from urllib.parse import quote
 
-from engine import PROFILES, SHA, digest, evidence, is_bot, profile_for, version_evidence
+from engine import PROFILES, SHA, digest, evidence, github_snapshot, is_bot, profile_for, version_evidence
 
 PILOT_PROFILES = frozenset({'VotingPlugin', 'AdvancedCore', 'SimpleAPI'})
 
@@ -58,6 +58,16 @@ def source_record(checkout, profile, sha, path, lane):
 
 
 def analyze(issue, profile, checkout, sha, source_paths, dependencies):
+    if 'issue' in issue:
+        record, comments = issue['issue'], issue['comments']
+        count = record.get('comments')
+        if isinstance(count, int) and count > len(comments):
+            raise RuntimeError('Use a snapshot with full comment and event rows')
+        issue = github_snapshot(record, comments, issue['events'])
+    elif isinstance(issue.get('comments'), int) or 'html_url' in issue:
+        if issue.get('comments', 0) != 0:
+            raise RuntimeError('Use a snapshot with full comment and event rows')
+        issue = github_snapshot(issue, (), ())
     issue = dict(issue)
     if 'pull_request' in issue:
         raise RuntimeError('Choose an issue, not a pull request')

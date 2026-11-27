@@ -20,6 +20,7 @@ LATEST_BUILD_URL = post.profile_for('BenCodez/VotingPlugin')['development']
 
 class PostingTests(unittest.TestCase):
     def setUp(self):
+        self.enterContext(patch.dict(os.environ, {'GITHUB_EVENT_NAME': 'workflow_dispatch'}))
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.folder = Path(self.temp.name)

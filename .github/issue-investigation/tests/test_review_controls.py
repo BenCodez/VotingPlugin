@@ -109,7 +109,7 @@ class ReviewControls(unittest.TestCase):
     def test_authoritative_middle_correction_survives_both_bounds(self):
         comments = [{'id': i, 'url': f'comment/{i}', 'user': 'reviewer', 'association': 'OWNER',
                      'body': 'Discussion'} for i in range(30)]
-        comments[6].update(body=('intro\n' * 400) + 'Version correction: VotingPlugin 7.2.1\n')
+        comments[6].update(body=('intro\n' * 400) + 'Version correction: VotingPlugin 7.2.1\n' + ('later\n' * 400) + 'Actual result: still open\n')
         bounded = limit_automatic_context({'comments': comments})
         selected = next(row for row in bounded['comments'] if row['id'] == 6)
         self.assertIn('Version correction: VotingPlugin 7.2.1', selected['body'])
@@ -134,6 +134,48 @@ class ReviewControls(unittest.TestCase):
         self.assertNotIn('Fictional', json.dumps(meta['resources']))
         with self.assertRaisesRegex(RuntimeError, 'explicit owner'):
             route_revision('BenCodez/VotingPlugin', '1', meta['revision'], '')
+
+    def test_offline_rest_snapshot_preserves_labels_identity_and_correction(self):
+        import offline
+        profile = profile_for('BenCodez/VotingPlugin')
+        issue = {'title': 'Problem', 'body': 'VotingPlugin 7.1.0',
+                 'labels': [{'name': 'bug'}], 'comments': 1,
+                 'html_url': 'https://github.com/BenCodez/VotingPlugin/issues/1'}
+        snapshot = {'issue': issue, 'events': [], 'comments': [
+            {'id': 1, 'user': {'login': 'maintainer'}, 'author_association': 'OWNER',
+             'body': 'Version correction: VotingPlugin 7.2.1'}]}
+        with patch.object(offline, 'tag_sha', return_value=None):
+            result = offline.analyze(snapshot, profile, Path('.'), 'a' * 40, [], {})
+            self.assertEqual(result['mode'], 'bug')
+            self.assertEqual(result['issue'], issue['html_url'])
+            self.assertEqual(result['reported']['reported_version'], '7.2.1')
+            with self.assertRaisesRegex(RuntimeError, 'full comment'):
+                offline.analyze(issue, profile, Path('.'), 'a' * 40, [], {})
+            with self.assertRaisesRegex(RuntimeError, 'full comment'):
+                offline.analyze({**snapshot, 'issue': {**issue, 'comments': 2}},
+                                profile, Path('.'), 'a' * 40, [], {})
+            bare = offline.analyze({**issue, 'comments': 0}, profile, Path('.'), 'a' * 40, [], {})
+            self.assertEqual(bare['issue'], issue['html_url'])
+
+    def test_markdown_heading_and_citation_must_be_structural(self):
+        meta = {'repository': 'BenCodez/VotingPlugin', 'number': '1',
+                'development_sha': 'a' * 40, 'mode': 'insufficient'}
+        url = 'https://github.com/BenCodez/VotingPlugin/issues/1'
+        template = ('## Finding\nReviewed the reported behavior.\n'
+                    '**Evidence**: Consulted the project record {ref}.\n'
+                    '**Verification**: Read the supplied records.\n'
+                    '**Suggested next step**: Obtain the installed version.\n'
+                    '**Limitations**: Runtime evidence is missing.')
+        valid = template.format(ref=f'[issue]({url})')
+        self.assertTrue(report_completion(valid, meta)['issue_cited'])
+        with self.assertRaisesRegex(RuntimeError, 'required evidence sections'):
+            report_completion(valid.replace('## Finding', '## Findingstone'), meta)
+        self.assertTrue(report_completion(template.format(ref=f'\n\n   [issue]({url})\n'),
+                                          meta)['issue_cited'])
+        for reference in (url, f'`[issue]({url})`', f'\n~~~\n[issue]({url})\n~~~\n',
+                          f'\n\n    [issue]({url})\n', f'\n\n\t[issue]({url})\n'):
+            with self.assertRaisesRegex(RuntimeError, 'lacks corroborated'):
+                report_completion(template.format(ref=reference), meta)
 
     def test_validation_only_profile_cannot_enter_pilot_mode(self):
         from unittest.mock import patch

@@ -5,7 +5,7 @@ from engine import digest
 
 REPORT_SECTIONS = ('Finding', 'Evidence', 'Verification', 'Suggested next step', 'Limitations')
 HEADING = re.compile(r'(?m)^(?:\*\*(' + '|'.join(REPORT_SECTIONS) +
-                     r')\*\*:?|#{1,6} +(' + '|'.join(REPORT_SECTIONS) + r'):?)[ \t]*')
+                     r')\*\*:?|#{1,6} +(' + '|'.join(REPORT_SECTIONS) + r'):?(?=[ \t]*\r?$))[ \t]*')
 
 
 def report_sections(report):
@@ -35,16 +35,19 @@ def report_fingerprint(report):
     return digest(normalized)
 
 
-
 # An exact reference anchors the model's observation to runner-known inputs.
 # It does not demonstrate that the cited file exists or that a test was run.
 def report_completion(report, provenance, verify_source=None):
     sections = report_sections(report)
     repo = re.escape(provenance['repository'])
     root = rf'https://github\.com/{repo}'
-    evidence = sections['Evidence']
-    refs = set(re.findall(root + r'/blob/([a-f0-9]{40})/([A-Za-z0-9_./-]+)(?=[\s)#<>]|$)',
-                          evidence, re.I))
+    evidence = re.sub(r'(?ms)^ {0,3}(`{3,}|~{3,})[^\n]*\n.*?(?:^ {0,3}\1[`~]*[ \t]*(?:\n|$)|\Z)',
+                      '', sections['Evidence'])
+    evidence = re.sub(r'(?<!`)(`+)(?!`).*?(?<!`)\1(?!`)', '', evidence, flags=re.S)
+    evidence = re.sub(r'(?m)^(?: {4}| {0,3}\t)[^\n]*', '', evidence)
+    destinations = re.findall(r'(?<![!\\])\[[^\]\n]+\]\((https://[^\s()<>]+)\)', evidence)
+    source = re.compile(root + r'/blob/([a-f0-9]{40})/([A-Za-z0-9_./-]+)(?:#L[0-9]+(?:-L[0-9]+)?)?', re.I)
+    refs = {match.groups() for url in destinations if (match := source.fullmatch(url))}
     refs = sorted((sha, path) for sha, path in refs
                   if sha in {provenance['development_sha'], provenance.get('reported_commit')}
                   and all(part not in {'', '.', '..'} for part in path.split('/')))
@@ -54,7 +57,7 @@ def report_completion(report, provenance, verify_source=None):
         raise RuntimeError('Report cites a source file that could not be verified')
     commits = {sha for sha, _ in refs}
     number = re.escape(str(provenance['number']))
-    issue = bool(re.search(root + rf'/issues/{number}(?=[\s)#<>]|$)', evidence, re.I))
+    issue = any(re.fullmatch(root + rf'/issues/{number}', url, re.I) for url in destinations)
     mode = provenance['mode']
     anchor = {'bug': bool(commits), 'docs': bool(commits),
               'feature': bool(commits) or issue, 'support': bool(commits) or issue,
