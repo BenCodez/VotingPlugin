@@ -441,14 +441,17 @@ class RunnerTests(unittest.TestCase):
                 state.write_text('sess_1')
                 self.assertEqual(runner.main(), 1)
                 state.unlink()
+                (work / 'error.json').unlink()
                 output.unlink()
 
                 def deny_usage(content, destination):
                     if destination == 'github-artifact:usage.json':
                         raise RuntimeError('Usage artifact denied')
 
+                self.checker.reset_mock()
                 with patch.object(self.checker, 'side_effect', deny_usage):
                     self.assertEqual(runner.main(), 1)
+                self.checker.assert_any_call((work / 'usage.json').read_bytes(), 'github-artifact:usage.json')
                 self.assertFalse(output.exists())
             report = (work / 'report.md').read_text()
             self.assertIn(SOURCE, report)
@@ -464,14 +467,21 @@ class RunnerTests(unittest.TestCase):
                                  for m, p, _ in openai.calls), 1)
             self.assertFalse((work / 'completed.json').exists())
 
-    def test_hosted_missing_run_identity_stops_before_openai(self):
-        env = {'ISSUE_INVESTIGATION_OWNER': 'github'}
-        with patch.dict(os.environ, env, clear=True), \
-             patch.object(runner, 'RESULTS', self.output / 'results'), \
+    def test_hosted_missing_or_invalid_run_identity_stops_before_openai(self):
+        env = {'ISSUE_INVESTIGATION_OWNER': 'github', 'OPENAI_API_KEY': 'test',
+               'OPENAI_PROJECT_ID': 'proj_fixture42', 'GITHUB_REPOSITORY': 'BenCodez/VotingPlugin',
+               'GITHUB_EVENT_NAME': 'workflow_dispatch', 'GITHUB_SHA': 'a' * 40,
+               'ISSUE_NUMBER': '1747', 'AGENT_TIMEOUT_MINUTES': '15', 'GH_TOKEN': 'test'}
+        with patch.object(runner, 'RESULTS', self.output / 'results'), \
              patch.object(runner.sys, 'argv', ['run.py', '--hosted']), \
-             patch.object(runner, 'Curl') as curl:
-            self.assertEqual(runner.main(), 1)
-        curl.assert_not_called()
+             patch.object(runner, 'Curl', side_effect=RuntimeError('Mock client boundary')) as curl:
+            for invalid_env in (env, {**env, 'GITHUB_RUN_ID': '01'}):
+                with patch.dict(os.environ, invalid_env, clear=True):
+                    self.assertEqual(runner.main(), 1)
+                    curl.assert_not_called()
+            with patch.dict(os.environ, {**env, 'GITHUB_RUN_ID': '123'}, clear=True):
+                self.assertEqual(runner.main(), 1)
+                curl.assert_called_once()
 
     def test_missing_key_fails_without_creating_session(self):
         with patch.dict(os.environ, {}, clear=True), patch.object(runner, 'Curl') as curl:

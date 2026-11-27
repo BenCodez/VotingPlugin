@@ -90,6 +90,22 @@ session. The fallback cleanup step uses the current run's recovery file.
 Recovery state stays out of the upload. Lost create responses and forced
 termination can still require provider-side reconciliation.
 
+## Hosted reusable workflow
+
+The separate `investigate-issue-reusable.yml` workflow accepts eligible
+issue openings and manual calls from AdvancedCore and SimpleAPI. It verifies
+the caller and its source revision separately from the immutable shared engine
+revision. A caller supplies its own OpenAI project and explicitly maps
+`OPENAI_API_KEY`. When admitted, the hosted model receives bounded,
+disclosure-checked public issue evidence and trusted setup for the selected
+source. The caller receives a checked artifact and receipt after cleanup.
+This workflow cannot write issue comments.
+
+The callable path requires approved disclosure policy, caller configuration,
+a verified project budget and deployment validation. Its visible daily
+run count only throttles admissions. The offline fixtures below require
+no model access and exercise a different entrypoint.
+
 ## Offline runner
 
 Use a sanitized issue JSON fixture and a trusted local Git
@@ -115,8 +131,8 @@ Runtime and application tests require independent evidence.
 ## Proposed Job1 shared admission contract
 
 This is an offline integration proposal. The enabled Job1 and all deployment
-settings are outside this patch. The draft-only boundary above applies to
-both ingress paths.
+settings are outside this patch. The offline replay below grants no
+hosted execution or publication authority.
 
 1. Treat a GitHub event or Job1 poll hit as a wakeup. Fetch the issue plus all
    comment and event pages before admission. Use the same normalization as the

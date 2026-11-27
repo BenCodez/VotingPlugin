@@ -204,6 +204,25 @@ class ReviewControls(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, 'lacks corroborated'):
                 report_completion(template.format(ref=reference), meta)
 
+    def test_fenced_evidence_requires_a_matching_closer(self):
+        meta = {'repository': 'BenCodez/VotingPlugin', 'number': '1',
+                'development_sha': 'a' * 40, 'mode': 'insufficient'}
+        link = '[issue](https://github.com/BenCodez/VotingPlugin/issues/1)'
+        report = ('**Finding**: Reviewed the reported behavior.\n'
+                  '**Evidence**: Consulted the supplied evidence.\n'
+                  '{opener}\nexample\n{closer}\n{link}\n'
+                  '**Verification**: Read the supplied records.\n'
+                  '**Suggested next step**: Obtain the installed version.\n'
+                  '**Limitations**: Runtime evidence is missing.')
+        for opener, closer in [('~~~', '~~~`'), ('```', '```~'), ('~~~~', '~~~'), ('~~~', '```')]:
+            with self.subTest(opener=opener, closer=closer):
+                with self.assertRaisesRegex(RuntimeError, 'lacks corroborated'):
+                    report_completion(report.format(opener=opener, closer=closer, link=link), meta)
+        for opener, closer in [('~~~', '  ~~~~ \t'), ('```', '````')]:
+            with self.subTest(opener=opener, closer=closer):
+                self.assertTrue(report_completion(
+                    report.format(opener=opener, closer=closer, link=link), meta)['issue_cited'])
+
     def test_validation_only_profile_cannot_enter_pilot_mode(self):
         from unittest.mock import patch
         import offline

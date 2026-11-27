@@ -35,14 +35,31 @@ def report_fingerprint(report):
     return digest(normalized)
 
 
+def without_fenced_code(text):
+    visible = []
+    opener = ''
+    for line in text.splitlines(keepends=True):
+        content = line.rstrip('\r\n')
+        if opener:
+            closer = re.fullmatch(r' {0,3}(`+|~+)[ \t]*', content)
+            if closer and closer[1][0] == opener[0] and len(closer[1]) >= len(opener):
+                opener = ''
+            continue
+        start = re.match(r' {0,3}(`{3,}|~{3,})', content)
+        if start:
+            opener = start[1]
+        else:
+            visible.append(line)
+    return ''.join(visible)
+
+
 # An exact reference anchors the model's observation to runner-known inputs.
 # It does not demonstrate that the cited file exists or that a test was run.
 def report_completion(report, provenance, verify_source=None):
     sections = report_sections(report)
     repo = re.escape(provenance['repository'])
     root = rf'https://github\.com/{repo}'
-    evidence = re.sub(r'(?ms)^ {0,3}(`{3,}|~{3,})[^\n]*\n.*?(?:^ {0,3}\1[`~]*[ \t]*(?:\n|$)|\Z)',
-                      '', sections['Evidence'])
+    evidence = without_fenced_code(sections['Evidence'])
     evidence = re.sub(r'(?<!`)(`+)(?!`).*?(?<!`)\1(?!`)', '', evidence, flags=re.S)
     evidence = re.sub(r'(?m)^(?: {4}| {0,3}\t)[^\n]*', '', evidence)
     destinations = re.findall(r'(?<![!\\])\[[^\]\n]+\]\((https://[^\s()<>]+)\)', evidence)

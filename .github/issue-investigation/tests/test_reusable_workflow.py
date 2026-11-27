@@ -250,10 +250,20 @@ class ReusableTests(unittest.TestCase):
             ledger = folder / 'claims.sqlite3'
             env['ISSUE_INVESTIGATION_LEDGER'] = str(ledger)
 
+            completion_exists_at_delete = []
+
+            def collect(*args, **kwargs):
+                (results / 'report.md').write_text('Synthetic investigation report\n')
+                runner.save(results / 'usage.json', {'status': 'unavailable', 'usage': None})
+                return {}
+
             def respond(method, path, payload=None):
                 if method == 'POST' and path == '/agents/sessions':
                     return {'id': 'sess_fixture'}
+                if '/turns?' in path:
+                    return {'data': [{'id': 'turn_fixture', 'status': 'completed'}]}
                 if method == 'DELETE':
+                    completion_exists_at_delete.append((results / 'completed.json').exists())
                     raise runner.ApiError(500)
                 return {'status': 'idle'}
 
@@ -261,11 +271,13 @@ class ReusableTests(unittest.TestCase):
                  patch.object(runner, 'session_state', return_value=recovery), \
                  patch.object(runner, 'issue_context', return_value=issue), \
                  patch.object(runner, 'require_disclosure'), patch.object(runner.signal, 'signal'), \
-                 patch.object(runner, 'wait_for_turn', return_value={'id': 'turn_fixture'}), \
-                 patch.object(runner, 'collect', return_value={}), patch.object(runner, 'Curl') as client, \
+                 patch.object(runner, 'collect', side_effect=collect), patch.object(runner, 'Curl') as client, \
                  patch.object(runner.sys, 'argv', ['run.py', '--hosted-artifact']):
                 client.return_value.request.side_effect = respond
                 self.assertEqual(runner.main(), 1)
+            self.assertEqual(completion_exists_at_delete, [False, False])
+            self.assertTrue((results / 'report.md').is_file())
+            self.assertTrue((results / 'turn.json').is_file())
             self.assertTrue(recovery.exists())
             self.assertFalse((results / 'completed.json').exists())
             self.assertFalse((results / 'prepared-upload.json').exists())
@@ -274,6 +286,20 @@ class ReusableTests(unittest.TestCase):
             model_creates = [call for call in client.return_value.request.call_args_list
                              if call.args[:2] == ('POST', '/agents/sessions')]
             self.assertEqual(len(model_creates), 1)
+
+    def test_cached_admission_cannot_launch_a_later_attempt_or_expose_outputs(self):
+        workflow = WORKFLOW.read_text()
+        env, event, run = context()
+        cached, _ = self.admit(env, event, run)
+        self.assertEqual(cached['outcome'], 'admitted')
+        # This is the job-level guard, which is evaluated even when admission
+        # is not rerun. All reusable outputs are independently gated.
+        self.assertIn("if: ${{ github.run_attempt == '1' && needs.admit.outputs.outcome == 'admitted' }}", workflow)
+        self.assertIn("value: ${{ github.run_attempt != '1' && 'skipped' ||", workflow)
+        for output in ('artifact_id', 'revision', 'source_sha', 'engine_sha'):
+            self.assertIn("github.run_attempt == '1' && jobs.investigate.outputs." + output + " || ''", workflow)
+        rerun, _ = self.admit({**env, 'GITHUB_RUN_ATTEMPT': '2'}, event, {**run, 'run_attempt': 2})
+        self.assertEqual(rerun, {'outcome': 'skipped'})
 
     def test_workflow_never_grants_posting_or_inherits_secrets(self):
         yaml = WORKFLOW.read_text()

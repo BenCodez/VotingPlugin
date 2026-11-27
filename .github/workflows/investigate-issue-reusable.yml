@@ -17,15 +17,15 @@ on:
         required: true
     outputs:
       outcome:
-        value: ${{ jobs.investigate.outputs.outcome || jobs.admit.outputs.outcome }}
+        value: ${{ github.run_attempt != '1' && 'skipped' || jobs.investigate.outputs.outcome || jobs.admit.outputs.outcome }}
       artifact_id:
-        value: ${{ jobs.investigate.outputs.artifact_id }}
+        value: ${{ github.run_attempt == '1' && jobs.investigate.outputs.artifact_id || '' }}
       revision:
-        value: ${{ jobs.investigate.outputs.revision }}
+        value: ${{ github.run_attempt == '1' && jobs.investigate.outputs.revision || '' }}
       source_sha:
-        value: ${{ jobs.investigate.outputs.source_sha }}
+        value: ${{ github.run_attempt == '1' && jobs.investigate.outputs.source_sha || '' }}
       engine_sha:
-        value: ${{ jobs.investigate.outputs.engine_sha }}
+        value: ${{ github.run_attempt == '1' && jobs.investigate.outputs.engine_sha || '' }}
 
 permissions:
   actions: read
@@ -165,7 +165,7 @@ jobs:
 
   investigate:
     needs: admit
-    if: ${{ needs.admit.outputs.outcome == 'admitted' }}
+    if: ${{ github.run_attempt == '1' && needs.admit.outputs.outcome == 'admitted' }}
     runs-on: ubuntu-latest
     timeout-minutes: 50
     concurrency:
