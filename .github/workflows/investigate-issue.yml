@@ -15,4 +15,4 @@ jobs:
         with:
           persist-credentials: false
       - name: Run offline investigator checks
-        run: python3 -m unittest discover -s .github/issue-investigation/tests -v
+        run: env -u GITHUB_EVENT_NAME -u ISSUE_INVESTIGATION_OWNER python3 -m unittest discover -s .github/issue-investigation/tests -v
