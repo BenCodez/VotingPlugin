@@ -72,6 +72,14 @@ class TopVoterAwardConfigHealthTest {
 	}
 
 	@Test
+	void warnsForUnquotedNumericRewardName() {
+		rewardData.set("EnableDailyRewards", true);
+		rewardData.set("DailyAwards.1.Rewards", 123);
+
+		checkSingleWarning("Daily");
+	}
+
+	@Test
 	void ignoresPackagedDefaults() throws Exception {
 		check(loadDefaults("Config.yml"), loadDefaults("SpecialRewards.yml"));
 
