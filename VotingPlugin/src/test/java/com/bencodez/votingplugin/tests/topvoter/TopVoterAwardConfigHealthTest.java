@@ -58,7 +58,7 @@ class TopVoterAwardConfigHealthTest {
 	@Test
 	void warnsForWeeklyAwardList() {
 		rewardData.set("EnableWeeklyAwards", true);
-		rewardData.set("WeeklyAwards.1.Rewards", List.of("example-reward"));
+		rewardData.set("WeeklyAwards.1-2.Rewards", List.of("example-reward"));
 
 		checkSingleWarning("Weekly");
 	}
@@ -89,6 +89,29 @@ class TopVoterAwardConfigHealthTest {
 		rewardData.set("WeeklyAwards.3.Rewards", "");
 		rewardData.createSection("WeeklyAwards.4");
 		rewardData.set("EnableDailyRewards", true);
+
+		check(configData, rewardData);
+
+		verifyNoInteractions(logger);
+	}
+
+	@Test
+	void ignoresMonthlyAwardsUsingDatedTotals() {
+		configData.set("LoadTopVoter.Monthly", false);
+		configData.set("UseMonthDateTotalsAsPrimaryTotal", true);
+		rewardData.set("MonthlyAwards.1.Rewards", "example-reward");
+
+		check(configData, rewardData);
+
+		verifyNoInteractions(logger);
+	}
+
+	@Test
+	void ignoresRewardsWithoutAnAwardableRank() {
+		rewardData.set("EnableWeeklyAwards", true);
+		rewardData.set("WeeklyAwards.2-2.Rewards", "example-reward");
+		rewardData.set("WeeklyAwards.0.Rewards", "example-reward");
+		rewardData.set("WeeklyAwards.invalid.Rewards", "example-reward");
 
 		check(configData, rewardData);
 
