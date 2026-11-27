@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail-closed, read-only admission check for public issue-opened events."""
+"""Fail-closed, read-only admission for hosted investigations."""
 import json
 import os
 from datetime import datetime, timezone
@@ -9,7 +9,7 @@ import sys
 from urllib.parse import quote, urlencode
 
 from engine import is_bot
-from run import ApiError, Curl
+from run import ApiError, Curl, validate_inputs
 
 # A new public issue can be opened by anyone. Limit billable investigations.
 MAX_DAILY_AUTOMATIC_ISSUES = 5
@@ -47,24 +47,12 @@ def eligible(event, github, repository, environment_name, today=None,
     if is_bot(event.get('sender') or {}) or is_bot(issue.get('user') or {}):
         return False, 'Bot-generated event'
     number = issue.get('number')
-    if isinstance(number, bool) or not isinstance(number, int) or number < 1:
+    if isinstance(number, bool) or not isinstance(number, int) or not 1 <= number <= 999999999:
         raise RuntimeError('Invalid issue number')
 
-    if not environment_name or not environment_name.strip():
-        return False, 'Set repository variable ISSUE_INVESTIGATION_ENVIRONMENT to the existing key environment'
-
-    # A typo must not cause GitHub to create a new, unprotected environment.
-    environment_path = '/repos/' + repository + '/environments/' + quote(environment_name, safe='')
-    try:
-        environment = github.request('GET', environment_path)
-    except ApiError as error:
-        if error.status == 404:
-            return False, 'Configured GitHub Environment does not exist'
-        raise
-    if not isinstance(environment, dict) or (
-            not isinstance(environment.get('name'), str) or
-            environment['name'].casefold() != environment_name.casefold()):
-        raise RuntimeError('Could not verify the configured GitHub Environment')
+    available, reason = verified_environment(github, repository, environment_name)
+    if not available:
+        return False, reason
 
     day = today or datetime.now(timezone.utc).date()
     count = 0
@@ -82,22 +70,62 @@ def eligible(event, github, repository, environment_name, today=None,
     return True, 'Issue #' + str(number) + ' within daily limit (' + str(count) + '/' + str(MAX_DAILY_AUTOMATIC_ISSUES) + ')'
 
 
+def verified_environment(github, repository, environment_name):
+    if not environment_name or not environment_name.strip():
+        return False, 'Set repository variable ISSUE_INVESTIGATION_ENVIRONMENT to the existing key environment'
+
+    if len(environment_name) > 255 or not environment_name.isprintable():
+        raise RuntimeError('Invalid environment name')
+
+    # A typo must not cause GitHub to create a new, unprotected environment.
+    environment_path = '/repos/' + repository + '/environments/' + quote(environment_name, safe='')
+    try:
+        environment = github.request('GET', environment_path)
+    except ApiError as error:
+        if error.status == 404:
+            return False, 'Configured GitHub Environment does not exist'
+        raise
+    if not isinstance(environment, dict) or (
+            not isinstance(environment.get('name'), str) or
+            environment['name'].casefold() != environment_name.casefold()):
+        raise RuntimeError('Could not verify the configured GitHub Environment')
+
+    return True, 'Configured environment verified'
+
+
+def manual_admission(github, repository, environment_name, owner, number, minutes):
+    if owner != 'github':
+        return False, 'GitHub is not the selected investigation owner'
+    validate_inputs(number, minutes)
+    return verified_environment(github, repository, environment_name)
+
+
 def main():
     try:
         event = json.loads(Path(os.environ['GITHUB_EVENT_PATH']).read_text(encoding='utf-8'))
         github = Curl('https://api.github.com', os.environ['GH_TOKEN'])
-        admitted, reason = eligible(event, github, os.environ['GITHUB_REPOSITORY'],
-                                    os.environ.get('AUTO_ENVIRONMENT_NAME', ''),
-                                    event_name=os.environ.get('GITHUB_EVENT_NAME', 'issues'),
-                                    owner=os.environ.get('ISSUE_INVESTIGATION_OWNER'),
-                                    updates=os.environ.get('ISSUE_INVESTIGATION_UPDATES') == 'true')
+        repository = os.environ['GITHUB_REPOSITORY']
+        environment = os.environ.get('AUTO_ENVIRONMENT_NAME', '')
+        owner = os.environ.get('ISSUE_INVESTIGATION_OWNER')
+        event_name = os.environ['GITHUB_EVENT_NAME']
+        if event_name == 'workflow_dispatch':
+            number = os.environ.get('MANUAL_ISSUE_NUMBER', '')
+            admitted, reason = manual_admission(github, repository, environment, owner,
+                                                number, os.environ.get('MANUAL_TIMEOUT_MINUTES', ''))
+        else:
+            admitted, reason = eligible(event, github, repository, environment,
+                                        event_name=event_name, owner=owner)
+            number = str(event['issue']['number']) if admitted else ''
         with Path(os.environ['GITHUB_OUTPUT']).open('a', encoding='utf-8') as output:
             output.write('allowed=' + ('true' if admitted else 'false') + '\n')
+            if admitted:
+                output.write('issue_number=' + number + '\n')
+                output.write('environment=' + environment + '\n')
         print(('Admitted: ' if admitted else 'Skipped: ') + reason)
         return 0
     except Exception:
         # A failed preflight must never fall back to running a billable session.
-        print('Automatic issue preflight failed closed; no model work authorized.', file=sys.stderr)
+        print('Hosted issue preflight failed closed; no model work authorized.', file=sys.stderr)
         return 1
 
 

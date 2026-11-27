@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Publication stays disabled until trusted exact-report review is available."""
+"""Publish checked reports from the trusted VotingPlugin workflow."""
 import hashlib
 import json
 import os
@@ -10,8 +10,8 @@ from urllib.parse import quote, unquote
 
 from report import report_completion, report_fingerprint
 from engine import evidence_revision, profile_for
-from disclosure import payload_bytes, require_disclosure
-from run import issue_context
+from disclosure import payload_bytes, require_disclosure, require_substantive_approval
+from run import Curl, github_source_exists, issue_context
 
 RESULTS = Path('investigation-results')
 
@@ -117,8 +117,9 @@ def require_semantic_review():
     raise RuntimeError('Publication requires trusted exact-report semantic review')
 
 
-def publish(api, repository, number, sha, run_id):
-    require_semantic_review()
+def publish(api, repository, number, sha, run_id, *, hosted=False):
+    if not hosted:
+        require_semantic_review()
     if not profile_for(repository)['post']:
         raise RuntimeError('Publication is disabled for this profile')
     turn = json.loads((RESULTS / 'turn.json').read_text(encoding='utf-8'))
@@ -130,7 +131,7 @@ def publish(api, repository, number, sha, run_id):
     completed = json.loads((RESULTS / 'completed.json').read_text(encoding='utf-8'))
     revision = metadata['revision']
     if (metadata['owner'] != 'github'
-            or (os.environ.get('GITHUB_EVENT_NAME') not in {None, 'workflow_dispatch'}
+            or (not hosted and os.environ.get('GITHUB_EVENT_NAME') not in {None, 'workflow_dispatch'}
                 and os.environ.get('ISSUE_INVESTIGATION_OWNER') != 'github')):
         raise RuntimeError('This evidence revision is not routed to GitHub')
     if not all(re.fullmatch(r'[a-f0-9]{64}', value)
@@ -141,12 +142,24 @@ def publish(api, repository, number, sha, run_id):
             repository.casefold(), number, sha, revision, turn['digest'],
             hashlib.sha256(report_file).hexdigest()):
         raise RuntimeError('Investigation receipt does not match the selected report')
-    if metadata.get('observations') != report_completion(report_file.decode(), metadata):
+    verify_source = (lambda commit, path: github_source_exists(api, repository, commit, path)) if hosted else None
+    if metadata.get('observations') != report_completion(report_file.decode(), metadata, verify_source):
         raise RuntimeError('Structured report completion does not match the selected report')
+    if hosted:
+        if metadata.get('report_status') != 'unreviewed' or completed.get('run_id') != run_id:
+            raise RuntimeError('Artifact does not match the producing hosted run')
+        fingerprint = hashlib.sha256((revision + fingerprint).encode()).hexdigest()
     issue_path = f'/repos/{repository}/issues/{number}'
     report = comment_body(report_file.decode(), repository, sha, run_id, revision, fingerprint)
     payload = {'body': report}
-    require_disclosure(payload_bytes(payload), 'github-comment:' + repository + '#' + number)
+    destination = 'github-comment:' + repository + '#' + number
+    outgoing = payload_bytes(payload)
+    if hosted:
+        approval = {'repository': repository, 'issue': number, 'revision': revision,
+                    'source_sha': sha, 'report': report_file.decode(), 'report_sha256': hashlib.sha256(report_file).hexdigest(),
+                    'comment_sha256': hashlib.sha256(outgoing).hexdigest(), 'comment': payload}
+        require_substantive_approval(payload_bytes(approval), destination)
+    require_disclosure(outgoing, destination)
     issue = issue_context(api, repository, number, track_reopens=True)
     for marker in issue['report_markers']:
         if marker[0] == run_id or (len(marker) == 3 and
@@ -165,8 +178,26 @@ def main():
     if os.environ.get('POST_COMMENT') != 'true':
         print('Issue posting is disabled.')
         return 0
-    print('Issue posting blocked: trusted exact-report review is required.', file=sys.stderr)
-    return 1
+    if sys.argv[1:] != ['--hosted']:
+        print('Issue posting blocked: trusted exact-report review is required.', file=sys.stderr)
+        return 1
+    try:
+        repository = os.environ['GITHUB_REPOSITORY']
+        number = os.environ['ISSUE_NUMBER']
+        sha = os.environ['GITHUB_SHA']
+        run_id = os.environ['GITHUB_RUN_ID']
+        if (repository != 'BenCodez/VotingPlugin'
+                or os.environ.get('GITHUB_EVENT_NAME') not in {'issues', 'workflow_dispatch'}
+                or not re.fullmatch(r'[1-9][0-9]{0,8}', number)
+                or not re.fullmatch(r'[a-f0-9]{40}', sha)
+                or not re.fullmatch(r'[1-9][0-9]{0,19}', run_id)):
+            raise RuntimeError('Invalid hosted posting identity')
+        api = Curl('https://api.github.com', os.environ['GH_TOKEN'])
+        publish(api, repository, number, sha, run_id, hosted=True)
+        return 0
+    except Exception as error:
+        print('Could not post the hosted report: ' + type(error).__name__, file=sys.stderr)
+        return 1
 
 
 if __name__ == '__main__':

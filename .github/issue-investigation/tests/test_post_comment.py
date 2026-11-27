@@ -62,6 +62,81 @@ class PostingTests(unittest.TestCase):
                 self.assertEqual(post.main(), 0)
                 curl.assert_not_called()
 
+    def test_hosted_automatic_requires_exact_trusted_approval_and_disclosure(self):
+        report_path = self.folder / 'report.md'
+        evidence_path = self.folder / 'evidence.json'
+        receipt_path = self.folder / 'completed.json'
+        evidence = json.loads(evidence_path.read_text())
+        evidence['report_status'] = 'unreviewed'
+        evidence_path.write_text(json.dumps(evidence))
+        receipt = json.loads(receipt_path.read_text())
+        receipt['run_id'] = '123'
+        receipt_path.write_text(json.dumps(receipt))
+        env = {'GITHUB_REPOSITORY': 'BenCodez/VotingPlugin', 'GITHUB_EVENT_NAME': 'issues',
+               'ISSUE_NUMBER': '1583', 'GITHUB_SHA': 'a' * 40, 'GITHUB_RUN_ID': '123',
+               'POST_COMMENT': 'true', 'GH_TOKEN': 'test'}
+        destination = 'github-comment:BenCodez/VotingPlugin#1583'
+
+        with patch.dict(os.environ, env, clear=True), \
+             patch.object(post.sys, 'argv', ['post_comment.py', '--hosted']), \
+             patch.object(post, 'Curl', return_value=self) as curl, \
+             patch.object(post, 'github_source_exists', return_value=True), \
+             patch.object(post, 'require_substantive_approval') as approve:
+            with patch.dict(os.environ, {'GITHUB_EVENT_NAME': 'workflow_dispatch', 'POST_COMMENT': 'false'}):
+                self.assertEqual(post.main(), 0)
+                curl.assert_not_called()
+            approve.side_effect = RuntimeError('No trusted approval')
+            self.assertEqual(post.main(), 1)
+            self.assertFalse(self.calls)
+
+            approve.side_effect = None
+            self.checker.side_effect = RuntimeError('Exact comment disallowed')
+            self.assertEqual(post.main(), 1)
+            self.assertFalse(self.calls)
+            self.checker.side_effect = None
+
+            with patch.object(post, 'issue_context', return_value={'title': 'Changed', 'report_markers': []}):
+                self.assertEqual(post.main(), 0)
+            self.assertFalse(self.calls)
+
+            self.assertEqual(post.main(), 0)
+            method, url, payload = self.calls[-1]
+            self.assertEqual((method, url), ('POST', '/repos/BenCodez/VotingPlugin/issues/1583/comments'))
+            raw, approved_destination = approve.call_args.args
+            approval = json.loads(raw)
+            self.assertEqual(approved_destination, destination)
+            self.assertEqual(approval['repository'], env['GITHUB_REPOSITORY'])
+            self.assertEqual(approval['issue'], env['ISSUE_NUMBER'])
+            self.assertEqual(approval['revision'], evidence['revision'])
+            self.assertEqual(approval['report'], report_path.read_text())
+            self.assertEqual(approval['report_sha256'], receipt['report_sha256'])
+            self.assertEqual(approval['comment'], payload)
+            exact = post.payload_bytes(payload)
+            self.assertEqual(approval['comment_sha256'], hashlib.sha256(exact).hexdigest())
+            self.checker.assert_called_with(exact, destination)
+
+            original = self.request
+            def replay(method, path, body=None):
+                if '/comments?' in path:
+                    return [{'user': {'login': 'github-actions[bot]'}, 'body': payload['body']}]
+                return original(method, path, body)
+
+            with patch.object(self, 'request', side_effect=replay):
+                self.assertEqual(post.main(), 0)
+            self.assertEqual(sum(method == 'POST' for method, _, _ in self.calls), 1)
+
+            incomplete = report_path.read_text().replace(
+                'no defect confirmed. Tests blocked.', 'No investigation was performed and the finding is incomplete.')
+            report_path.write_text(incomplete)
+            receipt['report_sha256'] = hashlib.sha256(incomplete.encode()).hexdigest()
+            receipt_path.write_text(json.dumps(receipt))
+            self.calls.clear()
+            # Even structurally valid, cited prose remains ineligible without substantive approval.
+            approve.side_effect = RuntimeError('Trusted reviewer refused incomplete investigation')
+            self.assertEqual(post.main(), 1)
+            self.assertFalse(self.calls)
+            self.assertIn('No investigation was performed', json.loads(approve.call_args.args[0])['report'])
+
     def test_posts_actual_completed_report_to_selected_issue(self):
         self.publish()
         method, path, payload = self.calls[-1]

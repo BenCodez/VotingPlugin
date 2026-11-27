@@ -1,0 +1,18 @@
+name: Check offline investigator pilot
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check-offline-pilot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Run offline investigator checks
+        run: env -u GITHUB_EVENT_NAME -u ISSUE_INVESTIGATION_OWNER python3 -m unittest discover -s .github/issue-investigation/tests -v

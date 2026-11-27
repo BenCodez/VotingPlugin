@@ -1,5 +1,6 @@
 import concurrent.futures
 import hashlib
+from io import BytesIO
 import json
 import os
 from pathlib import Path
@@ -9,7 +10,7 @@ import unittest
 from unittest.mock import patch
 
 from claims import Claims
-from disclosure import payload_bytes, require_disclosure
+from disclosure import install_checker, payload_bytes, require_disclosure, require_substantive_approval
 from engine import evidence, profile_for, route_revision
 from report import report_completion, report_fingerprint
 from run import limit_automatic_context
@@ -39,9 +40,35 @@ class ReviewControls(unittest.TestCase):
                     require_disclosure(body + b' ', destination)
                 with self.assertRaisesRegex(RuntimeError, 'refused'):
                     require_disclosure(body, destination.replace('#1', '#2'))
+                with self.assertRaisesRegex(RuntimeError, 'refused'):
+                    require_substantive_approval(body, destination)
+                receipt['verdict'] = 'approve-substantive-report'
+                result.stdout = json.dumps(receipt).encode()
+                require_substantive_approval(body, destination)
+                with self.assertRaisesRegex(RuntimeError, 'refused'):
+                    require_substantive_approval(body + b' ', destination)
+                with self.assertRaisesRegex(RuntimeError, 'refused'):
+                    require_substantive_approval(body, destination.replace('#1', '#2'))
                 checker.write_bytes(b'changed')
                 with self.assertRaisesRegex(RuntimeError, 'digest'):
                     require_disclosure(body, destination)
+
+    def test_hosted_policy_install_rejects_unverified_bytes(self):
+        data = b'example executable'
+        with tempfile.TemporaryDirectory() as temp:
+            checker = Path(temp) / 'checker'
+            env = {'ISSUE_INVESTIGATION_POLICY_URL': 'https://example.com/policy',
+                   'ISSUE_INVESTIGATION_DISCLOSURE_CHECKER': str(checker),
+                   'ISSUE_INVESTIGATION_DISCLOSURE_SHA256': hashlib.sha256(data).hexdigest()}
+            with patch.dict(os.environ, env, clear=True), patch('disclosure.build_opener') as opener:
+                opener.return_value.open.return_value = BytesIO(b'different payload')
+                with self.assertRaisesRegex(RuntimeError, 'digest'):
+                    install_checker()
+                self.assertFalse(checker.exists())
+                opener.return_value.open.return_value = BytesIO(data)
+                install_checker()
+                self.assertEqual(checker.read_bytes(), data)
+                self.assertEqual(checker.stat().st_mode & 0o777, 0o700)
 
     def test_parallel_claim_and_receipt_block_no_post_replay_and_wrong_owner(self):
         route = route_revision('BenCodez/VotingPlugin', '1', 'a' * 64, 'github')

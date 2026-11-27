@@ -1,18 +1,158 @@
-name: Check offline investigator pilot
+name: Investigate issue
 
 on:
+  issues:
+    types: [opened]
   workflow_dispatch:
+    inputs:
+      issue_number:
+        description: VotingPlugin issue number to investigate
+        required: true
+        type: string
+      environment:
+        description: Environment containing OPENAI_API_KEY
+        required: true
+        type: environment
+      timeout_minutes:
+        description: Maximum agent runtime (5 to 30 minutes; not a spending cap)
+        required: true
+        default: '15'
+        type: string
+      post_comment:
+        description: Post the completed report as a comment on the selected issue
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
+  issues: read
 
 jobs:
-  check-offline-pilot:
+  auto-preflight:
+    if: ${{ github.repository == 'BenCodez/VotingPlugin' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+    timeout-minutes: 3
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+      issues: read
+    outputs:
+      allowed: ${{ steps.gate.outputs.allowed }}
+      issue_number: ${{ steps.gate.outputs.issue_number }}
+      environment: ${{ steps.gate.outputs.environment }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
-      - name: Run offline investigator checks
-        run: env -u GITHUB_EVENT_NAME -u ISSUE_INVESTIGATION_OWNER python3 -m unittest discover -s .github/issue-investigation/tests -v
+      - name: Check automatic issue budget and configuration
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AUTO_ENVIRONMENT_NAME: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || vars.ISSUE_INVESTIGATION_ENVIRONMENT }}
+          ISSUE_INVESTIGATION_OWNER: ${{ vars.ISSUE_INVESTIGATION_OWNER || 'github' }}
+          MANUAL_ISSUE_NUMBER: ${{ inputs.issue_number }}
+          MANUAL_TIMEOUT_MINUTES: ${{ inputs.timeout_minutes }}
+        run: python3 .github/issue-investigation/auto_gate.py
+
+  investigate:
+    needs: auto-preflight
+    if: ${{ needs.auto-preflight.outputs.allowed == 'true' }}
+    runs-on: ubuntu-latest
+    concurrency:
+      group: issue-investigation-${{ github.event_name == 'issues' && github.event.issue.number || inputs.issue_number }}
+      cancel-in-progress: false
+    timeout-minutes: 50
+    environment: ${{ needs.auto-preflight.outputs.environment }}
+    outputs:
+      artifact_id: ${{ steps.upload.outputs.artifact-id }}
+    env:
+      ISSUE_INVESTIGATION_DISCLOSURE_SHA256: ${{ vars.ISSUE_INVESTIGATION_DISCLOSURE_SHA256 }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Load pinned investigator policy
+        env:
+          ISSUE_INVESTIGATION_POLICY_URL: ${{ vars.ISSUE_INVESTIGATION_POLICY_URL }}
+          ISSUE_INVESTIGATION_DISCLOSURE_CHECKER: ${{ runner.temp }}/investigator-policy-${{ github.run_id }}-${{ github.run_attempt }}
+        timeout-minutes: 1
+        run: |
+          python3 .github/issue-investigation/run.py --install-policy
+          printf 'ISSUE_INVESTIGATION_DISCLOSURE_CHECKER=%s\n' "$ISSUE_INVESTIGATION_DISCLOSURE_CHECKER" >> "$GITHUB_ENV"
+      - name: Investigate without posting to GitHub
+        timeout-minutes: 43
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_PROJECT_ID: ${{ vars.OPENAI_PROJECT_ID || 'proj_aRse4SXfv5N60VlakdZGzVV5' }}
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ needs.auto-preflight.outputs.issue_number }}
+          AGENT_TIMEOUT_MINUTES: ${{ github.event_name == 'issues' && '10' || inputs.timeout_minutes }}
+          ISSUE_INVESTIGATION_OWNER: ${{ vars.ISSUE_INVESTIGATION_OWNER || 'github' }}
+        run: python3 .github/issue-investigation/run.py --hosted
+      - name: Retry session cleanup
+        if: always()
+        timeout-minutes: 4
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_PROJECT_ID: ${{ vars.OPENAI_PROJECT_ID || 'proj_aRse4SXfv5N60VlakdZGzVV5' }}
+        run: python3 .github/issue-investigation/run.py --cleanup
+      - name: Verify the completed report
+        id: report
+        run: python3 .github/issue-investigation/run.py --prepare-hosted-upload
+      - name: Upload report and bounded evidence
+        id: upload
+        if: ${{ steps.report.outputs.report_ready == 'true' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: issue-investigation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            investigation-results/report.md
+            investigation-results/completed.json
+            investigation-results/evidence.json
+            investigation-results/turn.json
+            investigation-results/usage.json
+          retention-days: 14
+          if-no-files-found: error
+
+  post-report:
+    needs: investigate
+    if: ${{ !cancelled() && needs.investigate.result == 'success' && needs.investigate.outputs.artifact_id != '' && (github.event_name == 'issues' || inputs.post_comment) }}
+    runs-on: ubuntu-latest
+    concurrency:
+      group: issue-investigation-${{ github.event_name == 'issues' && github.event.issue.number || inputs.issue_number }}
+      cancel-in-progress: false
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    env:
+      ISSUE_INVESTIGATION_DISCLOSURE_SHA256: ${{ vars.ISSUE_INVESTIGATION_DISCLOSURE_SHA256 }}
+    steps:
+      - name: Validate the producing job's artifact ID
+        env:
+          INVESTIGATION_ARTIFACT_ID: ${{ needs.investigate.outputs.artifact_id }}
+        run: '[[ "$INVESTIGATION_ARTIFACT_ID" =~ ^[0-9]+$ ]]'
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Load pinned investigator policy
+        env:
+          ISSUE_INVESTIGATION_POLICY_URL: ${{ vars.ISSUE_INVESTIGATION_POLICY_URL }}
+          ISSUE_INVESTIGATION_DISCLOSURE_CHECKER: ${{ runner.temp }}/investigator-policy-${{ github.run_id }}-${{ github.run_attempt }}
+        timeout-minutes: 1
+        run: |
+          python3 .github/issue-investigation/run.py --install-policy
+          printf 'ISSUE_INVESTIGATION_DISCLOSURE_CHECKER=%s\n' "$ISSUE_INVESTIGATION_DISCLOSURE_CHECKER" >> "$GITHUB_ENV"
+      - name: Download the completed investigation
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          artifact-ids: ${{ needs.investigate.outputs.artifact_id }}
+          merge-multiple: true
+          path: investigation-results/
+      - name: Post completed report for issue openings or manual opt-in
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event_name == 'issues' && github.event.issue.number || inputs.issue_number }}
+          POST_COMMENT: ${{ github.event_name == 'issues' || inputs.post_comment }}
+        run: python3 .github/issue-investigation/post_comment.py --hosted

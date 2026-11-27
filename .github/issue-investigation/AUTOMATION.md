@@ -7,33 +7,27 @@ VotingPlugin-Control, VotingPluginEditor, and Wiki are offline profiles with
 hosted runs and publication disabled. Wiki follows the Markdown source on
 `BenCodez/Wiki` and uses documentation checks.
 
-## Future hosted event ownership and admission
+## Hosted admission
 
-The deployed issue-opened workflow uses the repository variable
-`ISSUE_INVESTIGATION_ENVIRONMENT`, which must refer to the existing GitHub
-Environment holding `OPENAI_API_KEY`. Failed Environment or workflow count
-lookups stop before model work. Keep the existing secret name and permissions.
+VotingPlugin keeps the existing GitHub-hosted runner, `issues.opened` and
+manual dispatch. Automatic runs use the existing Environment configured by
+`ISSUE_INVESTIGATION_ENVIRONMENT`. Manual dispatch selects an existing
+Environment and a 5–30 minute limit. Both retain `OPENAI_API_KEY` and the
+existing OpenAI project selection and fallback. The workflow only admits work
+on the repository's default branch. GitHub is the default VotingPlugin
+workflow owner. An explicit non-GitHub `ISSUE_INVESTIGATION_OWNER` stops
+hosted admission.
 
-The future hosted design requires an explicit `ISSUE_INVESTIGATION_OWNER`.
-No value or `cezar` leaves automatic GitHub work skipped. Select `github` only
-after reconciling the existing Cezar intake for openings and updates. The worker
-binds the explicit owner to the current repository, issue number, and evidence
-revision. This repository supplies no Cezar
-Job1 rollout, remote ownership registry, or shared production storage.
+Automatic admission rejects bots, pull requests and other issue activities.
+It accepts at most the first five automatic runs by the visible UTC day
+count, with a ten-minute model timeout. A failed Environment or run-count
+lookup blocks model work. The count is a throttle, not a provider spending
+cap. Manual dispatch does not consume the automatic allowance.
 
-`ISSUE_INVESTIGATION_UPDATES=true` opts the GitHub owner into edited and reopened
-issues, evidence-like comments from the reporter, and maintainer comments.
-Pull requests and bots are excluded from update admission. The preflight sums
-automatic issue and issue-comment workflow runs for the UTC day and admits at
-most the first five based on GitHub's visible counts. This is a soft throttle.
-The automatic model timeout remains 10 minutes. Manual runs keep the selected
-5–30 minute timeout, allow an explicit force rerun, and produce draft
-workflow artifacts. Model timeout does not represent a spending cap.
-
-Automatic event preflight runs before an issue enters the investigation
-concurrency group. GitHub may replace an older eligible pending job with a
-newer eligible job. The worker obtains current issue, comments, and reopen
-history on start.
+Read-only preflight runs before the per-issue concurrency group. The worker
+reads current issue, full comments and reopen history and suppresses accepted
+reports for the same evidence revision before creating a model session.
+GitHub may replace an older pending eligible job with a newer pending job.
 
 ## Evidence and publication
 
@@ -54,53 +48,47 @@ pilots. Issue and attachment content never supplies setup commands. The hosted
 agent stays read-only, uses a digest-checked Temurin download for the existing
 VotingPlugin environment, and records evidence limitations and observed checks.
 
-Hosted model output is labeled as an unreviewed draft. Source checks confirm
-the existence of a cited pinned file. An issue citation identifies the subject.
-Neither establishes that the prose contains a factual observation or a concrete
-missing input. Disclosure checking decides whether draft bytes may leave the
-runner and is separate from semantic review.
+A completed model turn and corroborated references are structural evidence
+only. Before sending the exact session setup and bounded issue message, the
+producer requires a disclosure decision. It also checks the exact bytes of
+the report, evidence, completed-turn receipt and bounded usage before
+uploading those files. The hosted artifact contains an unreviewed model
+report. It carries no permission to post. Raw session or issue exports and
+recovery IDs are excluded.
 
-The proposed workflow has no publication job or issue-write permission, and
-the publisher blocks before accessing credentials or GitHub. Future publication
-requires a trusted reviewer independent of the model to establish mode-specific
-observations or concrete missing inputs, inspect the exact report, and bind
-approval to its digest, issue destination, and evidence revision. This pilot
-has no such authority. A future publisher must also preserve the exact outgoing
-disclosure check and the revision and duplicate-marker read immediately before
-POST. GitHub provides no conditional comment POST.
+The separate posting job has issue-write permission and downloads only the
+producing job's artifact ID. It verifies the run identity, evidence revision,
+source references and report digest. Before publication it requires an
+independent substantive approval for the exact report, rendered comment,
+destination issue, revision and source SHA. A separate disclosure decision
+covers the exact comment bytes. The publisher then rereads current evidence
+and accepted bot markers immediately before POST. A refusal, missing
+approval, changed revision or existing equivalent report prevents a new
+comment. GitHub provides no conditional POST. Automatic eligible openings
+post after these checks. Manual runs default to artifact-only and require
+explicit opt-in for posting.
 
-### Disclosure and durable claims
+Both jobs remain on `ubuntu-latest`. They load a trusted HTTPS checker from
+`ISSUE_INVESTIGATION_POLICY_URL` only if the downloaded executable matches
+`ISSUE_INVESTIGATION_DISCLOSURE_SHA256`. Provisioning this policy is separate
+from editing the workflow. Exact disclosure receipts use verdict `allow`.
+Substantive approval has a distinct `approve-substantive-report` verdict and
+must be derived from independent review, not from the model or a generic
+scanner. Each receipt binds the exact destination and input SHA-256. If no
+such checker or independently reviewed decision exists, these operations
+stop. A protected, owner-reviewed policy is a deployment prerequisite.
+The model receives no credentials and cannot choose the policy or publish.
 
-Before hosted requests or exporting artifacts, the runner requires a locally
-provisioned disclosure checker. The worker checks each allowlisted draft
-artifact again before upload. No raw issue or session
-response, sandbox file, tool output, position identifier, or recovery state is
-uploaded. The report remains agent-generated. Its cited commit identities are
-model-reported observations; the runner does not attest runtime verification.
+An optional `ISSUE_INVESTIGATION_LEDGER` can fence claims in compatible
+callers. Without shared persistent storage, manual no-post replay or
+concurrent model runs across consumers may still consume budget. The
+per-issue job group and fresh accepted-bot markers limit duplicate posting.
+These are not exactly-once admission or a hard monetary cap.
 
-The approved executable must exist at the absolute path
-`ISSUE_INVESTIGATION_DISCLOSURE_CHECKER` and match the SHA-256 configured in
-`ISSUE_INVESTIGATION_DISCLOSURE_SHA256`. It receives a purpose or destination
-argument and exact payload on stdin. Success requires exit zero and a JSON
-object containing only `verdict: allow`, the requested `destination`, and the
-exact input `sha256`. Unavailable, timed-out, mismatched, or refusing checkers
-fail closed. Neither the approved checker nor a deployment mechanism was
-installed by this pilot. Scan alone does not replace authorization and
-content review; the checker is the administrator-provisioned policy boundary.
-
-`ISSUE_INVESTIGATION_LEDGER` optionally selects an approved persistent SQLite
-store shared by the participating runner instances. The store atomically
-claims a revision before session creation and records a draft digest after
-generation and disclosure checks, independent of semantic approval. A completed claim
-or an active/ambiguous claim suppresses replay. With a durable store, explicit
-force can replace a completed claim once per evidence revision. It cannot
-replace an active or ambiguous claim. Explicit retries can claim a known
-failed pre-dispatch attempt. A lost response or interrupted attempt
-after dispatch intentionally remains pending reconciliation. The receipt
-records draft readiness; it does not attest investigation completion or Actions upload. Without
-shared persistence, hosted work still uses accepted bot markers and a no-post
-result may be analyzed again on another delivery. GitHub-hosted runners and
-Cezar Job1 have no shared ledger in this pilot.
+Session cleanup cancels active work and retries deletion of the known
+session. The fallback cleanup step uses the current run's recovery file.
+Recovery state stays out of the upload. Lost create responses and forced
+termination can still require provider-side reconciliation.
 
 ## Offline runner
 
@@ -174,28 +162,14 @@ non-owner behavior. Replay the first command to check deduplication.
 
 ### Integration, rollout and rollback
 
-The SQLite file demonstrates transactions between local consumers. An Actions
-runner's local disk and a Job1 local file are not shared durability. Before
-activation, select one approved transactional store reachable from both
-runtimes. Validate identity and access control for the callers, atomic compare
-and set, attempt fencing, backup/recovery, and artifact storage acknowledgements.
-Use the same schema/version and canonical snapshot tests on both sides. Do not
-point separate runners at a generic network filesystem and assume SQLite
-locking works. Unavailable or conflicting configuration or storage must stop
-new shared admission before dispatch. Current optional hosted ledger behavior
-is not production shared admission.
-
-After approval, first compare revision parity using sanitized fixtures or a
-read-only shadow comparison that never claims or launches work. At cutover,
-stop admitting on the outgoing path, reconcile in-flight attempts and draft
-receipts, and confirm one configured owner for new revisions before enabling
-shared admission. Rollback likewise stops new shared claims first and waits
-for or explicitly reconciles outstanding work before restoring the designated
-single path. Preserve the ledger and receipts during rollback. Do not clear
-ambiguous claims or reassign an existing revision to manufacture a retry.
-Hosted deployment stays blocked on trusted checker, shared store, agreed Job1
-cutover and explicit approval. Publication separately requires the independent
-trusted semantic approval described above.
+Before enabling both consumers, use sanitized fixtures or read-only shadow
+comparison to verify revision parity. Reconcile existing intake ownership,
+budget and in-flight sessions. Shared transactional storage remains a
+separate prerequisite for cross-system exactly-once admission claims.
+Rollback stops admission on the outgoing path and reconciles in-flight
+sessions before restoring the designated owner. Preserve receipts and
+never clear ambiguous claims to manufacture a retry. The local correction
+changes no deployed workflow, settings, credentials or ownership.
 
 ## Offline pilot entrypoints
 
@@ -215,9 +189,6 @@ VotingPluginEditor and Wiki require `--validate-profile` and a synthetic fixture
 No engine or workflow is installed in those repositories. No cross-repository
 engine download or mutable reference is needed.
 
-The proposed Actions entrypoint runs unit checks only on explicit dispatch.
-The repository's separate pull request test workflow continues to run tests.
-There is no issue event trigger, hosted model step, artifact upload or posting
-path in the pilot workflow. The retained hosted implementation and Job1
-adapter are local integration work. A later activation needs a separate,
-coordinated review. This draft does not alter the active default-branch workflow.
+The separate `issue-investigation-offline.yml` workflow runs unit checks
+only on explicit dispatch. It has no model or publishing permissions. The
+existing pull request test workflow also remains in place.

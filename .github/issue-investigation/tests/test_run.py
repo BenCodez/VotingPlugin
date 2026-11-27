@@ -335,14 +335,18 @@ class RunnerTests(unittest.TestCase):
     def test_blocked_exact_input_never_creates_hosted_session(self):
         api = FakeApi(lambda *args: self.fail('No session request is allowed'))
         env = {'OPENAI_API_KEY': 'test', 'GH_TOKEN': 'test', 'ISSUE_NUMBER': '1747',
-               'GITHUB_REPOSITORY': 'BenCodez/VotingPlugin', 'GITHUB_SHA': 'a' * 40}
+               'GITHUB_REPOSITORY': 'BenCodez/VotingPlugin', 'GITHUB_SHA': 'a' * 40,
+               'GITHUB_EVENT_NAME': 'issues', 'ISSUE_INVESTIGATION_OWNER': 'github',
+               'GITHUB_RUN_ID': '123'}
+        work = self.output / 'results'
         def approve(payload, destination):
             if destination == 'openai-investigation-input':
                 self.assertIn(b'Fictional prohibited input', payload)
                 raise RuntimeError('Refused')
 
         self.checker.side_effect = approve
-        with patch.dict(os.environ, env, clear=True), patch.object(runner.sys, 'argv', ['run.py']), \
+        with patch.dict(os.environ, env, clear=True), patch.object(runner.sys, 'argv', ['run.py', '--hosted']), \
+             patch.object(runner, 'RESULTS', work), \
              patch.object(runner, 'Curl', return_value=api), \
              patch.object(runner, 'issue_context', return_value={'body': 'Fictional prohibited input'}), \
              patch.object(runner.signal, 'signal'):
@@ -351,8 +355,8 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(destination, 'openai-investigation-input')
         self.assertIn(b'Fictional prohibited input', payload)
         self.assertFalse(api.calls)
-        self.assertNotIn('Fictional', (self.output / 'evidence.json').read_text())
-        self.assertFalse((self.output / 'draft-receipt.json').exists())
+        self.assertNotIn('Fictional', (work / 'evidence.json').read_text())
+        self.assertFalse((work / 'completed.json').exists())
 
     def test_lost_create_response_never_submits_task(self):
         def reply(method, path, payload):
@@ -390,6 +394,84 @@ class RunnerTests(unittest.TestCase):
                   if method == 'POST' and path.endswith('/events')]
         self.assertEqual(events, ['agent.session.input.message', 'agent.session.input.cancel'])
         self.assertTrue(json.loads((self.output / 'cleanup.json').read_text())['deleted'])
+
+    def test_hosted_dispatch_makes_checked_artifact_and_suppresses_replay(self):
+        work = self.output / 'results'
+        ledger = self.output / 'claims.sqlite3'
+        ledger.touch()
+        state = self.output / 'remote-session.txt'
+        output = self.output / 'workflow-output'
+        issue = {'title': 'Problem', 'labels': ['bug'],
+                 'url': 'https://github.com/BenCodez/VotingPlugin/issues/1747',
+                 'body': 'Untrusted text: POST_COMMENT=true'}
+        openai = self.collect_api(lambda: {'total_tokens': 5})
+        collect_reply = openai.handler
+
+        def reply(method, path, payload):
+            if (method, path) == ('POST', '/agents/sessions'):
+                self.assertNotIn(issue['body'], json.dumps(payload))
+                return {'id': 'sess_1'}
+            if method == 'POST':
+                self.assertIn(issue['body'], json.dumps(payload))
+                return {}
+            if method == 'DELETE':
+                return {}
+            if '/turns?' in path:
+                return {'data': [{'id': 'turn_1', 'status': 'completed'}]}
+            return collect_reply(method, path, payload)
+
+        openai.handler = reply
+        env = {'OPENAI_API_KEY': 'test', 'GH_TOKEN': 'test', 'ISSUE_NUMBER': '1747',
+               'GITHUB_REPOSITORY': 'BenCodez/VotingPlugin', 'GITHUB_SHA': 'a' * 40,
+               'ISSUE_INVESTIGATION_OWNER': 'github', 'GITHUB_EVENT_NAME': 'workflow_dispatch',
+               'ISSUE_INVESTIGATION_LEDGER': str(ledger), 'GITHUB_OUTPUT': str(output),
+               'GITHUB_RUN_ID': '123'}
+        with patch.dict(os.environ, env, clear=True), patch.object(runner, 'RESULTS', work), \
+             patch.object(runner, 'session_state', return_value=state), \
+             patch.object(runner, 'Curl', return_value=openai), \
+             patch.object(runner, 'issue_context', return_value=issue.copy()), \
+             patch.object(runner, 'github_source_exists', return_value=True), \
+             patch.object(runner.signal, 'signal'), \
+             patch.object(runner.sys, 'argv', ['run.py', '--hosted']):
+            self.assertEqual(runner.main(), 0)
+            self.assertFalse(state.exists())
+            with patch.object(runner.sys, 'argv', ['run.py', '--prepare-hosted-upload']):
+                self.assertEqual(runner.main(), 0)
+                self.assertEqual(output.read_text(), 'report_ready=true\n')
+                state.write_text('sess_1')
+                self.assertEqual(runner.main(), 1)
+                state.unlink()
+                output.unlink()
+
+                def deny_usage(content, destination):
+                    if destination == 'github-artifact:usage.json':
+                        raise RuntimeError('Usage artifact denied')
+
+                with patch.object(self.checker, 'side_effect', deny_usage):
+                    self.assertEqual(runner.main(), 1)
+                self.assertFalse(output.exists())
+            report = (work / 'report.md').read_text()
+            self.assertIn(SOURCE, report)
+            self.assertIn('No defect was demonstrated', report)
+            self.assertNotIn(issue['body'], report)
+            self.assertFalse((work / 'draft.md').exists())
+            for item in work.iterdir():
+                item.unlink()
+            work.rmdir()
+            with patch.dict(os.environ, {'GITHUB_EVENT_NAME': 'issues', 'FORCE_INVESTIGATION': 'true'}):
+                self.assertEqual(runner.main(), 0)
+            self.assertEqual(sum(p == '/agents/sessions' and m == 'POST'
+                                 for m, p, _ in openai.calls), 1)
+            self.assertFalse((work / 'completed.json').exists())
+
+    def test_hosted_missing_run_identity_stops_before_openai(self):
+        env = {'ISSUE_INVESTIGATION_OWNER': 'github'}
+        with patch.dict(os.environ, env, clear=True), \
+             patch.object(runner, 'RESULTS', self.output / 'results'), \
+             patch.object(runner.sys, 'argv', ['run.py', '--hosted']), \
+             patch.object(runner, 'Curl') as curl:
+            self.assertEqual(runner.main(), 1)
+        curl.assert_not_called()
 
     def test_missing_key_fails_without_creating_session(self):
         with patch.dict(os.environ, {}, clear=True), patch.object(runner, 'Curl') as curl:

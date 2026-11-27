@@ -13,11 +13,13 @@ import time
 from urllib.parse import quote, urlencode
 
 from claims import Claims
-from disclosure import payload_bytes, require_disclosure
+from disclosure import install_checker, payload_bytes, require_disclosure
 from report import report_completion
-from engine import (DEFAULT, GUIDANCE, PROFILES, evidence, github_snapshot, has_accepted_revision, profile_for,
+from engine import (DEFAULT, GUIDANCE, PROFILES, evidence, github_snapshot, has_accepted_revision, is_bot, profile_for,
                     route_revision, version_mentions)
 
+DEFAULT_REPOSITORY = 'BenCodez/VotingPlugin'
+ARTIFACT_CALLERS = {'BenCodez/AdvancedCore': '66120957', 'BenCodez/SimpleAPI': '796949127'}
 ROOT = Path(__file__).resolve().parent
 RESULTS = Path('investigation-results')
 PROJECT = 'proj_aRse4SXfv5N60VlakdZGzVV5'
@@ -65,7 +67,9 @@ class Curl:
 
 
 def session_state():
-    return Path(os.environ.get('RUNNER_TEMP', str(RESULTS))) / 'issue-investigation-session-id.txt'
+    run = os.environ.get('GITHUB_RUN_ID')
+    suffix = '-' + run if run and re.fullmatch(r'[0-9]{1,20}', run) else ''
+    return Path(os.environ.get('RUNNER_TEMP', str(RESULTS))) / f'issue-investigation-session-id{suffix}.txt'
 
 
 def save(path, value):
@@ -105,13 +109,21 @@ def issue_rows(github, path):
     raise RuntimeError('Issue pagination bound reached')
 
 
-def issue_context(github, repository, number, track_reopens=False):
+def issue_context(github, repository, number, track_reopens=False, *, require_human=False):
     path = f'/repos/{repository}/issues/{number}'
     issue = github.request('GET', path)
     if 'pull_request' in issue:
         raise RuntimeError('Choose an issue, not a pull request')
+    if require_human:
+        author = issue.get('user') or {}
+        if author.get('type') != 'User' or not author.get('login') or is_bot(author):
+            raise RuntimeError('Issue has no eligible human author')
     events = issue_rows(github, path + '/events') if track_reopens else ()
-    return github_snapshot(issue, issue_rows(github, path + '/comments'), events)
+    comments = list(issue_rows(github, path + '/comments'))
+    count = issue.get('comments')
+    if count is not None and (type(count) is not int or count < 0 or count > len(comments)):
+        raise RuntimeError('Incomplete issue comment history')
+    return github_snapshot(issue, comments, events)
 
 
 def github_tag(github, repository, tag):
@@ -136,9 +148,10 @@ def github_source_exists(github, repository, sha, path):
     return isinstance(value, dict) and value.get('type') == 'file' and value.get('path') == path
 
 
-def session_payload(repository, sha):
+def session_payload(repository, sha, *, artifact_only=False):
     profile = profile_for(repository)
-    if not profile['hosted'] or profile['jdk'] != 21:
+    allowed = repository in ARTIFACT_CALLERS and not profile['post'] if artifact_only else profile['hosted']
+    if not allowed or profile['jdk'] != 21:
         raise RuntimeError('Hosted investigations are disabled for this profile')
     workspace = profile['workspace']
     jdk = profile['jdk']
@@ -302,7 +315,7 @@ def usage_counters(value):
     return counters or None
 
 
-def collect(api, session_id, turn, provenance, verify_source):
+def collect(api, session_id, turn, provenance, verify_source, *, hosted=False):
     path = '/agents/sessions/' + session_id
     items = pages(api, path + '/items')
     texts = ['\n'.join(c['text'] for c in x.get('content', []) if c.get('type') == 'output_text')
@@ -312,9 +325,11 @@ def collect(api, session_id, turn, provenance, verify_source):
         raise RuntimeError('Completed turn did not return exactly one final report')
     report = texts[0].strip() + '\n'
     completion = report_completion(report, provenance, verify_source)
-    report_bytes = ('# Draft — unreviewed model report\n\n' + report).encode()
-    require_disclosure(report_bytes, 'github-artifact:draft.md')
-    (RESULTS / 'draft.md').write_bytes(report_bytes)
+    name = 'report.md' if hosted else 'draft.md'
+    content = report if hosted else '# Draft — unreviewed model report\n\n' + report
+    report_bytes = content.encode()
+    require_disclosure(report_bytes, 'github-artifact:' + name)
+    (RESULTS / name).write_bytes(report_bytes)
     # Accounting can lag the completion event. Null must never be reported as zero.
     usage = None
     for attempt in range(6):
@@ -386,43 +401,163 @@ def check_upload():
         require_disclosure(content, 'github-artifact:' + name)
 
 
+def artifact_identity():
+    env = os.environ
+    repo = env.get('GITHUB_REPOSITORY')
+    repo_id = env.get('GITHUB_REPOSITORY_ID')
+    source = env.get('GITHUB_SHA', '')
+    engine = env.get('ISSUE_INVESTIGATION_ENGINE_SHA', '')
+    run = env.get('GITHUB_RUN_ID', '')
+    attempt = env.get('GITHUB_RUN_ATTEMPT', '')
+    issue = env.get('ISSUE_NUMBER', '')
+    if (repo not in ARTIFACT_CALLERS or ARTIFACT_CALLERS[repo] != repo_id
+            or not all(re.fullmatch(r'[0-9a-f]{40}', value) for value in (source, engine))
+            or not re.fullmatch(r'[1-9][0-9]{0,19}', run) or attempt != '1'
+            or not re.fullmatch(r'[1-9][0-9]{0,8}', issue)):
+        raise RuntimeError('Invalid reusable artifact identity')
+    return {'repository': repo, 'repository_id': repo_id, 'source_sha': source,
+            'engine_sha': engine, 'run_id': run, 'run_attempt': attempt, 'issue': issue}
+
+
+def check_hosted_upload(*, artifact_only=False, after_cleanup=False):
+    names = ('completed.json', 'evidence.json', 'report.md', 'turn.json', 'usage.json')
+    if after_cleanup:
+        if session_state().exists() or (RESULTS / 'error.json').exists():
+            raise RuntimeError('Artifact requires an error-free investigation and completed cleanup')
+        cleanup_receipt = (RESULTS / 'cleanup.json').read_bytes()
+        if json.loads(cleanup_receipt) != {'deleted': True}:
+            raise RuntimeError('Artifact requires confirmed session cleanup')
+    files = {name: (RESULTS / name).read_bytes() for name in names}
+    if artifact_only and after_cleanup:
+        files['cleanup.json'] = cleanup_receipt
+    receipt = json.loads(files['completed.json'])
+    evidence = json.loads(files['evidence.json'])
+    turn = json.loads(files['turn.json'])
+    if (receipt.get('report_sha256') != hashlib.sha256(files['report.md']).hexdigest()
+            or receipt.get('run_id') != os.environ.get('GITHUB_RUN_ID')
+            or receipt.get('revision') != evidence.get('revision')
+            or receipt.get('turn') != turn.get('digest')
+            or turn.get('status') != 'completed'):
+        raise RuntimeError('Hosted report does not match its artifact receipt')
+    if artifact_only:
+        identity = artifact_identity()
+        if (receipt.get('caller') != identity or evidence.get('caller') != identity
+                or evidence.get('repository') != identity['repository']
+                or evidence.get('development_sha') != identity['source_sha']
+                or receipt.get('issue') != identity['issue']
+                or evidence.get('number') != identity['issue']
+                or not re.fullmatch(r'[a-f0-9]{64}', receipt.get('revision') or '')
+                or not re.fullmatch(r'[a-f0-9]{64}', receipt.get('turn') or '')
+                or evidence.get('report_status') != 'artifact-only'):
+            raise RuntimeError('Reusable artifact scope does not match the producing run')
+    for name, content in files.items():
+        require_disclosure(content, 'github-artifact:' + name)
+    return receipt, {name: hashlib.sha256(content).hexdigest() for name, content in files.items()}
+
+
+def confirm_hosted_upload():
+    identity = artifact_identity()
+    artifact = os.environ.get('INVESTIGATION_ARTIFACT_ID', '')
+    receipt_exists = (RESULTS / 'completed.json').exists()
+    if receipt_exists:
+        if not re.fullmatch(r'[1-9][0-9]{0,19}', artifact):
+            raise RuntimeError('Uploader did not supply a confirmed artifact ID')
+        receipt, digests = check_hosted_upload(artifact_only=True, after_cleanup=True)
+        prepared = json.loads((RESULTS / 'prepared-upload.json').read_bytes())
+        if prepared != {'caller': identity, 'files': digests}:
+            raise RuntimeError('Confirmed artifact does not match prepared bytes')
+        outputs = {'outcome': 'artifact', 'artifact_id': artifact, 'revision': receipt['revision'],
+                   'source_sha': identity['source_sha'], 'engine_sha': identity['engine_sha']}
+    elif artifact:
+        raise RuntimeError('Artifact ID has no matching producer receipt')
+    else:
+        outputs = {'outcome': 'skipped'}
+    with Path(os.environ['GITHUB_OUTPUT']).open('a') as output:
+        for name, value in outputs.items():
+            output.write(f'{name}={value}\n')
+
+
+def validate_inputs(number, minutes):
+    if not re.fullmatch(r'[1-9][0-9]{0,8}', number):
+        raise RuntimeError('Issue number must be a positive integer')
+    if not re.fullmatch(r'[0-9]{1,2}', minutes) or not 5 <= int(minutes) <= 30:
+        raise RuntimeError('Runtime must be between 5 and 30 minutes')
+
+
 def main():
     os.umask(0o077)
-    RESULTS.mkdir(exist_ok=True)
     api = None
     ledger = None
     claim = None
     dispatched = False
     try:
-        if sys.argv[1:] == ['--prepare-upload']:
-            check_upload()
+        arguments = sys.argv[1:]
+        if arguments == ['--install-policy']:
+            install_checker()
+            return 0
+        if arguments == ['--confirm-hosted-upload']:
+            confirm_hosted_upload()
+            return 0
+        if arguments in (['--prepare-upload'], ['--prepare-hosted-upload'], ['--prepare-reusable-upload']):
+            reusable_upload = arguments == ['--prepare-reusable-upload']
+            hosted_upload = reusable_upload or arguments == ['--prepare-hosted-upload']
+            receipt_name = 'completed.json' if hosted_upload else 'draft-receipt.json'
+            if not (RESULTS / receipt_name).exists():
+                if reusable_upload:
+                    artifact_identity()
+                return 0
+            if session_state().exists() or (RESULTS / 'error.json').exists():
+                raise RuntimeError('Draft cannot be uploaded while cleanup or investigation is incomplete')
+            if hosted_upload:
+                _, digests = check_hosted_upload(artifact_only=reusable_upload, after_cleanup=True)
+                if reusable_upload:
+                    save(RESULTS / 'prepared-upload.json', {'caller': artifact_identity(), 'files': digests})
+            else:
+                check_upload()
             with Path(os.environ['GITHUB_OUTPUT']).open('a') as output:
-                output.write('draft_ready=true\n')
+                output.write(('report' if hosted_upload else 'draft') + '_ready=true\n')
+            return 0
+        artifact_only = arguments == ['--hosted-artifact']
+        hosted = artifact_only or arguments == ['--hosted']
+        caller = artifact_identity() if artifact_only else None
+        if artifact_only and not re.fullmatch(r'proj_[A-Za-z0-9]{8,80}', os.environ.get('OPENAI_PROJECT_ID', '')):
+            raise RuntimeError('Reusable investigator requires the explicit caller project')
+        cleanup_only = arguments == ['--cleanup']
+        if arguments and not (hosted or cleanup_only):
+            raise RuntimeError('Unsupported investigation invocation')
+        if hosted:
+            run_id = os.environ.get('GITHUB_RUN_ID', '')
+            if not re.fullmatch(r'[1-9][0-9]{0,19}', run_id):
+                raise RuntimeError('Invalid hosted workflow run ID')
+            if RESULTS.exists() or RESULTS.is_symlink():
+                raise RuntimeError('Expected a clean investigation output directory')
+            if os.environ.get('ISSUE_INVESTIGATION_OWNER') != 'github':
+                raise RuntimeError('GitHub does not own hosted investigations')
+        RESULTS.mkdir(exist_ok=True)
+        if cleanup_only and not session_state().exists():
             return 0
         key = os.environ.get('OPENAI_API_KEY')
         if not key:
             raise RuntimeError('OPENAI_API_KEY is missing from the selected GitHub Environment')
-        api = Curl('https://api.openai.com/v1', key, os.environ.get('OPENAI_PROJECT_ID', PROJECT))
-        if sys.argv[1:] == ['--cleanup']:
+        api = Curl('https://api.openai.com/v1', key, os.environ.get('OPENAI_PROJECT_ID') or PROJECT)
+        if cleanup_only:
             cleanup(api)
             return 0
-        if sys.argv[1:]:
-            raise RuntimeError('Only --cleanup is supported')
         number = os.environ.get('ISSUE_NUMBER', '')
         minutes = os.environ.get('AGENT_TIMEOUT_MINUTES', '15')
-        if not re.fullmatch(r'[1-9][0-9]{0,8}', number):
-            raise RuntimeError('Issue number must be a positive integer')
-        if not minutes.isascii() or not minutes.isdigit() or not 5 <= int(minutes) <= 30:
-            raise RuntimeError('Runtime must be between 5 and 30 minutes')
+        validate_inputs(number, minutes)
         if session_state().exists():
             raise RuntimeError('A previous session requires cleanup; refusing to start another')
         repository = os.environ['GITHUB_REPOSITORY']
         github = Curl('https://api.github.com', os.environ['GH_TOKEN'])
         profile = profile_for(repository)
+        if hosted and ((not artifact_only and repository != DEFAULT_REPOSITORY)
+                       or os.environ.get('GITHUB_EVENT_NAME') not in {'issues', 'workflow_dispatch'}):
+            raise RuntimeError('Unsupported hosted investigation origin')
         sha = os.environ['GITHUB_SHA']
-        issue = issue_context(github, repository, number, track_reopens=True)
+        issue = issue_context(github, repository, number, track_reopens=True, require_human=artifact_only)
         metadata = evidence(issue, profile, sha, lambda tag: github_tag(github, repository, tag))
-        force = os.environ.get('FORCE_INVESTIGATION') == 'true'
+        force = not hosted and os.environ.get('FORCE_INVESTIGATION') == 'true'
         if not force and has_accepted_revision(issue, metadata['revision']):
             print('This evidence revision already has a published investigation.')
             return 0
@@ -435,11 +570,13 @@ def main():
             raise RuntimeError('This evidence revision is routed to Cezar')
         # Export only fixed-shape provenance. Raw issue and API envelopes stay in memory.
         provenance = {**route, 'development_sha': sha, 'mode': metadata['mode'],
-                      'reported_commit': metadata['reported']['commit'], 'report_status': 'draft'}
+                      'reported_commit': metadata['reported']['commit'], 'report_status': 'unreviewed' if hosted else 'draft'}
+        if artifact_only:
+            provenance.update(caller=caller, report_status='artifact-only')
         evidence_bytes = (json.dumps(provenance, indent=2) + '\n').encode()
         require_disclosure(evidence_bytes, 'github-artifact:evidence.json')
         (RESULTS / 'evidence.json').write_bytes(evidence_bytes)
-        payload = session_payload(repository, sha)
+        payload = session_payload(repository, sha, artifact_only=artifact_only)
         require_disclosure(payload_bytes(payload), 'openai-investigation-setup')
         issue = limit_automatic_context(issue)
         task = session_input(sha, issue, int(minutes), metadata, profile)
@@ -466,17 +603,23 @@ def main():
         turn = wait_for_turn(api, sid, deadline)
         provenance['observations'] = collect(
             api, sid, turn, provenance,
-            lambda commit, path: github_source_exists(github, repository, commit, path))
+            lambda commit, path: github_source_exists(github, repository, commit, path), hosted=hosted)
+        # A failed or ambiguous cleanup cannot create completion or settle a claim.
+        cleanup(api)
         save(RESULTS / 'evidence.json', provenance)
-        receipt = hashlib.sha256((RESULTS / 'draft.md').read_bytes()).hexdigest()
-        save(RESULTS / 'draft-receipt.json', {
-            'status': 'draft',
-            'revision': metadata['revision'],
-            'turn': hashlib.sha256(turn['id'].encode()).hexdigest(),
-            'draft_sha256': receipt,
-        })
-        # A failed disclosure check cannot settle draft generation.
-        check_upload()
+        report_file = 'report.md' if hosted else 'draft.md'
+        receipt = hashlib.sha256((RESULTS / report_file).read_bytes()).hexdigest()
+        completion = {'revision': metadata['revision'],
+                      'turn': hashlib.sha256(turn['id'].encode()).hexdigest()}
+        if hosted:
+            if artifact_only:
+                completion.update(caller=caller, issue=number)
+            save(RESULTS / 'completed.json', {
+                **completion, 'run_id': run_id, 'report_sha256': receipt})
+            check_hosted_upload(artifact_only=artifact_only, after_cleanup=True)
+        else:
+            save(RESULTS / 'draft-receipt.json', {**completion, 'status': 'draft', 'draft_sha256': receipt})
+            check_upload()
         if claim and not ledger.settle(claim, receipt):
             raise RuntimeError('Could not settle the investigation claim')
         return 0
@@ -485,7 +628,8 @@ def main():
         if claim and not dispatched:
             ledger.settle(claim)
         message = type(error).__name__
-        save(RESULTS / 'error.json', {'error': message})
+        if RESULTS.is_dir() and not RESULTS.is_symlink():
+            save(RESULTS / 'error.json', {'error': message})
         print(message, file=sys.stderr)
         return 1
     finally:

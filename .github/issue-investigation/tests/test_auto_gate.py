@@ -125,10 +125,12 @@ class AutomaticIssueTests(unittest.TestCase):
             event_path.write_text(json.dumps(self.event), encoding='utf-8')
             env = {'GITHUB_EVENT_PATH': str(event_path), 'GITHUB_OUTPUT': str(output_path),
                    'GH_TOKEN': 'test', 'GITHUB_REPOSITORY': 'BenCodez/VotingPlugin',
+                   'GITHUB_EVENT_NAME': 'issues',
                    'AUTO_ENVIRONMENT_NAME': 'existing-environment', 'ISSUE_INVESTIGATION_OWNER': 'github'}
             with patch.dict(os.environ, env, clear=True), patch.object(gate, 'Curl', return_value=self.github):
                 self.assertEqual(gate.main(), 0)
-            self.assertEqual(output_path.read_text(), 'allowed=true\n')
+            self.assertEqual(output_path.read_text(),
+                             'allowed=true\nissue_number=1758\nenvironment=existing-environment\n')
             self.assertEqual(len(self.github.calls), 2)
 
     def test_agent_uses_luna_without_billable_web_search(self):
@@ -136,14 +138,41 @@ class AutomaticIssueTests(unittest.TestCase):
         self.assertEqual(agent['model'], 'gpt-6-luna')
         self.assertEqual(agent['tools'], [])
 
-    def test_workflow_is_manual_offline_without_issue_write_or_model_access(self):
-        workflow = (ROOT.parent / 'workflows' / 'investigate-issue.yml').read_text(encoding='utf-8')
-        self.assertIn('workflow_dispatch:', workflow)
-        self.assertNotIn('  issues:', workflow)
-        self.assertNotIn('  issue_comment:', workflow)
-        self.assertNotIn('OPENAI_API_KEY', workflow)
-        self.assertNotIn('issues: write', workflow)
-        self.assertIn('unittest discover', workflow)
+    def test_manual_validates_number_timeout_owner_and_environment_without_auto_count(self):
+        args = self.github, 'BenCodez/VotingPlugin', 'existing-environment'
+        self.assertTrue(gate.manual_admission(*args, 'github', '1758', '15')[0])
+        self.assertEqual(len(self.github.calls), 1)
+        self.assertFalse(gate.manual_admission(*args, 'cezar', '1758', '15')[0])
+        for number, minutes in [('0', '15'), ('1\nallowed=true', '15'), ('1', '31')]:
+            with self.assertRaises(RuntimeError):
+                gate.manual_admission(*args, 'github', number, minutes)
+        with self.assertRaises(RuntimeError):
+            gate.manual_admission(self.github, 'BenCodez/VotingPlugin',
+                                  'environment\nallowed=true', 'github', '1758', '15')
+        self.assertEqual(len(self.github.calls), 1)
+
+    def test_workflows_separate_hosted_admission_from_offline_checks(self):
+        workflows = ROOT.parent / 'workflows'
+        offline = (workflows / 'issue-investigation-offline.yml').read_text(encoding='utf-8')
+        hosted = (workflows / 'investigate-issue.yml').read_text(encoding='utf-8')
+        self.assertIn('workflow_dispatch:', offline)
+        self.assertNotIn('  issues:', offline)
+        self.assertNotIn('OPENAI_API_KEY', offline)
+        self.assertIn('unittest discover', offline)
+        self.assertIn('types: [opened]', hosted)
+        self.assertIn('workflow_dispatch:', hosted)
+        self.assertIn('needs.auto-preflight.outputs.issue_number', hosted)
+        self.assertIn('secrets.OPENAI_API_KEY', hosted)
+        self.assertIn('--cleanup', hosted)
+        self.assertIn('--prepare-hosted-upload', hosted)
+        self.assertNotIn('issue_comment:', hosted)
+        self.assertIn('default: false', hosted)
+        self.assertIn("github.event_name == 'issues' || inputs.post_comment", hosted)
+        self.assertNotIn('issues: write', hosted.split('  post-report:', 1)[0])
+        self.assertEqual(hosted.count('issues: write'), 1)
+        self.assertNotIn('self-hosted', hosted)
+        self.assertNotIn('ISSUE_INVESTIGATION_LEDGER', hosted)
+        self.assertNotIn('session-id', hosted)
 
 
 if __name__ == '__main__':
