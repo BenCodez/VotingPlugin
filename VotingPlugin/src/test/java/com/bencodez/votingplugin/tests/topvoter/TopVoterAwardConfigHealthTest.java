@@ -88,6 +88,7 @@ class TopVoterAwardConfigHealthTest {
 		rewardData.set("WeeklyAwards.2.Rewards", List.of());
 		rewardData.set("WeeklyAwards.3.Rewards", "");
 		rewardData.createSection("WeeklyAwards.4");
+		rewardData.set("WeeklyAwards.5.Rewards", List.of(""));
 		rewardData.set("EnableDailyRewards", true);
 
 		check(configData, rewardData);
@@ -116,6 +117,27 @@ class TopVoterAwardConfigHealthTest {
 		check(configData, rewardData);
 
 		verifyNoInteractions(logger);
+	}
+
+	@Test
+	void ignoresRewardsWhenLaterEntriesCoverEveryRank() {
+		rewardData.set("EnableWeeklyAwards", true);
+		rewardData.set("WeeklyAwards.1-4.Rewards", "example-reward");
+		rewardData.set("WeeklyAwards.1.Rewards", List.of());
+		rewardData.set("WeeklyAwards.2-4.Rewards", List.of(""));
+
+		check(configData, rewardData);
+
+		verifyNoInteractions(logger);
+	}
+
+	@Test
+	void warnsWhenLaterEntriesLeaveOneRankWithAReward() {
+		rewardData.set("EnableWeeklyAwards", true);
+		rewardData.set("WeeklyAwards.1-2147483647.Rewards", "example-reward");
+		rewardData.set("WeeklyAwards.2-2147483647.Rewards", List.of());
+
+		checkSingleWarning("Weekly");
 	}
 
 	private void check(YamlConfiguration configYaml, YamlConfiguration rewardsYaml) {
