@@ -1,0 +1,57 @@
+plugins {
+    id 'fabric-loom' version '1.7.4'
+}
+
+version = '7.2-SNAPSHOT'
+group = 'com.bencodez'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    minecraft 'com.mojang:minecraft:1.21.1'
+    mappings loom.officialMojangMappings()
+    modImplementation 'net.fabricmc:fabric-loader:0.16.14'
+    modImplementation 'net.fabricmc.fabric-api:fabric-api:0.116.5+1.21.1'
+
+    implementation 'org.yaml:snakeyaml:2.7'
+    include 'org.yaml:snakeyaml:2.7'
+
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.11.4'
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 21
+}
+
+// Compile only the platform-neutral sources required by this module.
+tasks.named('compileJava', JavaCompile) {
+    source('../VotingPlugin/src/main/java/com/bencodez/votingplugin/core/vote/SharedVoteIdentity.java',
+            '../VotingPlugin/src/main/java/com/bencodez/votingplugin/util/ServiceSiteValidator.java')
+}
+
+processResources {
+    inputs.property 'version', project.version
+    filesMatching('fabric.mod.json') {
+        expand(version: project.version)
+    }
+}
+
+jar {
+    from('../LICENSE.md')
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}
+
+sourceSets.test.java.setSrcDirs(['../VotingPlugin/src/test/java'])
+sourceSets.test.java.include('com/bencodez/votingplugin/tests/fabric/**')
+
+test {
+    useJUnitPlatform()
+}

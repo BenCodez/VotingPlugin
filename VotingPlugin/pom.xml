@@ -44,6 +44,15 @@
         </resources>
         <sourceDirectory>src/main/java</sourceDirectory>
         <testSourceDirectory>src/test/java</testSourceDirectory>
+        <testResources>
+            <testResource>
+                <directory>src/test/resources</directory>
+            </testResource>
+            <testResource>
+                <directory>${project.basedir}/../VotingPlugin-Fabric/src/main/resources</directory>
+                <includes><include>votingplugin-fabric.properties</include></includes>
+            </testResource>
+        </testResources>
         <pluginManagement>
             <plugins>
                 <plugin>
@@ -102,6 +111,25 @@
                         </path>
                     </annotationProcessorPaths>
                 </configuration>
+                <executions>
+                    <execution>
+                        <id>compile-fabric-test-inputs</id>
+                        <phase>test-compile</phase>
+                        <goals><goal>testCompile</goal></goals>
+                        <configuration>
+                            <compileSourceRoots>
+                                <compileSourceRoot>${project.basedir}/../VotingPlugin-Fabric/src/main/java</compileSourceRoot>
+                            </compileSourceRoots>
+                            <testIncludes>
+                                <testInclude>**/FabricConfiguration.java</testInclude>
+                                <testInclude>**/FabricServerRuntime.java</testInclude>
+                                <testInclude>**/FabricVoteSite.java</testInclude>
+                                <testInclude>**/FabricVoteSites.java</testInclude>
+                            </testIncludes>
+                            <proc>none</proc>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
