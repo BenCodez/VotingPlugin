@@ -28,6 +28,10 @@ import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 
 import com.bencodez.votingplugin.proxy.OfflineBungeeVote;
+import com.bencodez.votingplugin.proxy.VoteTotalsSnapshot;
+import com.bencodez.votingplugin.tests.neoforge.NeoForgeProxyOriginFixture;
+import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
+import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
 import com.bencodez.votingplugin.proxy.bungee.BungeeJsonVoteCache;
 import com.bencodez.votingplugin.proxy.bungee.VotingPluginBungee;
 import com.bencodez.votingplugin.proxy.cache.IVoteCache;
@@ -135,6 +139,47 @@ class CachedVoteBatchDurabilityTest {
 			VoteCacheHandler next = handler(cache(velocity)); next.load();
 			assertTrue(votes(next, online).get(0).isRewardDelivered());
 			assertEquals(2, votes(next, online).get(0).getCachedBatchNumber());
+		});
+	}
+
+	@TestFactory
+	Stream<DynamicTest> completeCacheWrappersPreserveAdmissionEvidenceWithoutInventingIt() {
+		return lanes((velocity, online) -> {
+			var signer = NeoForgeProxyOriginFixture.create(directory);
+			var values = new VoteTotalsSnapshot(1, 2, 3, 4, 5, 6, 7, 8);
+			values.setLocalProxyOrigin(true);
+			String proof = signer.admissionProof(JsonEnvelope.builder("storage-fixture")
+					.put("content", "Unicode 雪😀\r\nserialized data").build(), "proxy-test", BACKEND);
+			values.setLocalOriginProof(java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(
+					BACKEND.getBytes(java.nio.charset.StandardCharsets.UTF_8)) + "." + proof);
+			OfflineBungeeVote local = vote(UUID.randomUUID()), unknown = vote(UUID.randomUUID());
+			local.setText(values.toStorageString());
+			values.setLocalProxyOrigin(false); unknown.setText(values.toStorageString());
+			var writer = handler(cache(velocity)); add(writer, online, local); add(writer, online, unknown);
+			assertTrue(writer.prepareCachedVoteBatch(owner(online), online, List.of(local, unknown), 2));
+			var timed = new VoteTimeQueue(UUID.randomUUID(), "Alex", "fixture-site", 1234L);
+			timed.setTotals(local.getText()); assertTrue(writer.addTimeVoteToCache(timed));
+			var restarted = handler(cache(velocity)); restarted.load();
+			for (OfflineBungeeVote row : votes(restarted, online)) {
+				String expected = row.getVoteId().equals(local.getVoteId()) ? local.getText() : unknown.getText();
+				assertEquals(expected, row.getText());
+				assertEquals(row.getVoteId().equals(local.getVoteId()),
+						VoteTotalsSnapshot.parseStorage(row.getText()).isLocalProxyOrigin());
+			}
+			assertEquals(2, votes(restarted, online).size());
+			assertEquals(local.getText(), restarted.getTimeChangeQueue().peek().getTotals());
+			// SQL is represented at the existing row boundary, not claimed as a live DB run.
+			var sql = sqlHandler(cache(velocity), online, List.of(local, unknown), List.of(71, 72)); sql.load();
+			// SQL is shared input, even if its bytes carry a genuine old proof.
+			// Preserve the private-file assertions above; shared imports retain
+			// numeric values and occurrence IDs without retaining that authority.
+			assertEquals(List.of(unknown.getText(), unknown.getText()),
+					votes(sql, online).stream().map(OfflineBungeeVote::getText).toList());
+			assertEquals(List.of(local.getVoteId(), unknown.getVoteId()),
+					votes(sql, online).stream().map(OfflineBungeeVote::getVoteId).toList());
+			assertTrue(votes(sql, online).stream().allMatch(row ->
+					!VoteTotalsSnapshot.parseStorage(row.getText()).isLocalProxyOrigin()
+					&& VoteTotalsSnapshot.parseStorage(row.getText()).getLocalOriginProof().isEmpty()));
 		});
 	}
 
