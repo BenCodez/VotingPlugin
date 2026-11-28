@@ -1,4 +1,5 @@
 import importlib.util
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -14,66 +15,161 @@ with patch.object(sys, 'path', [str(ROOT), *sys.path]):
     SPEC.loader.exec_module(post)
 
 
+LATEST_BUILD_URL = post.profile_for('BenCodez/VotingPlugin')['development']
+
+
 class PostingTests(unittest.TestCase):
     def setUp(self):
+        self.enterContext(patch.dict(os.environ, {'GITHUB_EVENT_NAME': 'workflow_dispatch'}))
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.folder = Path(self.temp.name)
         result_patch = patch.object(post, 'RESULTS', self.folder)
         result_patch.start()
         self.addCleanup(result_patch.stop)
-        (self.folder / 'turn.json').write_text(json.dumps({'status': 'completed'}))
-        (self.folder / 'report.md').write_text('Result: no defect confirmed. Tests blocked.')
+        (self.folder / 'turn.json').write_text(json.dumps({'status': 'completed', 'digest': 'd' * 64}))
+        report = ('**Finding**: no defect confirmed. Tests blocked.\n**Evidence**: compared tagged source [README](https://github.com/BenCodez/VotingPlugin/blob/' + 'a' * 40 + '/README.md).\n'
+                  '**Verification**: inspected the source.\n**Suggested next step**: retest on staging.\n'
+                  '**Limitations**: no runtime coverage.')
+        (self.folder / 'report.md').write_text(report)
+        revision = post.evidence_revision({})
+        provenance = {'repository': 'BenCodez/VotingPlugin', 'number': '1583', 'mode': 'bug',
+                      'development_sha': 'a' * 40, 'revision': revision, 'owner': 'github'}
+        provenance['observations'] = post.report_completion(report, provenance)
+        (self.folder / 'evidence.json').write_text(json.dumps(provenance))
+        (self.folder / 'completed.json').write_text(json.dumps({
+            'revision': revision, 'turn': 'd' * 64,
+            'report_sha256': hashlib.sha256(report.encode()).hexdigest()}))
         self.calls = []
+        checker = patch.object(post, 'require_disclosure')
+        self.checker = checker.start()
+        self.addCleanup(checker.stop)
 
     def request(self, method, path, payload=None):
         self.calls.append((method, path, payload))
-        return [] if method == 'GET' and '/comments?' in path else {}
+        return [] if method == 'GET' and ('/comments?' in path or '/events?' in path) else {}
 
     def publish(self):
-        with patch.object(post.Curl, 'request', side_effect=self.request):
-            post.publish(post.Curl('https://api.github.com', 'test'), 'BenCodez/VotingPlugin', '1583', 'a' * 40, '123')
+        from types import SimpleNamespace
+        # Exercise the preserved transport ordering after a hypothetical trusted review.
+        with patch.object(post, 'require_semantic_review'):
+            post.publish(SimpleNamespace(request=self.request), 'BenCodez/VotingPlugin', '1583', 'a' * 40, '123')
 
     def test_default_off_never_reads_credentials_or_calls_api(self):
         for value in [None, 'false', '1', 'True']:
             with patch.dict(os.environ, {} if value is None else {'POST_COMMENT': value}, clear=True), \
-                    patch.object(post, 'Curl') as curl:
+                    patch.object(post, 'publish') as curl:
                 self.assertEqual(post.main(), 0)
                 curl.assert_not_called()
+
+    def test_hosted_automatic_requires_exact_trusted_approval_and_disclosure(self):
+        report_path = self.folder / 'report.md'
+        evidence_path = self.folder / 'evidence.json'
+        receipt_path = self.folder / 'completed.json'
+        evidence = json.loads(evidence_path.read_text())
+        evidence['report_status'] = 'unreviewed'
+        evidence_path.write_text(json.dumps(evidence))
+        receipt = json.loads(receipt_path.read_text())
+        receipt['run_id'] = '123'
+        receipt_path.write_text(json.dumps(receipt))
+        env = {'GITHUB_REPOSITORY': 'BenCodez/VotingPlugin', 'GITHUB_EVENT_NAME': 'issues',
+               'ISSUE_NUMBER': '1583', 'GITHUB_SHA': 'a' * 40, 'GITHUB_RUN_ID': '123',
+               'POST_COMMENT': 'true', 'GH_TOKEN': 'test'}
+        destination = 'github-comment:BenCodez/VotingPlugin#1583'
+
+        with patch.dict(os.environ, env, clear=True), \
+             patch.object(post.sys, 'argv', ['post_comment.py', '--hosted']), \
+             patch.object(post, 'Curl', return_value=self) as curl, \
+             patch.object(post, 'github_source_exists', return_value=True), \
+             patch.object(post, 'require_substantive_approval') as approve:
+            with patch.dict(os.environ, {'GITHUB_EVENT_NAME': 'workflow_dispatch', 'POST_COMMENT': 'false'}):
+                self.assertEqual(post.main(), 0)
+                curl.assert_not_called()
+            approve.side_effect = RuntimeError('No trusted approval')
+            self.assertEqual(post.main(), 1)
+            self.assertFalse(self.calls)
+
+            approve.side_effect = None
+            self.checker.side_effect = RuntimeError('Exact comment disallowed')
+            self.assertEqual(post.main(), 1)
+            self.assertFalse(self.calls)
+            self.checker.side_effect = None
+
+            with patch.object(post, 'issue_context', return_value={'title': 'Changed', 'report_markers': []}):
+                self.assertEqual(post.main(), 0)
+            self.assertFalse(self.calls)
+
+            self.assertEqual(post.main(), 0)
+            method, url, payload = self.calls[-1]
+            self.assertEqual((method, url), ('POST', '/repos/BenCodez/VotingPlugin/issues/1583/comments'))
+            raw, approved_destination = approve.call_args.args
+            approval = json.loads(raw)
+            self.assertEqual(approved_destination, destination)
+            self.assertEqual(approval['repository'], env['GITHUB_REPOSITORY'])
+            self.assertEqual(approval['issue'], env['ISSUE_NUMBER'])
+            self.assertEqual(approval['revision'], evidence['revision'])
+            self.assertEqual(approval['report'], report_path.read_text())
+            self.assertEqual(approval['report_sha256'], receipt['report_sha256'])
+            self.assertEqual(approval['comment'], payload)
+            exact = post.payload_bytes(payload)
+            self.assertEqual(approval['comment_sha256'], hashlib.sha256(exact).hexdigest())
+            self.checker.assert_called_with(exact, destination)
+
+            original = self.request
+            def replay(method, path, body=None):
+                if '/comments?' in path:
+                    return [{'user': {'login': 'github-actions[bot]'}, 'body': payload['body']}]
+                return original(method, path, body)
+
+            with patch.object(self, 'request', side_effect=replay):
+                self.assertEqual(post.main(), 0)
+            self.assertEqual(sum(method == 'POST' for method, _, _ in self.calls), 1)
+
+            incomplete = report_path.read_text().replace(
+                'no defect confirmed. Tests blocked.', 'No investigation was performed and the finding is incomplete.')
+            report_path.write_text(incomplete)
+            receipt['report_sha256'] = hashlib.sha256(incomplete.encode()).hexdigest()
+            receipt_path.write_text(json.dumps(receipt))
+            self.calls.clear()
+            # Even structurally valid, cited prose remains ineligible without substantive approval.
+            approve.side_effect = RuntimeError('Trusted reviewer refused incomplete investigation')
+            self.assertEqual(post.main(), 1)
+            self.assertFalse(self.calls)
+            self.assertIn('No investigation was performed', json.loads(approve.call_args.args[0])['report'])
 
     def test_posts_actual_completed_report_to_selected_issue(self):
         self.publish()
         method, path, payload = self.calls[-1]
         self.assertEqual((method, path), ('POST', '/repos/BenCodez/VotingPlugin/issues/1583/comments'))
-        self.assertTrue(payload['body'].startswith('<!-- votingplugin-issue-investigation:123 -->\n'))
+        self.assertTrue(payload['body'].startswith('<!-- issue-investigation:v1:123:'))
         self.assertIn('no defect confirmed. Tests blocked.', payload['body'])
         self.assertIn('/actions/runs/123', payload['body'])
-        self.assertIn(post.LATEST_BUILD_URL, payload['body'])
+        self.assertIn(LATEST_BUILD_URL, payload['body'])
 
     def test_link_to_latest_successful_build_is_stable_and_not_duplicated(self):
         body = post.comment_body('Reported release appears affected.', 'BenCodez/VotingPlugin', 'a' * 40, '123')
-        self.assertIn('[latest successful development build](' + post.LATEST_BUILD_URL + ')', body)
+        self.assertIn('[latest successful development build](' + LATEST_BUILD_URL + ')', body)
         self.assertIn('backed-up/staging server', body)
         self.assertIn('build number', body)
-        existing = '[Existing latest build](' + post.LATEST_BUILD_URL + ')'
+        existing = '[Existing latest build](' + LATEST_BUILD_URL + ')'
         body = post.comment_body(existing, 'BenCodez/VotingPlugin', 'a' * 40, '123')
-        self.assertEqual(body.count(post.LATEST_BUILD_URL), 1)
+        self.assertEqual(body.count(LATEST_BUILD_URL), 1)
         self.assertIn('Optional development-build retest', body)
         self.assertIn('backed-up/staging server', body)
         self.assertIn('This is a development build, not a verified fix or stable release.', body)
         self.assertIn('build number and whether the same steps reproduce', body)
         self.assertIn('mentioned above', body)
 
-        plain_url = 'I tested ' + post.LATEST_BUILD_URL
+        plain_url = 'I tested ' + LATEST_BUILD_URL
         body = post.comment_body(plain_url, 'BenCodez/VotingPlugin', 'a' * 40, '123')
-        self.assertEqual(body.count(post.LATEST_BUILD_URL), 1)
+        self.assertEqual(body.count(LATEST_BUILD_URL), 1)
         self.assertIn('Optional development-build retest', body)
 
     def test_existing_bot_comment_prevents_duplicate_on_rerun(self):
         def reply(method, path, payload=None):
             self.calls.append((method, path, payload))
             return [{'user': {'login': 'github-actions[bot]'},
-                     'body': '<!-- votingplugin-issue-investigation:123 -->\nold report'}] if '/comments?' in path else {}
+                     'body': '<!-- votingplugin-issue-investigation:123 -->\nold report'}] if '/comments?' in path else ([] if '/events?' in path else {})
         self.request = reply
         self.publish()
         self.assertFalse(any(x[0] == 'POST' for x in self.calls))
@@ -82,10 +178,71 @@ class PostingTests(unittest.TestCase):
         def reply(method, path, payload=None):
             self.calls.append((method, path, payload))
             return [{'user': {'login': 'reporter'},
-                     'body': '<!-- votingplugin-issue-investigation:123 -->\nfake'}] if '/comments?' in path else {}
+                     'body': '<!-- votingplugin-issue-investigation:123 -->\nfake'}] if '/comments?' in path else ([] if '/events?' in path else {})
         self.request = reply
+        issue = post.issue_context(self, 'BenCodez/VotingPlugin', '1583', track_reopens=True)
+        revision = post.evidence_revision(issue)
+        for filename in ('evidence.json', 'completed.json'):
+            path = self.folder / filename
+            data = json.loads(path.read_text())
+            data['revision'] = revision
+            path.write_text(json.dumps(data))
+        self.calls.clear()
         self.publish()
         self.assertEqual(sum(x[0] == 'POST' for x in self.calls), 1)
+
+    def test_prior_evidence_revision_blocks_cross_run_duplicate(self):
+        metadata = json.loads((self.folder / 'evidence.json').read_text())
+        marker = '<!-- issue-investigation:v1:122:' + metadata['revision'] + ':' + 'b' * 64 + ' -->\n'
+        def reply(method, path, payload=None):
+            self.calls.append((method, path, payload))
+            if '/comments?' in path:
+                return [{'user': {'login': 'github-actions[bot]'}, 'body': marker + 'Old report'}]
+            return [] if '/events?' in path else {}
+
+        self.request = reply
+        self.publish()
+        self.assertTrue(all(method == 'GET' for method, _, _ in self.calls))
+
+    def test_stale_evidence_and_tampered_report_do_not_post(self):
+        def reply(method, path, payload=None):
+            self.calls.append((method, path, payload))
+            return [] if '?' in path else {'body': 'New reproduction details'}
+
+        self.request = reply
+        self.publish()
+        self.assertTrue(all(method == 'GET' for method, _, _ in self.calls))
+        self.calls.clear()
+        with (self.folder / 'report.md').open('a') as report:
+            report.write('Modified report')
+        with self.assertRaisesRegex(RuntimeError, 'receipt does not match'):
+            self.publish()
+        self.assertEqual(self.calls, [])
+
+    def test_disclosure_refusal_receives_exact_outgoing_json_and_prevents_post(self):
+        self.checker.side_effect = RuntimeError('Refused')
+        with self.assertRaisesRegex(RuntimeError, 'Refused'):
+            self.publish()
+        self.assertTrue(all(method == 'GET' for method, _, _ in self.calls))
+        payload, destination = self.checker.call_args.args
+        self.assertIn('Automated issue investigation', json.loads(payload)['body'])
+        self.assertEqual(destination, 'github-comment:BenCodez/VotingPlugin#1583')
+
+    def test_checker_time_revision_change_is_withheld(self):
+        changed = False
+        def approve(*args):
+            nonlocal changed
+            changed = True
+        def reply(method, path, payload=None):
+            self.calls.append((method, path, payload))
+            return [] if '?' in path else {'body': 'New material after approval began'} if changed else {}
+
+        self.request = reply
+        self.checker.side_effect = approve
+        self.publish()
+        self.checker.assert_called_once()
+        self.assertTrue(self.calls)
+        self.assertTrue(all(method == 'GET' for method, _, _ in self.calls))
 
     def test_incomplete_and_empty_reports_are_not_posted(self):
         for status, report in [('failed', 'report'), ('in_progress', 'report'), ('completed', ' ')] :
@@ -215,26 +372,48 @@ class PostingTests(unittest.TestCase):
             self.assertLess(len(body.encode('utf-8')), 65536)
             self.assertIn('Report shortened', body)
 
-    def test_explicit_opt_in_invokes_publisher_with_selected_issue(self):
-        env = {'POST_COMMENT': 'true', 'GH_TOKEN': 'test', 'GITHUB_REPOSITORY': 'BenCodez/VotingPlugin',
-               'ISSUE_NUMBER': '1583', 'GITHUB_SHA': 'a' * 40, 'GITHUB_RUN_ID': '123'}
-        with patch.dict(os.environ, env, clear=True), patch.object(post, 'publish') as publish:
-            self.assertEqual(post.main(), 0)
-        self.assertEqual(publish.call_args.args[1:], ('BenCodez/VotingPlugin', '1583', 'a' * 40, '123'))
-
-    def test_invalid_issue_is_rejected_before_any_api_call(self):
-        env = {'POST_COMMENT': 'true', 'GH_TOKEN': 'test', 'GITHUB_REPOSITORY': 'BenCodez/VotingPlugin',
-               'ISSUE_NUMBER': '1583/comments', 'GITHUB_SHA': 'a' * 40, 'GITHUB_RUN_ID': '123'}
-        with patch.dict(os.environ, env, clear=True), patch.object(post, 'Curl') as curl:
+    def test_manual_opt_in_is_blocked_without_loading_or_publishing_report(self):
+        with patch.dict(os.environ, {'POST_COMMENT': 'true'}, clear=True), \
+             patch.object(post, 'publish') as publish:
             self.assertEqual(post.main(), 1)
-        curl.assert_not_called()
+        publish.assert_not_called()
+
+    def test_all_modes_remain_unpublishable_even_with_valid_anchors_and_filler(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+
+        root = 'https://github.com/BenCodez/VotingPlugin'
+        sha = 'a' * 40
+        template = ('**Finding**: No investigation was performed.\n'
+                    '**Evidence**: No inspection was performed on [this reference]({anchor}).\n'
+                    '**Verification**: No result was independently checked.\n'
+                    '**Suggested next step**: No recommendation was evaluated.\n'
+                    '**Limitations**: Inputs are missing; no investigation occurred.\n')
+        for mode in ('bug', 'docs', 'feature', 'support', 'insufficient'):
+            with self.subTest(mode=mode):
+                anchor = f'{root}/blob/{sha}/README.md' if mode in {'bug', 'docs'} else f'{root}/issues/1583'
+                report = template.format(anchor=anchor)
+                provenance = json.loads((self.folder / 'evidence.json').read_text())
+                provenance['mode'] = mode
+                provenance['observations'] = post.report_completion(report, provenance, lambda *_: True)
+                (self.folder / 'evidence.json').write_text(json.dumps(provenance))
+                (self.folder / 'report.md').write_text(report)
+                receipt_path = self.folder / 'completed.json'
+                receipt = json.loads(receipt_path.read_text())
+                receipt['report_sha256'] = hashlib.sha256(report.encode()).hexdigest()
+                receipt_path.write_text(json.dumps(receipt))
+                api = SimpleNamespace(request=Mock())
+                with self.assertRaisesRegex(RuntimeError, 'trusted exact-report'):
+                    post.publish(api, 'BenCodez/VotingPlugin', '1583', sha, '123')
+                api.request.assert_not_called()
+        self.checker.assert_not_called()
 
     def test_ambiguous_post_failure_is_not_retried(self):
         def reply(method, path, payload=None):
             self.calls.append((method, path, payload))
             if method == 'POST':
                 raise RuntimeError('Lost response')
-            return [] if '/comments?' in path else {}
+            return [] if '/comments?' in path else ([] if '/events?' in path else {})
         self.request = reply
         with self.assertRaisesRegex(RuntimeError, 'Lost response'):
             self.publish()

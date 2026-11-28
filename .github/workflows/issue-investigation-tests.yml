@@ -25,4 +25,4 @@ jobs:
         with:
           persist-credentials: false
       - name: Test lifecycle, reporting, and credential handling without API calls
-        run: python3 -m unittest discover -s .github/issue-investigation/tests -v
+        run: env -u GITHUB_EVENT_NAME -u ISSUE_INVESTIGATION_OWNER python3 -m unittest discover -s .github/issue-investigation/tests -v

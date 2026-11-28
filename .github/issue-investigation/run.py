@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Manual Actions runner. All HTTP uses curl; credentials stay on this runner."""
+"""Hosted Actions runner. All HTTP uses curl; credentials stay on this runner."""
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -9,8 +10,16 @@ import subprocess
 import sys
 import tempfile
 import time
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
+from claims import Claims
+from disclosure import install_checker, payload_bytes, require_disclosure
+from report import report_completion
+from engine import (DEFAULT, GUIDANCE, PROFILES, evidence, github_snapshot, has_accepted_revision, is_bot, profile_for,
+                    route_revision, version_mentions)
+
+DEFAULT_REPOSITORY = 'BenCodez/VotingPlugin'
+ARTIFACT_CALLERS = {'BenCodez/AdvancedCore': '66120957', 'BenCodez/SimpleAPI': '796949127'}
 ROOT = Path(__file__).resolve().parent
 RESULTS = Path('investigation-results')
 PROJECT = 'proj_aRse4SXfv5N60VlakdZGzVV5'
@@ -42,7 +51,7 @@ class Curl:
                     '--output', str(response), '--write-out', '%{http_code}', self.base + path]
             if payload is not None:
                 data = Path(directory) / 'request.json'
-                data.write_text(json.dumps(payload), encoding='utf-8')
+                data.write_bytes(payload_bytes(payload))
                 args += ['--data-binary', '@' + str(data)]
             child_env = {k: v for k, v in os.environ.items()
                          if k not in {'OPENAI_API_KEY', 'GH_TOKEN', 'GITHUB_TOKEN'}}
@@ -55,6 +64,12 @@ class Curl:
                 raise ApiError(status)
             raw = response.read_bytes()
             return raw if binary else (json.loads(raw) if raw else {})
+
+
+def session_state():
+    run = os.environ.get('GITHUB_RUN_ID')
+    suffix = '-' + run if run and re.fullmatch(r'[0-9]{1,20}', run) else ''
+    return Path(os.environ.get('RUNNER_TEMP', str(RESULTS))) / f'issue-investigation-session-id{suffix}.txt'
 
 
 def save(path, value):
@@ -85,24 +100,61 @@ def pages(api, path):
     raise RuntimeError('Pagination exceeded 100 pages; output incomplete')
 
 
-def issue_context(github, repository, number):
-    issue = github.request('GET', f'/repos/{repository}/issues/{number}')
+def issue_rows(github, path):
+    for page in range(1, 101):
+        batch = github.request('GET', path + f'?per_page=100&page={page}')
+        yield from batch
+        if len(batch) < 100:
+            return
+    raise RuntimeError('Issue pagination bound reached')
+
+
+def issue_context(github, repository, number, track_reopens=False, *, require_human=False):
+    path = f'/repos/{repository}/issues/{number}'
+    issue = github.request('GET', path)
     if 'pull_request' in issue:
         raise RuntimeError('Choose an issue, not a pull request')
-    comments = []
-    for page in range(1, 101):
-        batch = github.request('GET', f'/repos/{repository}/issues/{number}/comments?per_page=100&page={page}')
-        comments.extend({'user': x['user']['login'], 'body': x.get('body'),
-                         'url': x['html_url']} for x in batch)
-        if len(batch) < 100:
-            break
-    else:
-        raise RuntimeError('Issue comments exceed retrieval bound')
-    return {'url': issue['html_url'], 'title': issue['title'],
-            'body': issue.get('body'), 'comments': comments}
+    if require_human:
+        author = issue.get('user') or {}
+        if author.get('type') != 'User' or not author.get('login') or is_bot(author):
+            raise RuntimeError('Issue has no eligible human author')
+    events = issue_rows(github, path + '/events') if track_reopens else ()
+    comments = list(issue_rows(github, path + '/comments'))
+    count = issue.get('comments')
+    if count is not None and (type(count) is not int or count < 0 or count > len(comments)):
+        raise RuntimeError('Incomplete issue comment history')
+    return github_snapshot(issue, comments, events)
 
 
-def session_payload(repository, sha):
+def github_tag(github, repository, tag):
+    try:
+        # GitHub resolves lightweight and annotated tags to the commit here.
+        row = github.request('GET', f'/repos/{repository}/commits/' + quote('tags/' + tag, safe=''))
+        return row.get('sha')
+    except ApiError as error:
+        if error.status != 404 and error.status != 422:
+            raise
+        return None
+
+
+def github_source_exists(github, repository, sha, path):
+    endpoint = f'/repos/{repository}/contents/{quote(path)}?ref={sha}'
+    try:
+        value = github.request('GET', endpoint)
+    except ApiError as error:
+        if error.status == 404:
+            return False
+        raise
+    return isinstance(value, dict) and value.get('type') == 'file' and value.get('path') == path
+
+
+def session_payload(repository, sha, *, artifact_only=False):
+    profile = profile_for(repository)
+    allowed = repository in ARTIFACT_CALLERS and not profile['post'] if artifact_only else profile['hosted']
+    if not allowed or profile['jdk'] != 21:
+        raise RuntimeError('Hosted investigations are disabled for this profile')
+    workspace = profile['workspace']
+    jdk = profile['jdk']
     # Validate before interpolating trusted repository/commit metadata into shell.
     if not re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+', repository):
         raise RuntimeError('Invalid repository')
@@ -111,23 +163,36 @@ def session_payload(repository, sha):
     setup = (
         'set -eu; apt-get update -qq; '
         'apt-get install -y git curl ca-certificates maven ripgrep; '
-        'mkdir -p /opt/issue-jdk21 /workspace/repos/VotingPlugin; '
-        "curl -fLsS --connect-timeout 15 --max-time 120 "
-        "'https://api.adoptium.net/v3/binary/latest/21/ga/linux/x64/jdk/hotspot/normal/eclipse' "
-        '-o /tmp/issue-jdk21.tar.gz; '
-        'tar -xzf /tmp/issue-jdk21.tar.gz -C /opt/issue-jdk21 --strip-components=1; '
-        'ln -sf /opt/issue-jdk21/bin/java /usr/local/bin/java; '
-        'ln -sf /opt/issue-jdk21/bin/javac /usr/local/bin/javac; '
-        'java -version; mvn -version; cd /workspace/repos/VotingPlugin; '
+        f'mkdir -p /opt/issue-jdk{jdk} {workspace}; '
+        'curl -fLsS --connect-timeout 15 --max-time 120 '
+        'https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.13.1%2B2/'
+        'OpenJDK21U-jdk_x64_linux_hotspot_21.0.13.1_2.tar.gz -o /tmp/issue-jdk21.tar.gz; '
+        'echo "bb8a93f9ae6e7a693b2b721e85dbeff26ae1a77447985a8d7afcdd9c7cf6222e  /tmp/issue-jdk21.tar.gz" '
+        '| sha256sum -c -; '
+        f'tar -xzf /tmp/issue-jdk21.tar.gz -C /opt/issue-jdk{jdk} --strip-components=1; '
+        f'ln -sf /opt/issue-jdk{jdk}/bin/java /usr/local/bin/java; '
+        f'ln -sf /opt/issue-jdk{jdk}/bin/javac /usr/local/bin/javac; '
+        f'java -version; mvn -version; cd {workspace}; '
         f'git init; git remote add origin https://github.com/{repository}.git; '
         f'git fetch --depth=1 origin {sha}; git checkout --detach FETCH_HEAD')
     return {'agent': json.loads((ROOT / 'agent.json').read_text()),
             'environment': {'type': 'openai_hosted', 'container_size': 'medium',
                             'network': {'access': 'enabled'},
-                            'env': {'JAVA_HOME': '/opt/issue-jdk21'},
+                            'env': {'JAVA_HOME': f'/opt/issue-jdk{jdk}'},
                             'setup_commands': [{'command': setup, 'cwd': '/workspace'}]},
             'stream': False}
 
+
+
+def redact_issue_text(value):
+    if not isinstance(value, str):
+        return value
+    value = re.sub(r'(?is)-----BEGIN [^-]*PRIVATE KEY-----.*?-----END [^-]*PRIVATE KEY-----',
+                   '[Redacted key]', value)
+    value = re.sub(r'(?im)^.*notifications/unsubscribe.*$', '[Redacted link]', value)
+    value = re.sub(r'(?i)\b(?:github_pat_|gh[pousr]_|sk-(?:proj-)?)\S{16,}', '[Redacted token]', value)
+    return re.sub(r'(?im)\b(?:password|passwd|secret|token|api[-_ ]?key|authorization)'
+                  r'\s*[:=]\s*[^\r\n]+', '[Redacted credential]', value)
 
 
 def limit_automatic_context(issue):
@@ -135,19 +200,45 @@ def limit_automatic_context(issue):
     result = dict(issue)
     truncated = False
     for key, limit in [('title', 300), ('body', 14000)]:
-        value = result.get(key)
+        value = redact_issue_text(result.get(key))
+        if key in result:
+            result[key] = value
         if isinstance(value, str) and len(value) > limit:
             result[key] = value[:limit] + '\n[Truncated for automatic investigation; see issue URL.]'
             truncated = True
     comments = result.get('comments') or []
-    if len(comments) > 5:
+    if len(comments) > 20:
         truncated = True
+        middle = comments[5:-10]
+        maintainer = [row for row in middle if row.get('association') in {'OWNER', 'MEMBER', 'COLLABORATOR'}]
+        correction_sources = {row['source'] for profile_name in PROFILES
+                              for row in version_mentions(issue, profile_name) if row['correction']}
+        ranked = sorted(enumerate(middle), key=lambda pair: (
+            pair[1].get('url') in correction_sources, pair[1] in maintainer,
+            bool(re.search(r'(?i)reproduc|stack trace|version|actual result', pair[1].get('body') or '')),
+            pair[0]))
+        selected = {id(row) for _, row in ranked[-5:]}
+        comments = comments[:5] + [row for row in middle if id(row) in selected] + comments[-10:]
     bounded = []
-    for comment in comments[:5]:
+    for comment in comments:
         copy = dict(comment)
-        body = copy.get('body')
+        body = redact_issue_text(copy.get('body'))
+        if 'body' in copy:
+            copy['body'] = body
         if isinstance(body, str) and len(body) > 2000:
-            copy['body'] = body[:2000] + '\n[Comment truncated; see linked comment.]'
+            matches = list(re.finditer(r'(?im)^.*(?:version correction|actually running|stack trace|actual result).*$', body))
+            corrections = [match for match in matches if any(
+                mention['correction'] for profile_name in PROFILES
+                for mention in version_mentions(
+                    {'author': issue.get('author'), 'comments': [{**comment, 'body': match.group()}]},
+                    profile_name))]
+            relevant = corrections or matches
+            if relevant and relevant[-1].start() > 1000:
+                start = max(0, relevant[-1].start() - 100)
+                copy['body'] = body[:800] + '\n[Excerpt]\n' + body[start:start + 1100]
+            else:
+                copy['body'] = body[:1900]
+            copy['body'] += '\n[Comment truncated; see linked comment.]'
             truncated = True
         bounded.append(copy)
     result['comments'] = bounded
@@ -156,52 +247,40 @@ def limit_automatic_context(issue):
     return result
 
 
-def reported_votingplugin_versions(issue):
-    """Find distinct, complete VotingPlugin version tokens without guessing which is deployed."""
-    pattern = re.compile(
-        r'\bVotingPlugin(?:\s+version)?\s*[:=]?\s*v?'
-        r'(\d{1,3}\.\d{1,3}(?:\.\d{1,3})?'
-        r'(?:[-+][A-Za-z0-9][A-Za-z0-9._+-]{0,63})?)'
-        r'(?![A-Za-z0-9._+-])',
-        re.IGNORECASE)
-    versions = {}
-    for field in ('body', 'title'):
-        content = issue.get(field)
-        if isinstance(content, str):
-            for match in pattern.finditer(content):
-                version = match.group(1)
-                versions.setdefault(version.lower(), version)
-    return list(versions.values())
-
-
-def reported_votingplugin_version(issue):
-    """Return a single unambiguous reported version; never use this in shell commands."""
-    versions = reported_votingplugin_versions(issue)
-    return versions[0] if len(versions) == 1 else None
-
-
-def session_input(sha, issue, minutes):
-    versions = reported_votingplugin_versions(issue)
+def session_input(sha, issue, minutes, metadata=None, profile=None):
+    name = profile['checkout'] if profile else DEFAULT
+    versions = list(dict.fromkeys(row['version'] for row in version_mentions(issue, name)))[:10]
     if len(versions) > 1:
-        focus = ('The issue mentions multiple VotingPlugin versions (' + ', '.join(versions)
+        focus = (f'The issue mentions multiple {name} versions (' + ', '.join(versions)
                  + '). Determine which version actually exhibits the issue from the report; '
                  'do NOT automatically select the first version as the installed build. '
                  'Investigate version-specific behavior and disclose any ambiguity. ')
     elif versions:
         version = versions[0]
         if '+' in version or '-' in version:
-            focus = (f'The issue mentions VotingPlugin {version}, a custom/prerelease '
+            focus = (f'The issue mentions {name} {version}, a custom/prerelease '
                      'build identifier. Identify the exact deployed build/commit first; '
                      'do not assume its base release tag is equivalent. '
                      'Disclose the limitation if the artifact cannot be matched. ')
         else:
-            focus = (f'The issue reports VotingPlugin {version}. Investigate THAT reported build '
+            focus = (f'The issue reports {name} {version}. Investigate THAT reported build '
                      'first using its verified Git release tag or build metadata; '
                      'if source cannot be matched, disclose the limitation. ')
     else:
         focus = ('Identify the reported plugin version/build first, and disclose any '
                  'unavailable matching source. ')
-    return (focus + f'The pinned checkout {sha} in /workspace/repos/VotingPlugin '
+    if metadata:
+        mode = metadata['mode']
+        focus = f'Initial issue classification: {mode}. {GUIDANCE[mode]} ' + (focus if mode == 'bug' else '')
+        # Issue text and public comment data stay in the untrusted JSON envelope.
+        facts = {'development_sha': sha, 'reported_source': metadata['reported']['commit'],
+                 'documentation': profile['docs'], 'release_lookup': profile['releases'],
+                 'development': profile['development'], 'related_checkouts': profile['related_checkouts'],
+                 'issue_url': 'https://github.com/' + profile['repository'] + '/issues/' + metadata['number']}
+        focus += 'Runner-resolved metadata: ' + json.dumps(facts) + ' '
+        focus += 'Allowed build/test commands and runtime scope: ' + json.dumps(
+            {key: profile[key] for key in ('build', 'test', 'runtime')}) + ' '
+    return (focus + f'The pinned checkout {sha} in /workspace/repos/{name} '
             'is a separate development comparison, not necessarily the deployed code. '
             'Never rule out a report using only newer source. '
             f'Finish within {max(1, minutes - 3)} minutes, leaving time to report. '
@@ -212,14 +291,14 @@ def wait_for_turn(api, session_id, deadline, sleep=time.sleep, clock=time.monoto
     path = '/agents/sessions/' + session_id
     while clock() < deadline:
         session = api.request('GET', path)
-        save(RESULTS / 'session.json', session)
         if session['status'] in {'failed', 'requires_action'}:
-            raise RuntimeError('Session failed or requires unsupported external action; see session.json')
+            raise RuntimeError('Session failed or requires unsupported external action; check hosted run status')
         turns = api.request('GET', path + '/turns?order=desc&limit=1')['data']
         if turns:
             turn = turns[0]
-            save(RESULTS / 'turn.json', turn)
             if turn['status'] == 'completed':
+                turn_digest = hashlib.sha256(resource_id(turn['id'], 'turn').encode()).hexdigest()
+                save(RESULTS / 'turn.json', {'status': 'completed', 'digest': turn_digest})
                 return turn
             if turn['status'] in {'failed', 'cancelled'}:
                 raise RuntimeError('Investigation turn ' + turn['status'])
@@ -228,62 +307,46 @@ def wait_for_turn(api, session_id, deadline, sleep=time.sleep, clock=time.monoto
     raise TimeoutError('Investigation runtime exceeded; cancelling remote work')
 
 
-def artifact_filename(artifact):
-    """Keep safe original report/log names in the downloadable Actions ZIP."""
-    aid = resource_id(artifact['id'], 'artifact')
-    path = artifact.get('path')
-    prefix = '/workspace/outputs/'
-    if isinstance(path, str) and path.startswith(prefix):
-        name = path[len(prefix):]
-        if re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,99}', name):
-            return name
-    return aid
+def usage_counters(value):
+    if not isinstance(value, dict):
+        return None
+    counters = {key: value[key] for key in ('input_tokens', 'output_tokens', 'total_tokens')
+                if type(value.get(key)) is int and value[key] >= 0}
+    return counters or None
 
 
-def collect(api, session_id, turn):
+def collect(api, session_id, turn, provenance, verify_source, *, hosted=False):
     path = '/agents/sessions/' + session_id
     items = pages(api, path + '/items')
-    save(RESULTS / 'items.json', items)
     texts = ['\n'.join(c['text'] for c in x.get('content', []) if c.get('type') == 'output_text')
              for x in items if x.get('type') == 'message' and x.get('role') == 'assistant'
              and x.get('phase') == 'final_answer' and x.get('turn_id') == turn['id']]
-    if not any(texts):
-        raise RuntimeError('Completed turn returned no final report; see items.json')
-    (RESULTS / 'report.md').write_text('\n\n'.join(texts) + '\n', encoding='utf-8')
-    artifacts = pages(api, path + '/artifacts')
-    save(RESULTS / 'artifacts.json', artifacts)
-    selected = [x for x in artifacts if x['turn_id'] == turn['id']]
-    if len(selected) > 10 or sum(x['size_bytes'] for x in selected) > 25 * 1024 * 1024:
-        raise RuntimeError('Sandbox artifacts exceed the 10-file / 25 MiB retrieval limit')
-    folder = RESULTS / 'artifacts'
-    folder.mkdir(exist_ok=True)
-    used_names = set()
-    for artifact in selected:
-        aid = resource_id(artifact['id'], 'artifact')
-        name = artifact_filename(artifact)
-        if name in used_names:
-            name = aid  # Avoid silently overwriting a second file with the same basename.
-        if name in used_names:
-            raise RuntimeError('Duplicate artifact ID; refusing to overwrite output')
-        used_names.add(name)
-        (folder / name).write_bytes(api.request('GET', path + '/artifacts/' + aid + '/content', binary=True))
+    if len(texts) != 1:
+        raise RuntimeError('Completed turn did not return exactly one final report')
+    report = texts[0].strip() + '\n'
+    completion = report_completion(report, provenance, verify_source)
+    name = 'report.md' if hosted else 'draft.md'
+    content = report if hosted else '# Draft — unreviewed model report\n\n' + report
+    report_bytes = content.encode()
+    require_disclosure(report_bytes, 'github-artifact:' + name)
+    (RESULTS / name).write_bytes(report_bytes)
     # Accounting can lag the completion event. Null must never be reported as zero.
     usage = None
     for attempt in range(6):
         session = api.request('GET', path)
-        save(RESULTS / 'session.json', session)
-        usage = session.get('usage')
+        usage = usage_counters(session.get('usage'))
         if usage is not None:
             break
         if attempt < 5:
             time.sleep(5)
     save(RESULTS / 'usage.json', {'status': 'available' if usage is not None else 'unavailable',
-                                 'session_id': session_id, 'usage': usage})
-    print('Investigation completed; report and API usage saved in investigation-results.')
+                                 'usage': usage})
+    print('Report and bounded usage counters saved.')
+    return completion
 
 
 def cleanup(api):
-    state = RESULTS / 'session-id.txt'
+    state = session_state()
     if not state.exists():
         return
     sid = resource_id(state.read_text().strip(), 'sess')
@@ -296,11 +359,11 @@ def cleanup(api):
             raise
         session = None
     if session is not None:
-        save(RESULTS / 'session.json', session)
         usage_path = RESULTS / 'usage.json'
-        if session.get('usage') is not None or not usage_path.exists():
-            save(usage_path, {'status': 'available' if session.get('usage') is not None else 'unavailable',
-                             'session_id': sid, 'usage': session.get('usage')})
+        usage = usage_counters(session.get('usage'))
+        if usage is not None or not usage_path.exists():
+            save(usage_path, {'status': 'available' if usage is not None else 'unavailable',
+                             'usage': usage})
         if session['status'] in {'in_progress', 'requires_action'}:
             api.request('POST', path + '/events', {'events': [{'type': 'agent.session.input.cancel'}]})
         for attempt in range(3):
@@ -313,7 +376,7 @@ def cleanup(api):
                 if error.status != 409 or attempt == 2:
                     raise
                 time.sleep(2)
-    save(RESULTS / 'cleanup.json', {'session_id': sid, 'deleted': True})
+    save(RESULTS / 'cleanup.json', {'deleted': True})
     state.unlink()
 
 
@@ -321,52 +384,252 @@ def interrupted(signum, frame):
     raise InterruptedError('Runner interrupted; attempting remote cancellation and deletion')
 
 
+def check_upload():
+    files = {name: (RESULTS / name).read_bytes()
+             for name in ('draft-receipt.json', 'evidence.json', 'draft.md', 'turn.json', 'usage.json')}
+    receipt = json.loads(files['draft-receipt.json'])
+    evidence = json.loads(files['evidence.json'])
+    turn = json.loads(files['turn.json'])
+    if (receipt.get('status') != 'draft'
+            or receipt.get('draft_sha256') != hashlib.sha256(files['draft.md']).hexdigest()
+            or not re.fullmatch(r'[a-f0-9]{64}', receipt.get('revision') or '')
+            or receipt['revision'] != evidence.get('revision')
+            or not re.fullmatch(r'[a-f0-9]{64}', receipt.get('turn') or '')
+            or turn.get('status') != 'completed' or receipt['turn'] != turn.get('digest')):
+        raise RuntimeError('Draft receipt does not match the draft, evidence, or completed turn')
+    for name, content in files.items():
+        require_disclosure(content, 'github-artifact:' + name)
+
+
+def artifact_identity():
+    env = os.environ
+    repo = env.get('GITHUB_REPOSITORY')
+    repo_id = env.get('GITHUB_REPOSITORY_ID')
+    source = env.get('GITHUB_SHA', '')
+    engine = env.get('ISSUE_INVESTIGATION_ENGINE_SHA', '')
+    run = env.get('GITHUB_RUN_ID', '')
+    attempt = env.get('GITHUB_RUN_ATTEMPT', '')
+    issue = env.get('ISSUE_NUMBER', '')
+    if (repo not in ARTIFACT_CALLERS or ARTIFACT_CALLERS[repo] != repo_id
+            or not all(re.fullmatch(r'[0-9a-f]{40}', value) for value in (source, engine))
+            or not re.fullmatch(r'[1-9][0-9]{0,19}', run) or attempt != '1'
+            or not re.fullmatch(r'[1-9][0-9]{0,8}', issue)):
+        raise RuntimeError('Invalid reusable artifact identity')
+    return {'repository': repo, 'repository_id': repo_id, 'source_sha': source,
+            'engine_sha': engine, 'run_id': run, 'run_attempt': attempt, 'issue': issue}
+
+
+def check_hosted_upload(*, artifact_only=False, after_cleanup=False):
+    names = ('completed.json', 'evidence.json', 'report.md', 'turn.json', 'usage.json')
+    if after_cleanup:
+        if session_state().exists() or (RESULTS / 'error.json').exists():
+            raise RuntimeError('Artifact requires an error-free investigation and completed cleanup')
+        cleanup_receipt = (RESULTS / 'cleanup.json').read_bytes()
+        if json.loads(cleanup_receipt) != {'deleted': True}:
+            raise RuntimeError('Artifact requires confirmed session cleanup')
+    files = {name: (RESULTS / name).read_bytes() for name in names}
+    if artifact_only and after_cleanup:
+        files['cleanup.json'] = cleanup_receipt
+    receipt = json.loads(files['completed.json'])
+    evidence = json.loads(files['evidence.json'])
+    turn = json.loads(files['turn.json'])
+    if (receipt.get('report_sha256') != hashlib.sha256(files['report.md']).hexdigest()
+            or receipt.get('run_id') != os.environ.get('GITHUB_RUN_ID')
+            or receipt.get('revision') != evidence.get('revision')
+            or receipt.get('turn') != turn.get('digest')
+            or turn.get('status') != 'completed'):
+        raise RuntimeError('Hosted report does not match its artifact receipt')
+    if artifact_only:
+        identity = artifact_identity()
+        if (receipt.get('caller') != identity or evidence.get('caller') != identity
+                or evidence.get('repository') != identity['repository']
+                or evidence.get('development_sha') != identity['source_sha']
+                or receipt.get('issue') != identity['issue']
+                or evidence.get('number') != identity['issue']
+                or not re.fullmatch(r'[a-f0-9]{64}', receipt.get('revision') or '')
+                or not re.fullmatch(r'[a-f0-9]{64}', receipt.get('turn') or '')
+                or evidence.get('report_status') != 'artifact-only'):
+            raise RuntimeError('Reusable artifact scope does not match the producing run')
+    for name, content in files.items():
+        require_disclosure(content, 'github-artifact:' + name)
+    return receipt, {name: hashlib.sha256(content).hexdigest() for name, content in files.items()}
+
+
+def confirm_hosted_upload():
+    identity = artifact_identity()
+    artifact = os.environ.get('INVESTIGATION_ARTIFACT_ID', '')
+    receipt_exists = (RESULTS / 'completed.json').exists()
+    if receipt_exists:
+        if not re.fullmatch(r'[1-9][0-9]{0,19}', artifact):
+            raise RuntimeError('Uploader did not supply a confirmed artifact ID')
+        receipt, digests = check_hosted_upload(artifact_only=True, after_cleanup=True)
+        prepared = json.loads((RESULTS / 'prepared-upload.json').read_bytes())
+        if prepared != {'caller': identity, 'files': digests}:
+            raise RuntimeError('Confirmed artifact does not match prepared bytes')
+        outputs = {'outcome': 'artifact', 'artifact_id': artifact, 'revision': receipt['revision'],
+                   'source_sha': identity['source_sha'], 'engine_sha': identity['engine_sha']}
+    elif artifact:
+        raise RuntimeError('Artifact ID has no matching producer receipt')
+    else:
+        outputs = {'outcome': 'skipped'}
+    with Path(os.environ['GITHUB_OUTPUT']).open('a') as output:
+        for name, value in outputs.items():
+            output.write(f'{name}={value}\n')
+
+
+def validate_inputs(number, minutes):
+    if not re.fullmatch(r'[1-9][0-9]{0,8}', number):
+        raise RuntimeError('Issue number must be a positive integer')
+    if not re.fullmatch(r'[0-9]{1,2}', minutes) or not 5 <= int(minutes) <= 30:
+        raise RuntimeError('Runtime must be between 5 and 30 minutes')
+
+
 def main():
     os.umask(0o077)
-    RESULTS.mkdir(exist_ok=True)
     api = None
+    ledger = None
+    claim = None
+    dispatched = False
     try:
+        arguments = sys.argv[1:]
+        if arguments == ['--install-policy']:
+            install_checker()
+            return 0
+        if arguments == ['--confirm-hosted-upload']:
+            confirm_hosted_upload()
+            return 0
+        if arguments in (['--prepare-upload'], ['--prepare-hosted-upload'], ['--prepare-reusable-upload']):
+            reusable_upload = arguments == ['--prepare-reusable-upload']
+            hosted_upload = reusable_upload or arguments == ['--prepare-hosted-upload']
+            receipt_name = 'completed.json' if hosted_upload else 'draft-receipt.json'
+            if not (RESULTS / receipt_name).exists():
+                if reusable_upload:
+                    artifact_identity()
+                return 0
+            if session_state().exists() or (RESULTS / 'error.json').exists():
+                raise RuntimeError('Draft cannot be uploaded while cleanup or investigation is incomplete')
+            if hosted_upload:
+                _, digests = check_hosted_upload(artifact_only=reusable_upload, after_cleanup=True)
+                if reusable_upload:
+                    save(RESULTS / 'prepared-upload.json', {'caller': artifact_identity(), 'files': digests})
+            else:
+                check_upload()
+            with Path(os.environ['GITHUB_OUTPUT']).open('a') as output:
+                output.write(('report' if hosted_upload else 'draft') + '_ready=true\n')
+            return 0
+        artifact_only = arguments == ['--hosted-artifact']
+        hosted = artifact_only or arguments == ['--hosted']
+        caller = artifact_identity() if artifact_only else None
+        if artifact_only and not re.fullmatch(r'proj_[A-Za-z0-9]{8,80}', os.environ.get('OPENAI_PROJECT_ID', '')):
+            raise RuntimeError('Reusable investigator requires the explicit caller project')
+        cleanup_only = arguments == ['--cleanup']
+        if arguments and not (hosted or cleanup_only):
+            raise RuntimeError('Unsupported investigation invocation')
+        if hosted:
+            run_id = os.environ.get('GITHUB_RUN_ID', '')
+            if not re.fullmatch(r'[1-9][0-9]{0,19}', run_id):
+                raise RuntimeError('Invalid hosted workflow run ID')
+            if RESULTS.exists() or RESULTS.is_symlink():
+                raise RuntimeError('Expected a clean investigation output directory')
+            if os.environ.get('ISSUE_INVESTIGATION_OWNER') != 'github':
+                raise RuntimeError('GitHub does not own hosted investigations')
+        RESULTS.mkdir(exist_ok=True)
+        if cleanup_only and not session_state().exists():
+            return 0
         key = os.environ.get('OPENAI_API_KEY')
         if not key:
             raise RuntimeError('OPENAI_API_KEY is missing from the selected GitHub Environment')
-        api = Curl('https://api.openai.com/v1', key, os.environ.get('OPENAI_PROJECT_ID', PROJECT))
-        if sys.argv[1:] == ['--cleanup']:
+        api = Curl('https://api.openai.com/v1', key, os.environ.get('OPENAI_PROJECT_ID') or PROJECT)
+        if cleanup_only:
             cleanup(api)
             return 0
-        if sys.argv[1:]:
-            raise RuntimeError('Only --cleanup is supported')
         number = os.environ.get('ISSUE_NUMBER', '')
         minutes = os.environ.get('AGENT_TIMEOUT_MINUTES', '15')
-        if not re.fullmatch(r'[1-9][0-9]{0,8}', number):
-            raise RuntimeError('Issue number must be a positive integer')
-        if not minutes.isascii() or not minutes.isdigit() or not 5 <= int(minutes) <= 30:
-            raise RuntimeError('Runtime must be between 5 and 30 minutes')
-        if (RESULTS / 'session-id.txt').exists():
+        validate_inputs(number, minutes)
+        if session_state().exists():
             raise RuntimeError('A previous session requires cleanup; refusing to start another')
         repository = os.environ['GITHUB_REPOSITORY']
         github = Curl('https://api.github.com', os.environ['GH_TOKEN'])
-        issue = issue_context(github, repository, number)
-        if os.environ.get('AUTOMATIC_INVESTIGATION') == 'true':
-            issue = limit_automatic_context(issue)
-        payload = session_payload(repository, os.environ['GITHUB_SHA'])
+        profile = profile_for(repository)
+        if hosted and ((not artifact_only and repository != DEFAULT_REPOSITORY)
+                       or os.environ.get('GITHUB_EVENT_NAME') not in {'issues', 'workflow_dispatch'}):
+            raise RuntimeError('Unsupported hosted investigation origin')
+        sha = os.environ['GITHUB_SHA']
+        issue = issue_context(github, repository, number, track_reopens=True, require_human=artifact_only)
+        metadata = evidence(issue, profile, sha, lambda tag: github_tag(github, repository, tag))
+        force = not hosted and os.environ.get('FORCE_INVESTIGATION') == 'true'
+        if not force and has_accepted_revision(issue, metadata['revision']):
+            print('This evidence revision already has a published investigation.')
+            return 0
+        issue.pop('report_markers', None)
+        metadata['number'] = number
+        owner = (os.environ.get('ISSUE_INVESTIGATION_OWNER', '')
+                 if os.environ.get('GITHUB_EVENT_NAME') not in {None, 'workflow_dispatch'} else 'github')
+        route = route_revision(repository, number, metadata['revision'], owner)
+        if route['owner'] != 'github':
+            raise RuntimeError('This evidence revision is routed to Cezar')
+        # Export only fixed-shape provenance. Raw issue and API envelopes stay in memory.
+        provenance = {**route, 'development_sha': sha, 'mode': metadata['mode'],
+                      'reported_commit': metadata['reported']['commit'], 'report_status': 'unreviewed' if hosted else 'draft'}
+        if artifact_only:
+            provenance.update(caller=caller, report_status='artifact-only')
+        evidence_bytes = (json.dumps(provenance, indent=2) + '\n').encode()
+        require_disclosure(evidence_bytes, 'github-artifact:evidence.json')
+        (RESULTS / 'evidence.json').write_bytes(evidence_bytes)
+        payload = session_payload(repository, sha, artifact_only=artifact_only)
+        require_disclosure(payload_bytes(payload), 'openai-investigation-setup')
+        issue = limit_automatic_context(issue)
+        task = session_input(sha, issue, int(minutes), metadata, profile)
+        event = {'events': [{'type': 'agent.session.input.message',
+                            'input': [{'role': 'user', 'content': [{'type': 'input_text', 'text': task}]}]}]}
+        require_disclosure(payload_bytes(event), 'openai-investigation-input')
+        ledger_path = os.environ.get('ISSUE_INVESTIGATION_LEDGER')
+        if force and not ledger_path:
+            raise RuntimeError('Forced investigation requires a durable claim store')
+        if ledger_path:
+            ledger = Claims(ledger_path)
+            claim = ledger.claim_ingress(route, 'github', retry_failed=force, force_completed=force)
+            if claim is None:
+                (RESULTS / 'evidence.json').unlink()
+                print('Evidence revision already claimed or completed')
+                return 0
         deadline = time.monotonic() + int(minutes) * 60
+        dispatched = True
         session = api.request('POST', '/agents/sessions', payload)
         sid = resource_id(session['id'], 'sess')
-        (RESULTS / 'session-id.txt').write_text(sid + '\n', encoding='utf-8')
-        save(RESULTS / 'session.json', session)
-        # Never start model work until its session ID is available for cleanup.
-        task = session_input(os.environ['GITHUB_SHA'], issue, int(minutes))
-        api.request('POST', '/agents/sessions/' + sid + '/events', {'events': [
-            {'type': 'agent.session.input.message',
-             'input': [{'role': 'user', 'content': [{'type': 'input_text', 'text': task}]}]}]})
-        print('Started session ' + sid, flush=True)
+        session_state().write_text(sid + '\n', encoding='utf-8')
+        api.request('POST', '/agents/sessions/' + sid + '/events', event)
+        print('Investigation session started', flush=True)
         turn = wait_for_turn(api, sid, deadline)
-        collect(api, sid, turn)
+        provenance['observations'] = collect(
+            api, sid, turn, provenance,
+            lambda commit, path: github_source_exists(github, repository, commit, path), hosted=hosted)
+        # A failed or ambiguous cleanup cannot create completion or settle a claim.
+        cleanup(api)
+        save(RESULTS / 'evidence.json', provenance)
+        report_file = 'report.md' if hosted else 'draft.md'
+        receipt = hashlib.sha256((RESULTS / report_file).read_bytes()).hexdigest()
+        completion = {'revision': metadata['revision'],
+                      'turn': hashlib.sha256(turn['id'].encode()).hexdigest()}
+        if hosted:
+            if artifact_only:
+                completion.update(caller=caller, issue=number)
+            save(RESULTS / 'completed.json', {
+                **completion, 'run_id': run_id, 'report_sha256': receipt})
+            check_hosted_upload(artifact_only=artifact_only, after_cleanup=True)
+        else:
+            save(RESULTS / 'draft-receipt.json', {**completion, 'status': 'draft', 'draft_sha256': receipt})
+            check_upload()
+        if claim and not ledger.settle(claim, receipt):
+            raise RuntimeError('Could not settle the investigation claim')
         return 0
     except Exception as error:
         # Fixed local errors only; do not echo untrusted issue text or API error bodies.
-        message = str(error) if isinstance(error, (RuntimeError, TimeoutError, InterruptedError)) else type(error).__name__
-        save(RESULTS / 'error.json', {'error': message})
+        if claim and not dispatched:
+            ledger.settle(claim)
+        message = type(error).__name__
+        if RESULTS.is_dir() and not RESULTS.is_symlink():
+            save(RESULTS / 'error.json', {'error': message})
         print(message, file=sys.stderr)
         return 1
     finally:

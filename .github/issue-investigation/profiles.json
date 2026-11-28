@@ -1,0 +1,324 @@
+{
+  "VotingPlugin": {
+    "repository": "BenCodez/VotingPlugin",
+    "branch": "master",
+    "checkout": "VotingPlugin",
+    "clone_url": "https://github.com/BenCodez/VotingPlugin.git",
+    "pom": "VotingPlugin/pom.xml",
+    "jdk": 21,
+    "docs": "https://github.com/BenCodez/VotingPlugin/tree/master/docs",
+    "releases": "https://github.com/BenCodez/VotingPlugin/tags",
+    "development": "https://bencodez.com/job/VotingPlugin/lastSuccessfulBuild/",
+    "build": [
+      "mvn",
+      "-B",
+      "-f",
+      "VotingPlugin/pom.xml",
+      "package"
+    ],
+    "test": [
+      "mvn",
+      "-B",
+      "-f",
+      "VotingPlugin/pom.xml",
+      "test"
+    ],
+    "runtime": "Bukkit/Paper or matching proxy on a disposable instance",
+    "related": [
+      "AdvancedCore",
+      "SimpleAPI",
+      "VotifierPlus",
+      "VotingPlugin-Control"
+    ],
+    "modes": [
+      "bug",
+      "feature",
+      "support",
+      "docs",
+      "insufficient"
+    ],
+    "hosted": true,
+    "post": true,
+    "layout": [
+      "VotingPlugin/src/main/",
+      "VotingPlugin/src/test/",
+      "VotingPlugin/pom.xml"
+    ],
+    "workspace": "/workspace/repos/VotingPlugin",
+    "related_checkouts": {
+      "AdvancedCore": "/workspace/repos/AdvancedCore",
+      "SimpleAPI": "/workspace/repos/SimpleAPI",
+      "VotifierPlus": "/workspace/repos/VotifierPlus",
+      "VotingPlugin-Control": "/workspace/repos/VotingPlugin-Control"
+    }
+  },
+  "AdvancedCore": {
+    "repository": "BenCodez/AdvancedCore",
+    "branch": "master",
+    "checkout": "AdvancedCore",
+    "clone_url": "https://github.com/BenCodez/AdvancedCore.git",
+    "pom": "AdvancedCore/pom.xml",
+    "jdk": 21,
+    "docs": "https://github.com/BenCodez/AdvancedCore/blob/master/README.md",
+    "releases": "https://github.com/BenCodez/AdvancedCore/tags",
+    "development": "https://github.com/BenCodez/AdvancedCore/tree/master",
+    "build": [
+      "mvn",
+      "-B",
+      "-f",
+      "AdvancedCore/pom.xml",
+      "package"
+    ],
+    "test": [
+      "mvn",
+      "-B",
+      "-f",
+      "AdvancedCore/pom.xml",
+      "test"
+    ],
+    "runtime": "Matching consuming plugin and disposable Bukkit/Paper instance",
+    "related": [
+      "SimpleAPI",
+      "VotingPlugin"
+    ],
+    "modes": [
+      "bug",
+      "feature",
+      "support",
+      "docs",
+      "insufficient"
+    ],
+    "hosted": false,
+    "post": false,
+    "layout": [
+      "AdvancedCore/src/main/",
+      "AdvancedCore/src/test/",
+      "AdvancedCore/pom.xml"
+    ],
+    "workspace": "/workspace/repos/AdvancedCore",
+    "related_checkouts": {
+      "SimpleAPI": "/workspace/repos/SimpleAPI",
+      "VotingPlugin": "/workspace/repos/VotingPlugin"
+    }
+  },
+  "SimpleAPI": {
+    "repository": "BenCodez/SimpleAPI",
+    "branch": "main",
+    "checkout": "SimpleAPI",
+    "clone_url": "https://github.com/BenCodez/SimpleAPI.git",
+    "pom": "SimpleAPI/pom.xml",
+    "jdk": 21,
+    "docs": "https://github.com/BenCodez/SimpleAPI/tree/main/docs",
+    "releases": "https://github.com/BenCodez/SimpleAPI/tags",
+    "development": "https://github.com/BenCodez/SimpleAPI/tree/main",
+    "build": [
+      "mvn",
+      "-B",
+      "-f",
+      "SimpleAPI/pom.xml",
+      "package"
+    ],
+    "test": [
+      "mvn",
+      "-B",
+      "-f",
+      "SimpleAPI/pom.xml",
+      "test"
+    ],
+    "runtime": "Isolated consumer or integration fixture for the affected API",
+    "related": [
+      "AdvancedCore"
+    ],
+    "modes": [
+      "bug",
+      "feature",
+      "support",
+      "docs",
+      "insufficient"
+    ],
+    "hosted": false,
+    "post": false,
+    "layout": [
+      "SimpleAPI/src/main/",
+      "SimpleAPI/src/test/",
+      "SimpleAPI/pom.xml"
+    ],
+    "workspace": "/workspace/repos/SimpleAPI",
+    "related_checkouts": {
+      "AdvancedCore": "/workspace/repos/AdvancedCore"
+    }
+  },
+  "VotifierPlus": {
+    "repository": "BenCodez/VotifierPlus",
+    "branch": "master",
+    "checkout": "VotifierPlus",
+    "clone_url": "https://github.com/BenCodez/VotifierPlus.git",
+    "pom": "VotifierPlus/pom.xml",
+    "jdk": 21,
+    "docs": "https://github.com/BenCodez/VotifierPlus/blob/master/README.md",
+    "releases": "https://github.com/BenCodez/VotifierPlus/tags",
+    "development": "https://github.com/BenCodez/VotifierPlus/tree/master",
+    "build": [
+      "mvn",
+      "-B",
+      "-f",
+      "VotifierPlus/pom.xml",
+      "package"
+    ],
+    "test": [
+      "mvn",
+      "-B",
+      "-f",
+      "VotifierPlus/pom.xml",
+      "test"
+    ],
+    "runtime": "Disposable server or proxy with a synthetic vote fixture",
+    "related": [
+      "VotingPlugin"
+    ],
+    "modes": [
+      "bug",
+      "feature",
+      "support",
+      "docs",
+      "insufficient"
+    ],
+    "hosted": false,
+    "post": false,
+    "layout": [
+      "VotifierPlus/src/main/",
+      "VotifierPlus/src/test/",
+      "VotifierPlus/pom.xml"
+    ],
+    "workspace": "/workspace/repos/VotifierPlus",
+    "related_checkouts": {
+      "VotingPlugin": "/workspace/repos/VotingPlugin"
+    }
+  },
+  "VotingPlugin-Control": {
+    "repository": "BenCodez/VotingPlugin-Control",
+    "branch": "main",
+    "checkout": "VotingPlugin-Control",
+    "clone_url": "https://github.com/BenCodez/VotingPlugin-Control.git",
+    "pom": "pom.xml",
+    "jdk": 17,
+    "docs": "https://github.com/BenCodez/VotingPlugin-Control/tree/main/docs",
+    "releases": "https://github.com/BenCodez/VotingPlugin-Control/tags",
+    "development": "https://github.com/BenCodez/VotingPlugin-Control/tree/main",
+    "build": [
+      "mvn",
+      "-B",
+      "-f",
+      "pom.xml",
+      "package"
+    ],
+    "test": [
+      "mvn",
+      "-B",
+      "-f",
+      "pom.xml",
+      "test"
+    ],
+    "runtime": "Isolated Control instance and synthetic node",
+    "related": [
+      "VotingPlugin"
+    ],
+    "modes": [
+      "bug",
+      "feature",
+      "support",
+      "docs",
+      "insufficient"
+    ],
+    "hosted": false,
+    "post": false,
+    "layout": [
+      "src/main/",
+      "src/test/",
+      "pom.xml"
+    ],
+    "workspace": "/workspace/repos/VotingPlugin-Control",
+    "related_checkouts": {
+      "VotingPlugin": "/workspace/repos/VotingPlugin"
+    }
+  },
+  "VotingPluginEditor": {
+    "repository": "BenCodez/VotingPluginEditor",
+    "branch": "main",
+    "checkout": "VotingPluginEditor",
+    "clone_url": "https://github.com/BenCodez/VotingPluginEditor.git",
+    "pom": "VotingPluginEditor/pom.xml",
+    "jdk": 21,
+    "docs": "https://github.com/BenCodez/VotingPluginEditor/blob/main/README.md",
+    "releases": "https://github.com/BenCodez/VotingPluginEditor/tags",
+    "development": "https://bencodez.com/job/VotingPluginEditor/lastSuccessfulBuild/",
+    "build": [
+      "mvn",
+      "-B",
+      "-f",
+      "VotingPluginEditor/pom.xml",
+      "package"
+    ],
+    "test": [
+      "mvn",
+      "-B",
+      "-f",
+      "VotingPluginEditor/pom.xml",
+      "test"
+    ],
+    "runtime": "Disposable desktop instance and synthetic configuration",
+    "related": [
+      "VotingPlugin"
+    ],
+    "modes": [
+      "bug",
+      "feature",
+      "support",
+      "docs",
+      "insufficient"
+    ],
+    "hosted": false,
+    "post": false,
+    "layout": [
+      "VotingPluginEditor/src/main/",
+      "VotingPluginEditor/src/test/",
+      "VotingPluginEditor/pom.xml"
+    ],
+    "workspace": "/workspace/repos/VotingPluginEditor",
+    "related_checkouts": {
+      "VotingPlugin": "/workspace/repos/VotingPlugin"
+    }
+  },
+  "Wiki": {
+    "repository": "BenCodez/Wiki",
+    "branch": "main",
+    "checkout": "Wiki",
+    "clone_url": "https://github.com/BenCodez/Wiki.git",
+    "pom": null,
+    "jdk": null,
+    "docs": "https://wiki.bencodez.com/",
+    "releases": null,
+    "development": "https://github.com/BenCodez/Wiki/tree/main",
+    "build": null,
+    "test": null,
+    "runtime": "Read-only documentation review",
+    "related": [
+      "VotingPlugin"
+    ],
+    "modes": [
+      "docs"
+    ],
+    "hosted": false,
+    "post": false,
+    "layout": [
+      "home.md",
+      "VotingPlugin/",
+      "_manual/",
+      "mkdocs.yml"
+    ],
+    "workspace": "/workspace/repos/Wiki",
+    "related_checkouts": {
+      "VotingPlugin": "/workspace/repos/VotingPlugin"
+    }
+  }
+}

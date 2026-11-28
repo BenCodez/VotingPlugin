@@ -11,6 +11,25 @@ runner = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(runner)
 
 
+def version_candidates(issue):
+    return list(dict.fromkeys(row['version'] for row in runner.version_mentions(issue, 'VotingPlugin')))
+
+
+def unique_version(issue):
+    values = version_candidates(issue)
+    return values[0] if len(values) == 1 else None
+
+
+PROVENANCE = {'mode': 'bug', 'repository': 'BenCodez/VotingPlugin', 'number': '1747',
+              'development_sha': 'a' * 40}
+SOURCE = 'https://github.com/BenCodez/VotingPlugin/blob/' + 'a' * 40 + '/README.md'
+REPORT = ('**Finding**: No defect was demonstrated.\n'
+          f'**Evidence**: Compared the selected source at [README]({SOURCE}).\n'
+          '**Verification**: Source inspection only.\n'
+          '**Suggested next step**: Retest on staging.\n'
+          '**Limitations**: No runtime check was performed.')
+
+
 class FakeApi:
     def __init__(self, handler):
         self.handler, self.calls = handler, []
@@ -28,6 +47,12 @@ class RunnerTests(unittest.TestCase):
         self.results = patch.object(runner, 'RESULTS', self.output)
         self.results.start()
         self.addCleanup(self.results.stop)
+        checker = patch.object(runner, 'require_disclosure')
+        self.checker = checker.start()
+        self.addCleanup(checker.stop)
+        state = patch.object(runner, 'session_state', return_value=self.output / 'session-id.txt')
+        state.start()
+        self.addCleanup(state.stop)
 
     def test_issue_context_paginates_without_using_body_as_code(self):
         body = '$(touch /tmp/not-executed)\n::error::untrusted'
@@ -58,7 +83,7 @@ class RunnerTests(unittest.TestCase):
         self.assertTrue(trimmed['context_truncated'])
         self.assertLess(len(trimmed['body']), 15000)
         self.assertLess(len(trimmed['title']), 400)
-        self.assertEqual(len(trimmed['comments']), 5)
+        self.assertEqual(len(trimmed['comments']), 9)
         self.assertIn('Truncated', trimmed['body'])
         self.assertEqual(len(issue['comments']), 9)
 
@@ -113,7 +138,7 @@ class RunnerTests(unittest.TestCase):
                     {'type': 'message', 'role': 'assistant', 'phase': 'commentary', 'turn_id': 'turn_1',
                      'content': [{'type': 'output_text', 'text': 'working'}]},
                     {'type': 'message', 'role': 'assistant', 'phase': 'final_answer', 'turn_id': 'turn_1',
-                     'content': [{'type': 'output_text', 'text': 'Actual final report'}]}], 'has_more': False}
+                     'content': [{'type': 'output_text', 'text': REPORT}]}], 'has_more': False}
             if '/artifacts?' in path:
                 return {'data': [{'id': 'artifact_1', 'turn_id': 'turn_1', 'size_bytes': 3}], 'has_more': False}
             if path.endswith('/content'):
@@ -121,12 +146,11 @@ class RunnerTests(unittest.TestCase):
             return {'status': 'idle', 'usage': usage()}
         return FakeApi(reply)
 
-    def test_final_answer_artifacts_and_delayed_usage_are_saved(self):
+    def test_final_answer_and_delayed_usage_are_saved(self):
         values = iter([None, {'input_tokens': 100, 'output_tokens': 20, 'total_tokens': 120}])
         with patch.object(runner.time, 'sleep'):
-            runner.collect(self.collect_api(lambda: next(values)), 'sess_1', {'id': 'turn_1'})
-        self.assertEqual((self.output / 'report.md').read_text(), 'Actual final report\n')
-        self.assertEqual((self.output / 'artifacts/artifact_1').read_bytes(), b'log')
+            runner.collect(self.collect_api(lambda: next(values)), 'sess_1', {'id': 'turn_1'}, PROVENANCE, lambda sha, path: True)
+        self.assertEqual((self.output / 'draft.md').read_text(), '# Draft — unreviewed model report\n\n' + REPORT + '\n')
         self.assertEqual(json.loads((self.output / 'usage.json').read_text())['usage']['total_tokens'], 120)
 
     def test_agent_instructions_require_evidence_and_bounded_searches(self):
@@ -141,29 +165,38 @@ class RunnerTests(unittest.TestCase):
         self.assertIn('Do not include raw sandbox output paths', instructions)
         self.assertIn('VERSION FIRST', instructions)
         self.assertIn('reported version', instructions.lower())
-        self.assertIn('tag-or-commit', instructions)
+        self.assertIn('full verified commit SHAs', instructions)
 
     def test_issue_1764_reported_release_is_primary_and_latest_sha_is_comparison(self):
         issue = {'title': 'Globally linked Floodgate account',
                  'body': '**Versions**\nVotingPlugin 7.1.1 | AdvancedCore 3.8.2-SNAPSHOT',
                  'comments': []}
-        self.assertEqual(runner.reported_votingplugin_version(issue), '7.1.1')
+        self.assertEqual(unique_version(issue), '7.1.1')
         prompt = runner.session_input('a' * 40, issue, 10)
         self.assertIn('reports VotingPlugin 7.1.1', prompt)
         self.assertIn('first using its verified Git release tag', prompt)
         self.assertIn('separate development comparison', prompt)
         self.assertEqual(json.loads(prompt.split('\n', 1)[1]), issue)
 
+    def test_prompt_does_not_reinsert_version_from_unsanitized_metadata(self):
+        profile = runner.profile_for('BenCodez/VotingPlugin')
+        metadata = {'mode': 'bug', 'number': '42',
+                    'reported': {'reported_version': '7.1.1+removed-marker', 'commit': 'b' * 40}}
+        prompt = runner.session_input('a' * 40, {'body': 'VotingPlugin 7.1.1'}, 10, metadata, profile)
+        self.assertNotIn('removed-marker', prompt)
+        self.assertIn('b' * 40, prompt)
+        self.assertIn('VotingPlugin 7.1.1', prompt)
+
     def test_unversioned_and_snapshot_issues_do_not_invent_release_tags(self):
-        self.assertIsNone(runner.reported_votingplugin_version({'body': 'Vote rewards do not run'}))
-        self.assertEqual(runner.reported_votingplugin_version(
+        self.assertIsNone(unique_version({'body': 'Vote rewards do not run'}))
+        self.assertEqual(unique_version(
             {'body': 'VotingPlugin: 7.1.2-SNAPSHOT'}), '7.1.2-SNAPSHOT')
         prompt = runner.session_input('b' * 40, {'body': 'No version'}, 10)
         self.assertIn('Identify the reported plugin version/build first', prompt)
 
     def test_custom_build_token_is_not_mistaken_for_base_release(self):
         issue = {'body': 'VotingPlugin 7.1.1+custom.42 fails when voting'}
-        self.assertEqual(runner.reported_votingplugin_version(issue), '7.1.1+custom.42')
+        self.assertEqual(unique_version(issue), '7.1.1+custom.42')
         prompt = runner.session_input('a' * 40, issue, 10)
         self.assertIn('VotingPlugin 7.1.1+custom.42', prompt)
         self.assertIn('custom/prerelease build identifier', prompt)
@@ -172,15 +205,15 @@ class RunnerTests(unittest.TestCase):
 
     def test_extra_dotted_version_is_not_partially_accepted(self):
         issue = {'body': 'VotingPlugin 7.1.1.5 has an issue'}
-        self.assertIsNone(runner.reported_votingplugin_version(issue))
-        self.assertEqual(runner.reported_votingplugin_versions(issue), [])
+        self.assertIsNone(unique_version(issue))
+        self.assertEqual(version_candidates(issue), [])
         self.assertIn('Identify the reported plugin version/build first',
                       runner.session_input('a' * 40, issue, 10))
 
     def test_upgrade_from_version_is_not_misidentified_as_deployed_version(self):
         issue = {'body': 'After upgrading from VotingPlugin 7.1.0 to VotingPlugin 7.1.1, rewards fail'}
-        self.assertIsNone(runner.reported_votingplugin_version(issue))
-        self.assertEqual(runner.reported_votingplugin_versions(issue), ['7.1.0', '7.1.1'])
+        self.assertIsNone(unique_version(issue))
+        self.assertEqual(version_candidates(issue), ['7.1.0', '7.1.1'])
         prompt = runner.session_input('a' * 40, issue, 10)
         self.assertIn('multiple VotingPlugin versions (7.1.0, 7.1.1)', prompt)
         self.assertIn('do NOT automatically select the first version', prompt)
@@ -190,46 +223,40 @@ class RunnerTests(unittest.TestCase):
     def test_repeated_same_version_remains_unambiguous(self):
         issue = {'title': 'VotingPlugin 7.1.1 bug',
                  'body': 'VotingPlugin version 7.1.1 does not deliver offline rewards'}
-        self.assertEqual(runner.reported_votingplugin_version(issue), '7.1.1')
-        self.assertEqual(runner.reported_votingplugin_versions(issue), ['7.1.1'])
+        self.assertEqual(unique_version(issue), '7.1.1')
+        self.assertEqual(version_candidates(issue), ['7.1.1'])
 
-    def test_artifact_filenames_preserve_safe_names_only(self):
-        self.assertEqual(runner.artifact_filename({
-            'id': 'artifact_123', 'path': '/workspace/outputs/report.md'}), 'report.md')
-        self.assertEqual(runner.artifact_filename({
-            'id': 'artifact_124', 'path': '/workspace/outputs/run.log'}), 'run.log')
-        for path in ('/workspace/outputs/../secrets',
-                     '/workspace/outputs/subfolder/file.txt',
-                     '/etc/passwd', '/workspace/outputs/invalid name.txt'):
-            self.assertEqual(runner.artifact_filename({'id': 'artifact_125', 'path': path}),
-                             'artifact_125')
+    def test_raw_session_items_and_artifacts_are_not_exported(self):
+        api = self.collect_api(lambda: {'total_tokens': 1, 'untrusted': 'example'})
+        runner.collect(api, 'sess_1', {'id': 'turn_1'}, PROVENANCE, lambda sha, path: True)
+        self.assertEqual({p.name for p in self.output.iterdir()}, {'draft.md', 'usage.json'})
+        self.assertFalse(any('/artifacts' in path for _, path, _ in api.calls))
+        self.assertEqual(json.loads((self.output / 'usage.json').read_text())['usage'],
+                         {'total_tokens': 1})
 
-    def test_collected_artifacts_retain_readable_names_and_avoid_overwrite(self):
-        def reply(method, path, payload):
-            if '/items?' in path:
-                return {'data': [{
-                    'type': 'message', 'role': 'assistant', 'phase': 'final_answer',
-                    'turn_id': 'turn_1', 'content': [{'type': 'output_text', 'text': 'Finding'}]
-                }], 'has_more': False}
-            if '/artifacts?' in path:
-                return {'data': [
-                    {'id': 'artifact_1', 'turn_id': 'turn_1', 'size_bytes': 3,
-                     'path': '/workspace/outputs/report.md'},
-                    {'id': 'artifact_2', 'turn_id': 'turn_1', 'size_bytes': 3,
-                     'path': '/workspace/outputs/report.md'},
-                ], 'has_more': False}
-            if path.endswith('artifact_1/content'):
-                return b'one'
-            if path.endswith('artifact_2/content'):
-                return b'two'
-            return {'status': 'idle', 'usage': {'total_tokens': 1}}
-        runner.collect(FakeApi(reply), 'sess_1', {'id': 'turn_1'})
-        self.assertEqual((self.output / 'artifacts/report.md').read_bytes(), b'one')
-        self.assertEqual((self.output / 'artifacts/artifact_2').read_bytes(), b'two')
+    def test_draft_upload_requires_matching_draft_receipt(self):
+        import hashlib
+
+        draft = b'# Draft'
+        (self.output / 'draft.md').write_bytes(draft)
+        receipt = {'status': 'draft', 'draft_sha256': hashlib.sha256(draft).hexdigest(),
+                   'revision': 'a' * 64, 'turn': 'b' * 64}
+        receipt_path = self.output / 'draft-receipt.json'
+        runner.save(receipt_path, receipt)
+        runner.save(self.output / 'evidence.json', {'revision': receipt['revision']})
+        runner.save(self.output / 'turn.json', {'status': 'completed', 'digest': receipt['turn']})
+        runner.save(self.output / 'usage.json', {})
+        runner.check_upload()
+        self.assertEqual(self.checker.call_count, 5)
+        for changed in ({'status': 'completed'}, {'revision': 'c' * 64}, {'turn': 'c' * 64}):
+            runner.save(receipt_path, {**receipt, **changed})
+            with self.assertRaisesRegex(RuntimeError, 'Draft receipt'):
+                runner.check_upload()
+        self.assertEqual(self.checker.call_count, 5)
 
     def test_missing_usage_remains_unknown(self):
         with patch.object(runner.time, 'sleep'):
-            runner.collect(self.collect_api(lambda: None), 'sess_1', {'id': 'turn_1'})
+            runner.collect(self.collect_api(lambda: None), 'sess_1', {'id': 'turn_1'}, PROVENANCE, lambda sha, path: True)
         usage = json.loads((self.output / 'usage.json').read_text())
         self.assertEqual(usage['status'], 'unavailable')
         self.assertIsNone(usage['usage'])
@@ -299,11 +326,37 @@ class RunnerTests(unittest.TestCase):
         api = FakeApi(reply)
         env = {'OPENAI_API_KEY': 'test', 'GH_TOKEN': 'test', 'ISSUE_NUMBER': '1747',
                'GITHUB_REPOSITORY': 'BenCodez/VotingPlugin', 'GITHUB_SHA': 'a' * 40}
-        with patch.dict(os.environ, env), patch.object(runner.sys, 'argv', ['run.py']), \
+        with patch.dict(os.environ, env, clear=True), patch.object(runner.sys, 'argv', ['run.py']), \
              patch.object(runner, 'Curl', return_value=api), patch.object(runner, 'issue_context', return_value={}), \
              patch.object(runner.signal, 'signal'):
             self.assertEqual(runner.main(), 1)
         self.assertTrue(any(m == 'DELETE' and p.endswith('/sess_1') for m, p, _ in api.calls))
+
+    def test_blocked_exact_input_never_creates_hosted_session(self):
+        api = FakeApi(lambda *args: self.fail('No session request is allowed'))
+        env = {'OPENAI_API_KEY': 'test', 'GH_TOKEN': 'test', 'ISSUE_NUMBER': '1747',
+               'GITHUB_REPOSITORY': 'BenCodez/VotingPlugin', 'GITHUB_SHA': 'a' * 40,
+               'GITHUB_EVENT_NAME': 'issues', 'ISSUE_INVESTIGATION_OWNER': 'github',
+               'GITHUB_RUN_ID': '123'}
+        work = self.output / 'results'
+        def approve(payload, destination):
+            if destination == 'openai-investigation-input':
+                self.assertIn(b'Fictional prohibited input', payload)
+                raise RuntimeError('Refused')
+
+        self.checker.side_effect = approve
+        with patch.dict(os.environ, env, clear=True), patch.object(runner.sys, 'argv', ['run.py', '--hosted']), \
+             patch.object(runner, 'RESULTS', work), \
+             patch.object(runner, 'Curl', return_value=api), \
+             patch.object(runner, 'issue_context', return_value={'body': 'Fictional prohibited input'}), \
+             patch.object(runner.signal, 'signal'):
+            self.assertEqual(runner.main(), 1)
+        payload, destination = self.checker.call_args.args
+        self.assertEqual(destination, 'openai-investigation-input')
+        self.assertIn(b'Fictional prohibited input', payload)
+        self.assertFalse(api.calls)
+        self.assertNotIn('Fictional', (work / 'evidence.json').read_text())
+        self.assertFalse((work / 'completed.json').exists())
 
     def test_lost_create_response_never_submits_task(self):
         def reply(method, path, payload):
@@ -313,7 +366,7 @@ class RunnerTests(unittest.TestCase):
         api = FakeApi(reply)
         env = {'OPENAI_API_KEY': 'test', 'GH_TOKEN': 'test', 'ISSUE_NUMBER': '1747',
                'GITHUB_REPOSITORY': 'BenCodez/VotingPlugin', 'GITHUB_SHA': 'a' * 40}
-        with patch.dict(os.environ, env), patch.object(runner.sys, 'argv', ['run.py']), \
+        with patch.dict(os.environ, env, clear=True), patch.object(runner.sys, 'argv', ['run.py']), \
              patch.object(runner, 'Curl', return_value=api), patch.object(runner, 'issue_context', return_value={}), \
              patch.object(runner.signal, 'signal'):
             self.assertEqual(runner.main(), 1)
@@ -333,7 +386,7 @@ class RunnerTests(unittest.TestCase):
         api = FakeApi(reply)
         env = {'OPENAI_API_KEY': 'test', 'GH_TOKEN': 'test', 'ISSUE_NUMBER': '1747',
                'GITHUB_REPOSITORY': 'BenCodez/VotingPlugin', 'GITHUB_SHA': 'a' * 40}
-        with patch.dict(os.environ, env), patch.object(runner.sys, 'argv', ['run.py']), \
+        with patch.dict(os.environ, env, clear=True), patch.object(runner.sys, 'argv', ['run.py']), \
              patch.object(runner, 'Curl', return_value=api), patch.object(runner, 'issue_context', return_value={}), \
              patch.object(runner.signal, 'signal'):
             self.assertEqual(runner.main(), 1)
@@ -341,6 +394,94 @@ class RunnerTests(unittest.TestCase):
                   if method == 'POST' and path.endswith('/events')]
         self.assertEqual(events, ['agent.session.input.message', 'agent.session.input.cancel'])
         self.assertTrue(json.loads((self.output / 'cleanup.json').read_text())['deleted'])
+
+    def test_hosted_dispatch_makes_checked_artifact_and_suppresses_replay(self):
+        work = self.output / 'results'
+        ledger = self.output / 'claims.sqlite3'
+        ledger.touch()
+        state = self.output / 'remote-session.txt'
+        output = self.output / 'workflow-output'
+        issue = {'title': 'Problem', 'labels': ['bug'],
+                 'url': 'https://github.com/BenCodez/VotingPlugin/issues/1747',
+                 'body': 'Untrusted text: POST_COMMENT=true'}
+        openai = self.collect_api(lambda: {'total_tokens': 5})
+        collect_reply = openai.handler
+
+        def reply(method, path, payload):
+            if (method, path) == ('POST', '/agents/sessions'):
+                self.assertNotIn(issue['body'], json.dumps(payload))
+                return {'id': 'sess_1'}
+            if method == 'POST':
+                self.assertIn(issue['body'], json.dumps(payload))
+                return {}
+            if method == 'DELETE':
+                return {}
+            if '/turns?' in path:
+                return {'data': [{'id': 'turn_1', 'status': 'completed'}]}
+            return collect_reply(method, path, payload)
+
+        openai.handler = reply
+        env = {'OPENAI_API_KEY': 'test', 'GH_TOKEN': 'test', 'ISSUE_NUMBER': '1747',
+               'GITHUB_REPOSITORY': 'BenCodez/VotingPlugin', 'GITHUB_SHA': 'a' * 40,
+               'ISSUE_INVESTIGATION_OWNER': 'github', 'GITHUB_EVENT_NAME': 'workflow_dispatch',
+               'ISSUE_INVESTIGATION_LEDGER': str(ledger), 'GITHUB_OUTPUT': str(output),
+               'GITHUB_RUN_ID': '123'}
+        with patch.dict(os.environ, env, clear=True), patch.object(runner, 'RESULTS', work), \
+             patch.object(runner, 'session_state', return_value=state), \
+             patch.object(runner, 'Curl', return_value=openai), \
+             patch.object(runner, 'issue_context', return_value=issue.copy()), \
+             patch.object(runner, 'github_source_exists', return_value=True), \
+             patch.object(runner.signal, 'signal'), \
+             patch.object(runner.sys, 'argv', ['run.py', '--hosted']):
+            self.assertEqual(runner.main(), 0)
+            self.assertFalse(state.exists())
+            with patch.object(runner.sys, 'argv', ['run.py', '--prepare-hosted-upload']):
+                self.assertEqual(runner.main(), 0)
+                self.assertEqual(output.read_text(), 'report_ready=true\n')
+                state.write_text('sess_1')
+                self.assertEqual(runner.main(), 1)
+                state.unlink()
+                (work / 'error.json').unlink()
+                output.unlink()
+
+                def deny_usage(content, destination):
+                    if destination == 'github-artifact:usage.json':
+                        raise RuntimeError('Usage artifact denied')
+
+                self.checker.reset_mock()
+                with patch.object(self.checker, 'side_effect', deny_usage):
+                    self.assertEqual(runner.main(), 1)
+                self.checker.assert_any_call((work / 'usage.json').read_bytes(), 'github-artifact:usage.json')
+                self.assertFalse(output.exists())
+            report = (work / 'report.md').read_text()
+            self.assertIn(SOURCE, report)
+            self.assertIn('No defect was demonstrated', report)
+            self.assertNotIn(issue['body'], report)
+            self.assertFalse((work / 'draft.md').exists())
+            for item in work.iterdir():
+                item.unlink()
+            work.rmdir()
+            with patch.dict(os.environ, {'GITHUB_EVENT_NAME': 'issues', 'FORCE_INVESTIGATION': 'true'}):
+                self.assertEqual(runner.main(), 0)
+            self.assertEqual(sum(p == '/agents/sessions' and m == 'POST'
+                                 for m, p, _ in openai.calls), 1)
+            self.assertFalse((work / 'completed.json').exists())
+
+    def test_hosted_missing_or_invalid_run_identity_stops_before_openai(self):
+        env = {'ISSUE_INVESTIGATION_OWNER': 'github', 'OPENAI_API_KEY': 'test',
+               'OPENAI_PROJECT_ID': 'proj_fixture42', 'GITHUB_REPOSITORY': 'BenCodez/VotingPlugin',
+               'GITHUB_EVENT_NAME': 'workflow_dispatch', 'GITHUB_SHA': 'a' * 40,
+               'ISSUE_NUMBER': '1747', 'AGENT_TIMEOUT_MINUTES': '15', 'GH_TOKEN': 'test'}
+        with patch.object(runner, 'RESULTS', self.output / 'results'), \
+             patch.object(runner.sys, 'argv', ['run.py', '--hosted']), \
+             patch.object(runner, 'Curl', side_effect=RuntimeError('Mock client boundary')) as curl:
+            for invalid_env in (env, {**env, 'GITHUB_RUN_ID': '01'}):
+                with patch.dict(os.environ, invalid_env, clear=True):
+                    self.assertEqual(runner.main(), 1)
+                    curl.assert_not_called()
+            with patch.dict(os.environ, {**env, 'GITHUB_RUN_ID': '123'}, clear=True):
+                self.assertEqual(runner.main(), 1)
+                curl.assert_called_once()
 
     def test_missing_key_fails_without_creating_session(self):
         with patch.dict(os.environ, {}, clear=True), patch.object(runner, 'Curl') as curl:
